@@ -1,0 +1,60 @@
+/* Container */
+.stepper-container {
+  width: 80%;
+  margin: 0 auto; /* Centers the container */
+  padding: 20px;
+}
+
+/* Row for the entire step */
+.stepper-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+  position: relative;
+}
+
+/* Individual step column */
+.step-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  flex: 1;
+}
+
+/* Icon style */
+.step-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  margin: 0;
+  padding: 5px;
+}
+
+/* Text alignment */
+.step-text {
+  width: 120px;
+  text-align: center;
+  margin-top: 10px;
+  position: relative;
+}
+
+/* Connector line */
+.step-connector {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  transition: background-color 0.5s ease;
+}
+
+.step-subtitle {
+  color: #8c8c94;
+  font-size: 14px;
+}

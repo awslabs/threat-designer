@@ -1,0 +1,164 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+hr.graydashed {
+  border-top: 1px solid rgb(58, 58, 58);
+}
+
+.card {
+  width: 200px;
+  height: 100px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  border: 1px solid #007bff;
+  background-color: #f1f1f1;
+}
+
+.most-popular-section {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.most-popular-section h2 {
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+.popular-item {
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.popular-item:last-child {
+  border-bottom: none;
+}
+
+.item-type {
+  display: flex;
+  align-items: center;
+}
+
+.item-type .icon {
+  font-size: 20px;
+  margin-right: 10px;
+}
+
+.item-type .type {
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+/*.item-details {*/
+/*  display: flex;*/
+/*  flex-direction: row;*/
+/*  align-items: flex-end;*/
+/*}*/
+
+.item-details .service {
+  font-size: 14px;
+  color: #888;
+}
+
+.item-details .name {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+}
+
+.data-contract {
+  padding: 10px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.json-container {
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 15px;
+  overflow-x: auto;
+  font-family: "Monaco", "Menlo", "Consolas", monospace;
+  font-size: 14px;
+  line-height: 1.4;
+  height: 500px;
+}
+
+.sandbox-container {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.editor-container {
+  flex: 2;
+  margin-right: 10px;
+}
+
+.button-container {
+  flex: unset;
+  margin-top: 10px;
+}
+
+.info-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.info-content {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}

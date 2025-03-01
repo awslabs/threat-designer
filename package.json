@@ -1,0 +1,81 @@
+{
+  "name": "threat-designer",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start:local": "vite --mode development",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@aws-sdk/client-ssm": "^3.614.0",
+    "@babel/core": "^7.24.9",
+    "@babel/eslint-parser": "^7.24.8",
+    "@babel/preset-react": "^7.24.7",
+    "@cloudscape-design/jest-preset": "^2.0.36",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.0.2",
+    "eslint-plugin-prettier": "^5.2.3",
+    "eslint-plugin-react": "^7.37.4",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-unused-imports": "^4.1.4",
+    "jest": "^29.7.0",
+    "lint-staged": "^15.2.7",
+    "prettier": "^3.5.2",
+    "vite": "^6.1.0"
+  },
+  "dependencies": {
+    "@aws-amplify/auth": "^6.10.2",
+    "@aws-amplify/ui-react": "^6.9.1",
+    "@cloudscape-design/chat-components": "^1.0.4",
+    "@cloudscape-design/components": "^3.0.839",
+    "@cloudscape-design/design-tokens": "^3.0.42",
+    "@cloudscape-design/global-styles": "^1.0.31",
+    "@emotion/react": "^11.11.4",
+    "@emotion/styled": "^11.11.5",
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.3",
+    "antd": "^5.19.2",
+    "aws-amplify": "^6.12.3",
+    "axios": "^1.7.2",
+    "babel-jest": "^29.7.0",
+    "docx": "^9.1.1",
+    "dompurify": "^3.1.6",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
+    "lodash": "^4.17.21",
+    "prop-types": "^15.8.1",
+    "react": "^18.3.1",
+    "react-device-detect": "^2.2.3",
+    "react-dom": "^18.3.1",
+    "react-router": "^6.24.1",
+    "react-router-dom": "^6.24.1",
+    "styled-components": "^6.1.11"
+  },
+  "lint-staged": {
+    "**/*": "prettier --write --ignore-unknown"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

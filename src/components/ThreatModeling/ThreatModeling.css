@@ -1,0 +1,63 @@
+.welcome-tm-icon {
+  width: 120px;
+  height: 120px;
+  display: block;
+}
+
+.color-changing {
+  font-size: 28px;
+  font-weight: bold;
+  font-family: "Open Sans", sans-serif;
+  color: #656871;
+  background: linear-gradient(to right, #656871 20%, #ffffff 50%, #656871 80%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  background-size: 200% auto;
+  animation: silverShine 2s linear infinite;
+  will-change: background-position;
+}
+
+@keyframes silverShine {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: -200% 50%;
+  }
+}
+
+.data-flow-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: "Open Sans", sans-serif;
+  font-size: 14px;
+}
+
+.data-flow-table th,
+.data-flow-table td {
+  border: 1px solid #ddd;
+  padding: 6px;
+  text-align: left;
+}
+
+.data-flow-table th {
+  background-color: #f5f5f5;
+  font-weight: bold;
+}
+
+.data-flow-table tr:nth-child(even) {
+  background-color: #fafafa;
+}
+
+.data-flow-table tr:hover {
+  background-color: #f0f0f0;
+}
+
+@-moz-document url-prefix() {
+  .fade-transition {
+    transition:
+      opacity 0.3s ease-in-out,
+      visibility 0.3s ease-in-out;
+  }
+}

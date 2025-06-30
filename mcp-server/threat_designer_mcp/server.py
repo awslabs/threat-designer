@@ -6,6 +6,7 @@ from mcp.server.fastmcp import FastMCP, Context
 from typing import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from state import ThreatModel
 import json
 
 @dataclass
@@ -48,6 +49,34 @@ async def list_all_threat_models(ctx: Context) -> str:
 
     try:
         response = await app_context.api_client.get(f"{app_context.base_endpoint}/all")
+        response.raise_for_status()
+        return json.dumps(response.json())
+    except httpx.RequestError as e:
+        return f"API request failed: {e}"
+
+
+@mcp.tool()
+async def get_threat_model(ctx: Context, threat_model_id: str) -> str:
+    """Retrieve a threat model from the threat catalog"""
+    app_context = ctx.request_context.lifespan_context
+
+    try:
+        response = await app_context.api_client.get(f"{app_context.base_endpoint}/{threat_model_id}")
+        response.raise_for_status()
+        return json.dumps(response.json())
+    except httpx.RequestError as e:
+        return f"API request failed: {e}"
+    
+@mcp.tool()
+async def update_threat_model(ctx: Context, threat_model_id: str, payload: ThreatModel) -> str:
+    """Update a threat model"""
+    app_context = ctx.request_context.lifespan_context
+
+    try:
+        response = await app_context.api_client.put(
+    f"{app_context.base_endpoint}/{threat_model_id}",
+    payload.model_dump()
+)
         response.raise_for_status()
         return json.dumps(response.json())
     except httpx.RequestError as e:

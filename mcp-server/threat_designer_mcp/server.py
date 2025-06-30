@@ -62,23 +62,20 @@ async def list_all_threat_models(ctx: Context) -> str:
         # Get the response data
         response_data = response.json()
         
-        # Check if the response is already a string that needs parsing
-        if isinstance(response_data, str):
-            try:
-                threat_models = json.loads(response_data)
-            except json.JSONDecodeError:
-                return "Error: Received invalid JSON string from API"
-        else:
-            threat_models = response_data
+        # Extract the catalogs list from the response
+        threat_models = []
+        if isinstance(response_data, dict) and "catalogs" in response_data:
+            threat_models = response_data["catalogs"]
         
         # If we have threat models, transform them to the desired format
         if threat_models and isinstance(threat_models, list):
             transformed_models = transform_threat_models(threat_models)
             return json.dumps(transformed_models)
         else:
-            return json.dumps(threat_models)
+            return json.dumps([])
     except httpx.RequestError as e:
         return f"API request failed: {e}"
+
 
 
 

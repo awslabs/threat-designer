@@ -3,7 +3,7 @@
 import os
 import httpx
 from mcp.server.fastmcp import FastMCP, Context
-from typing import AsyncIterator
+from typing import AsyncIterator, Any
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from threat_designer_mcp.state import (
@@ -12,6 +12,8 @@ from threat_designer_mcp.state import (
 from threat_designer_mcp.utils import (
     validate_image,
 )
+import time
+import asyncio
 import json
 
 @dataclass
@@ -71,11 +73,58 @@ async def get_threat_model(ctx: Context, threat_model_id: str) -> str:
         return json.dumps(response.json())
     except httpx.RequestError as e:
         return f"API request failed: {e}"
+
+
+async def poll_threat_model_status(app_context: Any, model_id: str) -> str:
+    """Poll the status of a threat model until completion or failure"""
+    # Define constants
+    MAX_POLLING_TIME = 15 * 60  # 15 minutes in seconds
+    POLLING_INTERVAL = 10  # 10 seconds
     
+    # Initialize variables
+    start_time = time.time()
+    status = "PENDING"
+    
+    while True:
+        # Check if we've exceeded the maximum polling time
+        current_time = time.time()
+        if current_time - start_time > MAX_POLLING_TIME:
+            return json.dumps({
+                "id": model_id,
+                "status": "TIMEOUT",
+                "message": "Threat modeling process timed out after 15 minutes"
+            })
+        
+        try:
+            # Query the status API
+            status_response = await app_context.api_client.get(
+                f"{app_context.base_endpoint}/status/{model_id}"
+            )
+            status_response.raise_for_status()
+            status_data = status_response.json()
+            
+            # Extract status from response
+            status = status_data.get("state", "UNKNOWN")
+            
+            # Check if process is complete or failed
+            if status in ["COMPLETE", "FAILED"]:
+                return json.dumps({
+                    "threat_model_id": model_id,
+                    "status": status,
+               })
+            
+            # Wait before polling again
+            await asyncio.sleep(POLLING_INTERVAL)
+            
+        except httpx.RequestError as e:
+            # If there's an error querying the status, log it but continue polling
+            print(f"Error querying status: {e}")
+            await asyncio.sleep(POLLING_INTERVAL)
+
 
 @mcp.tool()
 async def create_threat_model(ctx: Context, payload: StartThreatModeling) -> str:
-    """Submit a threat model"""
+    """Submit a threat model and poll for completion"""
     app_context = ctx.request_context.lifespan_context
 
     try:
@@ -124,14 +173,22 @@ async def create_threat_model(ctx: Context, payload: StartThreatModeling) -> str
             json=payload
         )
         response.raise_for_status()
-        return json.dumps(response.json())
+        result = response.json()
+        
+        # Extract the ID from the response
+        model_id = result.get("id")
+        if not model_id:
+            return "Failed to get model ID from response"
+        
+        # Poll for status
+        return await poll_threat_model_status(app_context, model_id)
+        
     except FileNotFoundError as e:
         return f"Image file not found: {e}"
     except ValueError as e:
         return f"Image validation failed: {e}"
     except httpx.RequestError as e:
         return f"API request failed: {e}"
-
 
 
 def main():

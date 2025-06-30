@@ -169,7 +169,7 @@ async def poll_threat_model_status(app_context: Any, model_id: str) -> str:
         try:
             # Query the status API
             status_response = await app_context.api_client.get(
-                f"{app_context.base_endpoint}/{model_id}/status"
+                f"{app_context.base_endpoint}/status{model_id}"
             )
             status_response.raise_for_status()
             status_data = status_response.json()

@@ -6,6 +6,7 @@ from mcp.server.fastmcp import FastMCP, Context
 from typing import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+import json
 
 @dataclass
 class AppContext:
@@ -38,15 +39,17 @@ mcp = FastMCP(
     dependencies=['pydantic'],
     lifespan=app_lifespan)
 
+import json
+
 @mcp.tool()
 async def list_all_threat_models(ctx: Context) -> str:
     """Retrieve all threat models from the threat catalog"""
     app_context = ctx.request_context.lifespan_context
-    
+
     try:
         response = await app_context.api_client.get(f"{app_context.base_endpoint}/all")
         response.raise_for_status()
-        return response.json()
+        return json.dumps(response.json())
     except httpx.RequestError as e:
         return f"API request failed: {e}"
 

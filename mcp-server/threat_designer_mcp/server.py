@@ -81,9 +81,9 @@ async def list_all_threat_models(ctx: Context) -> str:
 
 
 @mcp.tool()
-async def check_threat_model_status(ctx: Context, model_id: str, filter: Optional[Literal["threats", "assets", "trust_boundaries", "threat_sources"]]) -> str:
+async def get_threat_model(ctx: Context, model_id: str, filter: Optional[Literal["threats", "assets", "trust_boundaries", "threat_sources"]]) -> str:
     """
-    Check the current status of a threat model and optionally filter the results.
+    Fetch details from the given threat model.
     
     Args:
         ctx: The context object
@@ -109,7 +109,7 @@ async def check_threat_model_status(ctx: Context, model_id: str, filter: Optiona
     try:
         # Query the status API
         status_response = await app_context.api_client.get(
-            f"{app_context.base_endpoint}/status{model_id}"
+            f"{app_context.base_endpoint}/{model_id}"
         )
         status_response.raise_for_status()
         status_data = status_response.json()

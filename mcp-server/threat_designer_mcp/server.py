@@ -6,7 +6,7 @@ from mcp.server.fastmcp import FastMCP, Context
 from typing import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from state import ThreatModel
+from threat_designer_mcp.state import ThreatModel
 import json
 
 @dataclass

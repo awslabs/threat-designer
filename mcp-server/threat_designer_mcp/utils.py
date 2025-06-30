@@ -1,6 +1,7 @@
 import os
 from PIL import Image
 import imghdr
+from typing import List, Dict, Any
 
 def validate_image(file_path):
     """
@@ -39,3 +40,63 @@ def validate_image(file_path):
             raise ValueError(f"Image dimensions ({width}x{height}) exceed maximum allowed dimensions (8000x8000)")
     
     return img_type, width, height
+
+
+def count_threats_by_likelihood(threat_model_data):
+    """
+    Count the number of threats by their likelihood in the provided threat model data.
+    
+    Args:
+        threat_model_data (dict): The threat model data structure
+        
+    Returns:
+        dict: A dictionary with likelihood as keys and counts as values
+    """
+    # Initialize counters for common likelihood levels
+    likelihood_counts = {
+        "Low": 0,
+        "Medium": 0,
+        "High": 0
+    }
+    
+    # Extract threats from the threat model data
+    if "threat_list" in threat_model_data and "threats" in threat_model_data["threat_list"]:
+        threats = threat_model_data["threat_list"]["threats"]
+        
+        # Count threats by likelihood
+        for threat in threats:
+            if "likelihood" in threat:
+                likelihood = threat["likelihood"]
+                # Update existing likelihood or add new one
+                if likelihood in likelihood_counts:
+                    likelihood_counts[likelihood] += 1
+                else:
+                    likelihood_counts[likelihood] = 1
+    
+    # Remove any likelihood categories with zero count
+    return {k: v for k, v in likelihood_counts.items() if v > 0}
+
+
+def transform_threat_models(threat_models: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Transform threat models to the desired output format with likelihood summary.
+    
+    Args:
+        threat_models (list): List of threat model dictionaries
+        
+    Returns:
+        list: Transformed list with specified fields
+    """
+    transformed_list = []
+    
+    for model in threat_models:
+        # Create the transformed model with only the requested fields
+        transformed_model = {
+            "threat_model_id": model.get("job_id", ""),
+            "likelihood_summary": count_threats_by_likelihood(model),
+            "title": model.get("title", "Untitled")
+        }
+        
+        transformed_list.append(transformed_model)
+        
+    return transformed_list

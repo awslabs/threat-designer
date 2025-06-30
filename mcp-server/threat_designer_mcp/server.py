@@ -11,6 +11,7 @@ from threat_designer_mcp.state import (
 )
 from threat_designer_mcp.utils import (
     validate_image,
+    transform_threat_models
 )
 import time
 import asyncio
@@ -57,9 +58,17 @@ async def list_all_threat_models(ctx: Context) -> str:
     try:
         response = await app_context.api_client.get(f"{app_context.base_endpoint}/all")
         response.raise_for_status()
-        return json.dumps(response.json())
+        threat_models = response.json()
+        
+        # If we have threat models, transform them to the desired format
+        if threat_models and isinstance(threat_models, list):
+            transformed_models = transform_threat_models(threat_models)
+            return json.dumps(transformed_models)
+        else:
+            return json.dumps([])
     except httpx.RequestError as e:
         return f"API request failed: {e}"
+
 
 
 @mcp.tool()

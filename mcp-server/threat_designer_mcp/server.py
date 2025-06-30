@@ -61,11 +61,11 @@ async def list_all_threat_models(ctx: Context) -> str:
         threat_models = response.json()
         
         # If we have threat models, transform them to the desired format
-        if threat_models and isinstance(threat_models, list):
-            transformed_models = transform_threat_models(threat_models)
-            return json.dumps(transformed_models)
-        else:
-            return json.dumps([])
+        # if threat_models and isinstance(threat_models, list):
+        transformed_models = transform_threat_models(threat_models)
+        return json.dumps(transformed_models)
+        # else:
+        #     return json.dumps([])
     except httpx.RequestError as e:
         return f"API request failed: {e}"
 

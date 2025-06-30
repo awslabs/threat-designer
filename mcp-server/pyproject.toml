@@ -13,10 +13,12 @@ readme = "README.md"
 license = {text = "APACHE"}
 requires-python = ">=3.10"
 dependencies = [
+    "boto3",
     "mcp>=1.0.0",
     "fastmcp",
     "httpx>=0.24.0",
-    "pydantic>=2.0.0"
+    "pydantic>=2.0.0",
+    "pillow>=9.0.0",
 ]
 
 [project.scripts]

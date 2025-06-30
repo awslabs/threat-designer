@@ -19,6 +19,7 @@ router = Router()
 LOG = logger = Logger(serialize_stacktrace=False)
 
 
+@router.get("/threat-designer/mcp/status/<id>")
 @router.get("/threat-designer/status/<id>")
 def _tm_status(id):
     return check_status(id)
@@ -29,46 +30,75 @@ def _tm_status(id):
     return check_trail(id)
 
 
+@router.get("/threat-designer/mcp/<id>")
 @router.get("/threat-designer/<id>")
 def _tm_fetch_results(id):
     return fetch_results(id)
 
 
+@router.post("/threat-designer/mcp")
 @router.post("/threat-designer")
-def _tm_start():
+def tm_start():
     try:
         body = router.current_event.json_body
-        owner = router.current_event.request_context.authorizer.get("username")
+        
+        path = router.current_event.path
+        if "/mcp" in path:
+            owner = "MCP"
+        else:
+            owner = router.current_event.request_context.authorizer.get("username")
+        
         return invoke_lambda(owner, body)
     except Exception as e:
         LOG.exception(e)
 
+@router.put("/threat-designer/mcp/restore/<id>")
 @router.put("/threat-designer/restore/<id>")
 def _restore(id):
     body = router.current_event.json_body
-    owner = router.current_event.request_context.authorizer.get("username")
+    path = router.current_event.path
+    if "/mcp" in path:
+        owner = "MCP"
+    else:
+        owner = router.current_event.request_context.authorizer.get("username")
     return restore(id, owner)
 
+
+@router.get("/threat-designer/mcp/all")
 @router.get("/threat-designer/all")
 def _fetch_all():
-    LOG.info(f"Full event: {router.current_event}")
-    owner = router.current_event.request_context.authorizer.get("username")
+    path = router.current_event.path
+    if "/mcp" in path:
+        owner = "MCP"
+    else:
+        owner = router.current_event.request_context.authorizer.get("username")
     return fetch_all(owner)
 
 
+@router.put("/threat-designer/mcp/<id>")
 @router.put("/threat-designer/<id>")
 def _update_results(id):
     body = router.current_event.json_body
-    owner = router.current_event.request_context.authorizer.get("username")
+    path = router.current_event.path
+    if "/mcp" in path:
+        owner = "MCP"
+    else:
+        owner = router.current_event.request_context.authorizer.get("username")
     return update_results(id, body, owner)
 
 
+@router.delete("/threat-designer/mcp/<id>")
 @router.delete("/threat-designer/<id>")
 def _delete(id):
-    owner = router.current_event.request_context.authorizer.get("username")
+    path = router.current_event.path
+    if "/mcp" in path:
+        owner = "MCP"
+    else:
+        owner = router.current_event.request_context.authorizer.get("username")
     return delete_tm(id, owner)
 
 
+@router.post("/threat-designer/mcp/upload")
 @router.post("/threat-designer/upload")
 def _upload():
     try:

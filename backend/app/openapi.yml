@@ -1,4 +1,3 @@
----
 openapi: 3.0.1
 info:
   version: 2.0.0
@@ -138,6 +137,35 @@ paths:
               method.response.header.Access-Control-Allow-Credentials: "'true'"
             responseTemplates:
               application/json: "{}"
+              
+  "/threat-designer/mcp/status/{id}":
+    get:
+      summary: Fetch Threat modeling statuses (MCP)
+      description: Fetch Threat modeling status (MCP)
+      tags:
+        - Security
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityMetrics"
+        "400":
+          $ref: "#/components/responses/400"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+        
   "/threat-designer/restore/{id}":
     put:
       summary: Restore previous threat model
@@ -213,6 +241,34 @@ paths:
               method.response.header.Access-Control-Allow-Credentials: "'true'"
             responseTemplates:
               application/json: "{}"
+              
+  "/threat-designer/mcp/restore/{id}":
+    put:
+      summary: Restore previous threat model (MCP)
+      description: Restore previous threat model (MCP)
+      tags:
+        - Security
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityMetrics"
+        "400":
+          $ref: "#/components/responses/400"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
 
   "/threat-designer/trail/{id}":
     get:
@@ -289,6 +345,34 @@ paths:
               method.response.header.Access-Control-Allow-Credentials: "'true'"
             responseTemplates:
               application/json: "{}"
+              
+  "/threat-designer/mcp/trail/{id}":
+    get:
+      summary: Fetch Threat modeling reasoning trail (MCP)
+      description: Fetch Threat modeling reasoning trail (MCP)
+      tags:
+        - Security
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityMetrics"
+        "400":
+          $ref: "#/components/responses/400"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
 
   "/threat-designer/all":
     get:
@@ -368,6 +452,35 @@ paths:
               method.response.header.Access-Control-Allow-Credentials: "'true'"
             responseTemplates:
               application/json: "{}"
+              
+  "/threat-designer/mcp/all":
+    get:
+      summary: Fetch all threat models for a given user (MCP)
+      description: Fetch all threat models for a given user (MCP)
+      tags:
+        - Security
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityMetrics"
+        "400":
+          $ref: "#/components/responses/400"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+        
   "/threat-designer":
     post:
       summary: Submit Threat modeling
@@ -443,6 +556,35 @@ paths:
               method.response.header.Access-Control-Allow-Credentials: "'true'"
             responseTemplates:
               application/json: "{}"
+              
+  "/threat-designer/mcp":
+    post:
+      summary: Submit Threat modeling (MCP)
+      description: Submit Threat modeling (MCP)
+      tags:
+        - Security
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityMetrics"
+        "400":
+          $ref: "#/components/responses/400"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+        
   "/threat-designer/download":
     post:
       summary: Generates download presigned-url
@@ -518,6 +660,35 @@ paths:
               method.response.header.Access-Control-Allow-Credentials: "'true'"
             responseTemplates:
               application/json: "{}"
+              
+  "/threat-designer/mcp/download":
+    post:
+      summary: Generates download presigned-url (MCP)
+      description: Generates download presigned-url (MCP)
+      tags:
+        - Security
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityMetrics"
+        "400":
+          $ref: "#/components/responses/400"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+        
   "/threat-designer/upload":
     post:
       summary: Generates presigned-url
@@ -593,6 +764,35 @@ paths:
               method.response.header.Access-Control-Allow-Credentials: "'true'"
             responseTemplates:
               application/json: "{}"
+              
+  "/threat-designer/mcp/upload":
+    post:
+      summary: Generates presigned-url (MCP)
+      description: Generates presigned-url (MCP)
+      tags:
+        - Security
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityMetrics"
+        "400":
+          $ref: "#/components/responses/400"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+        
   "/threat-designer/{id}":
     get:
       summary: Fetch Threat modeling details
@@ -730,6 +930,87 @@ paths:
               method.response.header.Access-Control-Allow-Credentials: "'true'"
             responseTemplates:
               application/json: "{}"
+              
+  "/threat-designer/mcp/{id}":
+    get:
+      summary: Fetch Threat modeling details (MCP)
+      description: Fetch Threat modeling details (MCP)
+      tags:
+        - Security
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityMetrics"
+        "400":
+          $ref: "#/components/responses/400"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+    put:
+      summary: Update Threat modeling (MCP)
+      description: Update Threat modeling (MCP)
+      tags:
+        - Security
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityMetrics"
+        "400":
+          $ref: "#/components/responses/400"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+    delete:
+      summary: Delete Threat model (MCP)
+      description: Delete Threat model (MCP)
+      tags:
+        - Security
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityMetrics"
+        "400":
+          $ref: "#/components/responses/400"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+        
 components:
   schemas:
     SecurityMetrics:
@@ -784,3 +1065,7 @@ components:
         enableSimpleResponses: true
         resultTtlInSeconds: 0
         authorizerPayloadFormatVersion: "2.0"
+    ApiKeyAuth:
+      type: apiKey
+      name: x-api-key
+      in: header

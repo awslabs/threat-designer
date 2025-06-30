@@ -149,9 +149,9 @@ async def create_threat_model(ctx: Context, payload: StartThreatModeling) -> str
 
 @mcp.tool()
 async def poll_threat_model_status(ctx: Context, model_id: str) -> str:
-    """Poll the status of a threat model until completion or failure"""
+    """Poll the status of a threat model until completion or failure. It can take between 10 - 15minutes."""
     # Define constants
-    MAX_POLLING_TIME = 15 * 60  # 15 minutes in seconds
+    MAX_POLLING_TIME = 60  # 15 minutes in seconds
     POLLING_INTERVAL = 10  # 10 seconds
     app_context = ctx.request_context.lifespan_context
 
@@ -165,8 +165,8 @@ async def poll_threat_model_status(ctx: Context, model_id: str) -> str:
         if current_time - start_time > MAX_POLLING_TIME:
             return json.dumps({
                 "id": model_id,
-                "status": "TIMEOUT",
-                "message": "Threat modeling process timed out after 15 minutes"
+                "status": "PROCESSING",
+                "message": "Threat modeling still processing. Try again later."
             })
         
         try:

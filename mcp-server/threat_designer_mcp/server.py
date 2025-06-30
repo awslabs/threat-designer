@@ -3,7 +3,7 @@
 import os
 import httpx
 from mcp.server.fastmcp import FastMCP, Context
-from typing import AsyncIterator, Any
+from typing import AsyncIterator, Optional, Literal
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from threat_designer_mcp.state import (
@@ -81,16 +81,73 @@ async def list_all_threat_models(ctx: Context) -> str:
 
 
 @mcp.tool()
-async def get_threat_model(ctx: Context, threat_model_id: str) -> str:
-    """Retrieve a threat model from the threat catalog"""
+async def check_threat_model_status(ctx: Context, model_id: str, filter: Optional[Literal["threats", "assets", "trust_boundaries", "threat_sources"]]) -> str:
+    """
+    Check the current status of a threat model and optionally filter the results.
+    
+    Args:
+        ctx: The context object
+        model_id: The ID of the threat model to check
+        filter: Optional filter for specific components. Can be one of:
+               "threats", "assets", "trust_boundaries", or "threat_sources".
+               If not provided, returns the complete threat model model.
+    
+    Returns:
+        JSON string with the threat model status and data (if available)
+    """
     app_context = ctx.request_context.lifespan_context
-
+    
+    # Validate filter if provided
+    valid_filters = [None, "threats", "assets", "trust_boundaries", "threat_sources"]
+    if filter is not None and filter not in valid_filters:
+        return json.dumps({
+            "job_id": model_id,
+            "state": "ERROR",
+            "message": f"Invalid filter: {filter}. Valid filters are: threats, assets, trust_boundaries, threat_sources"
+        })
+    
     try:
-        response = await app_context.api_client.get(f"{app_context.base_endpoint}/{threat_model_id}")
-        response.raise_for_status()
-        return json.dumps(response.json())
-    except Exception as e:
-        return f"API request failed: {e}"
+        # Query the status API
+        status_response = await app_context.api_client.get(
+            f"{app_context.base_endpoint}/status{model_id}"
+        )
+        status_response.raise_for_status()
+        status_data = status_response.json()
+        
+        # Apply filter if specified and the model is found
+        if status_data.get("state") == "Found" and filter is not None and "item" in status_data:
+            item = status_data["item"]
+            filtered_item = {}
+            
+            if filter == "threats" and "threat_list" in item:
+                filtered_item["threat_list"] = {"threats": item["threat_list"]["threats"]}
+            
+            elif filter == "assets" and "assets" in item:
+                filtered_item["assets"] = {"assets": item["assets"]["assets"]}
+            
+            elif filter == "trust_boundaries" and "system_architecture" in item:
+                filtered_item["system_architecture"] = {
+                    "trust_boundaries": item["system_architecture"]["trust_boundaries"]
+                }
+            
+            elif filter == "threat_sources" and "system_architecture" in item:
+                filtered_item["system_architecture"] = {
+                    "threat_sources": item["system_architecture"]["threat_sources"]
+                }
+                
+            # Replace the original item with the filtered one
+            status_data["item"] = filtered_item
+        
+        return json.dumps(status_data)
+        
+    except httpx.RequestError as e:
+        # Handle request errors
+        error_message = f"Error checking status: {str(e)}"
+        return json.dumps({
+            "job_id": model_id,
+            "state": "ERROR",
+            "message": error_message
+        })
 
 
 @mcp.tool()

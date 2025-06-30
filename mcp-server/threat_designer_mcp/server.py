@@ -75,62 +75,18 @@ async def get_threat_model(ctx: Context, threat_model_id: str) -> str:
         return f"API request failed: {e}"
 
 
-async def poll_threat_model_status(app_context: Any, model_id: str) -> str:
-    """Poll the status of a threat model until completion or failure"""
-    # Define constants
-    MAX_POLLING_TIME = 15 * 60  # 15 minutes in seconds
-    POLLING_INTERVAL = 10  # 10 seconds
-    
-    # Initialize variables
-    start_time = time.time()
-    status = "PENDING"
-    
-    while True:
-        # Check if we've exceeded the maximum polling time
-        current_time = time.time()
-        if current_time - start_time > MAX_POLLING_TIME:
-            return json.dumps({
-                "id": model_id,
-                "status": "TIMEOUT",
-                "message": "Threat modeling process timed out after 15 minutes"
-            })
-        
-        try:
-            # Query the status API
-            status_response = await app_context.api_client.get(
-                f"{app_context.base_endpoint}/status/{model_id}"
-            )
-            status_response.raise_for_status()
-            status_data = status_response.json()
-            
-            # Extract status from response
-            status = status_data.get("state", "UNKNOWN")
-            
-            # Check if process is complete or failed
-            if status in ["COMPLETE", "FAILED"]:
-                return json.dumps({
-                    "threat_model_id": model_id,
-                    "status": status,
-               })
-            
-            # Wait before polling again
-            await asyncio.sleep(POLLING_INTERVAL)
-            
-        except httpx.RequestError as e:
-            # If there's an error querying the status, log it but continue polling
-            print(f"Error querying status: {e}")
-            await asyncio.sleep(POLLING_INTERVAL)
-
-
 @mcp.tool()
 async def create_threat_model(ctx: Context, payload: StartThreatModeling) -> str:
     """Submit a threat model and poll for completion"""
     app_context = ctx.request_context.lifespan_context
 
     try:
+        # Convert Pydantic model to dict for manipulation
+        payload_dict = payload.dict()
+        
         # Validate the image if a file path is provided
-        if 'arch_location' in payload and payload['arch_location']:
-            image_path = payload['arch_location']
+        if 'arch_location' in payload_dict and payload_dict['arch_location']:
+            image_path = payload_dict['arch_location']
             
             # Validate the image and get its type
             img_type, _, _ = validate_image(image_path)
@@ -163,14 +119,14 @@ async def create_threat_model(ctx: Context, payload: StartThreatModeling) -> str
                 upload_response.raise_for_status()
             
             # Update the payload with the S3 object key and remove the local path
-            payload['s3_location'] = presigned_data["name"]
+            payload_dict['s3_location'] = presigned_data["name"]
             # Remove the image_path as it's not needed in the API call
-            payload.pop('arch_location', None)
+            payload_dict.pop('arch_location', None)
         
         # Create the threat model
         response = await app_context.api_client.post(
             f"{app_context.base_endpoint}",
-            json=payload
+            json=payload_dict
         )
         response.raise_for_status()
         result = response.json()
@@ -189,6 +145,50 @@ async def create_threat_model(ctx: Context, payload: StartThreatModeling) -> str
         return f"Image validation failed: {e}"
     except httpx.RequestError as e:
         return f"API request failed: {e}"
+
+async def poll_threat_model_status(app_context: Any, model_id: str) -> str:
+    """Poll the status of a threat model until completion or failure"""
+    # Define constants
+    MAX_POLLING_TIME = 15 * 60  # 15 minutes in seconds
+    POLLING_INTERVAL = 10  # 10 seconds
+    
+    # Initialize variables
+    start_time = time.time()
+    status = "PENDING"
+    
+    while True:
+        # Check if we've exceeded the maximum polling time
+        current_time = time.time()
+        if current_time - start_time > MAX_POLLING_TIME:
+            return json.dumps({
+                "id": model_id,
+                "status": "TIMEOUT",
+                "message": "Threat modeling process timed out after 15 minutes"
+            })
+        
+        try:
+            # Query the status API
+            status_response = await app_context.api_client.get(
+                f"{app_context.base_endpoint}/{model_id}/status"
+            )
+            status_response.raise_for_status()
+            status_data = status_response.json()
+            
+            # Extract status from response
+            status = status_data.get("status", "UNKNOWN")
+            
+            # Check if process is complete or failed
+            if status in ["COMPLETE", "FAILED"]:
+                return json.dumps(status_data)
+            
+            # Wait before polling again
+            await asyncio.sleep(POLLING_INTERVAL)
+            
+        except httpx.RequestError as e:
+            # If there's an error querying the status, log it but continue polling
+            print(f"Error querying status: {e}")
+            await asyncio.sleep(POLLING_INTERVAL)
+
 
 
 def main():

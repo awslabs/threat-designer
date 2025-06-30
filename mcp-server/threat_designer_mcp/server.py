@@ -136,8 +136,9 @@ async def create_threat_model(ctx: Context, payload: StartThreatModeling) -> str
         if not model_id:
             return "Failed to get model ID from response"
         
-        # Poll for status
-        return await poll_threat_model_status(app_context, model_id)
+        return json.dumps({
+                "model_id": model_id,
+            })
         
     except FileNotFoundError as e:
         return f"Image file not found: {e}"
@@ -146,12 +147,14 @@ async def create_threat_model(ctx: Context, payload: StartThreatModeling) -> str
     except httpx.RequestError as e:
         return f"API request failed: {e}"
 
-async def poll_threat_model_status(app_context: Any, model_id: str) -> str:
+@mcp.tool()
+async def poll_threat_model_status(ctx: Context, model_id: str) -> str:
     """Poll the status of a threat model until completion or failure"""
     # Define constants
     MAX_POLLING_TIME = 15 * 60  # 15 minutes in seconds
     POLLING_INTERVAL = 10  # 10 seconds
-    
+    app_context = ctx.request_context.lifespan_context
+
     # Initialize variables
     start_time = time.time()
     status = "PENDING"
@@ -179,8 +182,10 @@ async def poll_threat_model_status(app_context: Any, model_id: str) -> str:
             
             # Check if process is complete or failed
             if status in ["COMPLETE", "FAILED"]:
-                return json.dumps(status_data)
-            
+                return json.dumps({
+                "id": model_id,
+                "status": status,
+            })
             # Wait before polling again
             await asyncio.sleep(POLLING_INTERVAL)
             

@@ -212,7 +212,37 @@ async def poll_threat_model_status(ctx: Context, model_id: str) -> str:
             print(f"Error querying status: {e}")
             await asyncio.sleep(POLLING_INTERVAL)
 
-
+@mcp.tool()
+async def check_threat_model_status(ctx: Context, model_id: str) -> str:
+    """Check the current status of a threat model without polling."""
+    app_context = ctx.request_context.lifespan_context
+    
+    try:
+        # Make a single query to the status API
+        status_response = await app_context.api_client.get(
+            f"{app_context.base_endpoint}/status{model_id}"
+        )
+        status_response.raise_for_status()
+        status_data = status_response.json()
+        
+        # Extract status from response
+        status = status_data.get("status", "UNKNOWN")
+        
+        # Return the current status
+        return json.dumps({
+            "id": model_id,
+            "status": status,
+            "message": f"Current threat model status: {status}"
+        })
+        
+    except httpx.RequestError as e:
+        # Handle any request errors
+        error_message = f"Error checking status: {str(e)}"
+        return json.dumps({
+            "id": model_id,
+            "status": "ERROR",
+            "message": error_message
+        })
 
 def main():
     """Run the MCP server with CLI argument support."""

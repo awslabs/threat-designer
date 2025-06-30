@@ -71,7 +71,7 @@ async def get_threat_model(ctx: Context, threat_model_id: str) -> str:
         response = await app_context.api_client.get(f"{app_context.base_endpoint}/{threat_model_id}")
         response.raise_for_status()
         return json.dumps(response.json())
-    except httpx.RequestError as e:
+    except Exception as e:
         return f"API request failed: {e}"
 
 

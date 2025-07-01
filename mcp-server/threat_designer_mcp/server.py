@@ -253,7 +253,7 @@ async def poll_threat_model_status(ctx: Context, model_id: str) -> str:
             status_data = status_response.json()
             
             # Extract status from response
-            status = status_data.get("status", "UNKNOWN")
+            status = status_data.get("state", "UNKNOWN")
             
             # Check if process is complete or failed
             if status in ["COMPLETE", "FAILED"]:
@@ -283,7 +283,7 @@ async def check_threat_model_status(ctx: Context, model_id: str) -> str:
         status_data = status_response.json()
         
         # Extract status from response
-        status = status_data.get("status", "UNKNOWN")
+        status = status_data.get("state", "UNKNOWN")
         
         # Return the current status
         return json.dumps({

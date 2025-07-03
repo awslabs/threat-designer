@@ -1,2 +1,2 @@
-langchain-aws==0.2.15
-langgraph==0.2.71
+langchain-aws==0.2.27
+langgraph==0.5.0

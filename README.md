@@ -91,7 +91,7 @@ The following tools must be installed on your local machine:
 
 You must enable access to the following model in your AWS region:
 
-- **Claude 3.7 Sonnet**
+- **Claude 4 Sonnet**
 
 To enable Claude, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
 
@@ -143,7 +143,7 @@ Application Login page: https://dev.xxxxxxxxxxxxxxxx.amplifyapp.com
 
 ### Model Selection
 
-If you want to use a different model than "Claude 3.7 Sonnet", update the variables **model_main** and **model_struct** in `./infra/variables.tf` with the correct [model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html#model-ids-arns) and max_token configuration:
+If you want to use a different model than "Claude 4 Sonnet", update the variables **model_main** and **model_struct** in `./infra/variables.tf` with the correct [model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html#model-ids-arns) and max_token configuration:
 
 ```hcl
 variable "model_main" {
@@ -152,7 +152,7 @@ variable "model_main" {
     max_tokens  = number
   })
   default = {
-    id          = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+    id          = "us.anthropic.claude-sonnet-4-20250514-v1:0"
     max_tokens  = 64000
   }
 }
@@ -163,15 +163,15 @@ variable "model_struct" {
     max_tokens  = number
   })
   default = {
-    id          = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+    id          = "us.anthropic.claude-sonnet-4-20250514-v1:0"
     max_tokens  = 16000
   }
 }
 ```
 
-> **Note:** This application has been primarily tested with "Claude 3.7 Sonnet". While other Bedrock models may work, using different models might lead to unexpected results. The default model is set to **us.anthropic.claude-3-7-sonnet-20250219-v1:0**.
+> **Note:** This application has been primarily tested with "Claude 4 Sonnet". While other Bedrock models may work, using different models might lead to unexpected results. The default model is set to **us.anthropic.claude-sonnet-4-20250514-v1:0**.
 
-> **Reasoning boost** will only work with **us.anthropic.claude-3-7-sonnet-20250219-v1:0**
+> **Reasoning boost** will only work with **us.anthropic.claude-sonnet-4-20250514-v1:0**
 
 ## Clean up
 

@@ -53,16 +53,15 @@ resource "aws_lambda_provisioned_concurrency_config" "authorizer_lambda_alias_pr
 
 
 resource "aws_iam_role" "auth-lambda-execution-role" {
-  name = "auth-lambda-execution-role"
-
+  name = "${local.prefix}-auth-lambda-execution-role"
   assume_role_policy = templatefile("${path.module}/templates/lambda_trust_policy.json", {})
+}
 
-  inline_policy {
-    name = "${local.prefix}-iam-policy"
 
-    policy = templatefile("${path.module}/templates/auth_lambda_execution_role_policy.json", {
+resource "aws_iam_role_policy" "auth-lambda-role-policy" {
+  name = "${local.prefix}-auth-lambda-policy"
+  role = aws_iam_role.auth-lambda-execution-role.id
+  policy = templatefile("${path.module}/templates/auth_lambda_execution_role_policy.json", {
         USER_POOL_ARN = aws_cognito_user_pool.user_pool.arn
     })
-  }
-
 }

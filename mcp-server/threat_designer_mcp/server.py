@@ -38,7 +38,7 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     try:
         yield AppContext(
             api_client=client,
-            base_endpoint = f"{os.environ.get("API_ENDPOINT")}/threat-designer/mcp"
+            base_endpoint = f'{os.environ.get("API_ENDPOINT")}/threat-designer/mcp'
             )
     finally:
         await client.aclose()

@@ -10,17 +10,31 @@ Each function generates specialized prompts for different phases of the threat m
 - Response structuring
 """
 
+from constants import (SUMMARY_MAX_WORDS_DEFAULT, THREAT_DESCRIPTION_MAX_WORDS,
+                       THREAT_DESCRIPTION_MIN_WORDS, LikelihoodLevel,
+                       StrideCategory)
+
+
+def _get_stride_categories_string() -> str:
+    """Helper function to get STRIDE categories as a formatted string."""
+    return " | ".join([category.value for category in StrideCategory])
+
+
+def _get_likelihood_levels_string() -> str:
+    """Helper function to get likelihood levels as a formatted string."""
+    return " | ".join([level.value for level in LikelihoodLevel])
+
 
 def summary_prompt() -> str:
-    return """<instruction>
-Use the information provided by the user to generate a short headline summary of max 40 words.
+    return f"""<instruction>
+Use the information provided by the user to generate a short headline summary of max {SUMMARY_MAX_WORDS_DEFAULT} words.
 </instruction> \n
     """
 
 
 def asset_prompt() -> str:
     return """<instruction>
-You are an expert in Security, AWS, and Threat Modeling. Your role is to carefully review a given architecture and identify key assets and entities that require protection. Follow these steps:
+You are an expert in all security domains and threat modeling. Your role is to carefully review a given architecture and identify key assets and entities that require protection. Follow these steps:
 
 1. Review the provided <description> and <assumptions> to understand the solution and security context.
 
@@ -39,7 +53,7 @@ Description: [Brief description of the asset/entity]
 
 def flow_prompt(assets_state) -> str:
     return f"""<task>
-Analyze the given system architecture and provide the following information:
+You are an expert in all security domains and threat modeling. Analyze the given system architecture and provide the following information:
 
 1. Data Flow Definitions:
 - Describe the flow of data through the system, including the source and target entities, and the assets involved.
@@ -82,7 +96,7 @@ Consider the following information provided:
 def gap_prompt(gap, assets, system_architecture) -> str:
     return f"""
 <task>
-You are an expert in cybersecurity, AWS, and threat modeling. Your goal is to validate the comprehensiveness of a provided threat catalog for a given architecture. You'll assess the threat model against the STRIDE framework and identify any gaps in coverage, ensuring the threat catalog reflects plausible threats grounded in the described architecture and context.
+You are an expert in all security domains and threat modeling. Your goal is to validate the comprehensiveness of a provided threat catalog for a given architecture. You'll assess the threat model against the STRIDE framework and identify any gaps in coverage, ensuring the threat catalog reflects plausible threats grounded in the described architecture and context.
 </task>
 
 <instructions>
@@ -98,7 +112,7 @@ You are an expert in cybersecurity, AWS, and threat modeling. Your goal is to va
 
 2. Assessment criteria and framework:
 
-   * Use the **STRIDE model** as your assessment framework: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege.
+   * Use the **STRIDE model** as your assessment framework: {_get_stride_categories_string()}.
    * Ensure threats are **plausible and grounded** in the described architecture, avoiding speculative or unrealistic scenarios.
    * Check for **comprehensive coverage** of both technology-specific threats and fundamental security principles.
    * Verify proper **mapping of threats to identified threat actors** using an attacker-centric approach.
@@ -164,7 +178,7 @@ You are an expert in cybersecurity, AWS, and threat modeling. Your goal is to va
 def threats_improve_prompt(gap, threat_list, assets, flows) -> str:
     return f"""
 <task>
-You are an expert in cybersecurity, AWS, and threat modeling. Your goal is to enrich an existing threat catalog by identifying new threats that may have been missed, using the STRIDE model. Your output must reflect plausible threats grounded in the described architecture and context. Avoid overly speculative or technically unrealistic scenarios.
+You are an expert in all security domains and threat modeling. Your goal is to enrich an existing threat catalog by identifying new threats that may have been missed, using the STRIDE model. Your output must reflect plausible threats grounded in the described architecture and context. Avoid overly speculative or technically unrealistic scenarios.
 </task>
 
 <instructions>
@@ -179,7 +193,7 @@ You are an expert in cybersecurity, AWS, and threat modeling. Your goal is to en
 
 2. Threat modeling scope and realism constraints:
 
-   * Use the **STRIDE model** as your framework: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege.
+   * Use the **STRIDE model** as your framework: {_get_stride_categories_string()}.
    * **Only include threats that are plausible** given the architecture, technologies, and trust boundaries described.
    * **Avoid theoretical or unlikely threats** (e.g., highly improbable zero-days, advanced nation-state actions unless context supports it).
    * For each threat, describe **why it is feasible** in the context of the architecture.
@@ -196,11 +210,11 @@ You are an expert in cybersecurity, AWS, and threat modeling. Your goal is to en
 4. Format each threat as follows:
 
    Threat Name: [Clear descriptive title]  
-   STRIDE Category: [Spoofing | Tampering | Repudiation | Information Disclosure | Denial of Service | Elevation of Privilege]  
-   Description: [Use <threat_grammar>; ensure 35–50 words; technically realistic]  
+   STRIDE Category: [{_get_stride_categories_string()}]  
+   Description: [Use <threat_grammar>; ensure {THREAT_DESCRIPTION_MIN_WORDS}–{THREAT_DESCRIPTION_MAX_WORDS} words; technically realistic]  
    Target: [Specific asset or component]  
    Impact: [Consequences if threat is realized]  
-   Likelihood: [Low | Medium | High — based on feasibility and context]  
+   Likelihood: [{_get_likelihood_levels_string()} — based on feasibility and context]  
    Mitigations:  
    1. [Mitigation strategy 1]  
    2. [Mitigation strategy 2]  
@@ -228,7 +242,7 @@ You are an expert in cybersecurity, AWS, and threat modeling. Your goal is to en
 def threats_prompt(assets, flows) -> str:
     return f"""
 <task>
-You are an expert in cybersecurity, AWS, and threat modeling. Your goal is to generate a focused, comprehensive, and realistic list of security threats for a given architecture by analyzing the provided inputs, using the STRIDE model. Your output must reflect plausible threats grounded in the described architecture and context. Avoid overly speculative or technically unrealistic scenarios.
+You are an expert in all security domains and threat modeling. Your goal is to generate a focused, comprehensive, and realistic list of security threats for a given architecture by analyzing the provided inputs, using the STRIDE model. Your output must reflect plausible threats grounded in the described architecture and context. Avoid overly speculative or technically unrealistic scenarios.
 </task>
 
 
@@ -236,14 +250,14 @@ You are an expert in cybersecurity, AWS, and threat modeling. Your goal is to ge
 
 1. Review the inputs carefully:
 
-   * <identified\_assets\_and\_entities>{assets}\</identified\_assets\_and\_entities>: Inventory of key assets and entities in the architecture.
-   * <data\_flow>{flows}\</data\_flow>: Descriptions of data movements between components.
-   * <solution\_description>: Contextual overview of the system (if provided).
+   * <identified_assets_and_entities>{assets}</identified_assets_and_entities>: Inventory of key assets and entities in the architecture.
+   * <data_flow>{flows}</data_flow>: Descriptions of data movements between components.
+   * <solution_description>: Contextual overview of the system (if provided).
    * <assumptions>: Security assumptions and boundary considerations (if provided).
 
 2. Threat modeling scope and realism constraints:
 
-   * Use the **STRIDE model** as your framework: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege.
+   * Use the **STRIDE model** as your framework: {_get_stride_categories_string()}.
    * **Only include threats that are plausible** given the architecture, technologies, and trust boundaries described.
    * **Avoid theoretical or unlikely threats** (e.g., highly improbable zero-days, advanced nation-state actions unless context supports it).
    * For each threat, describe **why it is feasible** in the context of the architecture.
@@ -260,11 +274,11 @@ You are an expert in cybersecurity, AWS, and threat modeling. Your goal is to ge
 
 
    Threat Name: [Clear descriptive title]  
-   STRIDE Category: [Spoofing | Tampering | Repudiation | Information Disclosure | Denial of Service | Elevation of Privilege]  
-   Description: [Use <threat_grammar>; ensure 35–50 words; technically realistic]  
+   STRIDE Category: [{_get_stride_categories_string()}]  
+   Description: [Use <threat_grammar>; ensure {THREAT_DESCRIPTION_MIN_WORDS}–{THREAT_DESCRIPTION_MAX_WORDS} words; technically realistic]  
    Target: [Specific asset or component]  
    Impact: [Consequences if threat is realized]  
-   Likelihood: [Low | Medium | High — based on feasibility and context]  
+   Likelihood: [{_get_likelihood_levels_string()} — based on feasibility and context]  
    Mitigations:  
    1. [Mitigation strategy 1]  
    2. [Mitigation strategy 2]  

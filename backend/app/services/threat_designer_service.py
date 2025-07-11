@@ -1,3 +1,4 @@
+import datetime
 import decimal
 import json
 import os
@@ -7,9 +8,9 @@ import boto3
 from aws_lambda_powertools import Logger, Tracer
 from botocore.config import Config
 from botocore.exceptions import ClientError
-from exceptions.exceptions import InternalError, UnauthorizedError, NotFoundError
+from exceptions.exceptions import (InternalError, NotFoundError,
+                                   UnauthorizedError)
 from utils.utils import create_dynamodb_item
-import datetime
 
 STATE = os.environ.get("JOB_STATUS_TABLE")
 FUNCTION = os.environ.get("THREAT_MODELING_LAMBDA")
@@ -334,55 +335,54 @@ def update_results(job_id, payload, owner):
         LOG.error(e)
         raise
 
+
 @tracer.capture_method
 def restore(job_id, owner):
     agent_table = dynamodb.Table(AGENT_TABLE)
     state_table = dynamodb.Table(STATE)
-    
+
     try:
-        response = agent_table.get_item(
-            Key={"job_id": job_id},
-            ConsistentRead=True
-        )
-        
+        response = agent_table.get_item(Key={"job_id": job_id}, ConsistentRead=True)
+
         if "Item" not in response:
             LOG.warning(f"Item {job_id} not found")
             raise NotFoundError
-            
+
         item = response["Item"]
-        
+
         if item.get("owner") != owner:
             LOG.warning(f"Authorization failed: {owner} does not own job {job_id}")
             raise NotFoundError
-            
+
         if "backup" not in item:
             LOG.warning(f"No backup found for job {job_id}")
             raise NotFoundError
-            
+
         backup_data = item["backup"]
         response = agent_table.put_item(Item=backup_data)
-        
+
         current_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        
+
         state_response = state_table.get_item(Key={"id": job_id})
         if "Item" in state_response:
             retry = state_response["Item"].get("retry", 0)
         else:
             retry = 0
-        
-        state_table.put_item(Item={
-            "id": job_id,
-            "owner": owner,
-            "retry": retry,
-            "state": "COMPLETE",
-            "updated_at": current_time
-        })
-        
+
+        state_table.put_item(
+            Item={
+                "id": job_id,
+                "owner": owner,
+                "retry": retry,
+                "state": "COMPLETE",
+                "updated_at": current_time,
+            }
+        )
+
         return True
     except Exception as e:
         LOG.error(f"Failed to restore job {job_id}: {str(e)}")
         raise InternalError
-
 
 
 @tracer.capture_method

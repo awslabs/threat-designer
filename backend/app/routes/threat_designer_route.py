@@ -1,17 +1,12 @@
 from aws_lambda_powertools import Logger, Tracer
 from aws_lambda_powertools.event_handler.api_gateway import Router
-from services.threat_designer_service import (
-    check_status,
-    check_trail,
-    delete_tm,
-    fetch_all,
-    fetch_results,
-    generate_presigned_download_url,
-    generate_presigned_url,
-    invoke_lambda,
-    update_results,
-    restore
-)
+from services.threat_designer_service import (check_status, check_trail,
+                                              delete_tm, fetch_all,
+                                              fetch_results,
+                                              generate_presigned_download_url,
+                                              generate_presigned_url,
+                                              invoke_lambda, restore,
+                                              update_results)
 
 tracer = Tracer()
 router = Router()
@@ -41,21 +36,21 @@ def _tm_fetch_results(id):
 def tm_start():
     try:
         body = router.current_event.json_body
-        
+
         path = router.current_event.path
         if "/mcp" in path:
             owner = "MCP"
         else:
             owner = router.current_event.request_context.authorizer.get("username")
-        
+
         return invoke_lambda(owner, body)
     except Exception as e:
         LOG.exception(e)
 
+
 @router.put("/threat-designer/mcp/restore/<id>")
 @router.put("/threat-designer/restore/<id>")
 def _restore(id):
-    body = router.current_event.json_body
     path = router.current_event.path
     if "/mcp" in path:
         owner = "MCP"

@@ -1,16 +1,34 @@
 """Module containing state classes and data models for the threat designer application."""
 
 import operator
+from datetime import datetime
 from typing import Annotated, List, Literal, Optional, TypedDict
 
-from langchain_core.pydantic_v1 import BaseModel, Field
+from constants import (MITIGATION_MAX_ITEMS, MITIGATION_MIN_ITEMS,
+                       SUMMARY_MAX_WORDS_DEFAULT, THREAT_DESCRIPTION_MAX_WORDS,
+                       THREAT_DESCRIPTION_MIN_WORDS, AssetType, StrideCategory)
+from langchain_aws import ChatBedrockConverse
+from pydantic import BaseModel, Field
+
+
+class ConfigSchema(TypedDict):
+    """Configuration schema for the workflow."""
+
+    model_main: ChatBedrockConverse
+    model_struct: ChatBedrockConverse
+    model_summary: ChatBedrockConverse
+    start_time: datetime
+    reasoning: bool
 
 
 class SummaryState(BaseModel):
     """Model representing the summary of a threat catalog."""
 
     summary: Annotated[
-        str, Field(description="A short headline summary of max 40 words")
+        str,
+        Field(
+            description=f"A short headline summary of max {SUMMARY_MAX_WORDS_DEFAULT} words"
+        ),
     ]
 
 
@@ -18,7 +36,10 @@ class Assets(BaseModel):
     """Model representing system assets or entities in threat modeling."""
 
     type: Annotated[
-        Literal["Asset", "Entity"], Field(description="Type, one of Asset or Entity")
+        Literal[AssetType.ASSET.value, AssetType.ENTITY.value],
+        Field(
+            description=f"Type, one of {AssetType.ASSET.value} or {AssetType.ENTITY.value}"
+        ),
     ]
     name: Annotated[str, Field(description="The name of the asset")]
     description: Annotated[
@@ -106,16 +127,15 @@ class Threat(BaseModel):
     stride_category: Annotated[
         str,
         Field(
-            description="The STRIDE category of the threat: One of the following: Spoofing, "
-            "Tampering, Repudiation, Information Disclosure, Denial of Service, "
-            "Elevation of Privilege"
+            description=f"The STRIDE category of the threat: One of the following: "
+            f"{', '.join([category.value for category in StrideCategory])}"
         ),
     ]
     description: Annotated[
         str,
         Field(
-            description="The exhaustive description of the threat. From 35 to 50 words. "
-            "Follow threat grammar structure."
+            description=f"The exhaustive description of the threat. From {THREAT_DESCRIPTION_MIN_WORDS} "
+            f"to {THREAT_DESCRIPTION_MAX_WORDS} words. Follow threat grammar structure."
         ),
     ]
     target: Annotated[str, Field(description="The target of the threat")]
@@ -125,8 +145,8 @@ class Threat(BaseModel):
         List[str],
         Field(
             description="The list of mitigations for the threat",
-            min_items=2,
-            max_items=5,
+            min_items=MITIGATION_MIN_ITEMS,
+            max_items=MITIGATION_MAX_ITEMS,
         ),
     ]
 

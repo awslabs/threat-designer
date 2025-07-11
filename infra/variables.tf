@@ -21,6 +21,10 @@ variable "region" {
   default = "us-east-1"
 }
 
+variable "log_level" {
+  default = "INFO"
+}
+
 variable "api_gw_stage" {
   default = "dev"
 }
@@ -39,7 +43,7 @@ variable "provisioned_lambda_concurrency" {
 variable "reasoning_models" {
   type    = list(string)
   default = [
-    "us.anthropic.claude-sonnet-4-20250514-v1:0"
+    "eu.anthropic.claude-3-7-sonnet-20250219-v1:0"
   ]
 }
 
@@ -49,7 +53,7 @@ variable "model_main" {
     max_tokens  = number
   })
   default = {
-    id          = "us.anthropic.claude-sonnet-4-20250514-v1:0"
+    id          = "eu.anthropic.claude-3-7-sonnet-20250219-v1:0"
     max_tokens  = 64000
   }
 }
@@ -60,7 +64,7 @@ variable "model_struct" {
     max_tokens  = number
   })
   default = {
-    id          = "us.anthropic.claude-sonnet-4-20250514-v1:0"
+    id          = "eu.anthropic.claude-3-7-sonnet-20250219-v1:0"
     max_tokens  = 64000
   }
 }
@@ -71,7 +75,7 @@ variable "model_summary" {
     max_tokens  = number
   })
   default = {
-    id          = "us.anthropic.claude-sonnet-4-20250514-v1:0"
+    id          = "eu.anthropic.claude-3-7-sonnet-20250219-v1:0"
     max_tokens  = 4000
   }
 }

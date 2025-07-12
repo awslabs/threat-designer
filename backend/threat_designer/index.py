@@ -10,7 +10,7 @@ from typing import Any, Dict
 import boto3
 from config import ThreatModelingConfig
 from constants import (ENV_AGENT_STATE_TABLE, ENV_ARCHITECTURE_BUCKET,
-                       ERROR_INVALID_REASONING_TYPE,
+                       ENV_TRACEBACK_ENABLED, ERROR_INVALID_REASONING_TYPE,
                        ERROR_INVALID_REASONING_VALUE,
                        ERROR_MISSING_REQUIRED_FIELDS, ERROR_VALIDATION_FAILED,
                        HTTP_STATUS_BAD_REQUEST,
@@ -27,6 +27,7 @@ from workflow import ConfigSchema, agent
 dynamodb = boto3.resource("dynamodb")
 S3_BUCKET = os.environ.get(ENV_ARCHITECTURE_BUCKET)
 AGENT_TABLE = os.environ.get(ENV_AGENT_STATE_TABLE)
+
 
 # Initialize configuration
 threat_config = ThreatModelingConfig()
@@ -250,14 +251,14 @@ def _handle_error_response(
     """
     error_type = type(error).__name__
     error_msg = str(error)
-
+    show_traceback = os.environ.get(ENV_TRACEBACK_ENABLED, "false").lower() == "true"
     logger.error(
         "Request failed",
         error_type=error_type,
         error_message=error_msg,
         job_id=job_id,
         status_code=status_code,
-        exc_info=True,
+        exc_info=show_traceback,
     )
 
     if job_id:

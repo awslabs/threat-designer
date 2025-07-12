@@ -7,12 +7,13 @@ from typing import Any, Dict
 from config import ThreatModelingConfig
 from constants import (FINALIZATION_SLEEP_SECONDS, FLUSH_MODE_APPEND,
                        FLUSH_MODE_REPLACE, JobState)
+from langchain_core.messages import SystemMessage
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph import END
 from langgraph.types import Command
 from message_builder import MessageBuilder, list_to_string
 from model_service import ModelService
-from monitoring import logger, operation_context
+from monitoring import logger, operation_context, with_error_context
 from prompts import (asset_prompt, flow_prompt, gap_prompt, summary_prompt,
                      threats_improve_prompt, threats_prompt)
 from state import (AgentState, AssetsList, ContinueThreatModeling, FlowsList,
@@ -27,6 +28,7 @@ class SummaryService:
         self.model_service = model_service
         self.config = config
 
+    @with_error_context("summary node execution")
     def generate_summary(
         self, state: AgentState, config: RunnableConfig
     ) -> Dict[str, Any]:
@@ -35,13 +37,18 @@ class SummaryService:
             return {"image_data": state["image_data"]}
 
         with operation_context("generate_summary", state.get("job_id", "unknown")):
-            message = MessageBuilder.create_summary_message(
+            msg_builder = MessageBuilder(
                 state["image_data"],
                 state.get("description", ""),
+                list_to_string(state.get("assumptions", [])),
+            )
+            message = msg_builder.create_summary_message(
                 self.config.summary_max_words,
             )
 
-            messages = [summary_prompt(), message]
+            system_prompt = SystemMessage(content=summary_prompt())
+
+            messages = [system_prompt, message]
             response = self.model_service.generate_summary(
                 messages, [SummaryState], config
             )
@@ -72,12 +79,20 @@ class AssetDefinitionService:
 
     def _prepare_asset_message(self, state: AgentState) -> list:
         """Prepare message for asset definition."""
-        assumptions = list_to_string(state.get("assumptions", []))
-        human_message = MessageBuilder.create_architecture_message(
-            state["image_data"], state.get("description", ""), assumptions
-        )
-        return [asset_prompt(), human_message]
 
+        msg_builder = MessageBuilder(
+            state["image_data"],
+            state.get("description", ""),
+            list_to_string(state.get("assumptions", [])),
+        )
+
+        human_message = msg_builder.create_asset_message()
+
+        system_prompt = SystemMessage(content=asset_prompt())
+
+        return [system_prompt, human_message]
+
+    @with_error_context("asset node execution")
     def _invoke_asset_model(
         self, messages: list, config: RunnableConfig, job_id: str
     ) -> Any:
@@ -112,15 +127,18 @@ class FlowDefinitionService:
 
     def _prepare_flow_message(self, state: AgentState) -> list:
         """Prepare message for flow definition."""
-        assumptions = list_to_string(state.get("assumptions", []))
-        human_message = MessageBuilder.create_architecture_message(
+
+        msg_builder = MessageBuilder(
             state["image_data"],
             state.get("description", ""),
-            assumptions,
-            "This is the architecture and related information:",
+            list_to_string(state.get("assumptions", [])),
         )
-        return [flow_prompt(state["assets"]), human_message]
+        human_message = msg_builder.create_system_flows_message(assets=state["assets"])
+        system_prompt = SystemMessage(content=flow_prompt())
 
+        return [system_prompt, human_message]
+
+    @with_error_context("flow node execution")
     def _invoke_flow_model(
         self, messages: list, config: RunnableConfig, job_id: str
     ) -> Any:
@@ -198,27 +216,28 @@ class ThreatDefinitionService:
 
     def _prepare_threat_messages(self, state: AgentState, retry_count: int) -> list:
         """Prepare messages for threat definition."""
-        assumptions = list_to_string(state.get("assumptions", []))
         gap = state.get("gap", [])
 
-        human_message = MessageBuilder.create_threat_message(
-            state["image_data"], state.get("description", ""), assumptions
+        msg_builder = MessageBuilder(
+            state["image_data"],
+            state.get("description", ""),
+            list_to_string(state.get("assumptions", [])),
         )
 
         if retry_count > 1:
-            system_prompt = threats_improve_prompt(
-                gap,
-                state.get("threat_list"),
-                state["assets"],
-                state["system_architecture"],
+            human_message = msg_builder.create_threat_improve_message(
+                state["assets"], state["system_architecture"], state["threat_list"], gap
             )
+            system_prompt = SystemMessage(content=threats_improve_prompt())
         else:
-            system_prompt = threats_prompt(
+            human_message = msg_builder.create_threat_message(
                 state["assets"], state["system_architecture"]
             )
+            system_prompt = SystemMessage(content=threats_prompt())
 
         return [system_prompt, human_message]
 
+    @with_error_context("threat node execution")
     def _invoke_threat_model(self, messages: list, config: RunnableConfig) -> Any:
         """Invoke model for threat definition."""
         reasoning = config["configurable"].get("reasoning", False)
@@ -284,21 +303,25 @@ class GapAnalysisService:
 
     def _prepare_gap_messages(self, state: AgentState) -> list:
         """Prepare messages for gap analysis."""
-        assumptions = list_to_string(state.get("assumptions", []))
 
-        human_message = MessageBuilder.create_gap_message(
+        msg_builder = MessageBuilder(
             state["image_data"],
             state.get("description", ""),
-            assumptions,
-            state.get("threat_list", ""),
+            list_to_string(state.get("assumptions", [])),
         )
 
-        system_prompt = gap_prompt(
-            state.get("gap", []), state["assets"], state["system_architecture"]
+        human_message = msg_builder.create_gap_analysis_message(
+            state["assets"],
+            state["system_architecture"],
+            state.get("threat_list", ""),
+            state.get("gap", []),
         )
+
+        system_prompt = SystemMessage(content=gap_prompt())
 
         return [system_prompt, human_message]
 
+    @with_error_context("gap node execution")
     def _invoke_gap_model(self, messages: list, config: RunnableConfig) -> Any:
         """Invoke model for gap analysis."""
         reasoning = config["configurable"].get("reasoning", False)

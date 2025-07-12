@@ -25,7 +25,7 @@ class StateService:
             state_value = state.value if isinstance(state, JobState) else state
             update_job_state(job_id, state_value, retry_count)
         except Exception as e:
-            raise StateUpdateError(f"Failed to update job state: {str(e)}") from e
+            raise StateUpdateError(f"Failed to update job state: {str(e)}")
 
     @with_error_context("trail update")
     def update_trail(
@@ -51,7 +51,7 @@ class StateService:
 
             update_trail(**kwargs)
         except Exception as e:
-            raise StateUpdateError(f"Failed to update trail: {str(e)}") from e
+            raise StateUpdateError(f"Failed to update trail: {str(e)}")
 
     @with_error_context("finalization")
     def finalize_workflow(self, state: dict) -> None:
@@ -59,7 +59,7 @@ class StateService:
         try:
             create_dynamodb_item(state, self.agent_table)
         except Exception as e:
-            raise StateUpdateError(f"Failed to finalize workflow: {str(e)}") from e
+            raise StateUpdateError(f"Failed to finalize workflow: {str(e)}")
 
     @with_error_context("backup update")
     def update_with_backup(self, job_id: str) -> None:
@@ -67,4 +67,4 @@ class StateService:
         try:
             update_item_with_backup(job_id, self.agent_table)
         except Exception as e:
-            raise StateUpdateError(f"Failed to update with backup: {str(e)}") from e
+            raise StateUpdateError(f"Failed to update with backup: {str(e)}")

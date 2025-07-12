@@ -7,12 +7,16 @@ from contextlib import contextmanager
 from typing import Generator
 
 import structlog
-from constants import (ENV_LOG_LEVEL, ERROR_DYNAMODB_OPERATION_FAILED,
+from constants import (ENV_LOG_LEVEL, ENV_TRACEBACK_ENABLED,
+                       ERROR_DYNAMODB_OPERATION_FAILED,
                        ERROR_MODEL_INIT_FAILED, ERROR_S3_OPERATION_FAILED,
                        ERROR_VALIDATION_FAILED)
 from exceptions import ThreatModelingError
 
-logging.basicConfig(level=os.environ.get(ENV_LOG_LEVEL, "INFO").upper())
+log_level_str = os.environ.get(ENV_LOG_LEVEL, "INFO").upper()
+log_level = getattr(logging, log_level_str, logging.INFO)
+logging.basicConfig(level=log_level)
+structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(log_level))
 logger = structlog.get_logger()
 
 
@@ -21,7 +25,6 @@ def operation_context(operation_name: str, job_id: str) -> Generator[None, None,
     """Context manager for operation monitoring."""
     start_time = time.time()
     logger.info("Operation started", operation=operation_name, job_id=job_id)
-
     try:
         yield
         duration = time.time() - start_time
@@ -51,11 +54,14 @@ def with_error_context(operation_name: str):
             try:
                 return func(*args, **kwargs)
             except Exception as e:
-                logger.error(f"Error in {operation_name}: {e}", exc_info=True)
+                show_traceback = (
+                    os.environ.get(ENV_TRACEBACK_ENABLED, "false").lower() == "true"
+                )
+                logger.error(f"Error in {operation_name}: {e}", exc_info=show_traceback)
 
                 # Use centralized error messages for consistent formatting
                 error_message = _get_error_message_for_operation(operation_name, str(e))
-                raise ThreatModelingError(error_message) from e
+                raise ThreatModelingError(error_message)
 
         return wrapper
 

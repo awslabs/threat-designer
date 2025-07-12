@@ -20,6 +20,7 @@ resource "aws_lambda_function" "threat_designer" {
       AGENT_TRAIL_TABLE   = aws_dynamodb_table.threat_designer_trail.id,
       REGION              = var.region,
       LOG_LEVEL           = var.log_level,
+      TRACEBACK_ENABLED   = var.traceback_enabled,
       ARCHITECTURE_BUCKET = aws_s3_bucket.architecture_bucket.id,
       MAIN_MODEL          = jsonencode(var.model_main)
       MODEL_STRUCT        = jsonencode(var.model_struct)

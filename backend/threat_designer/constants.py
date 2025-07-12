@@ -21,6 +21,7 @@ ENV_ARCHITECTURE_BUCKET = "ARCHITECTURE_BUCKET"
 ENV_JOB_STATUS_TABLE = "JOB_STATUS_TABLE"
 ENV_AGENT_TRAIL_TABLE = "AGENT_TRAIL_TABLE"
 ENV_LOG_LEVEL = "LOG_LEVEL"
+ENV_TRACEBACK_ENABLED = "TRACEBACK_ENABLED"
 
 # Model configuration environment variables
 ENV_MAIN_MODEL = "MAIN_MODEL"
@@ -58,7 +59,7 @@ DEFAULT_MAX_SUMMARY_WORDS = 100
 # ============================================================================
 
 # Token budgets for different reasoning levels
-TOKEN_BUDGETS: Dict[int, int] = {1: 4000, 2: 8000, 3: 16000}
+TOKEN_BUDGETS: Dict[int, int] = {1: 8000, 2: 16000, 3: 32000}
 
 # Stop sequences for model generation
 STOP_SEQUENCES: List[str] = ["Human:", "User:", "Assistant:", "\nAI:"]

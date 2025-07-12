@@ -729,11 +729,9 @@ def handle_asset_error(
                         )
                         raise ThreatModelingError(
                             f"Asset processing failed after retry: {str(retry_error)}"
-                        ) from retry_error
+                        )
                 else:
-                    raise ThreatModelingError(
-                        f"Asset processing failed: {str(e)}"
-                    ) from e
+                    raise ThreatModelingError(f"Asset processing failed: {str(e)}")
 
         return wrapper
 

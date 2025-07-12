@@ -7,7 +7,7 @@ name = "threat-designer-mcp-server"
 version = "1.0.0"
 description = "MCP server for Threat Designer API"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Edvin Hallvaxhiu"}
 ]
 readme = "README.md"
 license = {text = "APACHE"}

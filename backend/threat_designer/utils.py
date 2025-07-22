@@ -696,7 +696,7 @@ def handle_asset_error(
         thinking: Whether to retry with structured output on error.
 
     Returns:
-        Decorator function for error handling.
+        Decorator function for error handling
     """
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:

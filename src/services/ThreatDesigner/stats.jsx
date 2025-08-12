@@ -115,5 +115,5 @@ export {
   deleteTm,
   getThreatModelingAllResults,
   getThreatModelingTrail,
-  restoreTm
+  restoreTm,
 };

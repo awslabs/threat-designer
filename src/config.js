@@ -1,4 +1,4 @@
-import "@aws-amplify/ui-react/styles.css"; // Don't forget to import the styles
+import "@aws-amplify/ui-react/styles.css";
 
 let config = {
   controlPlaneAPI: import.meta.env.VITE_APP_ENDPOINT,

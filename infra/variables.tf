@@ -48,6 +48,7 @@ variable "provisioned_lambda_concurrency" {
 variable "reasoning_models" {
   type    = list(string)
   default = [
+    "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
     "us.anthropic.claude-sonnet-4-20250514-v1:0"
   ]
 }

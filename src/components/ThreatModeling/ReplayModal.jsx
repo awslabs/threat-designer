@@ -23,7 +23,7 @@ export const ReplayModalComponent = ({ handleReplay, visible, setVisible, setSpl
                 setSplitPanelOpen(false);
                 handleReplay(iteration?.value, reasoning);
               }}
-              variant="link"
+              variant="primary"
             >
               Replay
             </Button>

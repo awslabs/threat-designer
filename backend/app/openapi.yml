@@ -115,28 +115,13 @@ paths:
       tags:
         - CORS (Options)
       x-amazon-apigateway-integration:
-        type: mock
-        requestTemplates:
-          application/json: |
-            {
-              "statusCode": 200,
-              #set($origin = $input.params().header.get("Origin"))
-              #if($origin == "http://localhost:3000" || $origin == "http://localhost:5173" || $origin == "${ui_domain}")
-                "origin": "$origin"
-              #else
-                "origin": "${ui_domain}"
-              #end
-            }
-        responses:
-          default:
-            statusCode: "200"
-            responseParameters:
-              method.response.header.Access-Control-Allow-Origin: "'${ui_domain}'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"
-              method.response.header.Access-Control-Allow-Credentials: "'true'"
-            responseTemplates:
-              application/json: "{}"
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
               
   "/threat-designer/mcp/status/{id}":
     get:
@@ -219,28 +204,13 @@ paths:
       tags:
         - CORS (Options)
       x-amazon-apigateway-integration:
-        type: mock
-        requestTemplates:
-          application/json: |
-            {
-              "statusCode": 200,
-              #set($origin = $input.params().header.get("Origin"))
-              #if($origin == "http://localhost:3000" || $origin == "http://localhost:5173" || $origin == "${ui_domain}")
-                "origin": "$origin"
-              #else
-                "origin": "${ui_domain}"
-              #end
-            }
-        responses:
-          default:
-            statusCode: "200"
-            responseParameters:
-              method.response.header.Access-Control-Allow-Origin: "'${ui_domain}'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"
-              method.response.header.Access-Control-Allow-Credentials: "'true'"
-            responseTemplates:
-              application/json: "{}"
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
               
   "/threat-designer/mcp/restore/{id}":
     put:
@@ -323,28 +293,13 @@ paths:
       tags:
         - CORS (Options)
       x-amazon-apigateway-integration:
-        type: mock
-        requestTemplates:
-          application/json: |
-            {
-              "statusCode": 200,
-              #set($origin = $input.params().header.get("Origin"))
-              #if($origin == "http://localhost:3000" || $origin == "http://localhost:5173" || $origin == "${ui_domain}")
-                "origin": "$origin"
-              #else
-                "origin": "${ui_domain}"
-              #end
-            }
-        responses:
-          default:
-            statusCode: "200"
-            responseParameters:
-              method.response.header.Access-Control-Allow-Origin: "'${ui_domain}'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"
-              method.response.header.Access-Control-Allow-Credentials: "'true'"
-            responseTemplates:
-              application/json: "{}"
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
               
   "/threat-designer/mcp/trail/{id}":
     get:
@@ -427,31 +382,13 @@ paths:
       tags:
         - CORS (Options)
       x-amazon-apigateway-integration:
-        type: mock
-        requestTemplates:
-          application/json: |
-            #set($origin = $input.params().header.Origin)
-            #if($origin == "http://localhost:3000" || $origin == "http://localhost:5173" || $origin == "${ui_domain}")
-            {
-              "statusCode": 200,
-              "allowedOrigin": "$origin"
-            }
-            #else
-            {
-              "statusCode": 200,
-              "allowedOrigin": "${ui_domain}"
-            }
-            #end
-        responses:
-          default:
-            statusCode: "200"
-            responseParameters:
-              method.response.header.Access-Control-Allow-Origin: "'${ui_domain}'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"
-              method.response.header.Access-Control-Allow-Credentials: "'true'"
-            responseTemplates:
-              application/json: "{}"
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
               
   "/threat-designer/mcp/all":
     get:
@@ -534,28 +471,13 @@ paths:
       tags:
         - CORS (Options)
       x-amazon-apigateway-integration:
-        type: mock
-        requestTemplates:
-          application/json: |
-            {
-              "statusCode": 200,
-              #set($origin = $input.params().header.get("Origin"))
-              #if($origin == "http://localhost:3000" || $origin == "http://localhost:5173" || $origin == "${ui_domain}")
-                "origin": "$origin"
-              #else
-                "origin": "${ui_domain}"
-              #end
-            }
-        responses:
-          default:
-            statusCode: "200"
-            responseParameters:
-              method.response.header.Access-Control-Allow-Origin: "'${ui_domain}'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"
-              method.response.header.Access-Control-Allow-Credentials: "'true'"
-            responseTemplates:
-              application/json: "{}"
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
               
   "/threat-designer/mcp":
     post:
@@ -638,28 +560,13 @@ paths:
       tags:
         - CORS (Options)
       x-amazon-apigateway-integration:
-        type: mock
-        requestTemplates:
-          application/json: |
-            {
-              "statusCode": 200,
-              #set($origin = $input.params().header.get("Origin"))
-              #if($origin == "http://localhost:3000" || $origin == "http://localhost:5173" || $origin == "${ui_domain}")
-                "origin": "$origin"
-              #else
-                "origin": "${ui_domain}"
-              #end
-            }
-        responses:
-          default:
-            statusCode: "200"
-            responseParameters:
-              method.response.header.Access-Control-Allow-Origin: "'${ui_domain}'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"
-              method.response.header.Access-Control-Allow-Credentials: "'true'"
-            responseTemplates:
-              application/json: "{}"
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
               
   "/threat-designer/mcp/download":
     post:
@@ -742,28 +649,13 @@ paths:
       tags:
         - CORS (Options)
       x-amazon-apigateway-integration:
-        type: mock
-        requestTemplates:
-          application/json: |
-            {
-              "statusCode": 200,
-              #set($origin = $input.params().header.get("Origin"))
-              #if($origin == "http://localhost:3000" || $origin == "http://localhost:5173" || $origin == "${ui_domain}")
-                "origin": "$origin"
-              #else
-                "origin": "${ui_domain}"
-              #end
-            }
-        responses:
-          default:
-            statusCode: "200"
-            responseParameters:
-              method.response.header.Access-Control-Allow-Origin: "'${ui_domain}'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"
-              method.response.header.Access-Control-Allow-Credentials: "'true'"
-            responseTemplates:
-              application/json: "{}"
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
               
   "/threat-designer/mcp/upload":
     post:
@@ -908,28 +800,13 @@ paths:
       tags:
         - CORS (Options)
       x-amazon-apigateway-integration:
-        type: mock
-        requestTemplates:
-          application/json: |
-            {
-              "statusCode": 200,
-              #set($origin = $input.params().header.get("Origin"))
-              #if($origin == "http://localhost:3000" || $origin == "http://localhost:5173" || $origin == "${ui_domain}")
-                "origin": "$origin"
-              #else
-                "origin": "${ui_domain}"
-              #end
-            }
-        responses:
-          default:
-            statusCode: "200"
-            responseParameters:
-              method.response.header.Access-Control-Allow-Origin: "'${ui_domain}'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"
-              method.response.header.Access-Control-Allow-Credentials: "'true'"
-            responseTemplates:
-              application/json: "{}"
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
               
   "/threat-designer/mcp/{id}":
     get:

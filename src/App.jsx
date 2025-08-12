@@ -17,25 +17,68 @@ const App = () => {
 
   const [colorMode, setColorMode] = useState(() => {
     const savedMode = localStorage.getItem("colorMode");
-    return savedMode || "light";
+    return savedMode || "system";
   });
+
+  // Function to get the system theme preference
+  const getSystemTheme = () => {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? "dark" : "light";
+  };
+
+  // Function to get the effective theme based on current mode
+  const getEffectiveTheme = (mode) => {
+    if (mode === "system") {
+      return getSystemTheme();
+    }
+    return mode;
+  };
+
+  const effectiveTheme = getEffectiveTheme(colorMode);
+
+
+  // Function to set color mode with validation
+  const setThemeMode = (mode) => {
+    const validModes = ["SYSTEM", "LIGHT", "DARK"];
+    const normalizedMode = mode.toUpperCase();
+    
+    if (validModes.includes(normalizedMode)) {
+      setColorMode(normalizedMode.toLowerCase());
+    } else {
+      console.warn(`Invalid theme mode: ${mode}. Valid options are: SYSTEM, LIGHT, DARK`);
+    }
+  };
 
   useEffect(() => {
     checkAuthState();
   }, []);
 
   useEffect(() => {
-    applyMode(colorMode === "light" ? Mode.Light : Mode.Dark);
+    const effectiveTheme = getEffectiveTheme(colorMode);
+    applyMode(effectiveTheme === "light" ? Mode.Light : Mode.Dark);
     localStorage.setItem("colorMode", colorMode);
+
+    // Listen for system theme changes when in system mode
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    
+    const handleSystemThemeChange = () => {
+      if (colorMode === "system") {
+        const newEffectiveTheme = getEffectiveTheme(colorMode);
+        applyMode(newEffectiveTheme === "light" ? Mode.Light : Mode.Dark);
+      }
+    };
+
+    if (colorMode === "system") {
+      mediaQuery.addEventListener('change', handleSystemThemeChange);
+    }
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleSystemThemeChange);
+    };
   }, [colorMode]);
 
   useEffect(() => {
     applyTheme({ theme: customTheme });
   }, []);
-
-  const toggleColorMode = () => {
-    setColorMode((prevMode) => (prevMode === "light" ? "dark" : "light"));
-  };
 
   const checkAuthState = async () => {
     setLoading(true);
@@ -66,9 +109,10 @@ const App = () => {
             user={authUser}
             setAuthUser={checkAuthState}
             colorMode={colorMode}
-            toggleColorMode={toggleColorMode}
+            setThemeMode={setThemeMode}
+            effectiveTheme={effectiveTheme}
           />
-          <AppLayoutMFE user={authUser} colorMode={colorMode} toggleColorMode={toggleColorMode} />
+          <AppLayoutMFE user={authUser} colorMode={colorMode} setThemeMode={setThemeMode} />
         </SplitPanelProvider>
       ) : (
         <LoginPageInternal setAuthUser={checkAuthState} />

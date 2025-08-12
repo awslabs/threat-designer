@@ -122,7 +122,6 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
 
   return (
     <SpaceBetween size="s">
-      <Header variant="h1">Threat Catalog</Header>
       <div style={{ marginTop: 20 }}>
         {loading ? (
           <SpaceBetween alignItems="center">
@@ -170,7 +169,9 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
                         }
                         style={{ width: "100%", overflow: "hidden" }}
                       >
-                        <Link fontSize="heading-m" onFollow={() => navigate(`/${item.job_id}`)}>
+                        <Link variant="primary" href={`/${item.job_id}`} fontSize="heading-m" onFollow={(event) => { 
+                          event.preventDefault()
+                          navigate(`/${item.job_id}`)}}>
                           {item?.title || "Untitled"}
                         </Link>
                       </Header>

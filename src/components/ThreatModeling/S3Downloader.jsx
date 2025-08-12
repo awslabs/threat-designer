@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { getDownloadUrl } from "../../services/ThreatDesigner/stats";
 import StatusIndicator from "@cloudscape-design/components/status-indicator";
 import { Spinner } from "@cloudscape-design/components";
+import { colorBackgroundButtonLinkHover } from "@cloudscape-design/design-tokens";
 
 const imageCache = new Map();
 
@@ -56,8 +57,8 @@ export const S3DownloaderComponent = React.memo(({ fileName }) => {
             alignItems: "center",
             height: 250,
             width: "100%",
-            borderRight: `1px solid #c6c6cd`,
-            background: "#c6c6cd",
+            borderRight: `1px solid #EEEEEE"`,
+            background: "#EEEEEE",
           }}
         >
           {loading && <Spinner size="large" />}
@@ -74,8 +75,8 @@ export const S3DownloaderComponent = React.memo(({ fileName }) => {
           <div
             style={{
               display: "inline-block",
-              borderRight: `1px solid #c6c6cd`,
-              background: "#c6c6cd",
+              borderRight: `1px solid #EEEEEE"`,
+              background: "#EEEEEE",
             }}
           >
             <img

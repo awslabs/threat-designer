@@ -233,7 +233,7 @@ export const SubmissionComponent = ({
                     <Input
                       onChange={({ detail }) => setTitle(detail.value)}
                       value={title}
-                      readOnly
+                      disabled
                     />
                   </SpaceBetween>
                 )}
@@ -277,7 +277,7 @@ export const SubmissionComponent = ({
                       onChange={({ detail }) => setText(detail.value)}
                       value={text}
                       placeholder="Add your description"
-                      readOnly
+                      disabled
                     />
                   </SpaceBetween>
                 )}
@@ -291,7 +291,7 @@ export const SubmissionComponent = ({
                     </Header>
                     <FormField>
                       <Select
-                        readOnly
+                        disabled
                         options={[
                           { label: "1", value: "1" },
                           { label: "2", value: "2" },

@@ -184,7 +184,7 @@ export const ModalComponent = ({
       footer={
         <Box float="right">
           <SpaceBetween direction="horizontal" size="xs">
-            <Button onClick={handleSave} variant="link" disabled={!isFormValid}>
+            <Button onClick={handleSave} variant="primary" disabled={!isFormValid}>
               Save
             </Button>
           </SpaceBetween>

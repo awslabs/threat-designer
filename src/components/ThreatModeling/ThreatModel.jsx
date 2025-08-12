@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import BreadcrumbGroup from "@cloudscape-design/components/breadcrumb-group";
 import Header from "@cloudscape-design/components/header";
@@ -138,8 +138,9 @@ export const ThreatModel = ({ user }) => {
     navigate(e.detail.href);
   };
 
-  function updateThreatModeling(type, index, newItem) {
+  const updateThreatModeling = useCallback((type, index, newItem) => {
     const newState = { ...response };
+    
     const updateArray = (array, index, newItem) => {
       if (newItem === null) {
         return array.filter((_, i) => i !== index);
@@ -149,7 +150,7 @@ export const ThreatModel = ({ user }) => {
         return array.map((item, i) => (i === index ? newItem : item));
       }
     };
-
+  
     const updateAssumptions = (array, index, newItem) => {
       if (newItem === undefined || newItem === null) {
         return array.filter((_, i) => i !== index);
@@ -159,7 +160,7 @@ export const ThreatModel = ({ user }) => {
         return array.map((item, i) => (i === index ? newItem : item));
       }
     };
-
+  
     switch (type) {
       case "threat_sources":
       case "trust_boundaries":
@@ -170,11 +171,11 @@ export const ThreatModel = ({ user }) => {
           newItem
         );
         break;
-
+  
       case "assets":
         newState.item.assets.assets = updateArray(newState.item.assets.assets, index, newItem);
         break;
-
+  
       case "threats":
         newState.item.threat_list.threats = updateArray(
           newState.item.threat_list.threats,
@@ -182,7 +183,7 @@ export const ThreatModel = ({ user }) => {
           newItem
         );
         break;
-
+  
       case "assumptions":
         newState.item.assumptions = updateAssumptions(
           newState.item.assumptions,
@@ -190,17 +191,17 @@ export const ThreatModel = ({ user }) => {
           newItem?.assumption
         );
         break;
-
+  
       case "description":
         newState.item.description = newItem;
         break;
-
+  
       default:
         throw new Error(`Invalid type: ${type}`);
     }
-
+  
     setResponse(newState);
-  }
+  }, [response, setResponse]);
 
   useEffect(() => {
     let intervalId;
@@ -387,6 +388,8 @@ export const ThreatModel = ({ user }) => {
             state?.results && (
               <SpaceBetween direction="horizontal" size="xs">
                 <ButtonDropdown
+                  variant="primary"
+                  expandableGroups
                   fullWidth
                   onItemClick={(itemClickDetails) => {
                     if (itemClickDetails.detail.id === "sv") {
@@ -401,20 +404,6 @@ export const ThreatModel = ({ user }) => {
                     if (itemClickDetails.detail.id === "tr") {
                       handleHelpButtonClick(<InfoContent context={"All"} />);
                     }
-                  }}
-                  items={[
-                    { text: "Save", id: "sv", disabled: false },
-                    { text: "Delete", id: "rm", disabled: false },
-                    { text: "Replay", id: "re", disabled: false },
-                    { text: "Trail", id: "tr", disabled: false },
-                  ]}
-                >
-                  Actions
-                </ButtonDropdown>
-                <ButtonDropdown
-                  variant="primary"
-                  fullWidth
-                  onItemClick={(itemClickDetails) => {
                     if (itemClickDetails.detail.id === "cp-doc") {
                       handleDownload("docx");
                     }
@@ -423,11 +412,17 @@ export const ThreatModel = ({ user }) => {
                     }
                   }}
                   items={[
-                    { text: "Docx", id: "cp-doc", disabled: false },
-                    { text: "Pdf", id: "cp-pdf", disabled: false },
+                    { text: "Save", id: "sv", disabled: false },
+                    { text: "Delete", id: "rm", disabled: false },
+                    { text: "Replay", id: "re", disabled: false },
+                    { text: "Trail", id: "tr", disabled: false },
+                    { text: "Download", id: "download", items: [
+                      { text: "Docx", id: "cp-doc", disabled: false },
+                      { text: "Pdf", id: "cp-pdf", disabled: false }
+                    ]}
                   ]}
                 >
-                  Download
+                  Actions
                 </ButtonDropdown>
               </SpaceBetween>
             )

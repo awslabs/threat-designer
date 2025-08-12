@@ -10,6 +10,7 @@ import { startThreatModeling, generateUrl } from "../../services/ThreatDesigner/
 import GenAiButton from "../../components/ThreatModeling/GenAiButton";
 import Avatar from "@cloudscape-design/chat-components/avatar";
 import "./ThreatModeling.css";
+import { TopNavigation, Button, Link } from "@cloudscape-design/components";
 
 export default function ThreatModeling({ user }) {
   const [iteration, setIteration] = useState({ label: "Auto", value: 0 });
@@ -54,14 +55,6 @@ export default function ThreatModeling({ user }) {
 
   return (
     <SpaceBetween size="s">
-      <Header variant="h1">
-        {
-          <SpaceBetween direction="horizontal" size="xs">
-            <div>Threat Designer</div>
-            <Avatar color="gen-ai" iconName="gen-ai" />
-          </SpaceBetween>
-        }
-      </Header>
       <div
         style={{
           display: "flex",

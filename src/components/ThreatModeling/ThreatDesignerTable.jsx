@@ -45,6 +45,7 @@ export const ThreatTableComponent = ({
     };
   });
 
+
   return (
     <>
       <Table
@@ -60,7 +61,6 @@ export const ThreatTableComponent = ({
           }
         }}
         items={data}
-        resizableColumns
         selectedItems={selectedItems}
         wrapLines
         empty={

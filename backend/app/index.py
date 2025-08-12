@@ -64,9 +64,8 @@ def add_security_headers(response: Dict[str, Any]):
             "DELETE",
             "OPTIONS",
         ]
-        headers["Access-Control-Allow-Headers"] = ["Content-Type"]
+        headers["Access-Control-Allow-Headers"] = ["Content-Type", "authorization"]
         headers["Access-Control-Allow-Credentials"] = ["true"]
-    logger.info(f"Adding security headers: {response}")
     return response
 
 

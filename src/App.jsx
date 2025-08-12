@@ -20,12 +20,10 @@ const App = () => {
     return savedMode || "system";
   });
 
-  // Function to get the system theme preference
   const getSystemTheme = () => {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? "dark" : "light";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   };
 
-  // Function to get the effective theme based on current mode
   const getEffectiveTheme = (mode) => {
     if (mode === "system") {
       return getSystemTheme();
@@ -35,12 +33,10 @@ const App = () => {
 
   const effectiveTheme = getEffectiveTheme(colorMode);
 
-
-  // Function to set color mode with validation
   const setThemeMode = (mode) => {
     const validModes = ["SYSTEM", "LIGHT", "DARK"];
     const normalizedMode = mode.toUpperCase();
-    
+
     if (validModes.includes(normalizedMode)) {
       setColorMode(normalizedMode.toLowerCase());
     } else {
@@ -57,9 +53,8 @@ const App = () => {
     applyMode(effectiveTheme === "light" ? Mode.Light : Mode.Dark);
     localStorage.setItem("colorMode", colorMode);
 
-    // Listen for system theme changes when in system mode
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
     const handleSystemThemeChange = () => {
       if (colorMode === "system") {
         const newEffectiveTheme = getEffectiveTheme(colorMode);
@@ -68,11 +63,11 @@ const App = () => {
     };
 
     if (colorMode === "system") {
-      mediaQuery.addEventListener('change', handleSystemThemeChange);
+      mediaQuery.addEventListener("change", handleSystemThemeChange);
     }
 
     return () => {
-      mediaQuery.removeEventListener('change', handleSystemThemeChange);
+      mediaQuery.removeEventListener("change", handleSystemThemeChange);
     };
   }, [colorMode]);
 

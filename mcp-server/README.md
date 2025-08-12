@@ -2,8 +2,6 @@
 
 A **Model Context Protocol (MCP) server** that connects AI assistants to **Threat Designer**, an AI-driven agent that automates and streamlines the threat modeling process for secure system design. This MCP server enables Amazon Q Developer, Claude and other compatible AI systems to leverage Threat Designer's advanced threat analysis capabilities through natural language interactions.
 
-
-
 ## What is MCP?
 
 The Model Context Protocol allows AI assistants to securely connect to external data sources and tools. This MCP server acts as a bridge between AI systems and Threat Designer's automated threat modeling service, enabling conversational security analysis through a standardized interface.
@@ -38,6 +36,7 @@ The Model Context Protocol allows AI assistants to securely connect to external 
 ## Use Cases
 
 Perfect for security professionals who want to:
+
 - Engage in AI-powered threat modeling conversations with Claude
 - Automate security analysis from the earliest development stages
 - Leverage dual-AI intelligence (Claude + Threat Designer) for comprehensive security insights
@@ -63,4 +62,4 @@ Perfect for security professionals who want to:
     }
   }
 }
-  ```
+```

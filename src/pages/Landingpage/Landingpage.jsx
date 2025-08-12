@@ -120,7 +120,7 @@ const LoginPageInternal = ({ setAuthUser }) => {
       <div
         style={{
           width: "35%",
-          backgroundColor: "white",
+          backgroundColor: "#FAFAF9",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",

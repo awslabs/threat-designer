@@ -138,70 +138,73 @@ export const ThreatModel = ({ user }) => {
     navigate(e.detail.href);
   };
 
-  const updateThreatModeling = useCallback((type, index, newItem) => {
-    const newState = { ...response };
-    
-    const updateArray = (array, index, newItem) => {
-      if (newItem === null) {
-        return array.filter((_, i) => i !== index);
-      } else if (index === -1) {
-        return [newItem, ...array];
-      } else {
-        return array.map((item, i) => (i === index ? newItem : item));
+  const updateThreatModeling = useCallback(
+    (type, index, newItem) => {
+      const newState = { ...response };
+
+      const updateArray = (array, index, newItem) => {
+        if (newItem === null) {
+          return array.filter((_, i) => i !== index);
+        } else if (index === -1) {
+          return [newItem, ...array];
+        } else {
+          return array.map((item, i) => (i === index ? newItem : item));
+        }
+      };
+
+      const updateAssumptions = (array, index, newItem) => {
+        if (newItem === undefined || newItem === null) {
+          return array.filter((_, i) => i !== index);
+        } else if (index === -1) {
+          return [newItem, ...array];
+        } else {
+          return array.map((item, i) => (i === index ? newItem : item));
+        }
+      };
+
+      switch (type) {
+        case "threat_sources":
+        case "trust_boundaries":
+        case "data_flows":
+          newState.item.system_architecture[type] = updateArray(
+            newState.item.system_architecture[type],
+            index,
+            newItem
+          );
+          break;
+
+        case "assets":
+          newState.item.assets.assets = updateArray(newState.item.assets.assets, index, newItem);
+          break;
+
+        case "threats":
+          newState.item.threat_list.threats = updateArray(
+            newState.item.threat_list.threats,
+            index,
+            newItem
+          );
+          break;
+
+        case "assumptions":
+          newState.item.assumptions = updateAssumptions(
+            newState.item.assumptions,
+            index,
+            newItem?.assumption
+          );
+          break;
+
+        case "description":
+          newState.item.description = newItem;
+          break;
+
+        default:
+          throw new Error(`Invalid type: ${type}`);
       }
-    };
-  
-    const updateAssumptions = (array, index, newItem) => {
-      if (newItem === undefined || newItem === null) {
-        return array.filter((_, i) => i !== index);
-      } else if (index === -1) {
-        return [newItem, ...array];
-      } else {
-        return array.map((item, i) => (i === index ? newItem : item));
-      }
-    };
-  
-    switch (type) {
-      case "threat_sources":
-      case "trust_boundaries":
-      case "data_flows":
-        newState.item.system_architecture[type] = updateArray(
-          newState.item.system_architecture[type],
-          index,
-          newItem
-        );
-        break;
-  
-      case "assets":
-        newState.item.assets.assets = updateArray(newState.item.assets.assets, index, newItem);
-        break;
-  
-      case "threats":
-        newState.item.threat_list.threats = updateArray(
-          newState.item.threat_list.threats,
-          index,
-          newItem
-        );
-        break;
-  
-      case "assumptions":
-        newState.item.assumptions = updateAssumptions(
-          newState.item.assumptions,
-          index,
-          newItem?.assumption
-        );
-        break;
-  
-      case "description":
-        newState.item.description = newItem;
-        break;
-  
-      default:
-        throw new Error(`Invalid type: ${type}`);
-    }
-  
-    setResponse(newState);
-  }, [response, setResponse]);
+
+      setResponse(newState);
+    },
+    [response, setResponse]
+  );
 
   useEffect(() => {
     let intervalId;
@@ -344,15 +347,13 @@ export const ThreatModel = ({ user }) => {
     try {
       await restoreTm(id);
       hideAlert();
-    }
-    catch (error) {
+    } catch (error) {
       setLoading(false);
       console.error("Error restoring threat modeling:", error);
-    }
-    finally {
+    } finally {
       setTrigger(Math.floor(Math.random() * 100) + 1);
     }
-  }
+  };
 
   useEffect(() => {
     if (response) {
@@ -416,10 +417,14 @@ export const ThreatModel = ({ user }) => {
                     { text: "Delete", id: "rm", disabled: false },
                     { text: "Replay", id: "re", disabled: false },
                     { text: "Trail", id: "tr", disabled: false },
-                    { text: "Download", id: "download", items: [
-                      { text: "Docx", id: "cp-doc", disabled: false },
-                      { text: "Pdf", id: "cp-pdf", disabled: false }
-                    ]}
+                    {
+                      text: "Download",
+                      id: "download",
+                      items: [
+                        { text: "Pdf", id: "cp-pdf", disabled: false },
+                        { text: "Docx", id: "cp-doc", disabled: false },
+                      ],
+                    },
                   ]}
                 >
                   Actions
@@ -476,9 +481,7 @@ export const ThreatModel = ({ user }) => {
                     statusIconAriaLabel={"Error"}
                     type={"error"}
                     action={
-                      <Button onClick={handleRestore}>
-                        {alertMessages[alert.state].button}
-                      </Button>
+                      <Button onClick={handleRestore}>{alertMessages[alert.state].button}</Button>
                     }
                     header={alertMessages[alert.state].title}
                   >

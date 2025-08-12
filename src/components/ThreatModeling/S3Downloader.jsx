@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import { getDownloadUrl } from "../../services/ThreatDesigner/stats";
 import StatusIndicator from "@cloudscape-design/components/status-indicator";
 import { Spinner } from "@cloudscape-design/components";
-import { colorBackgroundButtonLinkHover } from "@cloudscape-design/design-tokens";
 
 const imageCache = new Map();
 

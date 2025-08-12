@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import SpaceBetween from "@cloudscape-design/components/space-between";
-import Header from "@cloudscape-design/components/header";
 import { SubmissionComponent } from "./SubmissionForm";
 import { Modal } from "@cloudscape-design/components";
 import { useAlert } from "./hooks/useAlert";
@@ -8,14 +7,11 @@ import { uploadFile } from "./docs";
 import { useNavigate } from "react-router-dom";
 import { startThreatModeling, generateUrl } from "../../services/ThreatDesigner/stats";
 import GenAiButton from "../../components/ThreatModeling/GenAiButton";
-import Avatar from "@cloudscape-design/chat-components/avatar";
 import "./ThreatModeling.css";
-import { TopNavigation, Button, Link } from "@cloudscape-design/components";
 
 export default function ThreatModeling({ user }) {
   const [iteration, setIteration] = useState({ label: "Auto", value: 0 });
   const [reasoning, setReasoning] = useState("0");
-  const { alert, showAlert, hideAlert, alertMessages } = useAlert();
   const [base64Content, setBase64Content] = useState([]);
   const [id, setId] = useState(null);
   const [visible, setVisible] = useState(false);

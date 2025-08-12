@@ -5,14 +5,10 @@ import { TopNavigation, Button } from "@cloudscape-design/components";
 import { logOut } from "../../services/Auth/auth";
 import Shield from "../../components/ThreatModeling/images/shield.png";
 import customTheme from "../../customTheme";
-import { MonitorCog, Moon, Sun } from 'lucide-react';
+import { MonitorCog, Moon, Sun } from "lucide-react";
 
 const getConditionalColor = (checkValue, effectiveTheme, colorMode) => {
-  return colorMode === checkValue 
-    ? (effectiveTheme === "dark" 
-        ? "#42b4ff" 
-        : "#006ce0")
-    : undefined;
+  return colorMode === checkValue ? (effectiveTheme === "dark" ? "#42b4ff" : "#006ce0") : undefined;
 };
 
 function TopNavigationMFE({ user, setAuthUser, colorMode, setThemeMode, effectiveTheme }) {
@@ -24,46 +20,64 @@ function TopNavigationMFE({ user, setAuthUser, colorMode, setThemeMode, effectiv
     overflowMenuTriggerText: "More",
   };
 
-
   const profileActions = [
     { id: "signout", text: "Sign out" },
-     {id: "theme", text: "Theme", type:"menu-dropdown", items:
-       [
+    {
+      id: "theme",
+      text: "Theme",
+      type: "menu-dropdown",
+      items: [
         {
-        id: "system", text: <span style={{ 
-          color: getConditionalColor("system", effectiveTheme, colorMode), 
-          whiteSpace: "nowrap",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "4px"
-        }}>
-          <MonitorCog size="16px" /> System
-        </span>
+          id: "system",
+          text: (
+            <span
+              style={{
+                color: getConditionalColor("system", effectiveTheme, colorMode),
+                whiteSpace: "nowrap",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
+            >
+              <MonitorCog size="16px" /> System
+            </span>
+          ),
         },
         {
-          id: "light", text: <span style={{ 
-            whiteSpace: "nowrap",
-            color: getConditionalColor("light", effectiveTheme, colorMode),
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "4px"
-          }}>
-            <Sun size="16px" /> Light
-          </span>
-          },
-          {
-            id: "dark", text: <span style={{ 
-              whiteSpace: "nowrap",
-              color: getConditionalColor("dark", effectiveTheme, colorMode),
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "4px"
-            }}>
+          id: "light",
+          text: (
+            <span
+              style={{
+                whiteSpace: "nowrap",
+                color: getConditionalColor("light", effectiveTheme, colorMode),
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
+            >
+              <Sun size="16px" /> Light
+            </span>
+          ),
+        },
+        {
+          id: "dark",
+          text: (
+            <span
+              style={{
+                whiteSpace: "nowrap",
+                color: getConditionalColor("dark", effectiveTheme, colorMode),
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
+            >
               <Moon size="16px" /> Dark
             </span>
-            },
-      ]
-    }];
+          ),
+        },
+      ],
+    },
+  ];
 
   return (
     <div
@@ -109,7 +123,15 @@ function TopNavigationMFE({ user, setAuthUser, colorMode, setThemeMode, effectiv
                       }}
                     />
                   </a>
-                  <div style={{ fontSize: "16px", color: effectiveTheme === "dark" ? `${customTheme.contexts["top-navigation"].tokens.colorTextInteractiveActive.dark}` :  `${customTheme.contexts["top-navigation"].tokens.colorTextInteractiveActive.light}`}}>
+                  <div
+                    style={{
+                      fontSize: "16px",
+                      color:
+                        effectiveTheme === "dark"
+                          ? `${customTheme.contexts["top-navigation"].tokens.colorTextInteractiveActive.dark}`
+                          : `${customTheme.contexts["top-navigation"].tokens.colorTextInteractiveActive.light}`,
+                    }}
+                  >
                     Threat Designer
                   </div>
                 </div>
@@ -163,13 +185,13 @@ function TopNavigationMFE({ user, setAuthUser, colorMode, setThemeMode, effectiv
                     });
                     break;
                   case "light":
-                    setThemeMode("LIGHT")
+                    setThemeMode("LIGHT");
                     break;
                   case "dark":
-                    setThemeMode("DARK")
+                    setThemeMode("DARK");
                     break;
                   case "system":
-                    setThemeMode("SYSTEM")
+                    setThemeMode("SYSTEM");
                     break;
                   default:
                     console.log("Unhandled menu item:", detail.id);

@@ -27,7 +27,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
 }) {
   const [openModal, setOpenModal] = useState(false);
   const { id = null } = useParams();
-  
+
   const handleModal = () => {
     setOpenModal(true);
   };
@@ -61,12 +61,9 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
             </div>
           )}
         </section>
-        
-        <DescriptionSection 
-          description={description} 
-          updateTM={updateTM} 
-        />
-        
+
+        <DescriptionSection description={description} updateTM={updateTM} />
+
         <div style={{ height: "25px" }}></div>
         <ThreatTableComponent
           headers={["Assumption"]}
@@ -110,9 +107,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
             <Header counter={`(${threatCatalogData.length})`} variant="h2">
               Threat Catalog
             </Header>
-            <Button onClick={handleModal}>
-              Add Threat
-            </Button>
+            <Button onClick={handleModal}>Add Threat</Button>
           </SpaceBetween>
           {threatCatalogData.map((item, index) => (
             <ThreatComponent

@@ -2,8 +2,6 @@ import { Table, Box, Header } from "@cloudscape-design/components";
 import React from "react";
 import ButtonDropdown from "@cloudscape-design/components/button-dropdown";
 import { ModalComponent } from "./ModalForm";
-import IconWithButton from "../HelpPanel/HelpPanelContent";
-import { useSplitPanel } from "../../SplitPanelContext";
 
 export const ThreatTableComponent = ({
   headers,
@@ -44,7 +42,6 @@ export const ThreatTableComponent = ({
       sortingField: header.toLowerCase(),
     };
   });
-
 
   return (
     <>

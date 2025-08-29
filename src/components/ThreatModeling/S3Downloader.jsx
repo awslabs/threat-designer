@@ -56,8 +56,8 @@ export const S3DownloaderComponent = React.memo(({ fileName }) => {
             alignItems: "center",
             height: 250,
             width: "100%",
-            borderRight: `1px solid #c6c6cd`,
-            background: "#c6c6cd",
+            borderRight: `1px solid #EEEEEE"`,
+            background: "#EEEEEE",
           }}
         >
           {loading && <Spinner size="large" />}
@@ -74,8 +74,8 @@ export const S3DownloaderComponent = React.memo(({ fileName }) => {
           <div
             style={{
               display: "inline-block",
-              borderRight: `1px solid #c6c6cd`,
-              background: "#c6c6cd",
+              borderRight: `1px solid #EEEEEE"`,
+              background: "#EEEEEE",
             }}
           >
             <img

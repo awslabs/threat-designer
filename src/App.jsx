@@ -10,6 +10,7 @@ import customTheme from "./customTheme";
 import "@cloudscape-design/global-styles/index.css";
 import { applyMode, Mode } from "@cloudscape-design/global-styles";
 import { applyTheme } from "@cloudscape-design/components/theming";
+import { ThemeProvider } from "./components/ThemeContext";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -17,25 +18,77 @@ const App = () => {
 
   const [colorMode, setColorMode] = useState(() => {
     const savedMode = localStorage.getItem("colorMode");
-    return savedMode || "light";
+    return savedMode || "system";
   });
+
+  // Make effectiveTheme a state variable
+  const [effectiveTheme, setEffectiveTheme] = useState(() => {
+    const getSystemTheme = () => {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    };
+    const getEffectiveTheme = (mode) => {
+      if (mode === "system") {
+        return getSystemTheme();
+      }
+      return mode;
+    };
+    return getEffectiveTheme(colorMode);
+  });
+
+  const getSystemTheme = () => {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  };
+
+  const getEffectiveTheme = (mode) => {
+    if (mode === "system") {
+      return getSystemTheme();
+    }
+    return mode;
+  };
+
+  const setThemeMode = (mode) => {
+    const validModes = ["SYSTEM", "LIGHT", "DARK"];
+    const normalizedMode = mode.toUpperCase();
+
+    if (validModes.includes(normalizedMode)) {
+      setColorMode(normalizedMode.toLowerCase());
+    } else {
+      console.warn(`Invalid theme mode: ${mode}. Valid options are: SYSTEM, LIGHT, DARK`);
+    }
+  };
 
   useEffect(() => {
     checkAuthState();
   }, []);
 
   useEffect(() => {
-    applyMode(colorMode === "light" ? Mode.Light : Mode.Dark);
+    const newEffectiveTheme = getEffectiveTheme(colorMode);
+    setEffectiveTheme(newEffectiveTheme);
+    applyMode(newEffectiveTheme === "light" ? Mode.Light : Mode.Dark);
     localStorage.setItem("colorMode", colorMode);
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const handleSystemThemeChange = () => {
+      if (colorMode === "system") {
+        const updatedEffectiveTheme = getEffectiveTheme(colorMode);
+        setEffectiveTheme(updatedEffectiveTheme); // Update the state
+        applyMode(updatedEffectiveTheme === "light" ? Mode.Light : Mode.Dark);
+      }
+    };
+
+    if (colorMode === "system") {
+      mediaQuery.addEventListener("change", handleSystemThemeChange);
+    }
+
+    return () => {
+      mediaQuery.removeEventListener("change", handleSystemThemeChange);
+    };
   }, [colorMode]);
 
   useEffect(() => {
     applyTheme({ theme: customTheme });
   }, []);
-
-  const toggleColorMode = () => {
-    setColorMode((prevMode) => (prevMode === "light" ? "dark" : "light"));
-  };
 
   const checkAuthState = async () => {
     setLoading(true);
@@ -61,15 +114,22 @@ const App = () => {
           </div>
         </SpaceBetween>
       ) : authUser ? (
-        <SplitPanelProvider>
-          <TopNavigationMFE
-            user={authUser}
-            setAuthUser={checkAuthState}
-            colorMode={colorMode}
-            toggleColorMode={toggleColorMode}
-          />
-          <AppLayoutMFE user={authUser} colorMode={colorMode} toggleColorMode={toggleColorMode} />
-        </SplitPanelProvider>
+        <ThemeProvider
+          colorMode={colorMode}
+          effectiveTheme={effectiveTheme}
+          setThemeMode={setThemeMode}
+        >
+            <SplitPanelProvider>
+              <TopNavigationMFE
+                user={authUser}
+                setAuthUser={checkAuthState}
+                colorMode={colorMode}
+                setThemeMode={setThemeMode}
+                effectiveTheme={effectiveTheme}
+              />
+              <AppLayoutMFE user={authUser} colorMode={colorMode} setThemeMode={setThemeMode} />
+            </SplitPanelProvider>
+        </ThemeProvider>
       ) : (
         <LoginPageInternal setAuthUser={checkAuthState} />
       )}

@@ -5,8 +5,12 @@ from typing import Optional
 from constants import FLUSH_MODE_REPLACE, JobState
 from exceptions import StateUpdateError
 from monitoring import with_error_context
-from utils import (create_dynamodb_item, update_item_with_backup,
-                   update_job_state, update_trail)
+from utils import (
+    create_dynamodb_item,
+    update_item_with_backup,
+    update_job_state,
+    update_trail,
+)
 
 
 class StateService:

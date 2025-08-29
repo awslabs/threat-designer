@@ -4,9 +4,15 @@ import operator
 from datetime import datetime
 from typing import Annotated, List, Literal, Optional, TypedDict
 
-from constants import (MITIGATION_MAX_ITEMS, MITIGATION_MIN_ITEMS,
-                       SUMMARY_MAX_WORDS_DEFAULT, THREAT_DESCRIPTION_MAX_WORDS,
-                       THREAT_DESCRIPTION_MIN_WORDS, AssetType, StrideCategory)
+from constants import (
+    MITIGATION_MAX_ITEMS,
+    MITIGATION_MIN_ITEMS,
+    SUMMARY_MAX_WORDS_DEFAULT,
+    THREAT_DESCRIPTION_MAX_WORDS,
+    THREAT_DESCRIPTION_MIN_WORDS,
+    AssetType,
+    StrideCategory,
+)
 from langchain_aws import ChatBedrockConverse
 from pydantic import BaseModel, Field
 
@@ -149,6 +155,15 @@ class Threat(BaseModel):
             max_items=MITIGATION_MAX_ITEMS,
         ),
     ]
+    starred: Optional[
+        Annotated[
+            bool,
+            Field(
+                default=False,
+                description="Used by the human user to track threats. Should be ignored by the agent",
+            ),
+        ]
+    ]
 
 
 class ThreatsList(BaseModel):
@@ -157,8 +172,10 @@ class ThreatsList(BaseModel):
     threats: Annotated[List[Threat], Field(description="The list of threats")]
 
     def __add__(self, other: "ThreatsList") -> "ThreatsList":
-        """Combine two ThreatsList instances."""
-        combined_threats = self.threats + other.threats
+        """Combine two ThreatsList instances, avoiding duplicates based on name."""
+        existing_names = {threat.name for threat in self.threats}
+        new_threats = [threat for threat in other.threats if threat.name not in existing_names]
+        combined_threats = self.threats + new_threats
         return ThreatsList(threats=combined_threats)
 
 
@@ -183,3 +200,4 @@ class AgentState(TypedDict):
     stop: Optional[bool] = False
     gap: Annotated[List[str], operator.add] = []
     replay: Optional[bool] = False
+    instructions: Optional[str] = None

@@ -11,6 +11,7 @@ const appLayoutLabels = {
   navigationClose: "Close side navigation",
 };
 
+
 function AppLayoutMFE({ user }) {
   const [navOpen, setNavOpen] = useState(true);
   const { splitPanelOpen, setSplitPanelOpen, splitPanelContext } = useSplitPanel();

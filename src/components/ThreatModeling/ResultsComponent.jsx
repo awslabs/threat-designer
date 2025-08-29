@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, memo } from "react";
 import "./ThreatModeling.css";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import Header from "@cloudscape-design/components/header";
@@ -6,15 +6,14 @@ import { ThreatTableComponent } from "./ThreatDesignerTable";
 import { ThreatComponent } from "./ThreatCatalog";
 import { ModalComponent } from "./ModalForm";
 import { Button } from "@cloudscape-design/components";
-import Textarea from "@cloudscape-design/components/textarea";
-import ButtonGroup from "@cloudscape-design/components/button-group";
 import { useParams } from "react-router";
+import DescriptionSection from "./DescriptionSection";
+
 const arrayToObjects = (key, stringArray) => {
   return stringArray.map((value) => ({ [key]: value }));
 };
 
-export default function ThreatModelingOutput({
-  title,
+const ThreatModelingOutput = memo(function ThreatModelingOutput({
   description,
   assumptions,
   architectureDiagramBase64,
@@ -28,15 +27,10 @@ export default function ThreatModelingOutput({
 }) {
   const [openModal, setOpenModal] = useState(false);
   const { id = null } = useParams();
+
   const handleModal = () => {
     setOpenModal(true);
   };
-  const [value, setValue] = useState("");
-  const [editMode, setEditMode] = useState(false);
-
-  useEffect(() => {
-    setValue(description);
-  }, []);
 
   useEffect(() => {
     refreshTrail(id);
@@ -47,71 +41,29 @@ export default function ThreatModelingOutput({
       <SpaceBetween size="xl">
         <section>
           {architectureDiagramBase64 && (
-            <img
-              src={`data:${architectureDiagramBase64?.type};base64,${architectureDiagramBase64?.value}`}
-              alt="Architecture Diagram"
+            <div
               style={{
-                maxWidth: "800px",
-                maxHeight: "800px",
-                objectFit: "contain",
+                display: "inline-block",
+                background: "#FAFAF9",
               }}
-            />
+            >
+              <img
+                src={`data:${architectureDiagramBase64?.type};base64,${architectureDiagramBase64?.value}`}
+                alt="Architecture Diagram"
+                style={{
+                  maxWidth: "800px",
+                  maxHeight: "800px",
+                  objectFit: "contain",
+                  objectPosition: "center",
+                  mixBlendMode: "multiply",
+                }}
+              />
+            </div>
           )}
         </section>
-        <div>
-          <SpaceBetween direction="horizontal" size="m">
-            <Header>Description</Header>
-            <ButtonGroup
-              onItemClick={({ detail }) => {
-                if (detail.id === "edit") {
-                  setEditMode(true);
-                }
-                if (detail.id === "confirm") {
-                  setEditMode(false);
-                  updateTM("description", undefined, value);
-                }
-                if (detail.id === "cancel") {
-                  setEditMode(false);
-                  setValue(description);
-                }
-              }}
-              ariaLabel="actions"
-              items={
-                editMode
-                  ? [
-                      {
-                        type: "icon-button",
-                        id: "confirm",
-                        iconName: "check",
-                        text: "Confirm",
-                      },
-                      {
-                        type: "icon-button",
-                        id: "cancel",
-                        iconName: "close",
-                        text: "Cancel",
-                      },
-                    ]
-                  : [
-                      {
-                        type: "icon-button",
-                        id: "edit",
-                        iconName: "edit",
-                        text: "Edit",
-                      },
-                    ]
-              }
-              variant="icon"
-            />
-          </SpaceBetween>
-          <Textarea
-            placeholder="Description"
-            rows={4}
-            value={value}
-            readOnly={!editMode}
-            onChange={({ detail }) => setValue(detail.value)}
-          />
-        </div>
+
+        <DescriptionSection description={description} updateTM={updateTM} />
+
         <div style={{ height: "25px" }}></div>
         <ThreatTableComponent
           headers={["Assumption"]}
@@ -151,13 +103,11 @@ export default function ThreatModelingOutput({
         />
         <div style={{ height: "25px" }}></div>
         <SpaceBetween size="m">
-          <SpaceBetween direction="horizontal" size="xs">
+          <SpaceBetween direction="horizontal" size="xl">
             <Header counter={`(${threatCatalogData.length})`} variant="h2">
               Threat Catalog
             </Header>
-            <Button variant="link" onClick={handleModal}>
-              Add Threat
-            </Button>
+            <Button onClick={handleModal}>Add Threat</Button>
           </SpaceBetween>
           {threatCatalogData.map((item, index) => (
             <ThreatComponent
@@ -199,4 +149,6 @@ export default function ThreatModelingOutput({
       />
     </div>
   );
-}
+});
+
+export default ThreatModelingOutput;

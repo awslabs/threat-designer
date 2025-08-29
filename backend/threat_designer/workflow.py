@@ -5,17 +5,29 @@ This module defines the state graph and orchestrates the threat modeling workflo
 from typing import Any, Dict
 
 from config import ThreatModelingConfig, config
-from constants import (WORKFLOW_NODE_ASSET, WORKFLOW_NODE_FINALIZE,
-                       WORKFLOW_NODE_FLOWS, WORKFLOW_NODE_GAP_ANALYSIS,
-                       WORKFLOW_NODE_IMAGE_TO_BASE64, WORKFLOW_NODE_THREATS,
-                       WORKFLOW_ROUTE_FULL, WORKFLOW_ROUTE_REPLAY)
+from constants import (
+    WORKFLOW_NODE_ASSET,
+    WORKFLOW_NODE_FINALIZE,
+    WORKFLOW_NODE_FLOWS,
+    WORKFLOW_NODE_GAP_ANALYSIS,
+    WORKFLOW_NODE_IMAGE_TO_BASE64,
+    WORKFLOW_NODE_THREATS,
+    WORKFLOW_ROUTE_FULL,
+    WORKFLOW_ROUTE_REPLAY,
+)
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph import StateGraph
 from langgraph.types import Command
 from model_service import ModelService
-from nodes import (AssetDefinitionService, FlowDefinitionService,
-                   GapAnalysisService, ReplayService, SummaryService,
-                   ThreatDefinitionService, WorkflowFinalizationService)
+from nodes import (
+    AssetDefinitionService,
+    FlowDefinitionService,
+    GapAnalysisService,
+    ReplayService,
+    SummaryService,
+    ThreatDefinitionService,
+    WorkflowFinalizationService,
+)
 from state import AgentState, ConfigSchema
 from state_tracking_service import StateService
 

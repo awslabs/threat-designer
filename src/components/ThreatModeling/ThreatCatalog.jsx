@@ -12,8 +12,9 @@ import ButtonDropdown from "@cloudscape-design/components/button-dropdown";
 import ExpandableSection from "@cloudscape-design/components/expandable-section";
 import Box from "@cloudscape-design/components/box";
 import { ModalComponent } from "./ModalForm.jsx";
+import ToggleButton from "@cloudscape-design/components/toggle-button";
 
-export const ThreatComponent = (props) => {
+export const ThreatComponent = React.memo((props) => {
   const [items, setItems] = React.useState([]);
   React.useEffect(() => {
     setItems(props?.data?.mitigations?.map((str) => ({ label: str })));
@@ -52,6 +53,21 @@ export const ThreatComponent = (props) => {
           >
             <SpaceBetween direction="horizontal" size="m">
               <SpaceBetween direction="horizontal" size="xs">
+                <div style={{ marginTop: "-3px" }}>
+                  <ToggleButton
+                    onChange={({ detail }) =>
+                      props?.updateData(props?.type, props?.index, {
+                        ...props?.data,
+                        starred: detail.pressed,
+                      })
+                    }
+                    pressed={props?.data?.starred}
+                    ariaLabel="Favorite"
+                    iconName="star"
+                    pressedIconName="star-filled"
+                    variant="icon"
+                  />
+                </div>
                 <div>{props?.data?.name}</div>
                 <Badge color={`severity-${props?.data?.likelihood.toLowerCase()}`}>
                   {props?.data?.likelihood}
@@ -157,4 +173,4 @@ export const ThreatComponent = (props) => {
       />
     </>
   );
-};
+});

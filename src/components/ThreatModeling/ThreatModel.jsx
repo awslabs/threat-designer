@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import BreadcrumbGroup from "@cloudscape-design/components/breadcrumb-group";
 import Header from "@cloudscape-design/components/header";
@@ -16,6 +16,7 @@ import { ReplayModalComponent } from "./ReplayModal";
 import { Spinner } from "@cloudscape-design/components";
 import { InfoContent } from "../HelpPanel/InfoContent";
 import DeleteModal from "./DeleteModal";
+import { useContext } from "react";
 import {
   getThreatModelingStatus,
   getThreatModelingTrail,
@@ -50,6 +51,7 @@ const arrayToObjects = (key, stringArray) => {
 
 export const ThreatModel = ({ user }) => {
   const { id = null } = useParams();
+
   const BreadcrumbItems = [
     { text: "Threat Catalog", href: "/threat-catalog" },
     { text: `${id}`, href: `/${id}` },
@@ -72,7 +74,8 @@ export const ThreatModel = ({ user }) => {
   const navigate = useNavigate();
   const [deleteModalVisible, setDeleteModal] = useState(false);
   const { setTrail, handleHelpButtonClick, setSplitPanelOpen } = useSplitPanel();
-  const handleReplayThreatModeling = async (iteration, reasoning) => {
+
+  const handleReplayThreatModeling = async (iteration, reasoning, instructions) => {
     try {
       setIteration(0);
       setTmStatus("START");
@@ -86,7 +89,8 @@ export const ThreatModel = ({ user }) => {
         null, // description
         null, // assumptions
         true, // replay
-        id // id
+        id, // id
+        instructions // instructions
       );
 
       setTrigger(Math.floor(Math.random() * 100) + 1);
@@ -138,69 +142,73 @@ export const ThreatModel = ({ user }) => {
     navigate(e.detail.href);
   };
 
-  function updateThreatModeling(type, index, newItem) {
-    const newState = { ...response };
-    const updateArray = (array, index, newItem) => {
-      if (newItem === null) {
-        return array.filter((_, i) => i !== index);
-      } else if (index === -1) {
-        return [newItem, ...array];
-      } else {
-        return array.map((item, i) => (i === index ? newItem : item));
+  const updateThreatModeling = useCallback(
+    (type, index, newItem) => {
+      const newState = { ...response };
+
+      const updateArray = (array, index, newItem) => {
+        if (newItem === null) {
+          return array.filter((_, i) => i !== index);
+        } else if (index === -1) {
+          return [newItem, ...array];
+        } else {
+          return array.map((item, i) => (i === index ? newItem : item));
+        }
+      };
+
+      const updateAssumptions = (array, index, newItem) => {
+        if (newItem === undefined || newItem === null) {
+          return array.filter((_, i) => i !== index);
+        } else if (index === -1) {
+          return [newItem, ...array];
+        } else {
+          return array.map((item, i) => (i === index ? newItem : item));
+        }
+      };
+
+      switch (type) {
+        case "threat_sources":
+        case "trust_boundaries":
+        case "data_flows":
+          newState.item.system_architecture[type] = updateArray(
+            newState.item.system_architecture[type],
+            index,
+            newItem
+          );
+          break;
+
+        case "assets":
+          newState.item.assets.assets = updateArray(newState.item.assets.assets, index, newItem);
+          break;
+
+        case "threats":
+          newState.item.threat_list.threats = updateArray(
+            newState.item.threat_list.threats,
+            index,
+            newItem
+          );
+          break;
+
+        case "assumptions":
+          newState.item.assumptions = updateAssumptions(
+            newState.item.assumptions,
+            index,
+            newItem?.assumption
+          );
+          break;
+
+        case "description":
+          newState.item.description = newItem;
+          break;
+
+        default:
+          throw new Error(`Invalid type: ${type}`);
       }
-    };
 
-    const updateAssumptions = (array, index, newItem) => {
-      if (newItem === undefined || newItem === null) {
-        return array.filter((_, i) => i !== index);
-      } else if (index === -1) {
-        return [newItem, ...array];
-      } else {
-        return array.map((item, i) => (i === index ? newItem : item));
-      }
-    };
-
-    switch (type) {
-      case "threat_sources":
-      case "trust_boundaries":
-      case "data_flows":
-        newState.item.system_architecture[type] = updateArray(
-          newState.item.system_architecture[type],
-          index,
-          newItem
-        );
-        break;
-
-      case "assets":
-        newState.item.assets.assets = updateArray(newState.item.assets.assets, index, newItem);
-        break;
-
-      case "threats":
-        newState.item.threat_list.threats = updateArray(
-          newState.item.threat_list.threats,
-          index,
-          newItem
-        );
-        break;
-
-      case "assumptions":
-        newState.item.assumptions = updateAssumptions(
-          newState.item.assumptions,
-          index,
-          newItem?.assumption
-        );
-        break;
-
-      case "description":
-        newState.item.description = newItem;
-        break;
-
-      default:
-        throw new Error(`Invalid type: ${type}`);
-    }
-
-    setResponse(newState);
-  }
+      setResponse(newState);
+    },
+    [response, setResponse]
+  );
 
   useEffect(() => {
     let intervalId;
@@ -226,6 +234,7 @@ export const ThreatModel = ({ user }) => {
             if (!previousResponse.current) {
               previousResponse.current = JSON.parse(JSON.stringify(resultsResponse.data));
             }
+
             setState((prevState) => ({
               ...prevState,
               processing: false,
@@ -334,7 +343,6 @@ export const ThreatModel = ({ user }) => {
     const hasChanges = JSON.stringify(response) !== JSON.stringify(previousResponse.current);
     if (hasChanges) {
       showAlert("Info");
-    } else {
     }
   };
 
@@ -343,15 +351,13 @@ export const ThreatModel = ({ user }) => {
     try {
       await restoreTm(id);
       hideAlert();
-    }
-    catch (error) {
+    } catch (error) {
       setLoading(false);
       console.error("Error restoring threat modeling:", error);
-    }
-    finally {
+    } finally {
       setTrigger(Math.floor(Math.random() * 100) + 1);
     }
-  }
+  };
 
   useEffect(() => {
     if (response) {
@@ -387,6 +393,8 @@ export const ThreatModel = ({ user }) => {
             state?.results && (
               <SpaceBetween direction="horizontal" size="xs">
                 <ButtonDropdown
+                  variant="primary"
+                  expandableGroups
                   fullWidth
                   onItemClick={(itemClickDetails) => {
                     if (itemClickDetails.detail.id === "sv") {
@@ -401,20 +409,6 @@ export const ThreatModel = ({ user }) => {
                     if (itemClickDetails.detail.id === "tr") {
                       handleHelpButtonClick(<InfoContent context={"All"} />);
                     }
-                  }}
-                  items={[
-                    { text: "Save", id: "sv", disabled: false },
-                    { text: "Delete", id: "rm", disabled: false },
-                    { text: "Replay", id: "re", disabled: false },
-                    { text: "Trail", id: "tr", disabled: false },
-                  ]}
-                >
-                  Actions
-                </ButtonDropdown>
-                <ButtonDropdown
-                  variant="primary"
-                  fullWidth
-                  onItemClick={(itemClickDetails) => {
                     if (itemClickDetails.detail.id === "cp-doc") {
                       handleDownload("docx");
                     }
@@ -423,11 +417,21 @@ export const ThreatModel = ({ user }) => {
                     }
                   }}
                   items={[
-                    { text: "Docx", id: "cp-doc", disabled: false },
-                    { text: "Pdf", id: "cp-pdf", disabled: false },
+                    { text: "Save", id: "sv", disabled: false },
+                    { text: "Delete", id: "rm", disabled: false },
+                    { text: "Replay", id: "re", disabled: false },
+                    { text: "Trail", id: "tr", disabled: false },
+                    {
+                      text: "Download",
+                      id: "download",
+                      items: [
+                        { text: "Pdf", id: "cp-pdf", disabled: false },
+                        { text: "Docx", id: "cp-doc", disabled: false },
+                      ],
+                    },
                   ]}
                 >
-                  Download
+                  Actions
                 </ButtonDropdown>
               </SpaceBetween>
             )
@@ -481,9 +485,7 @@ export const ThreatModel = ({ user }) => {
                     statusIconAriaLabel={"Error"}
                     type={"error"}
                     action={
-                      <Button onClick={handleRestore}>
-                        {alertMessages[alert.state].button}
-                      </Button>
+                      <Button onClick={handleRestore}>{alertMessages[alert.state].button}</Button>
                     }
                     header={alertMessages[alert.state].title}
                   >

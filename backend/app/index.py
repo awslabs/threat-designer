@@ -4,9 +4,12 @@ import os
 from typing import Any, Dict
 
 from aws_lambda_powertools import Logger, Tracer
-from aws_lambda_powertools.event_handler import (APIGatewayRestResolver,
-                                                 CORSConfig, Response,
-                                                 content_types)
+from aws_lambda_powertools.event_handler import (
+    APIGatewayRestResolver,
+    CORSConfig,
+    Response,
+    content_types,
+)
 from aws_lambda_powertools.logging import correlation_paths
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from exceptions.exceptions import BadRequestError, InternalError, ViewError
@@ -64,9 +67,8 @@ def add_security_headers(response: Dict[str, Any]):
             "DELETE",
             "OPTIONS",
         ]
-        headers["Access-Control-Allow-Headers"] = ["Content-Type"]
+        headers["Access-Control-Allow-Headers"] = ["Content-Type", "authorization"]
         headers["Access-Control-Allow-Credentials"] = ["true"]
-    logger.info(f"Adding security headers: {response}")
     return response
 
 

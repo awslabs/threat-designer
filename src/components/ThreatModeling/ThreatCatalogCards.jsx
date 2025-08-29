@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import Box from "@cloudscape-design/components/box";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import { Link } from "@cloudscape-design/components";
@@ -16,8 +16,10 @@ import {
   getThreatModelingAllResults,
   deleteTm,
 } from "../../services/ThreatDesigner/stats";
+import SegmentedControl from "@cloudscape-design/components/segmented-control";
+import ThreatCatalogTable from "./ThreatCatalogTable";
 
-const StatusIndicatorComponent = ({ status }) => {
+export const StatusIndicatorComponent = ({ status }) => {
   switch (status) {
     case "COMPLETE":
       return <StatusIndicator type="success">Completed</StatusIndicator>;
@@ -48,6 +50,7 @@ const StatusComponponent = ({ id }) => {
       setStatus("FAILED");
     }
   };
+
   useEffect(() => {
     handleRefresh();
   }, []);
@@ -66,6 +69,26 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      const savedViewMode = localStorage.getItem("threatCatalogViewMode");
+      return savedViewMode && ["card", "table"].includes(savedViewMode) ? savedViewMode : "card";
+    } catch (error) {
+      console.error("Error reading from localStorage:", error);
+      return "card";
+    }
+  });
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("threatCatalogViewMode", viewMode);
+    } catch (error) {
+      console.error("Error saving to localStorage:", error);
+    }
+  }, [viewMode]);
 
   const removeItem = (idToRemove) => {
     setResults(results.filter((item) => item.job_id !== idToRemove));
@@ -94,8 +117,6 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
     fetchAllResults();
   }, [user]);
 
-  const navigate = useNavigate();
-
   const handleDelete = async (id) => {
     setDeletingId(id);
     try {
@@ -110,155 +131,182 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
 
   const createGridDefinition = () => {
     const gridDefinition = [];
-
     results.forEach(() => {
       gridDefinition.push({
         colspan: { default: 12, xxs: 12, xs: 12, s: 12, m: 6, l: 6, xl: 6 },
       });
     });
-
     return gridDefinition;
   };
 
+  const renderCardView = () => (
+    <Grid gridDefinition={createGridDefinition()}>
+      {results.map((item) => (
+        <div key={item.job_id} style={{ height: 250 }}>
+          {deletingId === item.job_id ? (
+            <Container fitHeight>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  height: "100%",
+                }}
+              >
+                <Spinner size="large" />
+              </div>
+            </Container>
+          ) : (
+            <Container
+              key={item.job_id}
+              media={{
+                content: <S3DownloaderComponent fileName={item?.s3_location} />,
+                position: "side",
+                width: "40%",
+              }}
+              fitHeight
+              header={
+                <Header
+                  variant="h2"
+                  actions={
+                    <ButtonDropdown
+                      onItemClick={(itemClickDetails) => {
+                        if (itemClickDetails.detail.id === "delete") {
+                          handleDelete(item.job_id);
+                        }
+                      }}
+                      items={[{ id: "delete", text: "Delete", disabled: false }]}
+                      variant="icon"
+                    />
+                  }
+                  style={{ width: "100%", overflow: "hidden" }}
+                >
+                  <Link
+                    variant="primary"
+                    href={`/${item.job_id}`}
+                    fontSize="heading-m"
+                    onFollow={(event) => {
+                      event.preventDefault();
+                      navigate(`/${item.job_id}`);
+                    }}
+                  >
+                    {item?.title || "Untitled"}
+                  </Link>
+                </Header>
+              }
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "100%",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-start",
+                    padding: "0 0 10px 0",
+                  }}
+                >
+                  <Box
+                    variant="small"
+                    color="text-body-secondary"
+                    style={{
+                      overflow: "hidden",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: "vertical",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {item?.summary || "No summary available"}
+                  </Box>
+                </div>
+
+                <div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      width: "100%",
+                    }}
+                  >
+                    <div>
+                      <Box variant="awsui-key-label">Status</Box>
+                      <StatusComponponent id={item?.job_id} />
+                    </div>
+                    <div>
+                      <Box variant="awsui-key-label" textAlign="left">
+                        Threats
+                      </Box>
+                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                        <SpaceBetween direction="horizontal" size="xs">
+                          <Badge color="severity-high">
+                            {item?.threat_list?.threats
+                              ? item.threat_list.threats.filter(
+                                  (threat) => threat.likelihood === "High"
+                                ).length || "-"
+                              : "-"}
+                          </Badge>
+                          <Badge color="severity-medium">
+                            {item?.threat_list?.threats
+                              ? item.threat_list.threats.filter(
+                                  (threat) => threat.likelihood === "Medium"
+                                ).length || "-"
+                              : "-"}
+                          </Badge>
+                          <Badge color="severity-low">
+                            {item?.threat_list?.threats
+                              ? item.threat_list.threats.filter(
+                                  (threat) => threat.likelihood === "Low"
+                                ).length || "-"
+                              : "-"}
+                          </Badge>
+                        </SpaceBetween>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Container>
+          )}
+        </div>
+      ))}
+    </Grid>
+  );
+
   return (
     <SpaceBetween size="s">
-      <Header variant="h1">Threat Catalog</Header>
       <div style={{ marginTop: 20 }}>
         {loading ? (
           <SpaceBetween alignItems="center">
             <Spinner size="large" />
           </SpaceBetween>
         ) : results.length > 0 ? (
-          <Grid gridDefinition={createGridDefinition()}>
-            {results.map((item) => (
-              <div key={item.job_id} style={{ height: 250 }}>
-                {deletingId === item.job_id ? (
-                  <Container fitHeight>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        height: "100%",
-                      }}
-                    >
-                      <Spinner size="large" />
-                    </div>
-                  </Container>
-                ) : (
-                  <Container
-                    key={item.job_id}
-                    media={{
-                      content: <S3DownloaderComponent fileName={item?.s3_location} />,
-                      position: "side",
-                      width: "40%",
-                    }}
-                    fitHeight
-                    header={
-                      <Header
-                        variant="h2"
-                        actions={
-                          <ButtonDropdown
-                            onItemClick={(itemClickDetails) => {
-                              if (itemClickDetails.detail.id === "delete") {
-                                handleDelete(item.job_id);
-                              }
-                            }}
-                            items={[{ id: "delete", text: "Delete", disabled: false }]}
-                            variant="icon"
-                          />
-                        }
-                        style={{ width: "100%", overflow: "hidden" }}
-                      >
-                        <Link fontSize="heading-m" onFollow={() => navigate(`/${item.job_id}`)}>
-                          {item?.title || "Untitled"}
-                        </Link>
-                      </Header>
-                    }
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        height: "100%",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <div
-                        style={{
-                          flex: 1,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "flex-start",
-                          padding: "0 0 10px 0",
-                        }}
-                      >
-                        <Box
-                          variant="small"
-                          color="text-body-secondary"
-                          style={{
-                            overflow: "hidden",
-                            display: "-webkit-box",
-                            WebkitLineClamp: 3,
-                            WebkitBoxOrient: "vertical",
-                            textOverflow: "ellipsis",
-                          }}
-                        >
-                          {item?.summary || "No summary available"}
-                        </Box>
-                      </div>
+          <SpaceBetween size="l">
+            <SegmentedControl
+              selectedId={viewMode}
+              onChange={({ detail }) => {
+                setViewMode(detail.selectedId);
+              }}
+              label="View mode"
+              options={[
+                { text: "Card view", id: "card", iconName: "view-full" },
+                { text: "Table view", id: "table", iconName: "menu" },
+              ]}
+            />
 
-                      <div>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "flex-start",
-                            width: "100%",
-                          }}
-                        >
-                          <div>
-                            <Box variant="awsui-key-label">Status</Box>
-                            <StatusComponponent id={item?.job_id} />
-                          </div>
-                          <div>
-                            <Box variant="awsui-key-label" textAlign="left">
-                              Threats
-                            </Box>
-                            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                              <SpaceBetween direction="horizontal" size="xs">
-                                <Badge color="severity-high">
-                                  {item?.threat_list?.threats
-                                    ? item.threat_list.threats.filter(
-                                        (threat) => threat.likelihood === "High"
-                                      ).length || "-"
-                                    : "-"}
-                                </Badge>
-                                <Badge color="severity-medium">
-                                  {item?.threat_list?.threats
-                                    ? item.threat_list.threats.filter(
-                                        (threat) => threat.likelihood === "Medium"
-                                      ).length || "-"
-                                    : "-"}
-                                </Badge>
-                                <Badge color="severity-low">
-                                  {item?.threat_list?.threats
-                                    ? item.threat_list.threats.filter(
-                                        (threat) => threat.likelihood === "Low"
-                                      ).length || "-"
-                                    : "-"}
-                                </Badge>
-                              </SpaceBetween>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Container>
-                )}
-              </div>
-            ))}
-          </Grid>
+            {viewMode === "card" ? (
+              renderCardView()
+            ) : (
+              <ThreatCatalogTable results={results} onItemsChange={setResults} loading={loading} />
+            )}
+          </SpaceBetween>
         ) : (
           <Box margin={{ vertical: "xs" }} textAlign="center" color="inherit">
             <SpaceBetween size="m">

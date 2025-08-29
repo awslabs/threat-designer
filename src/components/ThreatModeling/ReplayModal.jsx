@@ -4,10 +4,12 @@ import { Button, SpaceBetween, FormField, Select, Box } from "@cloudscape-design
 import Alert from "@cloudscape-design/components/alert";
 import { I18nProvider } from "@cloudscape-design/components/i18n";
 import Slider from "@cloudscape-design/components/slider";
+import Textarea from "@cloudscape-design/components/textarea";
 
 export const ReplayModalComponent = ({ handleReplay, visible, setVisible, setSplitPanelOpen }) => {
   const [iteration, setIteration] = useState({ label: "Auto", value: 0 });
   const [reasoning, setReasoning] = useState("0");
+  const [text, setText] = useState(null);
   const isReasoningEnabled = import.meta.env.VITE_REASONING_ENABLED === "true";
 
   return (
@@ -21,9 +23,9 @@ export const ReplayModalComponent = ({ handleReplay, visible, setVisible, setSpl
             <Button
               onClick={() => {
                 setSplitPanelOpen(false);
-                handleReplay(iteration?.value, reasoning);
+                handleReplay(iteration?.value, reasoning, text);
               }}
-              variant="link"
+              variant="primary"
             >
               Replay
             </Button>
@@ -81,6 +83,22 @@ export const ReplayModalComponent = ({ handleReplay, visible, setVisible, setSpl
               step={1}
             />
           </FormField>
+          {/* <div style={{ minHeight: 200 }}> */}
+          <FormField
+            label={
+              <span>
+                Additional instructions <i>- optional</i>{" "}
+              </span>
+            }
+            description="Provide additional instructions to instruct the agent."
+          >
+            <Textarea
+              onChange={({ detail }) => setText(detail.value)}
+              value={text}
+              placeholder="Add your instructions"
+            />
+          </FormField>
+          {/* </div> */}
         </SpaceBetween>
       </SpaceBetween>
     </Modal>

@@ -1,0 +1,34 @@
+default_agent: agent
+agents:
+  agent:
+    name: agent
+    entrypoint: agent.py
+    platform: linux/arm64
+    container_runtime: docker
+    aws:
+      execution_role: arn:aws:iam::541020177866:role/agent-core
+      execution_role_auto_create: true
+      account: "541020177866"
+      region: us-east-1
+      ecr_repository: 541020177866.dkr.ecr.us-east-1.amazonaws.com/bedrock-agentcore-agent
+      ecr_auto_create: false
+      network_configuration:
+        network_mode: PUBLIC
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: true
+    bedrock_agentcore:
+      agent_id: agent-UUfBGsBktn
+      agent_arn: arn:aws:bedrock-agentcore:us-east-1:541020177866:runtime/agent-UUfBGsBktn
+      agent_session_id: null
+    codebuild:
+      project_name: bedrock-agentcore-agent-builder
+      execution_role: arn:aws:iam::541020177866:role/AmazonBedrockAgentCoreSDKCodeBuild-us-east-1-d4f0bc5a29
+      source_bucket: bedrock-agentcore-codebuild-sources-541020177866-us-east-1
+    authorizer_configuration:
+      customJWTAuthorizer:
+        discoveryUrl: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_BUe423DH5/.well-known/openid-configuration
+        allowedClients:
+          - 292n8dds4dsi9hj27emjle1b6i
+    oauth_configuration: null

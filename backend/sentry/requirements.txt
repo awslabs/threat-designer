@@ -1,0 +1,9 @@
+
+langgraph==0.6.3
+langchain==0.3.27
+langchain-aws==0.2.30
+langgraph-checkpoint-aws==0.1.1
+uv==0.8.4
+uvicorn[standard]==0.35.0
+fastapi==0.116.1
+httpx==0.28.1

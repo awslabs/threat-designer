@@ -1,0 +1,83 @@
+.thinking-container {
+  position: relative;
+  width: 100%;
+}
+
+.thinking-content-area {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* Line container */
+.thinking-line-container {
+  position: relative;
+  width: 12px;
+  flex-shrink: 0;
+  margin-top: 5px; /* Slightly more spacing */
+}
+
+/* Line mask for animation */
+.thinking-line-mask {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Content container */
+.thinking-content-container {
+  flex: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.thinking-content-container.collapsed {
+  max-height: 0 !important;
+  opacity: 0;
+}
+
+.thinking-content-container.expanded {
+  opacity: 1;
+}
+
+/* Content wrapper - just enough padding */
+.thinking-content-wrapper {
+  padding: 6px 2px 0 2px; /* 5px top and bottom padding as requested */
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.thinking-content-container.collapsed .thinking-content-wrapper {
+  transform: translateY(-10px);
+}
+
+.thinking-content-container.expanded .thinking-content-wrapper {
+  transform: translateY(0);
+}
+
+/* Remove any additional margins from content */
+.thinking-content-wrapper :first-child {
+  margin-top: 0 !important;
+}
+
+.thinking-content-wrapper :last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Line and dot styles */
+.thinking-line-segment-static {
+  transition: opacity 0.2s ease;
+}
+
+.thinking-line-dot-static {
+  transition: opacity 0.2s ease;
+}
+
+/* Smooth text rendering */
+.thinking-content-wrapper {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  will-change: transform, opacity;
+}

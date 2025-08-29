@@ -18,6 +18,7 @@ import {
 } from "../../services/ThreatDesigner/stats";
 import SegmentedControl from "@cloudscape-design/components/segmented-control";
 import ThreatCatalogTable from "./ThreatCatalogTable";
+import { ChatSessionFunctionsContext } from "../Agent/ChatContext";
 
 export const StatusIndicatorComponent = ({ status }) => {
   switch (status) {
@@ -69,6 +70,7 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const functions = useContext(ChatSessionFunctionsContext);
 
   const [viewMode, setViewMode] = useState(() => {
     try {
@@ -122,6 +124,7 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
     try {
       const results = await deleteTm(id);
       removeItem(id);
+      await functions.clearSession(id);
     } catch (error) {
       console.error("Error deleting threat model:", error);
     } finally {

@@ -9,18 +9,26 @@ from typing import Any, Dict
 
 import boto3
 from config import ThreatModelingConfig
-from constants import (ENV_AGENT_STATE_TABLE, ENV_ARCHITECTURE_BUCKET,
-                       ENV_TRACEBACK_ENABLED, ERROR_INVALID_REASONING_TYPE,
-                       ERROR_INVALID_REASONING_VALUE,
-                       ERROR_MISSING_REQUIRED_FIELDS, ERROR_VALIDATION_FAILED,
-                       HTTP_STATUS_BAD_REQUEST,
-                       HTTP_STATUS_INTERNAL_SERVER_ERROR, HTTP_STATUS_OK,
-                       HTTP_STATUS_UNPROCESSABLE_ENTITY, REASONING_DISABLED,
-                       VALID_REASONING_VALUES, JobState)
+from constants import (
+    ENV_AGENT_STATE_TABLE,
+    ENV_ARCHITECTURE_BUCKET,
+    ENV_TRACEBACK_ENABLED,
+    ERROR_INVALID_REASONING_TYPE,
+    ERROR_INVALID_REASONING_VALUE,
+    ERROR_MISSING_REQUIRED_FIELDS,
+    ERROR_VALIDATION_FAILED,
+    HTTP_STATUS_BAD_REQUEST,
+    HTTP_STATUS_INTERNAL_SERVER_ERROR,
+    HTTP_STATUS_OK,
+    HTTP_STATUS_UNPROCESSABLE_ENTITY,
+    REASONING_DISABLED,
+    VALID_REASONING_VALUES,
+    JobState,
+)
 from exceptions import ThreatModelingError, ValidationError
 from model_utils import initialize_models
 from monitoring import logger, operation_context, with_error_context
-from state import AgentState, AssetsList, FlowsList
+from state import AgentState, AssetsList, FlowsList, ThreatsList
 from utils import fetch_results, parse_s3_image_to_base64, update_job_state
 from workflow import ConfigSchema, agent
 
@@ -77,6 +85,7 @@ def _initialize_state(event: Dict[str, Any], job_id: str) -> AgentState:
         state = AgentState()
         state["job_id"] = job_id
         state["iteration"] = event.get("iteration", REASONING_DISABLED)
+        state["instructions"] = (event.get("instructions") or "").strip() or None
 
         replay_mode = event.get("replay", False)
         logger.info(
@@ -117,12 +126,22 @@ def _handle_replay_state(state: AgentState, job_id: str) -> AgentState:
             else None
         )
 
+        threat_list_data = item["threat_list"].copy()
+        threat_list_data["threats"] = [
+            threat
+            for threat in threat_list_data["threats"]
+            if threat.get("starred", False)
+        ]
+
+        threat_list = ThreatsList(**threat_list_data)
+
         state.update(
             {
                 "replay": True,
                 "summary": item.get("summary"),
                 "assets": assets,
                 "system_architecture": system_architecture,
+                "threat_list": threat_list,
                 "retry": 1,
                 "image_data": parse_s3_image_to_base64(S3_BUCKET, item["s3_location"]),
                 "description": item.get("description", ""),

@@ -16,6 +16,7 @@ import { ReplayModalComponent } from "./ReplayModal";
 import { Spinner } from "@cloudscape-design/components";
 import { InfoContent } from "../HelpPanel/InfoContent";
 import DeleteModal from "./DeleteModal";
+import { useContext } from "react";
 import {
   getThreatModelingStatus,
   getThreatModelingTrail,
@@ -50,6 +51,7 @@ const arrayToObjects = (key, stringArray) => {
 
 export const ThreatModel = ({ user }) => {
   const { id = null } = useParams();
+
   const BreadcrumbItems = [
     { text: "Threat Catalog", href: "/threat-catalog" },
     { text: `${id}`, href: `/${id}` },
@@ -72,7 +74,8 @@ export const ThreatModel = ({ user }) => {
   const navigate = useNavigate();
   const [deleteModalVisible, setDeleteModal] = useState(false);
   const { setTrail, handleHelpButtonClick, setSplitPanelOpen } = useSplitPanel();
-  const handleReplayThreatModeling = async (iteration, reasoning) => {
+
+  const handleReplayThreatModeling = async (iteration, reasoning, instructions) => {
     try {
       setIteration(0);
       setTmStatus("START");
@@ -86,7 +89,8 @@ export const ThreatModel = ({ user }) => {
         null, // description
         null, // assumptions
         true, // replay
-        id // id
+        id, // id
+        instructions // instructions
       );
 
       setTrigger(Math.floor(Math.random() * 100) + 1);
@@ -230,6 +234,7 @@ export const ThreatModel = ({ user }) => {
             if (!previousResponse.current) {
               previousResponse.current = JSON.parse(JSON.stringify(resultsResponse.data));
             }
+
             setState((prevState) => ({
               ...prevState,
               processing: false,
@@ -338,7 +343,6 @@ export const ThreatModel = ({ user }) => {
     const hasChanges = JSON.stringify(response) !== JSON.stringify(previousResponse.current);
     if (hasChanges) {
       showAlert("Info");
-    } else {
     }
   };
 

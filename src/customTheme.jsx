@@ -3,6 +3,8 @@ const customTheme = {
     colorBackgroundLayoutMain: {
       dark: "#18181B",
       light: "#FAFAF9",
+      dark: "#18181B",
+      light: "#FAFAF9",
     },
     colorBackgroundContainerContent: {
       dark: "#1D1D20",
@@ -11,8 +13,16 @@ const customTheme = {
     colorBackgroundPopover: {
       dark: "#1D1D20",
       light: "#F5F5F4",
+      dark: "#1D1D20",
+      light: "#F5F5F4",
+    },
+    colorBackgroundPopover: {
+      dark: "#1D1D20",
+      light: "#F5F5F4",
     },
     colorBackgroundContainerHeader: {
+      dark: "#1D1D20",
+      light: "#F5F5F4",
       dark: "#1D1D20",
       light: "#F5F5F4",
     },
@@ -35,6 +45,7 @@ const customTheme = {
       dark: "#171D25",
     },
     colorBackgroundInputDefault: {
+      dark: "#222225",
       dark: "#222225",
     },
     colorBackgroundHomeHeader: {
@@ -108,8 +119,8 @@ const customTheme = {
       light: "#FAFAF9",
     },
     colorTextDropdownItemDefault: {
-      light: "#79716b",
-      dark: "#949495",
+      light: "#101828",
+      dark: "#FFFFFF",
     },
     colorBackgroundButtonNormalHover: {
       light: "#ececec",
@@ -179,6 +190,23 @@ const customTheme = {
       light: "#858585",
       dark: "#949494",
     },
+    colorBackgroundChatBubbleIncoming: {
+      light: "#E9E9E8",
+      dark: "#2A2A2C",
+    },
+
+    // colorBorderDropdownItemFocused: {
+    //   light: "transparent",
+    //   dark: "#000000",
+    // },
+    // colorBorderDropdownItemHover: {
+    //   light: "transparent",
+    //   dark: "#000000",
+    // },
+    // colorBorderItemSelected: {
+    //   light: "transparent",
+    //   dark: "#000000",
+    // },
   },
   contexts: {
     "top-navigation": {
@@ -241,8 +269,8 @@ const customTheme = {
           light: "#FAFAF9",
         },
         colorTextDropdownItemDefault: {
-          light: "#79716b",
-          dark: "#949495",
+          light: "#101828",
+          dark: "#FFFFFF",
         },
         colorBorderDropdownItemFocused: {
           light: "#FFFFFF",

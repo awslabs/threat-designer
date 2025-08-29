@@ -10,6 +10,7 @@ import customTheme from "./customTheme";
 import "@cloudscape-design/global-styles/index.css";
 import { applyMode, Mode } from "@cloudscape-design/global-styles";
 import { applyTheme } from "@cloudscape-design/components/theming";
+import { ThemeProvider } from "./components/ThemeContext";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -18,6 +19,20 @@ const App = () => {
   const [colorMode, setColorMode] = useState(() => {
     const savedMode = localStorage.getItem("colorMode");
     return savedMode || "system";
+  });
+
+  // Make effectiveTheme a state variable
+  const [effectiveTheme, setEffectiveTheme] = useState(() => {
+    const getSystemTheme = () => {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    };
+    const getEffectiveTheme = (mode) => {
+      if (mode === "system") {
+        return getSystemTheme();
+      }
+      return mode;
+    };
+    return getEffectiveTheme(colorMode);
   });
 
   const getSystemTheme = () => {
@@ -30,8 +45,6 @@ const App = () => {
     }
     return mode;
   };
-
-  const effectiveTheme = getEffectiveTheme(colorMode);
 
   const setThemeMode = (mode) => {
     const validModes = ["SYSTEM", "LIGHT", "DARK"];
@@ -49,16 +62,18 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    const effectiveTheme = getEffectiveTheme(colorMode);
-    applyMode(effectiveTheme === "light" ? Mode.Light : Mode.Dark);
+    const newEffectiveTheme = getEffectiveTheme(colorMode);
+    setEffectiveTheme(newEffectiveTheme);
+    applyMode(newEffectiveTheme === "light" ? Mode.Light : Mode.Dark);
     localStorage.setItem("colorMode", colorMode);
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
     const handleSystemThemeChange = () => {
       if (colorMode === "system") {
-        const newEffectiveTheme = getEffectiveTheme(colorMode);
-        applyMode(newEffectiveTheme === "light" ? Mode.Light : Mode.Dark);
+        const updatedEffectiveTheme = getEffectiveTheme(colorMode);
+        setEffectiveTheme(updatedEffectiveTheme); // Update the state
+        applyMode(updatedEffectiveTheme === "light" ? Mode.Light : Mode.Dark);
       }
     };
 
@@ -99,16 +114,22 @@ const App = () => {
           </div>
         </SpaceBetween>
       ) : authUser ? (
-        <SplitPanelProvider>
-          <TopNavigationMFE
-            user={authUser}
-            setAuthUser={checkAuthState}
-            colorMode={colorMode}
-            setThemeMode={setThemeMode}
-            effectiveTheme={effectiveTheme}
-          />
-          <AppLayoutMFE user={authUser} colorMode={colorMode} setThemeMode={setThemeMode} />
-        </SplitPanelProvider>
+        <ThemeProvider
+          colorMode={colorMode}
+          effectiveTheme={effectiveTheme}
+          setThemeMode={setThemeMode}
+        >
+            <SplitPanelProvider>
+              <TopNavigationMFE
+                user={authUser}
+                setAuthUser={checkAuthState}
+                colorMode={colorMode}
+                setThemeMode={setThemeMode}
+                effectiveTheme={effectiveTheme}
+              />
+              <AppLayoutMFE user={authUser} colorMode={colorMode} setThemeMode={setThemeMode} />
+            </SplitPanelProvider>
+        </ThemeProvider>
       ) : (
         <LoginPageInternal setAuthUser={checkAuthState} />
       )}

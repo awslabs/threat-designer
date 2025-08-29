@@ -4,9 +4,12 @@ import os
 from typing import Any, Dict
 
 from aws_lambda_powertools import Logger, Tracer
-from aws_lambda_powertools.event_handler import (APIGatewayRestResolver,
-                                                 CORSConfig, Response,
-                                                 content_types)
+from aws_lambda_powertools.event_handler import (
+    APIGatewayRestResolver,
+    CORSConfig,
+    Response,
+    content_types,
+)
 from aws_lambda_powertools.logging import correlation_paths
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from exceptions.exceptions import BadRequestError, InternalError, ViewError

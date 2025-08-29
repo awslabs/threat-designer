@@ -1,11 +1,18 @@
 """Configuration management for the Threat Designer Agent."""
 
-from constants import (DEFAULT_MAX_EXECUTION_TIME_MINUTES, DEFAULT_MAX_RETRY,
-                       DEFAULT_REASONING_ENABLED, DEFAULT_SUMMARY_MAX_WORDS,
-                       ENV_AGENT_STATE_TABLE, MAX_EXECUTION_TIME_MINUTES,
-                       MAX_RETRY_COUNT, MAX_SUMMARY_WORDS,
-                       MIN_EXECUTION_TIME_MINUTES, MIN_RETRY_COUNT,
-                       MIN_SUMMARY_WORDS)
+from constants import (
+    DEFAULT_MAX_EXECUTION_TIME_MINUTES,
+    DEFAULT_MAX_RETRY,
+    DEFAULT_REASONING_ENABLED,
+    DEFAULT_SUMMARY_MAX_WORDS,
+    ENV_AGENT_STATE_TABLE,
+    MAX_EXECUTION_TIME_MINUTES,
+    MAX_RETRY_COUNT,
+    MAX_SUMMARY_WORDS,
+    MIN_EXECUTION_TIME_MINUTES,
+    MIN_RETRY_COUNT,
+    MIN_SUMMARY_WORDS,
+)
 from pydantic import Field
 from pydantic_settings import BaseSettings
 

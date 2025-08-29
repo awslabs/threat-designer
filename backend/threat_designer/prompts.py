@@ -10,9 +10,12 @@ Each function generates specialized prompts for different phases of the threat m
 - Response structuring
 """
 
-from constants import (THREAT_DESCRIPTION_MAX_WORDS,
-                       THREAT_DESCRIPTION_MIN_WORDS, LikelihoodLevel,
-                       StrideCategory)
+from constants import (
+    THREAT_DESCRIPTION_MAX_WORDS,
+    THREAT_DESCRIPTION_MIN_WORDS,
+    LikelihoodLevel,
+    StrideCategory,
+)
 
 
 def _get_stride_categories_string() -> str:
@@ -188,7 +191,7 @@ def flow_prompt() -> str:
     return [{"type": "text", "text": main_prompt}]
 
 
-def gap_prompt() -> str:
+def gap_prompt(instructions: str = None) -> str:
     main_prompt = f"""
    <task>
    You are an expert in all security domains and threat modeling. Your goal is to validate the comprehensiveness of a provided threat catalog for a given architecture. You'll assess the threat model against the STRIDE framework and identify any gaps in coverage, ensuring the threat catalog reflects plausible threats grounded in the described architecture and context.
@@ -314,10 +317,17 @@ def gap_prompt() -> str:
    </instructions>
       """
 
+    instructions_prompt = f"""\n<important_instructions>
+         {instructions}
+         </important_instructions>
+      """
+
+    if instructions:
+        return [{"type": "text", "text": instructions_prompt + main_prompt}]
     return [{"type": "text", "text": main_prompt}]
 
 
-def threats_improve_prompt() -> str:
+def threats_improve_prompt(instructions: str = None) -> str:
     main_prompt = f"""
    <task>
    You are an expert in all security domains and threat modeling. Your goal is to enrich an existing threat catalog by identifying new threats that may have been missed, using the STRIDE model. Your output must reflect plausible threats grounded in the described architecture and context. Avoid overly speculative or technically unrealistic scenarios.
@@ -411,10 +421,17 @@ def threats_improve_prompt() -> str:
    </instructions>
    """
 
+    instructions_prompt = f"""\n<important_instructions>
+         {instructions}
+         </important_instructions>
+      """
+
+    if instructions:
+        return [{"type": "text", "text":instructions_prompt + main_prompt}]
     return [{"type": "text", "text": main_prompt}]
 
 
-def threats_prompt() -> str:
+def threats_prompt(instructions: str = None) -> str:
     main_prompt = f"""
    <task>
    You are an expert in all security domains and threat modeling. Your goal is to generate a focused, comprehensive, and realistic list of security threats for a given architecture by analyzing the provided inputs, using the STRIDE model. Your output must reflect plausible threats grounded in the described architecture and context. Avoid overly speculative or technically unrealistic scenarios.
@@ -503,6 +520,13 @@ def threats_prompt() -> str:
    </instructions>
    """
 
+    instructions_prompt = f"""\n<important_instructions>
+         {instructions}
+         </important_instructions>
+      """
+
+    if instructions:
+        return [{"type": "text", "text": instructions_prompt + main_prompt}]
     return [{"type": "text", "text": main_prompt}]
 
 

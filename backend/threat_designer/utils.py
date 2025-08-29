@@ -10,20 +10,33 @@ import decimal
 import os
 import traceback
 from datetime import datetime, timezone
-from typing import (Any, Callable, Dict, List, Optional, ParamSpec, TypeVar,
-                    Union)
+from typing import Any, Callable, Dict, List, Optional, ParamSpec, TypeVar, Union
 
 import boto3
 import structlog
 from botocore.exceptions import ClientError
-from constants import (AWS_SERVICE_DYNAMODB, AWS_SERVICE_S3, DB_FIELD_ASSETS,
-                       DB_FIELD_BACKUP, DB_FIELD_FLOWS, DB_FIELD_GAPS,
-                       DB_FIELD_ID, DB_FIELD_JOB_ID, DB_FIELD_RETRY,
-                       DB_FIELD_STATE, DB_FIELD_THREATS, DB_FIELD_TIMESTAMP,
-                       DEFAULT_REGION, ENV_AGENT_TRAIL_TABLE, ENV_AWS_REGION,
-                       ENV_JOB_STATUS_TABLE, ERROR_DYNAMODB_OPERATION_FAILED,
-                       ERROR_MISSING_ENV_VAR, ERROR_S3_OPERATION_FAILED,
-                       FLUSH_MODE_REPLACE)
+from constants import (
+    AWS_SERVICE_DYNAMODB,
+    AWS_SERVICE_S3,
+    DB_FIELD_ASSETS,
+    DB_FIELD_BACKUP,
+    DB_FIELD_FLOWS,
+    DB_FIELD_GAPS,
+    DB_FIELD_ID,
+    DB_FIELD_JOB_ID,
+    DB_FIELD_RETRY,
+    DB_FIELD_STATE,
+    DB_FIELD_THREATS,
+    DB_FIELD_TIMESTAMP,
+    DEFAULT_REGION,
+    ENV_AGENT_TRAIL_TABLE,
+    ENV_AWS_REGION,
+    ENV_JOB_STATUS_TABLE,
+    ERROR_DYNAMODB_OPERATION_FAILED,
+    ERROR_MISSING_ENV_VAR,
+    ERROR_S3_OPERATION_FAILED,
+    FLUSH_MODE_REPLACE,
+)
 from exceptions import DynamoDBError, S3Error, ThreatModelingError
 from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import BaseMessage

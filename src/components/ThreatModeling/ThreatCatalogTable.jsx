@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import Box from "@cloudscape-design/components/box";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import { Link } from "@cloudscape-design/components";
@@ -47,7 +47,9 @@ export const ThreatCatalogTable = ({ results, onItemsChange }) => {
   const handleBulkDelete = async () => {
     setDeleteInProgress(true);
     try {
-      const deletePromises = selectedItems.map((item) => deleteTm(item.job_id));
+      const deletePromises = selectedItems.map((item) => {
+        (deleteTm(item.job_id));
+      });
       await Promise.all(deletePromises);
 
       const idsToRemove = selectedItems.map((item) => item.job_id);

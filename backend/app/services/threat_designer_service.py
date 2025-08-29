@@ -8,8 +8,7 @@ import boto3
 from aws_lambda_powertools import Logger, Tracer
 from botocore.config import Config
 from botocore.exceptions import ClientError
-from exceptions.exceptions import (InternalError, NotFoundError,
-                                   UnauthorizedError)
+from exceptions.exceptions import InternalError, NotFoundError, UnauthorizedError
 from utils.utils import create_dynamodb_item
 
 STATE = os.environ.get("JOB_STATUS_TABLE")
@@ -210,6 +209,7 @@ def invoke_lambda(owner, payload):
     s3_location = payload.get("s3_location")
     iteration = payload.get("iteration")
     reasoning = payload.get("reasoning", 0)
+    instructions = payload.get("instructions", None)
     if payload.get("replay", False):
         id = payload.get("id")
     else:
@@ -232,6 +232,7 @@ def invoke_lambda(owner, payload):
                     "owner": owner,
                     "title": title,
                     "replay": payload.get("replay", False),
+                    "instructions": instructions,
                 }
             ),
         )

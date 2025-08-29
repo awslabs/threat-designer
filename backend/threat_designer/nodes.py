@@ -5,8 +5,12 @@ from datetime import datetime
 from typing import Any, Dict
 
 from config import ThreatModelingConfig
-from constants import (FINALIZATION_SLEEP_SECONDS, FLUSH_MODE_APPEND,
-                       FLUSH_MODE_REPLACE, JobState)
+from constants import (
+    FINALIZATION_SLEEP_SECONDS,
+    FLUSH_MODE_APPEND,
+    FLUSH_MODE_REPLACE,
+    JobState,
+)
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph import END
@@ -14,10 +18,22 @@ from langgraph.types import Command
 from message_builder import MessageBuilder, list_to_string
 from model_service import ModelService
 from monitoring import logger, operation_context, with_error_context
-from prompts import (asset_prompt, flow_prompt, gap_prompt, summary_prompt,
-                     threats_improve_prompt, threats_prompt)
-from state import (AgentState, AssetsList, ContinueThreatModeling, FlowsList,
-                   SummaryState, ThreatsList)
+from prompts import (
+    asset_prompt,
+    flow_prompt,
+    gap_prompt,
+    summary_prompt,
+    threats_improve_prompt,
+    threats_prompt,
+)
+from state import (
+    AgentState,
+    AssetsList,
+    ContinueThreatModeling,
+    FlowsList,
+    SummaryState,
+    ThreatsList,
+)
 from state_tracking_service import StateService
 
 
@@ -217,6 +233,11 @@ class ThreatDefinitionService:
     def _prepare_threat_messages(self, state: AgentState, retry_count: int) -> list:
         """Prepare messages for threat definition."""
         gap = state.get("gap", [])
+        threat_list = state.get("threat_list")
+        if threat_list is not None:
+            threats = threat_list.threats
+        else:
+            threats = []
 
         msg_builder = MessageBuilder(
             state["image_data"],
@@ -224,17 +245,26 @@ class ThreatDefinitionService:
             list_to_string(state.get("assumptions", [])),
         )
 
-        if retry_count > 1:
+        if retry_count > 1 or len(threats) > 0:
             human_message = msg_builder.create_threat_improve_message(
                 state["assets"], state["system_architecture"], state["threat_list"], gap
             )
-            system_prompt = SystemMessage(content=threats_improve_prompt())
+            if state.get("replay") and state.get("instructions"):
+                system_prompt = SystemMessage(
+                    content=threats_improve_prompt(state.get("instructions"))
+                )
+            else:
+                system_prompt = SystemMessage(content=threats_improve_prompt())
         else:
             human_message = msg_builder.create_threat_message(
                 state["assets"], state["system_architecture"]
             )
-            system_prompt = SystemMessage(content=threats_prompt())
-
+            if state.get("replay") and state.get("instructions"):
+                system_prompt = SystemMessage(
+                    content=threats_prompt(state.get("instructions"))
+                )
+            else:
+                system_prompt = SystemMessage(content=threats_improve_prompt())
         return [system_prompt, human_message]
 
     @with_error_context("threat node execution")
@@ -317,7 +347,10 @@ class GapAnalysisService:
             state.get("gap", []),
         )
 
-        system_prompt = SystemMessage(content=gap_prompt())
+        if state.get("replay") and state.get("instructions"):
+            system_prompt = SystemMessage(content=gap_prompt(state.get("instructions")))
+        else:
+            system_prompt = SystemMessage(content=gap_prompt())
 
         return [system_prompt, human_message]
 

@@ -60,7 +60,7 @@ variable "model_main" {
     max_tokens  = number
   })
   default = {
-    id          = "us.anthropic.claude-sonnet-4-20250514-v1:0"
+    id          = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
     max_tokens  = 64000
   }
 }
@@ -71,7 +71,7 @@ variable "model_struct" {
     max_tokens  = number
   })
   default = {
-    id          = "us.anthropic.claude-sonnet-4-20250514-v1:0"
+    id          = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
     max_tokens  = 64000
   }
 }
@@ -82,7 +82,7 @@ variable "model_summary" {
     max_tokens  = number
   })
   default = {
-    id          = "us.anthropic.claude-sonnet-4-20250514-v1:0"
+    id          = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
     max_tokens  = 4000
   }
 }

@@ -7,10 +7,14 @@ from contextlib import contextmanager
 from typing import Generator
 
 import structlog
-from constants import (ENV_LOG_LEVEL, ENV_TRACEBACK_ENABLED,
-                       ERROR_DYNAMODB_OPERATION_FAILED,
-                       ERROR_MODEL_INIT_FAILED, ERROR_S3_OPERATION_FAILED,
-                       ERROR_VALIDATION_FAILED)
+from constants import (
+    ENV_LOG_LEVEL,
+    ENV_TRACEBACK_ENABLED,
+    ERROR_DYNAMODB_OPERATION_FAILED,
+    ERROR_MODEL_INIT_FAILED,
+    ERROR_S3_OPERATION_FAILED,
+    ERROR_VALIDATION_FAILED,
+)
 from exceptions import ThreatModelingError
 
 log_level_str = os.environ.get(ENV_LOG_LEVEL, "INFO").upper()

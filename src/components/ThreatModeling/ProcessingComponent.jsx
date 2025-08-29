@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import "./ThreatModeling.css";
 import threats from "./images/threats.svg";
 import assets from "./images/assets.svg";
@@ -12,14 +12,14 @@ export default function Processing({ status, iteration, id }) {
     isMobile: false,
     isTablet: false,
   });
-  const [loading, setLoading] = useState(false);
   const [imageVisible, setImageVisible] = useState(false);
-  const [textVisible, setTextVisible] = useState(false);
   const [currentOption, setCurrentOption] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
-  const handleViewportChange = ({ isMobile, isTablet }) => {
+
+  // Memoize the handleViewportChange function
+  const handleViewportChange = useCallback(({ isMobile, isTablet }) => {
     setViewport({ isMobile, isTablet });
-  };
+  }, []);
 
   const options = useMemo(
     () => ({
@@ -47,48 +47,50 @@ export default function Processing({ status, iteration, id }) {
     []
   );
 
-  const steps = [
-    {
-      icon: <Thinking />,
-      title: "Processing",
-      subtitle: "Initiating threat modeling",
-    },
-    {
-      icon: <Assets />,
-      title: "Assets",
-      subtitle: "Identifying assets",
-    },
-    {
-      icon: <Flows />,
-      title: "Data flows",
-      subtitle: "Identifying data flows",
-    },
-    {
-      icon: <Threats />,
-      title: `Threats ${iteration !== 0 ? `(${iteration})` : ""}`,
-      subtitle: "Cataloging threats",
-    },
-    {
-      icon: <Complete />,
-      title: "Completing",
-      subtitle: "Finalizing threat model",
-    },
-  ];
+  // Memoize the steps array
+  const steps = useMemo(
+    () => [
+      {
+        icon: <Thinking />,
+        title: "Processing",
+        subtitle: "Initiating threat modeling",
+      },
+      {
+        icon: <Assets />,
+        title: "Assets",
+        subtitle: "Identifying assets",
+      },
+      {
+        icon: <Flows />,
+        title: "Data flows",
+        subtitle: "Identifying data flows",
+      },
+      {
+        icon: <Threats />,
+        title: `Threats ${iteration !== 0 ? `(${iteration})` : ""}`,
+        subtitle: "Cataloging threats",
+      },
+      {
+        icon: <Complete />,
+        title: "Completing",
+        subtitle: "Finalizing threat model",
+      },
+    ],
+    [iteration]
+  ); // Include iteration as dependency since it affects the title
 
   useEffect(() => {
-    if (!loading && status) {
+    if (status) {
       const newOption = options[status] || options.START;
       setCurrentOption(newOption);
       setCurrentStep(newOption.currentStep);
       setImageVisible(false);
-      setTextVisible(false);
 
       setTimeout(() => {
         setImageVisible(true);
-        setTextVisible(true);
       }, 50);
     }
-  }, [status, loading, options]);
+  }, [status, options]);
 
   return (
     <>

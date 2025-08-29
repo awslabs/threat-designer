@@ -10,10 +10,10 @@ const GenAiButton = ({ children, onClick, className = "", loading = false, disab
     background:
       loading || disabled
         ? "linear-gradient(90deg, #700080 0%, #3d1ab3 50%, #002baf 100%)"
-        : "linear-gradient(90deg, #a000b8 0%, #5724ff 50%, #003efa 100%)",
+        : "radial-gradient(circle farthest-corner at top right, #b8e7ff 0%, #0099ff 25%, #5c7fff 40% , #8575ff 60%, #962eff 80%)",
     padding: "4px 20px 4px 20px",
     border: "none",
-    borderRadius: "20px",
+    borderRadius: "10px",
     color: "white",
     cursor: loading || disabled ? "not-allowed" : "pointer",
     position: "relative",
@@ -30,7 +30,7 @@ const GenAiButton = ({ children, onClick, className = "", loading = false, disab
     inset: 0,
     background: loading || disabled ? "rgba(0,0,0,0.4)" : "transparent",
     transition: "background-color 0.2s",
-    borderRadius: "20px",
+    borderRadius: "10px",
     pointerEvents: "none",
   };
 

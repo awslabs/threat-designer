@@ -32,7 +32,8 @@ async function startThreatModeling(
   description = null,
   assumptions = null,
   replay = false,
-  id = null
+  id = null,
+  instructions = null
 ) {
   const statsPath = "";
   const postData = {
@@ -44,6 +45,7 @@ async function startThreatModeling(
     replay,
     id,
     reasoning,
+    instructions,
   };
   return instance.post(statsPath, postData);
 }

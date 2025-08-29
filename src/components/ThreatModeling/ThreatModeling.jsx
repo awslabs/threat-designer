@@ -21,6 +21,7 @@ export default function ThreatModeling({ user }) {
   const handleBase64Change = (base64) => {
     setBase64Content(base64);
   };
+  console.log("rendering");
 
   const handleStartThreatModeling = async (title, description, assumptions) => {
     setLoading(true);

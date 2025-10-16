@@ -1,0 +1,507 @@
+.chat-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.dropdown-content-container {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 8px;
+  z-index: 1000;
+  animation: slideUp 0.3s ease-out;
+  pointer-events: auto;
+}
+
+.dropdown-content-container.closing {
+  animation: slideDown 0.2s ease-in forwards;
+  pointer-events: none;
+}
+
+.dropdown-content {
+  background: var(--bg-secondary, #ffffff);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: 350px;
+
+  overscroll-behavior: contain;
+
+  /* Hide scrollbar - all browsers */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.dropdown-content::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+  width: 0;
+  height: 0;
+}
+
+.dropdown-content > * {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+@keyframes slideUp {
+  0% {
+    opacity: 0;
+    margin-bottom: -2px;
+  }
+  100% {
+    opacity: 1;
+    margin-bottom: 8px;
+  }
+}
+
+@keyframes slideDown {
+  0% {
+    opacity: 1;
+    margin-bottom: 8px;
+  }
+  100% {
+    opacity: 0;
+    margin-bottom: -2px;
+  }
+}
+
+.chat-input-container {
+  width: 100%;
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 auto;
+  transition: all 0.2s ease;
+}
+
+.chat-textarea {
+  width: 100%;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1.5;
+  padding: 8px 0;
+  resize: none;
+  outline: none;
+  min-height: 24px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  transition: all 0.2s ease;
+  border: none;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.chat-textarea::-webkit-scrollbar {
+  display: none;
+}
+
+.chat-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.button-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.optional-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.action-button {
+  background: transparent;
+  padding: 8px;
+  border-radius: 10px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  font-weight: 500;
+  min-height: 36px;
+}
+
+.action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Toggle button specific styles */
+.action-button.toggle-button {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: stretch;
+  flex-direction: row;
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.action-button.toggle-button .button-main-content {
+  display: flex;
+  align-items: center;
+  gap: 0px;
+  transition: all 0.2s ease;
+  flex: 1;
+  border-radius: 10px 0 0 10px;
+  background: transparent;
+}
+
+/* Separator line */
+.button-separator {
+  display: inline-block;
+  width: 1px;
+  padding: 0;
+  height: 24px;
+  background-color: rgba(255, 255, 255, 0.2);
+  margin: 0;
+  align-self: center;
+  transition: all 0.4s ease;
+}
+
+/* Dropdown arrow */
+.dropdown-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 10px 8px 4px;
+  cursor: pointer;
+  border-radius: 0 10px 10px 0;
+  background: transparent;
+}
+
+.dropdown-arrow:hover {
+  background: yellow;
+  border-color: #2a3540;
+}
+
+.action-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+
+.action-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.button-label {
+  font-weight: 500;
+  margin-left: 4px;
+  font-size: 14px;
+}
+
+.action-button:not(.toggle-button) .button-main-content {
+  display: flex;
+  align-items: center;
+  gap: 0px;
+}
+
+.send-button {
+  border: none;
+  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.send-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.send-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.send-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.stop-button {
+  border: none;
+  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.stop-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.stop-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.stop-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Dark theme styles */
+.chat-input-wrapper.dark .dropdown-content {
+  background: #18181b;
+  border: none;
+  width: fit-content;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.chat-input-container.dark {
+  background: #18181b;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.chat-input-container.dark .chat-textarea {
+  color: #e0e0e0;
+}
+
+.chat-input-container.dark .chat-textarea::placeholder {
+  color: #6b6b6b;
+}
+
+.chat-input-container.dark .action-button {
+  border: none;
+  color: #a0a0a0;
+  background: transparent;
+}
+
+.chat-input-container.dark .action-button:hover:not(:disabled) {
+  background: #333;
+  border-color: #555;
+  color: #d0d0d0;
+}
+
+.chat-input-container.dark .action-button.dropdown-open {
+  background-color: #3a3a3a;
+}
+
+.chat-input-container.dark .dropdown-arrow:hover {
+  background: #2a3540;
+  border-color: #2a3540;
+}
+
+/* Dark theme toggle button styles */
+.chat-input-container.dark .action-button.toggle-button {
+  border: none;
+  background: transparent;
+}
+
+.chat-input-container.dark .action-button.toggle-button:hover:not(:disabled) {
+  background: #333;
+  border-color: #555;
+}
+
+.chat-input-container.dark .action-button.toggle-button.toggled {
+  background: #252e36;
+  border-color: #252e36;
+  color: #42b4ff;
+  padding: 0px 0px 0px 8px;
+  gap: 6px;
+}
+
+.chat-input-container.dark .action-button.toggle-button.toggled .button-main-content {
+  color: #42b4ff;
+}
+
+.chat-input-container.dark .action-button.toggle-button.toggled .button-separator {
+  background-color: rgba(66, 180, 255, 0.3);
+  padding: 0;
+}
+
+.chat-input-container.dark .action-button.toggle-button.toggled:hover {
+  background: #2a3540;
+  border-color: #2a3540;
+}
+
+.chat-input-container.dark .send-button {
+  background: #3a3a3a;
+}
+
+.chat-input-container.dark .send-button:hover:not(:disabled) {
+  background: #4a4a4a;
+}
+
+.chat-input-container.dark .send-button svg {
+  color: #d0d0d0;
+}
+
+.chat-input-container.dark .stop-button {
+  background: #3a3a3a;
+}
+
+.chat-input-container.dark .stop-button:hover:not(:disabled) {
+  background: #4a4a4a;
+}
+
+.chat-input-container.dark .stop-button svg {
+  color: white;
+}
+
+/* Light theme styles */
+.chat-input-wrapper.light .dropdown-content {
+  background: #ffffff;
+  border: none;
+  width: fit-content;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.chat-input-container.light {
+  background: #ffffff;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.chat-input-container.light .chat-textarea {
+  color: #333333;
+}
+
+.chat-input-container.light .chat-textarea::placeholder {
+  color: #999999;
+}
+
+.chat-input-container.light .action-button {
+  border: none;
+  color: #666666;
+  background: transparent;
+}
+
+.chat-input-container.light .action-button:hover:not(:disabled) {
+  background: #f5f5f5;
+  border-color: #d0d0d0;
+  color: #333333;
+}
+
+.chat-input-container.light .action-button.dropdown-open {
+  background-color: #f0f0f0;
+}
+
+.chat-input-container.light .dropdown-arrow:hover {
+  background: #e1f3ff;
+  border-color: #e1f3ff;
+}
+
+/* Light theme toggle button styles */
+.chat-input-container.light .action-button.toggle-button {
+  border: none;
+  background: transparent;
+}
+
+.chat-input-container.light .action-button.toggle-button:hover:not(:disabled) {
+  background: #f0f0f0;
+  border-color: #d0d0d0;
+}
+
+.chat-input-container.light .action-button.toggle-button.toggled {
+  background: #f1faff;
+  border-color: #f1faff;
+  color: #006ce0;
+  padding: 0px 0px 0px 8px;
+}
+
+.chat-input-container.light .action-button.toggle-button.toggled .button-main-content {
+  color: #006ce0;
+}
+
+.chat-input-container.light .action-button.toggle-button.toggled .button-separator {
+  background-color: rgba(0, 108, 224, 0.3);
+}
+
+.chat-input-container.light .action-button.toggle-button.toggled:hover {
+  background: #e1f3ff;
+  border-color: #e1f3ff;
+}
+
+.chat-input-container.light .send-button {
+  background: #14110f;
+}
+
+.chat-input-container.light .send-button:hover:not(:disabled) {
+  background: #312c2b;
+}
+
+.chat-input-container.light .send-button svg {
+  color: white;
+}
+
+.chat-input-container.light .stop-button {
+  background: #14110f;
+}
+
+.chat-input-container.light .stop-button:hover:not(:disabled) {
+  background: #312c2b;
+}
+
+.chat-input-container.light .stop-button svg {
+  color: white;
+}
+
+/* Optional: Custom scrollbar styling when visible */
+@media (min-width: 768px) {
+  .chat-textarea {
+    scrollbar-width: thin;
+  }
+
+  .chat-textarea::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+  }
+
+  .chat-textarea::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .chat-input-container.dark .chat-textarea::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 3px;
+  }
+
+  .chat-input-container.dark .chat-textarea::-webkit-scrollbar-thumb:hover {
+    background: #666;
+  }
+
+  .chat-input-container.light .chat-textarea::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 3px;
+  }
+
+  .chat-input-container.light .chat-textarea::-webkit-scrollbar-thumb:hover {
+    background: #bbb;
+  }
+}

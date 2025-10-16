@@ -1,0 +1,181 @@
+.status-container {
+  border-radius: 10px;
+  border: 1px solid;
+  padding: 6px 10px;
+  transition:
+    width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.3s ease,
+    border-color 0.3s ease;
+  width: 200px;
+  margin-bottom: 16px;
+  margin-top: 16px;
+  backdrop-filter: blur(4px);
+
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(128, 128, 128, 0.4);
+  color: #333;
+}
+
+.status-container:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(128, 128, 128, 0.6);
+}
+
+.status-container.dark {
+  background-color: rgba(40, 40, 40, 0.2);
+  border-color: rgba(180, 180, 180, 0.4);
+  color: #e0e0e0;
+}
+
+.status-container.dark:hover {
+  background-color: rgba(40, 40, 40, 0.3);
+  border-color: rgba(180, 180, 180, 0.6);
+}
+
+/* Width expansion triggered by state */
+.status-container.width-expanded:not(.no-children) {
+  width: 100%;
+  max-width: 600px;
+}
+
+.status-container.expanded {
+  width: 100%;
+  max-width: 600px;
+}
+
+.status-container.no-children {
+  width: fit-content !important;
+}
+
+.status-container.loading {
+  width: fit-content;
+}
+
+/* Rest of your CSS stays the same... */
+.status-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  min-width: 24px;
+  height: 24px;
+  font-size: 14px;
+  flex: 1;
+}
+
+.status-content {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.expand-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    transform 0.2s ease,
+    opacity 0.3s ease;
+  opacity: 0;
+  border-radius: 4px;
+  animation: fadeInButton 0.3s ease forwards;
+}
+
+@keyframes fadeInButton {
+  to {
+    opacity: 1;
+  }
+}
+
+.arrow-icon {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  color: inherit;
+}
+
+.arrow-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.expanded-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition:
+    grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.3s ease;
+  opacity: 0;
+}
+
+.expanded-content.show {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.expanded-content-inner {
+  overflow: hidden;
+  overflow-y: scroll;
+  max-height: 300px;
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 1px solid rgba(128, 128, 128, 0.3);
+
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide scrollbar for IE, Edge and Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.expanded-content.dark .expanded-content-inner {
+  border-color: rgba(180, 180, 180, 0.3);
+}
+
+.status-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.status-list-item {
+  padding: 8px 12px;
+  margin: 4px 0;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #555;
+}
+
+.status-list-item:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.expanded-content.dark .status-list-item {
+  background-color: rgba(40, 40, 40, 0.3);
+  color: #b0b0b0;
+}
+
+.expanded-content.dark .status-list-item:hover {
+  background-color: rgba(40, 40, 40, 0.4);
+}
+
+.status-text {
+  display: inline-block;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+  white-space: nowrap;
+}

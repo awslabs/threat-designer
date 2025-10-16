@@ -3,7 +3,6 @@ import decimal
 import json
 import os
 import uuid
-
 import boto3
 from aws_lambda_powertools import Logger, Tracer
 from botocore.config import Config
@@ -13,6 +12,7 @@ from utils.utils import create_dynamodb_item
 
 STATE = os.environ.get("JOB_STATUS_TABLE")
 FUNCTION = os.environ.get("THREAT_MODELING_LAMBDA")
+AGENT_CORE_RUNTIME = os.environ.get("THREAT_MODELING_AGENT")
 AGENT_TABLE = os.environ.get("AGENT_STATE_TABLE")
 AGENT_TRAIL_TABLE = os.environ.get("AGENT_TRAIL_TABLE")
 ARCHITECTURE_BUCKET = os.environ.get("ARCHITECTURE_BUCKET")
@@ -20,6 +20,7 @@ REGION = os.environ.get("REGION")
 dynamodb = boto3.resource("dynamodb")
 lambda_client = boto3.client("lambda")
 s3_client = boto3.client("s3")
+agent_core_client = boto3.client("bedrock-agentcore")
 
 
 s3_pre = boto3.client(
@@ -218,21 +219,41 @@ def invoke_lambda(owner, payload):
     assumptions = payload.get("assumptions", [])
     title = payload.get("title", " ")
     try:
-        lambda_client.invoke(
-            FunctionName=FUNCTION,
-            InvocationType="Event",
-            Payload=json.dumps(
+        # lambda_client.invoke(
+        #     FunctionName=FUNCTION,
+        #     InvocationType="Event",
+        #     Payload=json.dumps(
+        #         {
+        #             "s3_location": s3_location,
+        #             "id": id,
+        #             "reasoning": reasoning,
+        #             "iteration": iteration,
+        #             "description": description,
+        #             "assumptions": assumptions,
+        #             "owner": owner,
+        #             "title": title,
+        #             "replay": payload.get("replay", False),
+        #             "instructions": instructions,
+        #         }
+        #     ),
+        # )
+        agent_core_client.invoke_agent_runtime(
+            agentRuntimeArn=AGENT_CORE_RUNTIME,
+            runtimeSessionId=str(uuid.uuid4()),
+            payload=json.dumps(
                 {
-                    "s3_location": s3_location,
-                    "id": id,
-                    "reasoning": reasoning,
-                    "iteration": iteration,
-                    "description": description,
-                    "assumptions": assumptions,
-                    "owner": owner,
-                    "title": title,
-                    "replay": payload.get("replay", False),
-                    "instructions": instructions,
+                    "input": {
+                        "s3_location": s3_location,
+                        "id": id,
+                        "reasoning": reasoning,
+                        "iteration": iteration,
+                        "description": description,
+                        "assumptions": assumptions,
+                        "owner": owner,
+                        "title": title,
+                        "replay": payload.get("replay", False),
+                        "instructions": instructions,
+                    }
                 }
             ),
         )

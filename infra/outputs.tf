@@ -40,14 +40,21 @@ output "temporary_password" {
   sensitive = true
 }
 
-output "main_model_id" {
-  value = var.model_main.id
-}
 
 output "reasoning_models" {
   value = var.reasoning_models
 }
 
 output "reasoning_enabled" {
-  value = contains(var.reasoning_models, var.model_main.id) ? "true" : "false"
+  value = alltrue([
+    contains(var.reasoning_models, var.model_main.assets.id),
+    contains(var.reasoning_models, var.model_main.flows.id),
+    contains(var.reasoning_models, var.model_main.gaps.id),
+    contains(var.reasoning_models, var.model_main.threats.id)
+  ]) ? "true" : "false"
+}
+
+output "agent_runtime_arn_escaped" {
+  description = "URL-encoded ARN of the Bedrock agent runtime"
+  value       = try(urlencode(aws_bedrockagentcore_agent_runtime.sentry.agent_runtime_arn), "")
 }

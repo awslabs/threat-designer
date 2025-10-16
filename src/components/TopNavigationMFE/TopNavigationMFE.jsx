@@ -114,7 +114,7 @@ function TopNavigationMFE({ user, setAuthUser, colorMode, setThemeMode, effectiv
                   <a href="/" style={{ textDecoration: "none" }}>
                     <img
                       src={Shield}
-                      alt="Security Center"
+                      alt="Threat Designer"
                       style={{
                         height: "24px",
                         marginTop: "0px",

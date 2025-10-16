@@ -12,6 +12,7 @@ import Modal from "@cloudscape-design/components/modal";
 import { useNavigate } from "react-router";
 import { getThreatModelingStatus, deleteTm } from "../../services/ThreatDesigner/stats";
 import { StatusIndicatorComponent } from "./ThreatCatalogCards";
+import { ChatSessionFunctionsContext } from "../Agent/ChatContext";
 
 const TableStatusComponent = ({ id }) => {
   const [status, setStatus] = useState("LOADING");
@@ -40,6 +41,7 @@ export const ThreatCatalogTable = ({ results, onItemsChange }) => {
   const [deleteInProgress, setDeleteInProgress] = useState(false);
   const [sortingColumn, setSortingColumn] = useState({ sortingField: "timestamp" });
   const [sortingDescending, setSortingDescending] = useState(true);
+  const functions = useContext(ChatSessionFunctionsContext);
 
   const pageSize = 25;
   const navigate = useNavigate();
@@ -48,7 +50,7 @@ export const ThreatCatalogTable = ({ results, onItemsChange }) => {
     setDeleteInProgress(true);
     try {
       const deletePromises = selectedItems.map((item) => {
-        (deleteTm(item.job_id));
+        (deleteTm(item.job_id), functions.clearSession(item.job_id));
       });
       await Promise.all(deletePromises);
 

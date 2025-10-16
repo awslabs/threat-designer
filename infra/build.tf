@@ -26,22 +26,22 @@ data "archive_file" "authorizer_lambda_code_zip" {
 }
 
 
-data "archive_file" "td_lambda_code_zip" {
-  type        = "zip"
-  source_dir  = "build/threat_designer_code"
-  output_path = "build/threat_designer.zip"
+# data "archive_file" "td_lambda_code_zip" {
+#   type        = "zip"
+#   source_dir  = "build/threat_designer_code"
+#   output_path = "build/threat_designer.zip"
 
-  depends_on = [null_resource.build]
-}
+#   depends_on = [null_resource.build]
+# }
 
 
-data "archive_file" "lambda_layer_langchain" {
-  type        = "zip"
-  source_dir  = "build/langchain_code"
-  output_path = "build/langchain.zip"
+# data "archive_file" "lambda_layer_langchain" {
+#   type        = "zip"
+#   source_dir  = "build/langchain_code"
+#   output_path = "build/langchain.zip"
 
-  depends_on = [null_resource.build]
-}
+#   depends_on = [null_resource.build]
+# }
 
 # Create zip file from local data
 data "archive_file" "lambda_layer_authorization" {
@@ -51,12 +51,3 @@ data "archive_file" "lambda_layer_authorization" {
 
   depends_on = [null_resource.build]
 }
-
-# # Create zip file from local data
-# data "archive_file" "lambda_layer_backend" {
-#   type        = "zip"
-#   source_dir  = "build/backend_deps_code"
-#   output_path = "build/backend_deps.zip"
-
-#   depends_on = [null_resource.build]
-# }

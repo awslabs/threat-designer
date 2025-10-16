@@ -1,7 +1,7 @@
 """
 AWS utility functions for handling DynamoDB operations, and AI model interactions.
-Provides functionality for state management, image processing, and error handling
-in AWS Lambda environments. Includes tools for working with Amazon Bedrock and structured data.
+Provides functionality for state management, image processing, and error handling.
+Includes tools for working with Amazon Bedrock and structured data.
 """
 
 import base64

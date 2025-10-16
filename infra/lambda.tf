@@ -1,71 +1,3 @@
-resource "aws_lambda_function" "threat_designer" {
-  filename                       = data.archive_file.td_lambda_code_zip.output_path
-  source_code_hash               = data.archive_file.td_lambda_code_zip.output_base64sha256
-  function_name    = "${local.prefix}-lambda"
-  role            = aws_iam_role.threat_designer_role.arn
-  handler         = "index.lambda_handler"
-  runtime         = local.python_version
-  memory_size     = 2048
-  publish         = true
-  timeout         = 900
-  
-  tracing_config {
-    mode = "Active"
-  }
-  
-  environment {
-    variables = {
-      AGENT_STATE_TABLE   = aws_dynamodb_table.threat_designer_state.id,
-      JOB_STATUS_TABLE    = aws_dynamodb_table.threat_designer_status.id,
-      AGENT_TRAIL_TABLE   = aws_dynamodb_table.threat_designer_trail.id,
-      REGION              = var.region,
-      LOG_LEVEL           = var.log_level,
-      TRACEBACK_ENABLED   = var.traceback_enabled,
-      ARCHITECTURE_BUCKET = aws_s3_bucket.architecture_bucket.id,
-      MAIN_MODEL          = jsonencode(var.model_main)
-      MODEL_STRUCT        = jsonencode(var.model_struct)
-      MODEL_SUMMARY       = jsonencode(var.model_summary)
-      REASONING_MODELS    = jsonencode(var.reasoning_models)
-    }
-  }
-
-  depends_on = [
-    null_resource.build
-  ]
-  layers = [ local.powertools_layer_arn, aws_lambda_layer_version.lambda_layer_langchain.arn]
-}
-
-resource "aws_iam_role" "threat_designer_role" {
-  name = "${local.prefix}-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy" "lambda_tm_policy" {
-  name = "${local.prefix}-policy"
-  role = aws_iam_role.threat_designer_role.id
-  policy = templatefile("${path.module}/templates/threat_designer_lambda_role_policy.json", {
-    state_table_arn = aws_dynamodb_table.threat_designer_state.arn,
-    trail_table_arn = aws_dynamodb_table.threat_designer_trail.arn,
-    status_table_arn = aws_dynamodb_table.threat_designer_status.arn,
-    architecture_bucket = aws_s3_bucket.architecture_bucket.arn
-  })
-}
-
-
-
-
 #======================== Backend Lambda ======================
 
 resource "aws_lambda_function" "backend" {
@@ -85,7 +17,8 @@ resource "aws_lambda_function" "backend" {
       REGION                 = var.region,
       PORTAL_REDIRECT_URL    = "https://${aws_amplify_branch.develop.branch_name}.${aws_amplify_app.threat-designer.default_domain}"
       TRUSTED_ORIGINS        = "https://${aws_amplify_branch.develop.branch_name}.${aws_amplify_app.threat-designer.default_domain}, http://localhost:5173"
-      THREAT_MODELING_LAMBDA = aws_lambda_function.threat_designer.id,
+      # THREAT_MODELING_LAMBDA = aws_lambda_function.threat_designer.id,
+      THREAT_MODELING_AGENT  = aws_bedrockagentcore_agent_runtime.threat_designer.agent_runtime_arn, 
       AGENT_STATE_TABLE      = aws_dynamodb_table.threat_designer_state.id,
       AGENT_TRAIL_TABLE      = aws_dynamodb_table.threat_designer_trail.id,
       JOB_STATUS_TABLE       = aws_dynamodb_table.threat_designer_status.id,
@@ -98,6 +31,7 @@ resource "aws_lambda_function" "backend" {
   }
   layers = [local.powertools_layer_arn]
 }
+
 
 resource "aws_iam_role" "threat_designer_api_role" {
   name = "${local.prefix}-api-role"
@@ -123,7 +57,7 @@ resource "aws_iam_role_policy" "lambda_threat_designer_api_policy" {
     state_table_arn = aws_dynamodb_table.threat_designer_state.arn,
     status_table_arn = aws_dynamodb_table.threat_designer_status.arn,
     architecture_bucket = aws_s3_bucket.architecture_bucket.arn,
-    threat_modeling_lambda = aws_lambda_function.threat_designer.arn,
+    threat_modeling_agent = aws_bedrockagentcore_agent_runtime.threat_designer.agent_runtime_arn,
     trail_table_arn = aws_dynamodb_table.threat_designer_trail.arn
   })
 }

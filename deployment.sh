@@ -215,6 +215,7 @@ deploy_backend() {
     # Extract values from terraform output
     if ! APP_ID=$(terraform output -raw amplify_app_id) || \
        ! VITE_APP_ENDPOINT=$(terraform output -raw api_endpoint) || \
+       ! VITE_APP_SENTRY=$(terraform output -raw agent_runtime_arn_escaped) || \
        ! VITE_COGNITO_REGION=$(terraform output -raw region) || \
        ! VITE_USER_POOL_ID=$(terraform output -raw user_pool_id) || \
        ! VITE_APP_CLIENT_ID=$(terraform output -raw app_client_id) || \
@@ -233,6 +234,7 @@ deploy_backend() {
     # Create .env file
     cat > .env << EOF
 VITE_APP_ENDPOINT=$VITE_APP_ENDPOINT
+VITE_APP_SENTRY=$VITE_APP_SENTRY
 VITE_COGNITO_REGION=$VITE_COGNITO_REGION
 VITE_USER_POOL_ID=$VITE_USER_POOL_ID
 VITE_APP_CLIENT_ID=$VITE_APP_CLIENT_ID

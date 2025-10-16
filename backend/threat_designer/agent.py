@@ -1,13 +1,19 @@
 """
-AWS Lambda handler for threat modeling analysis.
+Threat Designer entry point
 """
 
-import json
 import os
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, Dict
-
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from models import InvocationRequest
+from fastapi.middleware.cors import CORSMiddleware
 import boto3
+import time
+from threading import Lock
 from config import ThreatModelingConfig
 from constants import (
     ENV_AGENT_STATE_TABLE,
@@ -19,7 +25,6 @@ from constants import (
     ERROR_VALIDATION_FAILED,
     HTTP_STATUS_BAD_REQUEST,
     HTTP_STATUS_INTERNAL_SERVER_ERROR,
-    HTTP_STATUS_OK,
     HTTP_STATUS_UNPROCESSABLE_ENTITY,
     REASONING_DISABLED,
     VALID_REASONING_VALUES,
@@ -36,9 +41,57 @@ dynamodb = boto3.resource("dynamodb")
 S3_BUCKET = os.environ.get(ENV_ARCHITECTURE_BUCKET)
 AGENT_TABLE = os.environ.get(ENV_AGENT_STATE_TABLE)
 
+# Create a thread pool executor for background tasks
+executor = ThreadPoolExecutor(max_workers=10)
 
 # Initialize configuration
 threat_config = ThreatModelingConfig()
+
+# Track active invocation requests
+invocation_lock = Lock()
+active_invocations = 0
+
+last_known_status = None
+last_status_update_time = time.time()
+
+
+def _run_agent_async(state: Dict, config: Dict, job_id: str, agent_config: Dict):
+    """
+    Run the agent in a background thread.
+    """
+    try:
+        with operation_context("agent_execution", job_id):
+            logger.info(
+                "Starting threat modeling analysis in background",
+                job_id=job_id,
+                reasoning=agent_config["reasoning"],
+                iteration=state.get("iteration", 0),
+            )
+
+            # Execute the threat modeling workflow
+            agent.invoke(state, config=config)
+
+            logger.info(
+                "Threat modeling completed successfully",
+                job_id=job_id,
+                execution_time_seconds=(
+                    datetime.now() - agent_config["start_time"]
+                ).total_seconds(),
+            )
+
+    except ThreatModelingError as e:
+        _handle_error_response(e, job_id, HTTP_STATUS_UNPROCESSABLE_ENTITY)
+
+    except Exception as e:
+        _handle_error_response(e, job_id, HTTP_STATUS_INTERNAL_SERVER_ERROR)
+    finally:
+        # Decrement active invocations counter
+        with invocation_lock:
+            global active_invocations
+            active_invocations -= 1
+        logger.info(
+            "Background invocation completed", active_invocations=active_invocations
+        )
 
 
 @with_error_context("create agent configuration")
@@ -47,7 +100,7 @@ def _create_agent_config(event: Dict[str, Any]) -> ConfigSchema:
     Create configuration for the threat modeling agent.
 
     Args:
-        event: Lambda event containing configuration parameters
+        event: event containing configuration parameters
 
     Returns:
         ConfigSchema: Properly typed configuration for the agent
@@ -62,7 +115,10 @@ def _create_agent_config(event: Dict[str, Any]) -> ConfigSchema:
     )
 
     return {
-        "model_main": models["main_model"],
+        "model_assets": models["assets_model"],
+        "model_flows": models["flows_model"],
+        "model_threats": models["threats_model"],
+        "model_gaps": models["gaps_model"],
         "model_struct": models["struct_model"],
         "model_summary": models["summary_model"],
         "start_time": datetime.now(),
@@ -75,7 +131,7 @@ def _initialize_state(event: Dict[str, Any], job_id: str) -> AgentState:
     Initialize the agent state for threat modeling analysis.
 
     Args:
-        event: The Lambda event containing job configuration
+        event: event containing job configuration
         job_id: Unique identifier for the analysis job
 
     Returns:
@@ -169,7 +225,7 @@ def _handle_new_state(state: AgentState, event: Dict[str, Any]) -> AgentState:
 
     Args:
         state: Current agent state
-        event: Lambda event with job configuration
+        event: event with job configuration
 
     Returns:
         AgentState: Initialized state for new analysis
@@ -213,10 +269,10 @@ def _handle_new_state(state: AgentState, event: Dict[str, Any]) -> AgentState:
 @with_error_context("validate event")
 def _validate_event(event: Dict[str, Any]) -> None:
     """
-    Validate the incoming Lambda event.
+    Validate the incoming event.
 
     Args:
-        event: Lambda event to validate
+        event: event to validate
 
     Raises:
         ValidationError: If required fields are missing or invalid
@@ -301,46 +357,80 @@ def _handle_error_response(
 
     user_message = error_messages.get(error_type, "Internal server error occurred")
 
-    return {
-        "statusCode": status_code,
-        "body": json.dumps(
-            {"error": user_message, "message": error_msg, "job_id": job_id}
-        ),
-    }
-
-
-def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
-    """
-    AWS Lambda handler for threat modeling analysis using the refactored agent.
-
-    Args:
-        event: Lambda event containing job configuration
-        context: Lambda context object
-
-    Returns:
-        Dict: Response containing status code and execution result
-    """
-    job_id = None
-    request_id = getattr(context, "aws_request_id", "unknown")
-
-    logger.info(
-        "Lambda handler invoked",
-        request_id=request_id,
-        function_name=getattr(context, "function_name", "unknown"),
-        remaining_time_ms=getattr(context, "get_remaining_time_in_millis", lambda: 0)(),
+    return JSONResponse(
+        {"error": user_message, "message": error_msg, "job_id": job_id},
+        status_code=status_code,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        },
     )
 
+
+# Initialize FastAPI app
+app = FastAPI(title="Threat Designer Agent Server", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET, POST, OPTIONS"],
+    allow_headers=["*"],
+)
+
+
+@app.options("/invocations")
+async def handle_options():
+    return {"message": "OK"}
+
+
+@app.get("/ping")
+async def ping():
+    global active_invocations, last_known_status, last_status_update_time
+
+    with invocation_lock:
+        # Determine current status
+        if active_invocations > 0:
+            current_status = "HealthyBusy"
+        else:
+            current_status = "Healthy"
+
+        # Update timestamp only when status changes
+        if last_known_status != current_status:
+            last_known_status = current_status
+            last_status_update_time = time.time()
+
+        return JSONResponse(
+            {
+                "status": current_status,
+                "time_of_last_update": int(last_status_update_time),
+            }
+        )
+
+
+@app.post("/invocations")
+async def handler(request: InvocationRequest, http_request: Request) -> Dict[str, Any]:
+    """
+    Handler for threat modeling analysis using the refactored agent.
+    Returns immediately after starting the process.
+
+    Args:
+        request: InvocationRequest containing job configuration
+        http_request: FastAPI Request object
+
+    Returns:
+        Dict: Response containing status code and job acceptance
+    """
+
+    global active_invocations
+    job_id = None
+    event = request.input
+
     try:
-        # Validate incoming event
-        _validate_event(event)
         job_id = event["id"]
 
-        with operation_context("lambda_handler", job_id):
-            logger.info(
-                "Processing threat modeling request",
-                job_id=job_id,
-                request_id=request_id,
-            )
+        with operation_context("handler", job_id):
+            logger.info("Processing threat modeling request", job_id=job_id)
 
             # Create agent configuration
             agent_config = _create_agent_config(event)
@@ -348,9 +438,17 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             # Initialize state
             state = _initialize_state(event, job_id)
 
+            # Track active invocation
+            with invocation_lock:
+                active_invocations += 1
+
+            logger.info(
+                "Agent invocation accepted", active_invocations=active_invocations
+            )
+
             # Log execution start
             logger.info(
-                "Starting threat modeling analysis",
+                "Accepting threat modeling request",
                 job_id=job_id,
                 replay=event.get("replay", False),
                 reasoning=agent_config["reasoning"],
@@ -360,28 +458,26 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             # Create full configuration for the agent
             config = {"configurable": agent_config}
 
-            # Execute the threat modeling workflow
-            agent.invoke(state, config=config)
-
-            logger.info(
-                "Threat modeling completed successfully",
-                job_id=job_id,
-                request_id=request_id,
-                execution_time_seconds=(
-                    datetime.now() - agent_config["start_time"]
-                ).total_seconds(),
+            # Submit the agent execution to run in background
+            loop = asyncio.get_event_loop()
+            loop.run_in_executor(
+                executor, _run_agent_async, state, config, job_id, agent_config
             )
 
-            return {
-                "statusCode": HTTP_STATUS_OK,
-                "body": json.dumps(
-                    {
-                        "message": "Threat modeling completed successfully",
-                        "job_id": job_id,
-                        "request_id": request_id,
-                    }
-                ),
-            }
+            # Return immediately with 200 status
+            return JSONResponse(
+                {
+                    "message": "Threat modeling process started",
+                    "job_id": job_id,
+                    "status": "processing",
+                },
+                status_code=200,
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "*",
+                },
+            )
 
     except ValidationError as e:
         return _handle_error_response(e, job_id, HTTP_STATUS_BAD_REQUEST)
@@ -397,3 +493,17 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
 
     except Exception as e:
         return _handle_error_response(e, job_id, HTTP_STATUS_INTERNAL_SERVER_ERROR)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8080,
+        loop="uvloop",
+        http="httptools",
+        timeout_keep_alive=75,
+        access_log=False,
+    )

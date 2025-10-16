@@ -1,9 +1,19 @@
 import React, { useState } from "react";
 import { signIn, confirmSignIn, resetPassword, confirmResetPassword } from "aws-amplify/auth";
 import GenAiButton from "../ThreatModeling/GenAiButton";
+import Shield from "../ThreatModeling/images/shield.png";
+import { useTheme } from "../ThemeContext";
+import styled from "@emotion/styled";
 import "./LoginForm.css";
 
+const Title = styled.h1`
+  font-size: 26px;
+  font-weight: 200;
+  margin-bottom: 40px;
+`;
+
 const LoginForm = ({ onSignInSuccess }) => {
+  const { isDark } = useTheme();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -98,10 +108,11 @@ const LoginForm = ({ onSignInSuccess }) => {
   };
 
   return (
-    <div className="login-container">
+    <div className={`login-container ${isDark ? "dark-theme" : "light-theme"}`}>
       {formState === "signIn" && (
         <div className="form-container">
-          <h2>Sign In</h2>
+          <img src={Shield} alt="Threat Designer logo" style={{ width: "80px" }} />
+          <Title>Welcome back</Title>
           {error && <div className="error-message">{error}</div>}
           <form onSubmit={handleSignIn}>
             <div className="form-group">
@@ -136,7 +147,7 @@ const LoginForm = ({ onSignInSuccess }) => {
 
       {formState === "newPassword" && (
         <div className="form-container">
-          <h2>Set New Password</h2>
+          <Title>Set New Password</Title>
           {error && <div className="error-message">{error}</div>}
           <form onSubmit={handleNewPassword}>
             <div className="form-group">
@@ -154,7 +165,7 @@ const LoginForm = ({ onSignInSuccess }) => {
 
       {formState === "forgotPassword" && (
         <div className="form-container">
-          <h2>Reset Password</h2>
+          <Title>Reset Password</Title>
           {error && <div className="error-message">{error}</div>}
           <form onSubmit={handleForgotPassword}>
             <div className="form-group">
@@ -175,7 +186,7 @@ const LoginForm = ({ onSignInSuccess }) => {
 
       {formState === "resetPassword" && (
         <div className="form-container">
-          <h2>Reset Password</h2>
+          <Title>Reset Password</Title>
           {error && <div className="error-message">{error}</div>}
           <form
             onSubmit={async (e) => {

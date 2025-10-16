@@ -155,6 +155,16 @@ export const ThreatComponent = React.memo((props) => {
                   <div>
                     <strong>Target:</strong> {props?.data?.target}
                   </div>
+                  <div>
+                    <strong>Threat source:</strong> {props?.data?.source}
+                  </div>
+                  <div>
+                    <strong>Attack vector:</strong> {props?.data?.vector}
+                  </div>
+                  <div>
+                    <strong>Prerequisites:</strong>{" "}
+                    {props?.data?.prerequisites?.join(", ") || "None"}
+                  </div>
                 </SpaceBetween>
               </Box>
             </div>
@@ -170,6 +180,11 @@ export const ThreatComponent = React.memo((props) => {
         updateData={props?.updateData}
         action={action}
         type={props?.type}
+        hasColumn={true}
+        columnConfig={{
+          left: ["name", "description", "likelihood", "stride_category", "impact", "target"],
+          right: ["source", "vector", "prerequisites", "mitigations"],
+        }}
       />
     </>
   );

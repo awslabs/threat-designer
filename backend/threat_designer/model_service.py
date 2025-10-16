@@ -22,9 +22,10 @@ class ModelService:
         tools: List[Type],
         config: RunnableConfig,
         reasoning: bool = False,
+        model_type: str = "model_main",
     ) -> Any:
         """Invoke model with structured output and error handling."""
-        model = config["configurable"].get("model_main")
+        model = config["configurable"].get(model_type)
         model_structured = config["configurable"].get("model_struct")
 
         model_with_tools = model.bind_tools(

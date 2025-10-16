@@ -14,7 +14,6 @@ import boto3
 from botocore.config import Config
 from constants import (
     AWS_SERVICE_BEDROCK_RUNTIME,
-    DEFAULT_BUDGET,
     DEFAULT_REGION,
     DEFAULT_TIMEOUT,
     ENV_MAIN_MODEL,
@@ -26,8 +25,7 @@ from constants import (
     MODEL_TEMPERATURE_REASONING,
     REASONING_BUDGET_FIELD,
     REASONING_THINKING_TYPE,
-    STOP_SEQUENCES,
-    TOKEN_BUDGETS,
+    STOP_SEQUENCES
 )
 from langchain_aws.chat_models.bedrock import ChatBedrockConverse
 from monitoring import logger, operation_context, with_error_context
@@ -44,13 +42,17 @@ class ModelConfig(TypedDict):
 
     id: str
     max_tokens: int
+    reasoning_budget: dict
 
 
 @dataclass
 class ModelConfigurations:
     """Container for all model configurations."""
 
-    main_model: ModelConfig
+    assets_model: ModelConfig
+    flows_model: ModelConfig
+    threats_model: ModelConfig
+    gaps_model: ModelConfig
     struct_model: ModelConfig
     summary_model: ModelConfig
     reasoning_models: list[str]
@@ -70,32 +72,31 @@ def _load_model_configs() -> ModelConfigurations:
     try:
         logger.debug("Loading model configurations from environment")
 
-        main_model = json.loads(os.environ.get(ENV_MAIN_MODEL, "{}"))
+        model_main = json.loads(os.environ.get(ENV_MAIN_MODEL, "{}"))
+        assets_model = model_main.get("assets")
+        flows_model = model_main.get("flows")
+        threats_model = model_main.get("threats")
+        gaps_model = model_main.get("gaps")
         struct_model = json.loads(os.environ.get(ENV_MODEL_STRUCT, "{}"))
         summary_model = json.loads(os.environ.get(ENV_MODEL_SUMMARY, "{}"))
         reasoning_models = json.loads(os.environ.get(ENV_REASONING_MODELS, "[]"))
 
-        # Validate required fields
-        for model_name, model_config in [
-            (ENV_MAIN_MODEL, main_model),
-            (ENV_MODEL_STRUCT, struct_model),
-            (ENV_MODEL_SUMMARY, summary_model),
-        ]:
-            if not model_config.get("id") or not model_config.get("max_tokens"):
-                raise ValueError(
-                    f"Missing required fields 'id' or 'max_tokens' in {model_name}"
-                )
-
         logger.info(
             "Model configurations loaded successfully",
-            main_model_id=main_model.get("id"),
+            assets_model_id=assets_model.get("id"),
+            flows_model_id=flows_model.get("id"),
+            threats_model_id=threats_model.get("id"),
+            gaps_model_id=gaps_model.get("id"),
             struct_model_id=struct_model.get("id"),
             summary_model_id=summary_model.get("id"),
             reasoning_models_count=len(reasoning_models),
         )
 
         return ModelConfigurations(
-            main_model=main_model,
+            assets_model=assets_model,
+            flows_model=flows_model,
+            threats_model=threats_model,
+            gaps_model=gaps_model,
             struct_model=struct_model,
             summary_model=summary_model,
             reasoning_models=reasoning_models,
@@ -142,21 +143,6 @@ def _create_bedrock_client(
     except Exception as e:
         logger.error("Failed to create Bedrock client", region=region, error=str(e))
         raise
-
-
-def _get_token_budget(reasoning: int) -> int:
-    """
-    Get token budget based on reasoning level.
-
-    Args:
-        reasoning: Reasoning level (1, 2, or 3).
-
-    Returns:
-        int: Token budget amount (4000, 8000, or 16000). Default is 4000 if invalid level.
-    """
-    budget = TOKEN_BUDGETS.get(reasoning, DEFAULT_BUDGET)
-    logger.debug("Token budget determined", reasoning_level=reasoning, budget=budget)
-    return budget
 
 
 def _build_standard_model_config(
@@ -217,11 +203,10 @@ def _build_main_model_config(
     reasoning_enabled = reasoning != 0 and model_config["id"] in reasoning_models
 
     if reasoning_enabled:
-        budget = _get_token_budget(reasoning)
         config["additional_model_request_fields"] = {
             "thinking": {
                 "type": REASONING_THINKING_TYPE,
-                REASONING_BUDGET_FIELD: budget,
+                REASONING_BUDGET_FIELD: reasoning,
             }
         }
         config["temperature"] = MODEL_TEMPERATURE_REASONING
@@ -229,8 +214,7 @@ def _build_main_model_config(
         logger.info(
             "Reasoning enabled for main model",
             model_id=model_config["id"],
-            reasoning_level=reasoning,
-            token_budget=budget,
+            token_budget=reasoning
         )
     else:
         if reasoning != 0:
@@ -253,9 +237,6 @@ def initialize_models(
     Initialize Bedrock model clients with proper error handling.
 
     This function creates multiple Bedrock model clients with different configurations:
-    - Main model: Primary model with optional reasoning capabilities
-    - Struct model: Model optimized for structured outputs
-    - Summary model: Model optimized for summarization tasks
 
     Args:
         reasoning: Reasoning level (0-3). 0 disables reasoning, 1-3 enables with different token budgets.
@@ -264,8 +245,11 @@ def initialize_models(
 
     Returns:
         Dict[str, ChatBedrockConverse]: Dictionary containing:
-            - 'main_model': Primary ChatBedrockConverse instance
-            - 'struct_model': ChatBedrockConverse instance for structured outputs
+            - 'assets_model':  ChatBedrockConverse instance
+            - 'flows_model':   ChatBedrockConverse instance
+            - 'threats_model': ChatBedrockConverse instance
+            - 'gaps_model':    ChatBedrockConverse instance
+            - 'struct_model':  ChatBedrockConverse instance for structured outputs
             - 'summary_model': ChatBedrockConverse instance for summarization
 
     Raises:
@@ -291,8 +275,36 @@ def initialize_models(
             # Build model configurations
             logger.debug("Building model configurations")
 
-            main_config = _build_main_model_config(
-                configs.main_model, configs.reasoning_models, reasoning, client, region
+            assets_config = _build_main_model_config(
+                configs.assets_model,
+                configs.reasoning_models,
+                configs.assets_model.get("reasoning_budget").get(str(reasoning), 0),
+                client,
+                region,
+            )
+
+            flows_config = _build_main_model_config(
+                configs.flows_model,
+                configs.reasoning_models,
+                configs.flows_model.get("reasoning_budget").get(str(reasoning), 0),
+                client,
+                region
+            )
+
+            threats_config = _build_main_model_config(
+                configs.threats_model,
+                configs.reasoning_models,
+                configs.threats_model.get("reasoning_budget").get(str(reasoning), 0),
+                client,
+                region,
+            )
+
+            gaps_config = _build_main_model_config(
+                configs.gaps_model,
+                configs.reasoning_models,
+                configs.gaps_model.get("reasoning_budget").get(str(reasoning), 0),
+                client,
+                region
             )
 
             struct_config = _build_standard_model_config(
@@ -306,7 +318,10 @@ def initialize_models(
             logger.debug("Initializing ChatBedrockConverse instances")
 
             models = {
-                "main_model": ChatBedrockConverse(**main_config),
+                "assets_model": ChatBedrockConverse(**assets_config),
+                "flows_model": ChatBedrockConverse(**flows_config),
+                "threats_model": ChatBedrockConverse(**threats_config),
+                "gaps_model": ChatBedrockConverse(**gaps_config),
                 "struct_model": ChatBedrockConverse(**struct_config),
                 "summary_model": ChatBedrockConverse(**summary_config),
             }
@@ -314,11 +329,12 @@ def initialize_models(
             logger.info(
                 "Models initialized successfully",
                 model_count=len(models),
-                main_model_id=configs.main_model["id"],
+                assets_model_id=configs.assets_model["id"],
+                flows_model_id=configs.flows_model["id"],
+                threats_model_id=configs.threats_model["id"],
+                gaps_model_id=configs.gaps_model["id"],
                 struct_model_id=configs.struct_model["id"],
-                summary_model_id=configs.summary_model["id"],
-                reasoning_enabled=reasoning != 0
-                and configs.main_model["id"] in configs.reasoning_models,
+                summary_model_id=configs.summary_model["id"]
             )
 
             return models

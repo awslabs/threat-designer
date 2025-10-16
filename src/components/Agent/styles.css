@@ -1,0 +1,501 @@
+.tools-main-div {
+  width: 100%;
+  height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.main-div {
+  width: 70%;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 0;
+  margin-top: 20px;
+  height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  justify-content: center;
+  align-items: center;
+}
+
+div[style="overflow: auto"] {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+div[style="overflow: auto"]::-webkit-scrollbar {
+  display: none !important;
+}
+
+.tools-container-wrapper {
+  position: relative;
+  flex: 1; /* Take available space but allow input area to take its space */
+  display: flex;
+  flex-direction: column;
+  margin: 0px;
+  width: 100%;
+  overflow: hidden; /* Hide overflow at the wrapper level */
+}
+
+/* .tools-container-wrapper-no-chat {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 86vh 
+} */
+
+.stick-to-bottom {
+  flex: 1;
+  overflow: auto; /* Only this element should scroll */
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  position: relative;
+  margin-bottom: 0px; /* Add spacing between content and input */
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.stick-to-bottom::-webkit-scrollbar {
+  display: none;
+}
+
+.stick-to-bottom-content {
+  padding: 16px;
+}
+
+.tools_input_textarea_div {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0; /* Prevent input from shrinking */
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+  position: relative;
+  z-index: 5; /* Ensure input is above content */
+}
+
+.tools-suggest-view {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 8px;
+  margin: 0 auto;
+  z-index: 6;
+}
+
+.tools_input_textarea_container {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Scroll to bottom button - positioned over input area */
+.scroll-to-bottom-button {
+  position: fixed; /* Fixed position relative to viewport */
+  bottom: 120px; /* Adjust based on your input area height */
+  right: 20px;
+  z-index: 10; /* Higher than input area */
+  /* Button styling */
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.text-reveal {
+  background: linear-gradient(
+    to right,
+    white 0%,
+    white 10%,
+    #616167 11%,
+    #616167 45%,
+    #616167 55%,
+    #616167 100%
+  );
+  background-size: 300% auto;
+  color: transparent;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: slide 4s linear infinite;
+}
+
+.text-reveal-light {
+  background: linear-gradient(
+    to right,
+    #333333 0%,
+    #333333 10%,
+    #c2c0c0 11%,
+    #c2c0c0 45%,
+    #c2c0c0 55%,
+    #c2c0c0 100%
+  );
+  background-size: 300% auto;
+  color: transparent;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: slide 4s linear infinite;
+}
+
+@keyframes slide {
+  0% {
+    background-position: 0% center;
+  }
+  100% {
+    background-position: -300% center;
+  }
+}
+
+.custom-table {
+  width: 85%;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+}
+
+.custom-table th,
+.custom-table td {
+  border: 1px solid #8c8c94;
+  padding: 6px 10px;
+}
+
+/* Light theme */
+.custom-table.light th {
+  background-color: #fafaf9;
+}
+
+/* Dark theme */
+.custom-table.dark th {
+  background-color: #18181b;
+}
+
+/* Remove double borders */
+.custom-table th:not(:last-child),
+.custom-table td:not(:last-child) {
+  border-right: none;
+}
+
+.custom-table tr:not(:last-child) td {
+  border-bottom: none;
+}
+
+/* Top corners */
+.custom-table tr:first-child th:first-child {
+  border-top-left-radius: 8px;
+}
+
+.custom-table tr:first-child th:last-child {
+  border-top-right-radius: 8px;
+}
+
+/* Bottom corners */
+.custom-table tr:last-child td:first-child {
+  border-bottom-left-radius: 8px;
+}
+
+.custom-table tr:last-child td:last-child {
+  border-bottom-right-radius: 8px;
+}
+
+.message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.container-wrapper {
+  position: relative;
+  overflow-y: hidden;
+  padding-bottom: 10px;
+  flex-direction: column;
+  display: flex;
+  justify-content: space-between;
+  width: 90%;
+  margin: 0 auto;
+}
+
+.chat_container {
+  padding-top: 5%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 70%;
+  margin: 0 auto;
+  box-sizing: border-box;
+  overflow-y: scroll;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+.chat_container:last-child {
+  height: 70vh; /* Creates space below the newest message */
+}
+
+.chat_container::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none; /* Chrome, Safari, Opera*/
+}
+
+.tools_chat_container {
+  position: relative;
+  padding-top: 5%;
+  padding-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+  overflow-y: scroll;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+.tools_chat_container::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none; /* Chrome, Safari, Opera*/
+}
+
+.input_textarea {
+  resize: none;
+  border: none;
+  background-color: transparent;
+  outline: none;
+  height: 75%;
+  font-size: 1rem;
+  z-index: 1100;
+}
+
+.tools_input_textarea_div {
+  display: flex;
+  padding-top: 15px;
+  position: sticky;
+  flex-direction: column;
+  margin: auto 0 auto 0;
+  width: 100%;
+  bottom: 0;
+}
+
+.scroll-buttons-container {
+  position: absolute;
+  top: 50%;
+  cursor: pointer;
+}
+
+.scroll-buttons-container.bottom {
+  left: 50%;
+  bottom: 1%;
+}
+
+.scroll-view {
+  position: absolute;
+  bottom: 0; /* Adjust as needed */
+  margin-bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: center; /* Changed from align-content for better centering */
+  border: none;
+  cursor: pointer;
+  z-index: 900;
+  background-color: transparent;
+  pointer-events: auto; /* Ensure the button is clickable */
+}
+
+/* You might also need to adjust the stick-to-bottom styles */
+.stick-to-bottom {
+  position: relative; /* Ensure relative positioning for absolute children */
+  width: 100%;
+  height: 100%;
+}
+
+.scroll-buttons-container.welcome {
+  position: absolute;
+  align-items: center;
+  top: 25%;
+  display: flex;
+  flex-direction: column;
+}
+
+.suggested-questions-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center; /* Center text within the container */
+}
+
+.suggested-questions {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+  padding: 8px;
+  /* margin-top: 50%; Adjust this value according to your layout */
+}
+
+.withBackground {
+  background: lightsteelblue;
+}
+
+.suggested-questions-area {
+  border: 0.1px solid #ccc;
+  padding: 8px;
+  min-height: auto;
+  border-radius: 8px;
+  height: auto;
+  width: auto;
+  display: inline-block;
+  box-sizing: border-box;
+  background: aliceblue;
+}
+
+.suggested-questions-area:hover {
+  background: lightsteelblue;
+}
+
+.user-icon {
+  width: 40px;
+  height: 40px;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+.alert-view {
+  position: relative;
+  bottom: 2.5em;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  z-index: 1099;
+}
+
+.loading-view {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 5px;
+  z-index: 1000; /* Ensure it stays above other content */
+}
+
+.suggest-view {
+  position: fixed;
+  bottom: 4em;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  align-items: center;
+  background-color: white;
+  padding: 8px;
+  margin-bottom: 1em;
+  z-index: 1099;
+}
+
+.codeBlockContainer {
+  border-radius: 0 0 3px 3px;
+  min-width: 200px;
+  width: 50%;
+  height: auto; /* Adjust this value as needed */
+  position: relative;
+  left: 0;
+  margin-bottom: -100px;
+  overflow-x: hidden;
+}
+
+.codeBlockHeader {
+  display: flex;
+  background: gray;
+  border-radius: 3px 3px 0 0;
+  height: 30px;
+}
+
+.codeBlockLanguage {
+  color: white;
+  padding: 6px;
+}
+
+.copyCodeButton {
+  margin-left: auto;
+  background-color: transparent;
+  border: none;
+}
+
+.copyCodeText {
+  color: white;
+  padding: 5px;
+}
+
+.code-block-container {
+  overflow-x: hidden !important;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* Internet Explorer and Edge */
+}
+
+pre.ace-cloud_editor::-webkit-scrollbar {
+  display: none !important;
+}
+
+.knowledgebase-input-fixed {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px;
+  z-index: 1100;
+  padding: 16px;
+  background-color: white;
+  border-top: 1px solid #e0e0e0;
+  transition: left 0.3s ease-in-out;
+}
+
+.visible-scroll-button {
+  position: fixed !important; /* Use fixed instead of absolute */
+  bottom: 100px !important; /* Position it above the input area */
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 1500 !important; /* Higher z-index to ensure visibility */
+  background-color: rgba(255, 255, 255, 0.8) !important; /* Semi-transparent background */
+  border-radius: 50% !important;
+  padding: 10px !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important; /* Add shadow for visibility */
+  pointer-events: auto !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.code-block-container .ace-cloud_editor {
+  background-color: #eae9e9 !important;
+}
+
+.code-block-container .ace-cloud_editor_dark {
+  background-color: #171717 !important;
+}

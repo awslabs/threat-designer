@@ -6,17 +6,20 @@
 
 > Check the blogpost: [Accelerate threat modeling with generative AI](https://aws.amazon.com/blogs/machine-learning/accelerate-threat-modeling-with-generative-ai/) for an in-depth overview of the solution.
 
-### Architecture diagram
+## Architecture diagram
 
-![solutions_diagram](/assets/threat_designer_arch.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/threat_designer_arch_dark.png">
+  <img alt="solutions_diagram" src="./assets/threat_designer_arch.png">
+</picture>
 
-### Agent logic
+## Agent logic
 
 <p align="center">
-  <img src="assets/agent_logic.png" alt="Threat Designer Logo" width="300"/>
+  <img src="assets/agent-flow.png" alt="Threat Designer Logo" width="300"/>
 </p>
 
-### Description
+## Description
 
 Threat Designer is an AI-driven agent designed to automate and streamline the threat modeling process for secure system design.
 
@@ -28,52 +31,49 @@ The project deploys resources running on the following AWS services:
 - Amazon API Gateway
 - Amazon Cognito
 - AWS Lambda
+- Amazon Bedrock AgentCore Runtime
 - Amazon DynamodB Tables
 - Amazon S3 Bucket
 
-## Repository Structure
+## Support the Project
 
-```
-.
-├── CODE_OF_CONDUCT.md
-├── CONTRIBUTING.md
-├── LICENSE
-├── README.md
-├── assets
-├── backend
-│   ├── app
-│   ├── authorizer
-│   ├── dependencies
-│   └── threat_designer
-├── deployment.sh
-├── destroy.sh
-├── index.html
-├── infra
-├── package.json
-├── public
-├── src
-└── vite.config.js
-```
+If you find Threat Designer useful, please consider supporting the project. ⭐ Star the repository on GitHub to help more people discover the tool.
 
 ## Features
+
+> **Note:** Check the [Quick start guide](./quick-start-guide/quick-start.md) to familiarize with Threat Designer features and capabilities.
 
 - Submit architecture diagrams and analyze for threats.
 - Update threat modeling results via the user interface.
 - Replay threat modeling based on your edits and additional input.
-- Export results in pdf/docx format.
+- Export results in pdf/docx/json format.
+- Interact with Sentry (built-in assistant) to dive deep in the threat model.
 - Explore past threat models via the `Threat Catalog` page.
 
-![sign in](/assets/sign_in.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/sign_in_dark.png">
+  <img alt="sign in" src="./assets/sign_in.png" style="margin-bottom: 20px;">
+</picture>
 
-![wizard](/assets/wizard.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/wizard_dark.png">
+  <img alt="wizard" src="./assets/wizard.png" style="margin-bottom: 20px;">
+</picture>
 
-![processing](/assets/processing.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/processing_dark.png">
+  <img alt="processing" src="./assets/processing.png" style="margin-bottom: 20px;">
+</picture>
 
-![results](/assets/results.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/threat_catalog_dark.png">
+  <img alt="threat catalog" src="./assets/threat_catalog.png" style="margin-bottom: 20px;">
+</picture>
 
-![pdf](/assets/results_pdf.png)
-
-![threat catalog](/assets/threat_catalog.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/sentry_dark.png">
+  <img alt="sentry" src="./assets/sentry.png">
+</picture>
 
 ## Prerequisites
 
@@ -88,9 +88,13 @@ The following tools must be installed on your local machine:
 
 ### AWS Bedrock Model Access
 
-You must enable access to the following model in your AWS region:
+You must enable access to the following models in your AWS region:
 
-- **Claude 4 Sonnet**
+- **Claude 4.5 Sonnet**
+- **Claude 4.5 Haiku**
+
+> **Note:** The default configuration uses a combination of these two models. You free to update it according to your preferences. [See Model Selection](#model-selection) for more information.
+
 
 To enable Claude, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
 
@@ -142,17 +146,52 @@ Application Login page: https://dev.xxxxxxxxxxxxxxxx.amplifyapp.com
 
 ### Model Selection
 
-If you want to use a different model than "Claude 4 Sonnet", update the variables **model_main** and **model_struct** in `./infra/variables.tf` with the correct [model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html#model-ids-arns) and max_token configuration:
+> **Note:** If you deploy the solution in a different region from the US ones verify the interence profile id of the model for that particular region. Check [Supported Regions and models for inference profiles](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html) documentation for more information.
+
+If you want to use a different model, update the variables **model_main** and **model_struct** in `./infra/variables.tf` with the correct [model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html#model-ids-arns), max_token and reasoning_budget configuration:
 
 ```hcl
 variable "model_main" {
-  type = object({
-    id          = string
-    max_tokens  = number
-  })
+
+...
+
   default = {
-    id          = "us.anthropic.claude-sonnet-4-20250514-v1:0"
-    max_tokens  = 64000
+    assets = {
+      id = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+      max_tokens = 64000
+      reasoning_budget = {
+        "1" = 16000
+        "2" = 32000
+        "3" = 63999
+      }
+    }
+    flows = {
+      id = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+      max_tokens = 64000
+      reasoning_budget = {
+        "1" = 8000
+        "2" = 16000
+        "3" = 24000
+      }
+    }
+    threats = {
+      id = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+      max_tokens = 64000
+      reasoning_budget = {
+        "1" = 24000
+        "2" = 48000
+        "3" = 63999
+      }
+    }
+    gaps = {
+      id = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+      max_tokens = 64000
+      reasoning_budget = {
+        "1" = 4000
+        "2" = 8000
+        "3" = 12000
+      }
+    }
   }
 }
 
@@ -162,15 +201,13 @@ variable "model_struct" {
     max_tokens  = number
   })
   default = {
-    id          = "us.anthropic.claude-sonnet-4-20250514-v1:0"
-    max_tokens  = 16000
+    id          = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    max_tokens  = 64000
   }
 }
 ```
 
-> **Note:** This application has been primarily tested with "Claude 4 Sonnet". While other Bedrock models may work, using different models might lead to unexpected results. The default model is set to **us.anthropic.claude-sonnet-4-20250514-v1:0**.
-
-> **Reasoning boost** will only work with **us.anthropic.claude-sonnet-4-20250514-v1:0**
+> **Reasoning boost** will only work with Anthropic's models starting from **Claude Sonnet 3.7**
 
 ## Clean up
 

@@ -1,7 +1,6 @@
 """Business logic services for threat modeling graph nodes."""
 
 import time
-from datetime import datetime
 from typing import Any, Dict
 
 from config import ThreatModelingConfig
@@ -115,7 +114,7 @@ class AssetDefinitionService:
         """Invoke model for asset definition."""
         reasoning = config["configurable"].get("reasoning", False)
         response = self.model_service.invoke_structured_model(
-            messages, [AssetsList], config, reasoning
+            messages, [AssetsList], config, reasoning, "model_assets"
         )
         if response["reasoning"]:
             self.state_service.update_trail(job_id=job_id, assets=response["reasoning"])
@@ -161,7 +160,7 @@ class FlowDefinitionService:
         """Invoke model for flow definition."""
         reasoning = config["configurable"].get("reasoning", False)
         response = self.model_service.invoke_structured_model(
-            messages, [FlowsList], config, reasoning
+            messages, [FlowsList], config, reasoning, "model_flows"
         )
         if response["reasoning"]:
             self.state_service.update_trail(job_id=job_id, flows=response["reasoning"])
@@ -199,7 +198,6 @@ class ThreatDefinitionService:
             self._update_reasoning_trail(
                 response["reasoning"], config, job_id, retry_count
             )
-
             return self._create_next_command(
                 response["structured_response"], retry_count, iteration
             )
@@ -208,16 +206,10 @@ class ThreatDefinitionService:
         self, retry_count: int, iteration: int, config: RunnableConfig
     ) -> bool:
         """Check if threat modeling should finalize."""
-        start_time = config["configurable"].get("start_time")
-        current_time = datetime.now()
-
         max_retries_reached = retry_count > self.config.max_retry
         iteration_limit_reached = (retry_count > iteration) and (iteration != 0)
-        time_limit_reached = (
-            current_time - start_time
-        ).total_seconds() >= self.config.max_execution_time_minutes * 60
 
-        return max_retries_reached or iteration_limit_reached or time_limit_reached
+        return max_retries_reached or iteration_limit_reached
 
     def _update_job_state_for_threats(self, job_id: str, retry_count: int) -> None:
         """Update job state based on retry count."""
@@ -272,7 +264,7 @@ class ThreatDefinitionService:
         """Invoke model for threat definition."""
         reasoning = config["configurable"].get("reasoning", False)
         return self.model_service.invoke_structured_model(
-            messages, [ThreatsList], config, reasoning
+            messages, [ThreatsList], config, reasoning, "model_threats"
         )
 
     def _update_reasoning_trail(
@@ -359,7 +351,7 @@ class GapAnalysisService:
         """Invoke model for gap analysis."""
         reasoning = config["configurable"].get("reasoning", False)
         return self.model_service.invoke_structured_model(
-            messages, [ContinueThreatModeling], config, reasoning
+            messages, [ContinueThreatModeling], config, reasoning, "model_gaps"
         )
 
     def _update_gap_reasoning_trail(

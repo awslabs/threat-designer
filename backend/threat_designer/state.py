@@ -20,7 +20,10 @@ from pydantic import BaseModel, Field
 class ConfigSchema(TypedDict):
     """Configuration schema for the workflow."""
 
-    model_main: ChatBedrockConverse
+    model_assets: ChatBedrockConverse
+    model_flows: ChatBedrockConverse
+    model_threats: ChatBedrockConverse
+    model_gaps: ChatBedrockConverse
     model_struct: ChatBedrockConverse
     model_summary: ChatBedrockConverse
     start_time: datetime
@@ -107,11 +110,11 @@ class ContinueThreatModeling(BaseModel):
 class ThreatSource(BaseModel):
     """Model representing sources of threats in the system."""
 
-    category: Annotated[str, Field(description="The category of the threat source")]
+    category: Annotated[str, Field(description="Actor Category")]
     description: Annotated[
-        str, Field(description="The description of the threat source")
+        str, Field(description="One sentence describing their relevance to this architecture")
     ]
-    example: Annotated[str, Field(description="An example of the threat source")]
+    example: Annotated[str, Field(description="Brief list of 1-2 specific actor types")]
 
 
 class FlowsList(BaseModel):
@@ -127,32 +130,74 @@ class FlowsList(BaseModel):
 
 
 class Threat(BaseModel):
-    """Model representing an identified security threat."""
+    """Model representing an identified security threat using the STRIDE methodology."""
 
-    name: Annotated[str, Field(description="The name of the threat")]
+    name: Annotated[
+        str,
+        Field(
+            description="A concise, descriptive name for the threat that clearly identifies the security concern"
+        ),
+    ]
     stride_category: Annotated[
         str,
         Field(
-            description=f"The STRIDE category of the threat: One of the following: "
-            f"{', '.join([category.value for category in StrideCategory])}"
+            description=f"The STRIDE category classification: One of {', '.join([category.value for category in StrideCategory])}. "
+            f"S=Spoofing, T=Tampering, R=Repudiation, I=Information Disclosure, D=Denial of Service, E=Elevation of Privilege"
         ),
     ]
     description: Annotated[
         str,
         Field(
-            description=f"The exhaustive description of the threat. From {THREAT_DESCRIPTION_MIN_WORDS} "
-            f"to {THREAT_DESCRIPTION_MAX_WORDS} words. Follow threat grammar structure."
+            description=f"A comprehensive description of the threat scenario, including how it could be executed and its potential consequences. "
+            f"Must be between {THREAT_DESCRIPTION_MIN_WORDS} and {THREAT_DESCRIPTION_MAX_WORDS} words. "
+            f"Follow threat grammar: [Threat Actor] + [Action] + [Asset/Target] + [Negative Outcome]"
         ),
     ]
-    target: Annotated[str, Field(description="The target of the threat")]
-    impact: Annotated[str, Field(description="The impact of the threat")]
-    likelihood: Annotated[str, Field(description="The likelihood of the threat")]
+    target: Annotated[
+        str,
+        Field(
+            description="The specific asset, component, system, or data element that could be compromised by this threat"
+        ),
+    ]
+    impact: Annotated[
+        str,
+        Field(
+            description="The potential business, technical, or operational consequences if this threat is successfully exploited. Consider confidentiality, integrity, and availability impacts"
+        ),
+    ]
+    likelihood: Annotated[
+        Literal["Low", "Medium", "High"],
+        Field(
+            description="The probability of threat occurrence based on factors like attacker motivation, capability, opportunity, and existing controls"
+        ),
+    ]
     mitigations: Annotated[
         List[str],
         Field(
-            description="The list of mitigations for the threat",
+            description="Specific security controls, countermeasures, or design changes that can prevent, detect, or reduce the impact of this threat",
             min_items=MITIGATION_MIN_ITEMS,
             max_items=MITIGATION_MAX_ITEMS,
+        ),
+    ]
+    source: Annotated[
+        str,
+        Field(
+            default=None,
+            description="The threat actor or agent who could execute this threat",
+        ),
+    ]
+    prerequisites: Annotated[
+        List[str],
+        Field(
+            default=[],
+            description="Required conditions, access levels, knowledge, or system states that must exist for this threat to be viable",
+        ),
+    ]
+    vector: Annotated[
+        str,
+        Field(
+            default=None,
+            description="The attack vector or pathway through which the threat could be delivered or executed",
         ),
     ]
     starred: Optional[
@@ -160,7 +205,7 @@ class Threat(BaseModel):
             bool,
             Field(
                 default=False,
-                description="Used by the human user to track threats. Should be ignored by the agent",
+                description="User-defined flag for prioritization or tracking. Ignored by automated threat modeling agents",
             ),
         ]
     ]
@@ -174,7 +219,9 @@ class ThreatsList(BaseModel):
     def __add__(self, other: "ThreatsList") -> "ThreatsList":
         """Combine two ThreatsList instances, avoiding duplicates based on name."""
         existing_names = {threat.name for threat in self.threats}
-        new_threats = [threat for threat in other.threats if threat.name not in existing_names]
+        new_threats = [
+            threat for threat in other.threats if threat.name not in existing_names
+        ]
         combined_threats = self.threats + new_threats
         return ThreatsList(threats=combined_threats)
 

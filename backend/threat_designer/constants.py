@@ -23,6 +23,7 @@ ENV_AGENT_TRAIL_TABLE = "AGENT_TRAIL_TABLE"
 ENV_LOG_LEVEL = "LOG_LEVEL"
 ENV_TRACEBACK_ENABLED = "TRACEBACK_ENABLED"
 
+
 # Model configuration environment variables
 ENV_MAIN_MODEL = "MAIN_MODEL"
 ENV_MODEL_STRUCT = "MODEL_STRUCT"
@@ -43,7 +44,6 @@ DEFAULT_MAX_RETRY = 15
 DEFAULT_MAX_EXECUTION_TIME_MINUTES = 12
 DEFAULT_REASONING_ENABLED = False
 DEFAULT_SUMMARY_MAX_WORDS = 40
-DEFAULT_BUDGET = 4000
 
 # Validation defaults
 DEFAULT_MIN_RETRY = 1
@@ -58,11 +58,8 @@ DEFAULT_MAX_SUMMARY_WORDS = 100
 # MODEL CONFIGURATION
 # ============================================================================
 
-# Token budgets for different reasoning levels
-TOKEN_BUDGETS: Dict[int, int] = {1: 8000, 2: 16000, 3: 32000}
-
 # Stop sequences for model generation
-STOP_SEQUENCES: List[str] = ["Human:", "User:", "Assistant:", "\nAI:"]
+STOP_SEQUENCES: List[str] = ["Human:", "User:", "Assistant:"]
 
 # Model temperature settings
 MODEL_TEMPERATURE_DEFAULT = 0

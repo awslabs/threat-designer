@@ -11,8 +11,6 @@ Each function generates specialized prompts for different phases of the threat m
 """
 
 from constants import (
-    THREAT_DESCRIPTION_MAX_WORDS,
-    THREAT_DESCRIPTION_MIN_WORDS,
     LikelihoodLevel,
     StrideCategory,
 )
@@ -62,259 +60,412 @@ def asset_prompt() -> str:
 
 def flow_prompt() -> str:
     main_prompt = """
-   <task>
-   You are an expert in all security domains and threat modeling. Your goal is to systematically analyze the given system architecture and identify critical security elements: data flows, trust boundaries, and relevant threat actors. Your analysis must be comprehensive, architecturally-grounded, and focused on elements that impact the security posture of the system.
-   </task>
+<task>
+You are an expert in all security domains and threat modeling. Your goal is to systematically analyze the given system architecture and identify critical security elements: data flows, trust boundaries, and relevant threat actors. Your analysis must be comprehensive, architecturally-grounded, and focused on elements that impact the security posture of the system.
+</task>
 
-   <instructions>
+<instructions>
 
-   1. Review the provided inputs carefully:
+1. Review the provided inputs carefully:
 
-      * <architecture_diagram>: Architecture Diagram of the solution in scope for threat modeling.
-      * <description>: [Description of the solution provided by the user]
-      * <assumptions>: [Assumptions provided by the user]
-      * <identified_assets_and_entities>: Inventory of key assets and entities in the architecture.
+   * <architecture_diagram>: Architecture Diagram of the solution in scope for threat modeling.
+   * <description>: [Description of the solution provided by the user]
+   * <assumptions>: [Assumptions provided by the user]
+   * <identified_assets_and_entities>: Inventory of key assets and entities in the architecture.
 
-   2. Data Flow Analysis:
+2. Data Flow Analysis:
 
-      **Definition**: Data flows represent the movement of information between system components, including the path, direction, and security context of the data movement.
+   **Definition**: Data flows represent the movement of information between system components, including the path, direction, and security context of the data movement.
 
-      **Identification approach**:
-      - Map all significant data movements between identified assets and entities
-      - Consider both internal flows (within trust boundaries) and external flows (crossing trust boundaries)
-      - Focus on flows involving sensitive data, authentication credentials, or business-critical information
-      - Include bidirectional flows where relevant
-      - Consider both primary operational flows and secondary flows (logs, backups, monitoring)
+   **Identification approach**:
+   - Map all significant data movements between identified assets and entities
+   - Consider both internal flows (within trust boundaries) and external flows (crossing trust boundaries)
+   - Focus on flows involving sensitive data, authentication credentials, or business-critical information
+   - Include bidirectional flows where relevant
+   - Consider both primary operational flows and secondary flows (logs, backups, monitoring)
 
-      **Use the following format for each data flow**:
-      <data_flow_definition>
-      flow_description: [Clear description of what data moves and how]
-      source_entity: [Source entity name from assets inventory]
-      target_entity: [Target entity name from assets inventory]
-      assets: [List of specific assets/data types involved in this flow]
-      flow_type: [Internal/External/Cross-boundary]
-      criticality: [High/Medium/Low - based on data sensitivity and business impact]
-      </data_flow_definition>
+   **Use the following format for each data flow**:
+   <data_flow_definition>
+   flow_description: [Clear description of what data moves and how]
+   source_entity: [Source entity name from assets inventory]
+   target_entity: [Target entity name from assets inventory]
+   assets: [List of specific assets/data types involved in this flow]
+   flow_type: [Internal/External/Cross-boundary]
+   criticality: [High/Medium/Low - based on data sensitivity and business impact]
+   </data_flow_definition>
 
-   3. Trust Boundary Analysis:
+3. Trust Boundary Analysis:
 
-      **Definition**: Trust boundaries are logical or physical barriers where the level of trust changes, typically representing transitions between different security domains, ownership, or control levels.
+   **Definition**: Trust boundaries are logical or physical barriers where the level of trust changes, typically representing transitions between different security domains, ownership, or control levels.
 
-      **Identification criteria**:
-      - Network boundaries (internal to external networks, DMZ transitions)
-      - Process boundaries (different applications, services, or execution contexts)
-      - Physical boundaries (on-premises to cloud, different data centers)
-      - Organizational boundaries (internal systems to third-party services)
-      - Administrative boundaries (different management domains or privilege levels)
+   **Identification criteria**:
+   - Network boundaries (internal to external networks, DMZ transitions)
+   - Process boundaries (different applications, services, or execution contexts)
+   - Physical boundaries (on-premises to cloud, different data centers)
+   - Organizational boundaries (internal systems to third-party services)
+   - Administrative boundaries (different management domains or privilege levels)
 
-      **Use the following format for each trust boundary**:
-      <trust_boundary>
-      purpose: [Security purpose and what trust level change occurs]
-      source_entity: [Entity on the higher trust side]
-      target_entity: [Entity on the lower trust side]
-      boundary_type: [Network/Process/Physical/Organizational/Administrative]
-      security_controls: [Existing controls at this boundary, if known]
-      </trust_boundary>
+   **Use the following format for each trust boundary**:
+   <trust_boundary>
+   purpose: [Security purpose and what trust level change occurs]
+   source_entity: [Entity on the higher trust side]
+   target_entity: [Entity on the lower trust side]
+   boundary_type: [Network/Process/Physical/Organizational/Administrative]
+   security_controls: [Existing controls at this boundary, if known]
+   </trust_boundary>
 
-   4. Threat Actor Analysis:
+4. Threat Actor Analysis:
 
-      **Definition**: Threat actors are individuals, groups, or entities with the intent, capability, and opportunity to compromise the system's security objectives.
+   **Definition**: Threat actors are individuals, groups, or entities with the potential to compromise the system's security objectives.
 
-      **Standard threat actor categories to consider**:
-      - **Internal users**: Employees, contractors, business partners with legitimate access
-      - **External attackers**: Cybercriminals, hacktivists, competitors without legitimate access
-      - **Supply chain actors**: Vendors, service providers, software suppliers in the ecosystem
-      - **Physical access actors**: Those with physical proximity to infrastructure
+   **Output format**: Present threat actors in a concise table format:
 
-      **Assessment criteria**:
-      - **Intent**: Motivation to target this specific system or organization
-      - **Capability**: Technical skills and resources to execute attacks
-      - **Opportunity**: Access points and attack surfaces available in the architecture
+   | Category | Description | Examples |
+   |----------|-------------|----------|
+   | [Actor Category] | [One sentence describing their relevance to this architecture] | [Brief list of 1-2 specific actor types] |
 
-      **Use the following format for each relevant threat actor category**:
-      <threat_actor>
-      category: [Threat actor category from standard list]
-      description: [Why this actor is relevant to the described architecture]
-      intent: [Likely motivations for targeting this system]
-      capability: [Technical capabilities relevant to this architecture]  
-      opportunity: [Access points or attack surfaces they could exploit]
-      examples: [Specific examples relevant to the system context]
-      </threat_actor>
+   **Standard threat actor categories to consider**:
+   - Legitimate Users (unintentional threats)
+   - Malicious Internal Actors (intentional insider threats)
+   - External Threat Actors (external attackers)
+   - Untrusted Data Suppliers (third-party integrations)
+   - Unauthorized External Users (no legitimate access)
+   - Compromised System Components (if applicable)
 
-   5. Analysis guidelines:
+   **Selection criteria**:
+   - Only include categories with clear relevance to the architecture
+   - Maximum 5-7 threat actor categories
+   - Focus on actor types, not attack methods
+   - Keep descriptions to ONE concise sentence
+   - Examples should be 2-5 words each
 
-      **Completeness requirements**:
-      - Address all identified assets and entities from the provided inventory
-      - Consider the full system lifecycle (deployment, operation, maintenance, decommissioning)
-      - Include both automated and manual processes
-      - Account for emergency or disaster recovery scenarios if mentioned
+   **Output constraints**:
+   - No attack scenarios or narratives
+   - No detailed technical descriptions
+   - No step-by-step attack explanations
+   - Focus on WHO might attack, not HOW
 
-      **Contextual alignment**:
-      - Respect the stated assumptions and constraints
-      - Focus on elements relevant to the described solution and deployment model
-      - Consider the organization's threat landscape based on provided context
-      - Align with the technical architecture and technology stack described
+5. Analysis guidelines:
 
-      **Prioritization approach**:
-      - Prioritize high-criticality flows involving sensitive data
-      - Focus on trust boundaries with significant security implications
-      - Emphasize threat actors with realistic access to the described architecture
+   **Completeness requirements**:
+   - Address all identified assets and entities from the provided inventory
+   - Consider the full system lifecycle (deployment, operation, maintenance, decommissioning)
+   - Include both automated and manual processes
+   - Account for emergency or disaster recovery scenarios if mentioned
 
-   6. Quality control checklist:
+   **Contextual alignment**:
+   - Respect the stated assumptions and constraints
+   - Focus on elements relevant to the described solution and deployment model
+   - Consider the organization's threat landscape based on provided context
+   - Align with the technical architecture and technology stack described
 
-      **Data Flows**:
-      * [ ] Are all significant data movements between assets identified?
-      * [ ] Are both internal and cross-boundary flows covered?
-      * [ ] Is the criticality assessment based on data sensitivity and business impact?
-      * [ ] Are flow descriptions specific and technically accurate?
+   **Prioritization approach**:
+   - Prioritize high-criticality flows involving sensitive data
+   - Focus on trust boundaries with significant security implications
+   - Emphasize threat actors with realistic access to the described architecture
 
-      **Trust Boundaries**:
-      * [ ] Are all significant trust level transitions identified?
-      * [ ] Is the security purpose of each boundary clearly articulated?
-      * [ ] Are different types of boundaries (network, process, physical, etc.) considered?
-      * [ ] Do boundaries align with the described architecture?
+6. Quality control checklist:
 
-      **Threat Actors**:
-      * [ ] Are only architecturally-relevant threat actors included?
-      * [ ] Is the intent-capability-opportunity assessment realistic?
-      * [ ] Are examples specific to the system context?
-      * [ ] Are threat actors aligned with the organization's likely threat landscape?
+   **Data Flows**:
+   * [ ] Are all significant data movements between assets identified?
+   * [ ] Are both internal and cross-boundary flows covered?
+   * [ ] Is the criticality assessment based on data sensitivity and business impact?
+   * [ ] Are flow descriptions specific and technically accurate?
 
-      **Overall Analysis**:
-      * [ ] Does the analysis cover all provided assets and entities?
-      * [ ] Is the analysis consistent with stated assumptions?
-      * [ ] Are security-critical elements prioritized appropriately?
-      * [ ] Would this analysis support effective threat modeling?
-   </instructions>
-      """
+   **Trust Boundaries**:
+   * [ ] Are all significant trust level transitions identified?
+   * [ ] Is the security purpose of each boundary clearly articulated?
+   * [ ] Are different types of boundaries (network, process, physical, etc.) considered?
+   * [ ] Do boundaries align with the described architecture?
 
+   **Threat Actors**:
+   * [ ] Is the output in table format with Category, Description, Examples columns?
+   * [ ] Are descriptions limited to ONE sentence?
+   * [ ] Are examples brief (2-5 words each)?
+   * [ ] Is the total count reasonable (typically 5-7 categories)?
+   * [ ] Does the analysis avoid attack scenarios and technical details?
+
+   **Overall Analysis**:
+   * [ ] Does the analysis cover all provided assets and entities?
+   * [ ] Is the analysis consistent with stated assumptions?
+   * [ ] Are security-critical elements prioritized appropriately?
+   * [ ] Would this analysis support effective threat modeling?
+</instructions>
+"""
     return [{"type": "text", "text": main_prompt}]
 
 
 def gap_prompt(instructions: str = None) -> str:
-    main_prompt = f"""
-   <task>
-   You are an expert in all security domains and threat modeling. Your goal is to validate the comprehensiveness of a provided threat catalog for a given architecture. You'll assess the threat model against the STRIDE framework and identify any gaps in coverage, ensuring the threat catalog reflects plausible threats grounded in the described architecture and context.
-   </task>
+    main_prompt = """
+You are an expert threat modeling specialist performing gap analysis on a threat catalog. You will identify ONLY realistic, actionable gaps that respect all provided constraints and remain within customer control boundaries.
 
-   <instructions>
+<critical_validation_requirements>
+BEFORE identifying any gap, you MUST verify:
+1. If <assumptions> are provided: The gap does NOT contradict any assumption
+2. The gap represents a REALISTIC and EXPLOITABLE vulnerability, not purely theoretical
+3. The threat actor who could exploit this gap EXISTS in <data_flow> threat_sources
+4. The customer CAN actually address this gap (within their control)
+5. The gap represents a real architectural vulnerability with practical attack vectors
 
-   1. Review the inputs carefully:
+If a potential gap fails ANY of these checks, DO NOT include it in your analysis.
+</critical_validation_requirements>
 
-      * <architecture_diagram>: Architecture Diagram of the solution in scope for threat modeling.
-      * <identified_assets_and_entities>: Inventory of key assets and entities in the architecture.
-      * <data_flow>: Descriptions of data movements between components.
-      * <threats>Threat Catalog</threats>: The existing threat catalog to be assessed.
-      * <description>: Contextual overview of the system (if provided).
-      * <assumptions>: Security assumptions and boundary considerations (if provided).
-      * <previous_gap>: Previous gap analysis, if available.
+<assumption_enforcement>
+**WHEN ASSUMPTIONS ARE PROVIDED:**
+Assumptions are ABSOLUTE constraints that override all other considerations:
+- If assumption states "X is trusted" → DO NOT identify gaps about X being compromised
+- If assumption states "Y security is implemented" → DO NOT flag Y as missing
+- If assumption states "Z is out of scope" → DO NOT analyze Z for gaps
+- Previous security decisions reflected in assumptions are FINAL
 
-   2. Assessment framework and criteria:
+**WHEN NO ASSUMPTIONS ARE PROVIDED:**
+Use reasonable security baselines for the given context:
+- Assume standard security controls are NOT necessarily in place
+- Identify gaps based on common threat patterns and vulnerabilities
+- Focus on practical, customer-addressable security gaps
+- Consider industry-standard expectations for the system type
 
-      * Use the **STRIDE model** as your assessment framework: {_get_stride_categories_string()}.
-      
-      **STRIDE Categories Defined:**
-      - **Spoofing**: Impersonating users, systems, or services
-      - **Tampering**: Unauthorized modification of data, systems, or communications
-      - **Repudiation**: Denying actions, transactions, or events without proof
-      - **Information Disclosure**: Unauthorized access to confidential information
-      - **Denial of Service**: Preventing legitimate access to resources or services
-      - **Elevation of Privilege**: Gaining unauthorized access levels or permissions
+WHY THIS MATTERS: When provided, assumptions reflect security decisions already made by the system owner. Identifying gaps that violate assumptions creates noise, wastes resources, and undermines the credibility of your analysis.
+</assumption_enforcement>
 
-      **Threat Actor Coverage Assessment:**
-      Verify coverage across these threat actor types where architecturally relevant:
-      - **Internal users**: Malicious or compromised employees, contractors, or insiders
-      - **External attackers**: Opportunistic cybercriminals or targeted threat actors
-      - **Supply chain actors**: Compromised vendors, partners, or third-party services
-      - **Physical access actors**: Those with physical proximity to systems or facilities
+<gap_realism_guidance>
+Every identified gap must represent a REALISTIC and EXPLOITABLE vulnerability.
 
-   3. Comprehensive assessment criteria:
+**Identify gaps that:**
+- Have documented real-world attack patterns
+- Can be exploited with reasonable attacker capabilities
+- Represent common architectural oversights or misconfigurations
+- Have clear, practical attack paths
+- Are relevant to the specific system context
+- Would be reasonably targeted by threat actors
 
-      **Coverage Completeness:**
-      - Are all critical assets addressed with appropriate STRIDE categories?
-      - Are all significant data flows analyzed for security threats?
-      - Are trust boundaries and their associated risks properly covered?
-      - Are different threat actor types considered where architecturally relevant?
+**Avoid gaps based on:**
+- Purely theoretical vulnerabilities without known exploits
+- Attacks requiring unrealistic resources (e.g., breaking modern encryption)
+- Multiple highly unlikely conditions occurring simultaneously
+- Vulnerabilities that assume attackers have impossible capabilities
+- Academic research without practical weaponization
+- Scenarios that ignore attack economics (cost vs. benefit)
 
-      **Threat Quality:**
-      - Are threats realistic and grounded in the described architecture?
-      - Do threat descriptions follow proper structure and technical accuracy?
-      - Are STRIDE categories correctly assigned?
-      - Are likelihood assessments reasonable based on architecture and context?
+**Realism Check Questions:**
+- Has this type of gap been exploited in similar real-world systems?
+- Would a rational attacker invest in exploiting this gap?
+- Is there a clear, practical attack path?
+- Do the required preconditions make sense for this system?
+- Would addressing this gap materially improve security posture?
+</gap_realism_guidance>
 
-      **Attack Chain Coverage:**
-      - Are potential attack escalation paths considered?
-      - Are threats that enable subsequent attacks identified?
-      - Are dependencies between threats properly addressed?
+<gap_analysis_process>
+Execute this EXACT sequence for gap identification:
 
-      **Architectural Alignment:**
-      - Do threats respect the stated assumptions and boundaries?
-      - Are threats consistent with the described technology stack and deployment model?
-      - Are there threats that assume capabilities not supported by the architecture?
+## Step 1: Map Coverage Matrix
+Create a mental matrix of:
+- Rows: Each asset/entity from architecture
+- Columns: STRIDE categories (S,T,R,I,D,E)
+- Cells: Mark which have existing threats
 
-      **Mitigation Quality:**
-      - Are mitigations specific, actionable, and proportionate?
-      - Are they properly categorized as preventive, detective, or corrective?
-      - Do they address the actual threat vectors described?
+## Step 2: For Each Empty Cell
+Ask these questions IN ORDER:
 
-   4. Gap analysis approach:
+**2.1 Assumption Check (Conditional)**
+- IF assumptions exist:
+  - Does any assumption make this gap irrelevant?
+  - Would identifying this gap contradict an assumption?
+  - If YES to either → SKIP this gap entirely
+- IF no assumptions provided → Continue to 2.2
 
-      * **Systematic Coverage Review**: For each asset or entity, verify coverage across all relevant STRIDE categories.
-      * **Data Flow Analysis**: For each data flow, confirm threats to data in transit and between trust boundaries are addressed.
-      * **Assumption Alignment**: Cross-reference assumptions — ensure threats respect the stated security context and boundaries.
-      * **Attack Chain Analysis**: Identify missing threat scenarios that could enable attack progression.
-      * **Actor-Centric Review**: Verify coverage from each relevant threat actor perspective.
+**2.2 Realism Validation**
+- Does this gap represent a realistic, exploitable vulnerability?
+- Review against <gap_realism_guidance>
+- Is there a practical attack path for this gap?
+- If NO to any → SKIP this gap entirely
+- If YES → Continue to 2.3
 
-   5. Format your gap analysis as follows:
+**2.3 Architectural Relevance**
+- Does this STRIDE category apply to this component type?
+- Is this gap architecturally possible given the system design?
+- Does the system design actually have this exposure point?
+- If NO to any → SKIP this gap
 
-      **Gap Analysis Summary:**
-      [2-3 sentences providing overall assessment of the threat catalog's completeness, quality, and architectural alignment]
+**2.4 Threat Source Validation**
+- Which actor from <data_flow> could exploit this?
+- Is that actor explicitly listed in threat_sources?
+- Could this actor realistically access/exploit this gap?
+- If NO actor found or unrealistic access → SKIP this gap
 
-      **Identified Gaps:**
-      
-      **Gap 1**: [Clear, specific description of the missing coverage]
-      - **STRIDE Category**: [Relevant category]
-      - **Affected Assets/Flows**: [Specific components affected]
-      - **Threat Actor**: [Which actor type could exploit this gap]
-      - **Architectural Context**: [Why this gap is relevant to the described system]
-      - **Recommendation**: [Specific, actionable guidance to address this gap]
-      
-      **Gap 2**: [Clear, specific description of the missing coverage]
-      - **STRIDE Category**: [Relevant category]
-      - **Affected Assets/Flows**: [Specific components affected]
-      - **Threat Actor**: [Which actor type could exploit this gap]
-      - **Architectural Context**: [Why this gap is relevant to the described system]
-      - **Recommendation**: [Specific, actionable guidance to address this gap]
-      
-      [Continue for additional gaps...]
+**2.5 Control Boundary Check**
+- Can the customer implement controls for this gap?
+- Is this within their shared responsibility boundary?
+- Are mitigations technically and practically feasible?
+- If NO to any → SKIP this gap
 
-   6. Decision framework on threat catalog completeness:
+**2.6 Materiality Assessment**
+- Would exploiting this gap enable significant impact?
+- Is the risk meaningful enough to warrant attention?
+- Does addressing this gap provide substantial security value?
+- If NO to any → CONSIDER skipping
 
-      After conducting your systematic analysis, you must make one of two decisions:
-      
-      **A. If you have identified any significant gaps in the threat catalog:**
-      - Set "stop" to **FALSE**
-      - Provide a detailed gap analysis using the format in section 5
-      - Prioritize the most critical gaps first (those affecting high-value assets or common attack vectors)
-      - Be specific and actionable in your recommendations
-      - Focus on gaps that represent realistic and architecturally-grounded threats
-      
-      **B. If the threat catalog is comprehensive and complete:**
-      - Set "stop" to **TRUE**
-      - No gap analysis is required
-      - Provide a brief rationale explaining why the catalog adequately covers all critical aspects
+## Step 3: Document Valid Gaps
+Only gaps passing ALL checks should be documented.
+</gap_analysis_process>
 
-      **Decision Criteria for Completeness:**
-      - All critical assets have appropriate STRIDE coverage
-      - All significant data flows are threat-modeled
-      - All relevant threat actors are considered
-      - Attack chains and escalation paths are addressed
-      - Threats align with architectural constraints and assumptions
-      - Mitigation quality meets professional standards
+<shared_responsibility_boundaries>
+NEVER identify gaps for provider-controlled elements:
 
-   **Assessment Approach:** Your assessment should be thorough and methodical. Systematically verify coverage across all assets, data flows, STRIDE categories, and threat actors before declaring the catalog complete. Focus on realistic, architecturally-grounded gaps rather than theoretical scenarios.
+**IaaS Boundaries**:
+- ✅ Customer gap: "No OS hardening threats identified"
+- ✅ Customer gap: "Missing threats for insecure container configurations"
+- ❌ Invalid gap: "No hypervisor escape threats identified"
+- ❌ Invalid gap: "Missing threats for datacenter physical security"
 
-   </instructions>
+**PaaS Boundaries**:
+- ✅ Customer gap: "No application configuration threats identified"
+- ✅ Customer gap: "Missing threats for insecure API authentication"
+- ❌ Invalid gap: "No platform runtime vulnerability threats identified"
+- ❌ Invalid gap: "Missing threats for managed service code flaws"
+
+**SaaS Boundaries**:
+- ✅ Customer gap: "No data classification threats identified"
+- ✅ Customer gap: "Missing threats for user permission misconfigurations"
+- ❌ Invalid gap: "No SaaS application code threats identified"
+- ❌ Invalid gap: "Missing threats for SaaS provider infrastructure"
+</shared_responsibility_boundaries>
+
+<examples_of_proper_gap_identification>
+## Example 1: With Network Security Assumption
+**Assumption**: "Internal network is considered trusted"
+**Wrong Gap**: "No threats for internal network compromise"
+**Correct Approach**: Skip this entirely - assumption makes it out of scope
+
+## Example 2: Without Network Assumption
+**No Assumption Provided**
+**Valid Gap**: "No threats identified for lateral movement via compromised internal endpoints"
+**Why Valid**: Common real-world attack pattern, customer-controllable, realistic threat
+
+## Example 3: With Authentication Implementation
+**Assumption**: "MFA is implemented for all user access"
+**Wrong Gap**: "Missing threats for single-factor authentication bypass"
+**Correct Gap**: "No threats identified for MFA fatigue attacks or push notification bombing"
+**Why Valid**: MFA exists per assumption, but fatigue attacks are a realistic bypass method
+
+
+**Realistic Gap**: "No threats for API rate limiting bypass enabling account enumeration"
+**Why Valid**: Common vulnerability, practical attack, customer can implement rate limiting
+</examples_of_proper_gap_identification>
+
+<coverage_quality_criteria>
+When assessing existing threat coverage, verify:
+
+1. **Source Accuracy**: Does each threat use an actor from <data_flow>?
+2. **Assumption Compliance** (if provided): Do threats respect all assumptions?
+3. **Realism**: Do threats represent practical, exploitable vulnerabilities?
+4. **Architectural Alignment**: Do threats map to real components?
+5. **STRIDE Appropriateness**: Are categories applied sensibly?
+6. **Mitigation Feasibility**: Can customers implement the controls?
+
+Poor quality in existing threats is itself a gap to report, including:
+- Threats that violate assumptions
+- Unrealistic or theoretical threats
+- Threats outside customer control
+- Threats that don't match architecture
+</coverage_quality_criteria>
+
+<decision_logic>
+## Determine stop flag:
+
+**Set stop = TRUE when ALL of these are true:**
+- Every threat source in <data_flow> has adequate coverage
+- All critical assets have appropriate STRIDE coverage (respecting assumptions when provided)
+- No realistic, exploitable attack chain gaps exist within customer control
+- Existing threats respect all assumptions (when provided) and boundaries
+- Existing threats focus on realistic, practical vulnerabilities
+- Coverage quality meets minimum standards
+
+**Set stop = FALSE when ANY of these are true:**
+- Threat sources from <data_flow> lack coverage
+- Critical assets miss relevant STRIDE categories (not excluded by assumptions)
+- Realistic, customer-addressable attack chains have exploitable gaps
+- Existing threats violate assumptions (when provided) - quality gap
+- Existing threats include unrealistic or theoretical scenarios
+- Customer-controllable vulnerabilities lack coverage
+
+If stop = TRUE, state: "Threat catalog is comprehensive within defined boundaries [and assumptions, if provided]. No actionable gaps identified. Coverage includes realistic threats within customer control."
+
+If stop = FALSE, provide detailed gap analysis with focus on realistic, exploitable gaps.
+</decision_logic>
+
+<output_requirements>
+**Gap Analysis Summary:**
+[Explicitly state whether gaps respect assumptions (if provided) and remain within customer control. Emphasize that all gaps represent realistic, exploitable vulnerabilities. Mention the total number of valid gaps identified after rigorous filtering.]
+
+**For EACH identified gap:**
+
+**Gap [#]: [Specific, realistic, assumption-compliant gap description]**
+- **Pre-validation** (if assumptions provided): "This gap respects assumption [X] because [explanation]"
+- **STRIDE Category**: [Relevant category that makes sense architecturally]
+- **Affected Assets/Flows**: [Specific components from architecture]
+- **Threat Source**: [EXACT actor name from data_flow threat_sources]
+- **Practical Attack Path**: [How this gap could be realistically exploited, 20-50words]
+- **Why This Matters**: [Real-world exploit scenario with business impact, 20-50words]
+
+**Quality over Quantity:**
+Report significant, validated, realistic gaps rather than many questionable or theoretical ones. Each gap must be:
+- Practically exploitable
+- Actionable by the customer
+- Respect all constraints (assumptions, boundaries, realism)
+- Based on documented attack patterns where possible
+
+**Improvement Tracking:**
+If <previous_gap> provided, explicitly note:
+- Which previous gaps have been addressed and how
+- Which persist and why they remain important
+- Any new gaps that emerged
+- Whether new gaps are based on realistic threats
+</output_requirements>
+
+<final_checklist>
+Before submitting your analysis, verify:
+□ Every gap represents a REALISTIC, exploitable vulnerability
+□ Every gap has been checked against ALL assumptions (if provided)
+□ Every gap traces to a threat source in <data_flow>
+□ Every gap is within customer control boundary
+□ Every gap has a clear, practical attack path
+□ No gaps duplicate or contradict each other
+□ All recommendations are implementable by the customer
+□ Gaps prioritize real-world attack patterns over theoretical concerns
+
+If any check fails, remove that gap from your analysis.
+</final_checklist>
+
+<realistic_gap_examples>
+## High-Quality Realistic Gaps:
+
+**Example 1:**
+"Gap: No threats identified for session token theft through XSS in user-generated content"
+- Realistic: OWASP Top 10, common vulnerability
+- Practical attack: Documented exploits, attacker tools available
+- Customer control: Input validation, CSP headers, output encoding
+
+**Example 2:**
+"Gap: Missing threats for privilege escalation via overly permissive IAM roles"
+- Realistic: Common cloud misconfiguration
+- Practical attack: Standard cloud penetration testing technique
+- Customer control: IAM policy review, least privilege implementation
+
+## Low-Quality Unrealistic Gaps:
+
+**Example 1 (Avoid):**
+"Gap: No threats for side-channel attacks extracting encryption keys from CPU cache timing"
+- Unrealistic for most systems: Requires sophisticated attacker, specific access
+- Not practical: High complexity, limited applicability
+- Poor fit: Usually outside customer's practical control
+
+**Example 2 (Avoid):**
+"Gap: Missing threats for AI-powered automated vulnerability discovery and exploitation"
+- Too theoretical: Emerging threat without widespread real-world use
+- Unclear attack path: Vague methodology
+- Not actionable: No clear mitigation strategy
+</realistic_gap_examples>
       """
 
     instructions_prompt = f"""\n<important_instructions>
@@ -328,97 +479,192 @@ def gap_prompt(instructions: str = None) -> str:
 
 
 def threats_improve_prompt(instructions: str = None) -> str:
-    main_prompt = f"""
-   <task>
-   You are an expert in all security domains and threat modeling. Your goal is to enrich an existing threat catalog by identifying new threats that may have been missed, using the STRIDE model. Your output must reflect plausible threats grounded in the described architecture and context. Avoid overly speculative or technically unrealistic scenarios.
-   </task>
+    main_prompt = """
+You are an expert threat modeling specialist tasked with enriching an existing threat catalog using STRIDE methodology. You will identify new, actionable, and realistic threats that respect all provided constraints.
 
-   <instructions>
+<critical_instructions>
+BEFORE generating any threat, you MUST:
+1. If <assumptions> are provided: Verify it doesn't violate any assumption
+2. Verify the threat actor exists in <data_flow> threat_sources
+3. Confirm it's not a duplicate of existing threats
+4. Ensure it's within customer control boundary
+5. Validate the threat is realistic and plausible
 
-   1. Review the inputs carefully:
+If a potential threat fails ANY of these checks, DO NOT include it.
+</critical_instructions>
 
-      * <architecture_diagram>: Architecture Diagram of the solution in scope for threat modeling.
-      * <identified_assets_and_entities>: Inventory of key assets and entities in the architecture.
-      * <data_flow>: Descriptions of data movements between components.
-      * <description>: Contextual overview of the system (if provided).
-      * <assumptions>: Security assumptions and boundary considerations (if provided).
-      * <threats>: The existing threat catalog to be enhanced.
-      * <gap>: Leverage any gap analysis information to improve the threat catalog.
+<assumption_enforcement>
+**WHEN ASSUMPTIONS ARE PROVIDED:**
+Assumptions define what is already secure or out of scope. These are non-negotiable constraints:
+- If an assumption states "X is trusted", DO NOT generate threats about X being compromised
+- If an assumption states "Y is already implemented", DO NOT suggest Y as a mitigation
+- If an assumption defines a security boundary, RESPECT it completely
+- Assumptions override all other considerations
 
-   2. Threat modeling framework and scope:
+**WHEN NO ASSUMPTIONS ARE PROVIDED:**
+Use reasonable security baselines for the given context:
+- Assume standard security best practices are NOT necessarily in place
+- Consider common misconfigurations and oversights
+- Focus on threats the customer can realistically address
 
-      * Use the **STRIDE model** as your framework: {_get_stride_categories_string()}.
-      
-      **STRIDE Categories Defined:**
-      - **Spoofing**: Impersonating users, systems, or services
-      - **Tampering**: Unauthorized modification of data, systems, or communications
-      - **Repudiation**: Denying actions, transactions, or events without proof
-      - **Information Disclosure**: Unauthorized access to confidential information
-      - **Denial of Service**: Preventing legitimate access to resources or services
-      - **Elevation of Privilege**: Gaining unauthorized access levels or permissions
+WHY THIS MATTERS: When provided, assumptions reflect security decisions already made by the system owner. Violating them wastes time and undermines credibility.
+</assumption_enforcement>
 
-   3. Threat actor categories and realism constraints:
+<threat_realism_guidance>
+Every threat must be REALISTIC and PLAUSIBLE. Apply these filters:
 
-      **Consider these threat actor types:**
-      - **Internal users**: Malicious or compromised employees, contractors, or insiders
-      - **External attackers**: Opportunistic cybercriminals or targeted threat actors
-      - **Supply chain actors**: Compromised vendors, partners, or third-party services
-      - **Physical access actors**: Those with physical proximity to systems or facilities
+**Generate threats that:**
+- Have documented real-world precedent or clear attack paths
+- Can be executed with reasonable attacker resources/skill
+- Target common vulnerabilities or misconfigurations
+- Have logical cause-and-effect relationships
+- Are relevant to the specific system architecture
 
-      **Realism requirements:**
-      * **Only include threats that are plausible** given the architecture, technologies, and trust boundaries described.
-      * **Avoid theoretical or unlikely threats** (e.g., highly improbable zero-days, advanced nation-state actions unless context supports it).
-      * For each threat, describe **why it is feasible** in the context of the architecture.
-      * Focus on identifying **new** relevant threats that may have been missed in the existing catalog.
+**Avoid threats that:**
+- Require nation-state resources for low-value targets
+- Depend on multiple highly unlikely events occurring simultaneously
+- Assume attackers have unrealistic capabilities (e.g., "break AES-256 encryption")
+- Are purely theoretical without practical attack vectors
+- Ignore basic economics of attacks (effort vs. reward)
 
-   4. Use this enhanced grammar template for each threat:
+**Reality Check Questions:**
+- Has this type of attack happened before in similar systems?
+- Would a rational attacker invest resources in this approach?
+- Is the attack technically feasible with current knowledge/tools?
+- Does the attack path make practical sense?
+</threat_realism_guidance>
 
-      <threat_grammar>
-      [Actor with specific access/capability] can [specific attack method] by [attack vector/technique], leading to [specific impact], affecting [asset/stakeholder].
-      </threat_grammar>
+<threat_generation_process>
+For EACH potential threat, follow this exact sequence:
 
-      **Attack chain considerations**: Consider how threats may enable subsequent attacks. Note when one successful threat creates prerequisites for others that may not be covered in the existing catalog.
+**1. Assumption Check (Conditional)**
+   - IF assumptions exist: Ask "Does this threat contradict any assumption?"
+     - If YES → Skip this threat entirely
+     - If NO → Continue to step 2
+   - IF no assumptions provided: Continue to step 2
 
-   5. Format each threat as follows:
+**2. Realism Validation**
+   - Ask: "Is this threat plausible and realistic?"
+   - Review against <threat_realism_guidance>
+   - If NO → Skip this threat entirely
+   - If YES → Continue to step 3
 
-      **Threat Name**: [Clear descriptive title]  
-      **STRIDE Category**: [{_get_stride_categories_string()}]  
-      **Description**: [Use <threat_grammar>; ensure {THREAT_DESCRIPTION_MIN_WORDS}–{THREAT_DESCRIPTION_MAX_WORDS} words; technically realistic]  
-      **Target**: [Specific asset or component]  
-      **Impact**: [Consequences if threat is realized, including affected stakeholders]  
-      **Likelihood**: [{_get_likelihood_levels_string()} — assessed based on attack complexity, required access, skill level, and existing barriers within the described architecture]  
-      **Mitigations**:  
-      1. [Preventive/Detective/Corrective mitigation strategy 1]  
-      2. [Preventive/Detective/Corrective mitigation strategy 2]  
-      ...  
+**3. Source Validation**
+   - Find the exact threat source in <data_flow> threat_sources
+   - Ask: "Is this actor explicitly listed?"
+   - If NO → Skip this threat entirely
+   - If YES → Continue to step 4
 
-   6. Gap analysis and coverage approach:
+**4. Duplication Check**
+   - Compare against ALL existing threats
+   - Ask: "Is this meaningfully different?"
+   - If NO → Skip this threat entirely
+   - If YES → Continue to step 5
 
-      * **Analyze existing threats carefully** to avoid duplication and identify coverage gaps.
-      * Address each asset or entity that may be **under-represented** in the existing catalog.
-      * For each **data flow**, verify threats to data **in transit** and between **trust boundaries** are adequately covered.
-      * **Cross-reference assumptions** — e.g., if a boundary assumes no internet exposure, do not generate external network-based threats.
-      * Look for **missing STRIDE categories** for critical assets.
-      * Consider **attack chains and escalation paths** that may bridge gaps between existing threats.
-      * Use gap analysis information to prioritize areas needing additional coverage.
+**5. Control Boundary Check**
+   - Identify who can mitigate this threat
+   - Ask: "Can the customer control this?"
+   - If NO → Skip this threat entirely
+   - If YES → Continue to step 6
 
-   7. Mitigation quality requirements:
+**6. Gap Relevance Check**
+   - Review the <gap> analysis (if provided)
+   - Ask: "Does this address an identified gap?"
+   - If NO → Consider if it's still valuable
+   - If YES → Proceed to format the threat
 
-      Ensure mitigations are:
-      * **Specific** to the described architecture and threat
-      * **Categorized** as preventive (blocks threat), detective (identifies occurrence), or corrective (responds to realized threats)
-      * **Proportionate** to the threat severity and architectural context
-      * **Implementable** given the described system constraints
+Only after passing ALL checks should you include the threat.
+</threat_generation_process>
 
-   8. Quality control checklist:
-      * [ ] Is the threat grounded in the described architecture?
-      * [ ] Is the actor capable of performing the attack under realistic conditions?
-      * [ ] Is the STRIDE category appropriate?
-      * [ ] Is the enhanced grammar template and word count followed?
-      * [ ] Are mitigations practical, specific, and categorized appropriately?
-      * [ ] Have attack chain implications been considered?
+<shared_responsibility_boundaries>
+You MUST respect these service model boundaries:
 
-   </instructions>
+- **IaaS**: Customer controls from OS up; exclude hypervisor/hardware threats
+- **PaaS**: Customer controls application and data; exclude platform runtime threats
+- **SaaS**: Customer controls configuration and data; exclude application code threats
+
+Never suggest the customer can mitigate provider-level vulnerabilities. Focus on:
+- Misconfigurations the customer can fix
+- Weak customer-controlled security settings
+- Missing customer-implementable controls
+- Insecure customer usage patterns
+</shared_responsibility_boundaries>
+
+<threat_format_template>
+Structure each threat EXACTLY as:
+"[Actor from data_flow] can [specific action] by [concrete method], causing [measurable impact] to [identified asset]"
+
+Include:
+- **Realism Justification**: "This threat is realistic because [real-world examples/feasible attack path]"
+- **Assumption Compliance** (if assumptions provided): "This threat respects assumption X because..."
+- **Gap Addressed** (if gap analysis provided): "This fills the gap in [specific area]"
+- **Not a Duplicate Because**: "Unlike existing threat Y, this focuses on..."
+- **Customer Control**: "The customer can mitigate this by..."
+</threat_format_template>
+
+<quality_validation>
+Before finalizing your threat list:
+1. **Realism check** - Are all threats practically feasible?
+2. **Assumption compliance** (if provided) - Does any threat violate them?
+3. **Source accuracy** - Do all match <data_flow> exactly?
+4. **Duplication check** - Are threats genuinely distinct?
+5. **Customer control** - Can they actually implement the mitigations?
+6. **Gap coverage** (if provided) - Are you addressing identified weaknesses?
+
+If you find any issues during validation, REMOVE those threats rather than trying to justify them.
+</quality_validation>
+
+<examples_of_realistic_threats>
+**Example 1: Realistic**
+✓ "Attacker can exploit default admin credentials on publicly exposed admin panel, causing unauthorized access to customer data"
+- Real-world precedent: Common in breach reports
+- Feasible: Requires basic scanning and credential stuffing
+- Practical: Attackers routinely scan for default credentials
+
+**Example 2: Unrealistic**
+✗ "Attacker can break TLS 1.3 encryption through cryptographic breakthrough, exposing all transmitted data"
+- No real-world precedent for TLS 1.3 breaks
+- Requires theoretical breakthrough in mathematics
+- Impractical: Nation-state level resources for minimal gain
+
+**Example 3: Realistic with Context**
+✓ "Insider with legitimate access can exfiltrate database backups through approved cloud storage sync tool, bypassing DLP controls"
+- Real-world precedent: Common insider threat vector
+- Feasible: Uses legitimate tools and access
+- Practical: Clear attack path with available tools
+</examples_of_realistic_threats>
+
+<examples_of_assumption_respect>
+**Example 1: If assumption states "Internal network is trusted"**
+- WRONG: "Internal attacker can intercept traffic"
+- RIGHT: "External attacker can exploit misconfigured firewall rules"
+
+**Example 2: If assumption states "MFA is implemented for all users"**
+- WRONG: "Attacker can bypass authentication without MFA"
+- RIGHT: "Attacker can exploit MFA fatigue through repeated push notifications"
+
+**Example 3: If assumption states "Cloud provider security is out of scope"**
+- WRONG: "AWS S3 service could be compromised"
+- RIGHT: "Misconfigured S3 bucket permissions could expose data"
+
+**Example 4: If NO assumptions are provided**
+- ACCEPTABLE: "Attacker can gain access through weak password policy, causing account compromise"
+- ACCEPTABLE: "Internal user can access data without MFA, allowing unauthorized access after credential theft"
+</examples_of_assumption_respect>
+
+<output_requirements>
+Generate high-quality threats that:
+- Pass ALL validation checks (including realism)
+- Address identified gaps (if gap analysis provided)
+- Respect ALL assumptions without exception (if assumptions provided)
+- Use only threat actors from data_flow
+- Are realistic and practically feasible
+- Provide actionable, customer-implementable mitigations
+- Add genuine value beyond existing threats
+- Set Starred to False
+
+**Quality over quantity**: It's better to provide 3 excellent, realistic, compliant threats than 10 that violate boundaries or strain credibility.
+</output_requirements>
    """
 
     instructions_prompt = f"""\n<important_instructions>
@@ -427,97 +673,197 @@ def threats_improve_prompt(instructions: str = None) -> str:
       """
 
     if instructions:
-        return [{"type": "text", "text":instructions_prompt + main_prompt}]
+        return [{"type": "text", "text": instructions_prompt + main_prompt}]
     return [{"type": "text", "text": main_prompt}]
 
 
 def threats_prompt(instructions: str = None) -> str:
-    main_prompt = f"""
-   <task>
-   You are an expert in all security domains and threat modeling. Your goal is to generate a focused, comprehensive, and realistic list of security threats for a given architecture by analyzing the provided inputs, using the STRIDE model. Your output must reflect plausible threats grounded in the described architecture and context. Avoid overly speculative or technically unrealistic scenarios.
-   </task>
+    main_prompt = """
+   You are an expert threat modeling specialist tasked with enriching an existing threat catalog using STRIDE methodology. You will identify new, actionable, and realistic threats that respect all provided constraints.
 
-   <instructions>
+<critical_instructions>
+BEFORE generating any threat, you MUST:
+1. If <assumptions> are provided: Verify it doesn't violate any assumption
+2. Verify the threat actor exists in <data_flow> threat_sources
+3. Confirm it's not a duplicate of existing threats
+4. Ensure it's within customer control boundary
+5. Validate the threat is realistic and plausible
 
-   1. Review the inputs carefully:
+If a potential threat fails ANY of these checks, DO NOT include it.
+</critical_instructions>
 
-      * <architecture_diagram>: Architecture Diagram of the solution in scope for threat modeling.
-      * <identified_assets_and_entities>: Inventory of key assets and entities in the architecture.
-      * <data_flow>: Descriptions of data movements between components.
-      * <description>: Contextual overview of the system (if provided).
-      * <assumptions>: Security assumptions and boundary considerations (if provided).
+<assumption_enforcement>
+**WHEN ASSUMPTIONS ARE PROVIDED:**
+Assumptions define what is already secure or out of scope. These are non-negotiable constraints:
+- If an assumption states "X is trusted", DO NOT generate threats about X being compromised
+- If an assumption states "Y is already implemented", DO NOT suggest Y as a mitigation
+- If an assumption defines a security boundary, RESPECT it completely
+- Assumptions override all other considerations
 
-   2. Threat modeling framework and scope:
+**WHEN NO ASSUMPTIONS ARE PROVIDED:**
+Use reasonable security baselines for the given context:
+- Assume standard security best practices are NOT necessarily in place
+- Consider common misconfigurations and oversights
+- Focus on threats the customer can realistically address
 
-      * Use the **STRIDE model** as your framework: {_get_stride_categories_string()}.
-      
-      **STRIDE Categories Defined:**
-      - **Spoofing**: Impersonating users, systems, or services
-      - **Tampering**: Unauthorized modification of data, systems, or communications
-      - **Repudiation**: Denying actions, transactions, or events without proof
-      - **Information Disclosure**: Unauthorized access to confidential information
-      - **Denial of Service**: Preventing legitimate access to resources or services
-      - **Elevation of Privilege**: Gaining unauthorized access levels or permissions
+WHY THIS MATTERS: When provided, assumptions reflect security decisions already made by the system owner. Violating them wastes time and undermines credibility.
+</assumption_enforcement>
 
-   3. Threat actor categories and realism constraints:
+<threat_realism_guidance>
+Every threat must be REALISTIC and PLAUSIBLE. Apply these filters:
 
-      **Consider these threat actor types:**
-      - **Internal users**: Malicious or compromised employees, contractors, or insiders
-      - **External attackers**: Opportunistic cybercriminals or targeted threat actors
-      - **Supply chain actors**: Compromised vendors, partners, or third-party services
-      - **Physical access actors**: Those with physical proximity to systems or facilities
+**Generate threats that:**
+- Have documented real-world precedent or clear attack paths
+- Can be executed with reasonable attacker resources/skill
+- Target common vulnerabilities or misconfigurations
+- Have logical cause-and-effect relationships
+- Are relevant to the specific system architecture
 
-      **Realism requirements:**
-      * **Only include threats that are plausible** given the architecture, technologies, and trust boundaries described.
-      * **Avoid theoretical or unlikely threats** (e.g., highly improbable zero-days, advanced nation-state actions unless context supports it).
-      * For each threat, describe **why it is feasible** in the context of the architecture.
+**Avoid threats that:**
+- Require nation-state resources for low-value targets
+- Depend on multiple highly unlikely events occurring simultaneously
+- Assume attackers have unrealistic capabilities (e.g., "break AES-256 encryption")
+- Are purely theoretical without practical attack vectors
+- Ignore basic economics of attacks (effort vs. reward)
 
-   4. Use this enhanced grammar template for each threat:
+**Reality Check Questions:**
+- Has this type of attack happened before in similar systems?
+- Would a rational attacker invest resources in this approach?
+- Is the attack technically feasible with current knowledge/tools?
+- Does the attack path make practical sense?
+</threat_realism_guidance>
 
-      <threat_grammar>
-      [Actor with specific access/capability] can [specific attack method] by [attack vector/technique], leading to [specific impact], affecting [asset/stakeholder].
-      </threat_grammar>
+<threat_generation_process>
+For EACH potential threat, follow this exact sequence:
 
-      **Attack chain considerations**: Consider how threats may enable subsequent attacks. Note when one successful threat creates prerequisites for others.
+**1. Assumption Check (Conditional)**
+   - IF assumptions exist: Ask "Does this threat contradict any assumption?"
+     - If YES → Skip this threat entirely
+     - If NO → Continue to step 2
+   - IF no assumptions provided: Continue to step 2
 
-   5. Format each threat as follows:
+**2. Realism Validation**
+   - Ask: "Is this threat plausible and realistic?"
+   - Review against <threat_realism_guidance>
+   - If NO → Skip this threat entirely
+   - If YES → Continue to step 3
 
-      **Threat Name**: [Clear descriptive title]  
-      **STRIDE Category**: [{_get_stride_categories_string()}]  
-      **Description**: [Use <threat_grammar>; ensure {THREAT_DESCRIPTION_MIN_WORDS}–{THREAT_DESCRIPTION_MAX_WORDS} words; technically realistic]  
-      **Target**: [Specific asset or component]  
-      **Impact**: [Consequences if threat is realized, including affected stakeholders]  
-      **Likelihood**: [{_get_likelihood_levels_string()} — assessed based on attack complexity, required access, skill level, and existing barriers within the described architecture]  
-      **Mitigations**:  
-      1. [Preventive/Detective/Corrective mitigation strategy 1]  
-      2. [Preventive/Detective/Corrective mitigation strategy 2]  
-      ...  
+**3. Source Validation**
+   - Find the exact threat source in <data_flow> threat_sources
+   - Ask: "Is this actor explicitly listed?"
+   - If NO → Skip this threat entirely
+   - If YES → Continue to step 4
 
-   6. Threat coverage approach:
+**4. Duplication Check**
+   - Compare against ALL existing threats
+   - Ask: "Is this meaningfully different?"
+   - If NO → Skip this threat entirely
+   - If YES → Continue to step 5
 
-      * Address each asset or entity explicitly with at least one relevant STRIDE category.
-      * For each **data flow**, consider threats to data **in transit** and between **trust boundaries**.
-      * **Cross-reference assumptions** — e.g., if a boundary assumes no internet exposure, do not generate external network-based threats.
-      * Consider both direct threats and those that enable attack chains.
+**5. Control Boundary Check**
+   - Identify who can mitigate this threat
+   - Ask: "Can the customer control this?"
+   - If NO → Skip this threat entirely
+   - If YES → Continue to step 6
 
-   7. Mitigation quality requirements:
+**6. Gap Relevance Check**
+   - Review the <gap> analysis (if provided)
+   - Ask: "Does this address an identified gap?"
+   - If NO → Consider if it's still valuable
+   - If YES → Proceed to format the threat
 
-      Ensure mitigations are:
-      * **Specific** to the described architecture and threat
-      * **Categorized** as preventive (blocks threat), detective (identifies occurrence), or corrective (responds to realized threats)
-      * **Proportionate** to the threat severity and architectural context
-      * **Implementable** given the described system constraints
+Only after passing ALL checks should you include the threat.
+</threat_generation_process>
 
-   8. Quality control checklist:
+<shared_responsibility_boundaries>
+You MUST respect these service model boundaries:
 
-      * [ ] Is the threat grounded in the described architecture?
-      * [ ] Is the actor capable of performing the attack under realistic conditions?
-      * [ ] Is the STRIDE category appropriate?
-      * [ ] Is the enhanced grammar template and word count followed?
-      * [ ] Are mitigations practical, specific, and categorized appropriately?
-      * [ ] Have attack chain implications been considered?
+- **IaaS**: Customer controls from OS up; exclude hypervisor/hardware threats
+- **PaaS**: Customer controls application and data; exclude platform runtime threats
+- **SaaS**: Customer controls configuration and data; exclude application code threats
 
-   </instructions>
+Never suggest the customer can mitigate provider-level vulnerabilities. Focus on:
+- Misconfigurations the customer can fix
+- Weak customer-controlled security settings
+- Missing customer-implementable controls
+- Insecure customer usage patterns
+</shared_responsibility_boundaries>
+
+<threat_format_template>
+Structure each threat EXACTLY as:
+"[Actor from data_flow] can [specific action] by [concrete method], causing [measurable impact] to [identified asset]"
+
+Include:
+- **Realism Justification**: "This threat is realistic because [real-world examples/feasible attack path]"
+- **Assumption Compliance** (if assumptions provided): "This threat respects assumption X because..."
+- **Gap Addressed** (if gap analysis provided): "This fills the gap in [specific area]"
+- **Not a Duplicate Because**: "Unlike existing threat Y, this focuses on..."
+- **Customer Control**: "The customer can mitigate this by..."
+</threat_format_template>
+
+<quality_validation>
+Before finalizing your threat list:
+1. **Realism check** - Are all threats practically feasible?
+2. **Assumption compliance** (if provided) - Does any threat violate them?
+3. **Source accuracy** - Do all match <data_flow> exactly?
+4. **Duplication check** - Are threats genuinely distinct?
+5. **Customer control** - Can they actually implement the mitigations?
+6. **Gap coverage** (if provided) - Are you addressing identified weaknesses?
+
+If you find any issues during validation, REMOVE those threats rather than trying to justify them.
+</quality_validation>
+
+<examples_of_realistic_threats>
+**Example 1: Realistic**
+✓ "Attacker can exploit default admin credentials on publicly exposed admin panel, causing unauthorized access to customer data"
+- Real-world precedent: Common in breach reports
+- Feasible: Requires basic scanning and credential stuffing
+- Practical: Attackers routinely scan for default credentials
+
+**Example 2: Unrealistic**
+✗ "Attacker can break TLS 1.3 encryption through cryptographic breakthrough, exposing all transmitted data"
+- No real-world precedent for TLS 1.3 breaks
+- Requires theoretical breakthrough in mathematics
+- Impractical: Nation-state level resources for minimal gain
+
+**Example 3: Realistic with Context**
+✓ "Insider with legitimate access can exfiltrate database backups through approved cloud storage sync tool, bypassing DLP controls"
+- Real-world precedent: Common insider threat vector
+- Feasible: Uses legitimate tools and access
+- Practical: Clear attack path with available tools
+</examples_of_realistic_threats>
+
+<examples_of_assumption_respect>
+**Example 1: If assumption states "Internal network is trusted"**
+- WRONG: "Internal attacker can intercept traffic"
+- RIGHT: "External attacker can exploit misconfigured firewall rules"
+
+**Example 2: If assumption states "MFA is implemented for all users"**
+- WRONG: "Attacker can bypass authentication without MFA"
+- RIGHT: "Attacker can exploit MFA fatigue through repeated push notifications"
+
+**Example 3: If assumption states "Cloud provider security is out of scope"**
+- WRONG: "AWS S3 service could be compromised"
+- RIGHT: "Misconfigured S3 bucket permissions could expose data"
+
+**Example 4: If NO assumptions are provided**
+- ACCEPTABLE: "Attacker can gain access through weak password policy, causing account compromise"
+- ACCEPTABLE: "Internal user can access data without MFA, allowing unauthorized access after credential theft"
+</examples_of_assumption_respect>
+
+<output_requirements>
+Generate high-quality threats that:
+- Pass ALL validation checks (including realism)
+- Address identified gaps (if gap analysis provided)
+- Respect ALL assumptions without exception (if assumptions provided)
+- Use only threat actors from data_flow
+- Are realistic and practically feasible
+- Provide actionable, customer-implementable mitigations
+- Add genuine value beyond existing threats
+- Set Starred to False
+
+**Quality over quantity**: It's better to provide 3 excellent, realistic, compliant threats than 10 that violate boundaries or strain credibility.
+</output_requirements>
    """
 
     instructions_prompt = f"""\n<important_instructions>

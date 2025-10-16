@@ -123,6 +123,9 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
                 "stride_category",
                 "impact",
                 "target",
+                "source",
+                "vector",
+                "prerequisites",
                 "mitigations",
               ]}
             />
@@ -137,6 +140,9 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
           "stride_category",
           "impact",
           "target",
+          "source",
+          "vector",
+          "prerequisites",
           "mitigations",
         ]}
         data={[]}
@@ -146,6 +152,11 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
         updateData={updateTM}
         action={"add"}
         type={"threats"}
+        hasColumn={true}
+        columnConfig={{
+          left: ["name", "description", "likelihood", "stride_category", "impact", "target"],
+          right: ["source", "vector", "prerequisites", "mitigations"],
+        }}
       />
     </div>
   );

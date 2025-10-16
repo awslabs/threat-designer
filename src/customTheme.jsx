@@ -3,8 +3,6 @@ const customTheme = {
     colorBackgroundLayoutMain: {
       dark: "#18181B",
       light: "#FAFAF9",
-      dark: "#18181B",
-      light: "#FAFAF9",
     },
     colorBackgroundContainerContent: {
       dark: "#1D1D20",
@@ -13,16 +11,8 @@ const customTheme = {
     colorBackgroundPopover: {
       dark: "#1D1D20",
       light: "#F5F5F4",
-      dark: "#1D1D20",
-      light: "#F5F5F4",
-    },
-    colorBackgroundPopover: {
-      dark: "#1D1D20",
-      light: "#F5F5F4",
     },
     colorBackgroundContainerHeader: {
-      dark: "#1D1D20",
-      light: "#F5F5F4",
       dark: "#1D1D20",
       light: "#F5F5F4",
     },
@@ -45,7 +35,6 @@ const customTheme = {
       dark: "#171D25",
     },
     colorBackgroundInputDefault: {
-      dark: "#222225",
       dark: "#222225",
     },
     colorBackgroundHomeHeader: {

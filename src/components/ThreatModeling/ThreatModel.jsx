@@ -29,6 +29,9 @@ import {
 } from "../../services/ThreatDesigner/stats";
 import { useSplitPanel } from "../../SplitPanelContext";
 import "./ThreatModeling.css";
+import { useEventReceiver } from "../Agent/useEventReceiver";
+import { useSessionInitializer } from "../Agent/useSessionInit";
+import { ChatSessionFunctionsContext } from "../Agent/ChatContext";
 
 const blobToBase64 = (blob) => {
   return new Promise((resolve) => {
@@ -49,8 +52,36 @@ const arrayToObjects = (key, stringArray) => {
   return stringArray.map((value) => ({ [key]: value }));
 };
 
+const downloadJSON = (data, filename, base64Diagram) => {
+  // Destructure to exclude unwanted fields
+  const { job_id, owner, retry, s3_location, ...cleanData } = data || {};
+
+  // Create a complete export object that includes the diagram
+  const exportData = {
+    ...cleanData,
+    architecture_diagram: base64Diagram
+      ? {
+          type: base64Diagram.type,
+          value: base64Diagram.value,
+        }
+      : null,
+  };
+
+  const jsonString = JSON.stringify(exportData, null, 2);
+  const blob = new Blob([jsonString], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${filename || "threat-model"}.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
 export const ThreatModel = ({ user }) => {
   const { id = null } = useParams();
+  const updateSessionContext = useSessionInitializer(id);
 
   const BreadcrumbItems = [
     { text: "Threat Catalog", href: "/threat-catalog" },
@@ -74,13 +105,27 @@ export const ThreatModel = ({ user }) => {
   const navigate = useNavigate();
   const [deleteModalVisible, setDeleteModal] = useState(false);
   const { setTrail, handleHelpButtonClick, setSplitPanelOpen } = useSplitPanel();
+  const functions = useContext(ChatSessionFunctionsContext);
+
+  // Queue for storing interrupt events that arrive before data is loaded
+  const pendingInterrupts = useRef([]);
+
+  // Reset pending interrupts when id changes
+  useEffect(() => {
+    pendingInterrupts.current = [];
+  }, [id]);
 
   const handleReplayThreatModeling = async (iteration, reasoning, instructions) => {
     try {
       setIteration(0);
       setTmStatus("START");
+      functions.setisVisible(false);
       setState({ results: false, processing: true });
       setVisible(false);
+
+      // Clear any pending interrupts when starting a new replay
+      pendingInterrupts.current = [];
+
       await startThreatModeling(
         null, // key
         iteration, // iteration
@@ -101,8 +146,197 @@ export const ThreatModel = ({ user }) => {
     }
   };
 
+  const handleSendMessage = useCallback(
+    async (id, response) => {
+      await functions.sendMessage(id, response, true, response);
+    },
+    [functions]
+  );
+
+  const initializeThreatModelSession = useCallback(
+    async (threatModelData) => {
+      const threats = threatModelData.threat_list.threats || [];
+
+      // Calculate likelihood distribution
+      const likelihoodCounts = threats.reduce((acc, threat) => {
+        acc[threat.likelihood] = (acc[threat.likelihood] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Calculate STRIDE distribution
+      const strideCounts = threats.reduce((acc, threat) => {
+        acc[threat.stride_category] = (acc[threat.stride_category] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Get unique assets
+      const uniqueAssets = [...new Set(threats.map((threat) => threat.target))];
+
+      // Calculate threat sources
+      const sourceCounts = threats.reduce((acc, threat) => {
+        acc[threat.source] = (acc[threat.source] || 0) + 1;
+        return acc;
+      }, {});
+
+      const sessionContext = {
+        diagram: threatModelData.s3_location,
+        threatModel: {
+          threats: threats,
+          summary: threatModelData.summary,
+          assumptions: threatModelData.assumptions,
+          system_architecture: threatModelData.system_architecture,
+          description: threatModelData.description,
+          title: threatModelData.title,
+          threat_catalog_summary: {
+            nr_threats: {
+              total: threats.length,
+              high: likelihoodCounts.High || 0,
+              medium: likelihoodCounts.Medium || 0,
+              low: likelihoodCounts.Low || 0,
+            },
+            likelihood_distribution: likelihoodCounts,
+            stride_distribution: strideCounts,
+            assets: {
+              total_unique_assets: uniqueAssets.length,
+            },
+            threat_sources: sourceCounts,
+          },
+        },
+      };
+
+      updateSessionContext(id, sessionContext).catch((error) => {
+        console.error(`Failed to initialize session ${id}:`, error);
+      });
+
+      functions.setisVisible(true);
+    },
+    [id, updateSessionContext, functions]
+  );
+
+  // New function to handle threat updates from interrupts
+  const handleThreatUpdates = useCallback(
+    (toolName, threatsPayload) => {
+      if (!Array.isArray(threatsPayload)) {
+        console.error("Invalid threat payload format - expected array");
+        return;
+      }
+
+      let updatedThreats = [...response.item.threat_list.threats];
+
+      switch (toolName) {
+        case "add_threats":
+          // Append new threats to existing ones
+          updatedThreats = [...updatedThreats, ...threatsPayload];
+          console.log(`Added ${threatsPayload.length} new threats`);
+          break;
+
+        case "edit_threats":
+          // Replace existing threats by matching names
+          threatsPayload.forEach((newThreat) => {
+            const existingIndex = updatedThreats.findIndex(
+              (existingThreat) => existingThreat.name === newThreat.name
+            );
+            if (existingIndex !== -1) {
+              updatedThreats[existingIndex] = newThreat;
+              console.log(`Updated threat: ${newThreat.name}`);
+            } else {
+              console.warn(`Threat not found for editing: ${newThreat.name}`);
+            }
+          });
+          break;
+
+        case "delete_threats":
+          // Remove threats by matching names
+          const threatNamesToDelete = threatsPayload.map((threat) => threat.name);
+          const originalCount = updatedThreats.length;
+          updatedThreats = updatedThreats.filter(
+            (existingThreat) => !threatNamesToDelete.includes(existingThreat.name)
+          );
+          console.log(`Deleted ${originalCount - updatedThreats.length} threats`);
+          break;
+
+        default:
+          console.warn(`Unknown threat operation: ${toolName}`);
+          return;
+      }
+
+      // Create new state with updated threats
+      const newState = { ...response };
+      newState.item = { ...newState.item };
+      newState.item.threat_list = { ...newState.item.threat_list };
+      newState.item.threat_list.threats = updatedThreats;
+
+      // Trigger the same side effects as updateThreatModeling
+      initializeThreatModelSession(newState.item);
+      setResponse(newState);
+    },
+    [response, initializeThreatModelSession]
+  );
+
+  const processInterruptEvent = useCallback(
+    (event) => {
+      const { interruptMessage, source, timestamp } = event.payload;
+      console.log(`Processing interrupt from ${source}:`, interruptMessage);
+
+      const payload = interruptMessage.content.payload;
+      const toolName = interruptMessage.content.tool_name;
+
+      // Handle threat updates based on tool name
+      if (["add_threats", "edit_threats", "delete_threats"].includes(toolName)) {
+        handleThreatUpdates(toolName, payload);
+      }
+
+      handleSendMessage(id, toolName);
+    },
+    [handleThreatUpdates, handleSendMessage, id]
+  );
+
+  const handleInterruptEvent = useCallback(
+    (event) => {
+      console.log(`Interrupt event received for id: ${id}`);
+
+      // Check if response data is available
+      if (!response?.item?.threat_list?.threats) {
+        console.log(
+          "Interrupt event received but threat model data not loaded yet - queuing for later processing"
+        );
+        // Queue the event for later processing
+        pendingInterrupts.current.push(event);
+        return;
+      }
+
+      // Process the event immediately if data is available
+      processInterruptEvent(event);
+    },
+    [response, processInterruptEvent, id]
+  );
+
+  // Process pending interrupts when response data becomes available
+  useEffect(() => {
+    if (response?.item?.threat_list?.threats && pendingInterrupts.current.length > 0) {
+      console.log(`Processing ${pendingInterrupts.current.length} pending interrupt(s)`);
+
+      // Process all pending interrupts
+      const interruptsToProcess = [...pendingInterrupts.current];
+      pendingInterrupts.current = []; // Clear the queue first to prevent infinite loops
+
+      interruptsToProcess.forEach((event) => {
+        processInterruptEvent(event);
+      });
+    }
+  }, [response, processInterruptEvent]);
+
+  // Register the event receiver
+  useEventReceiver("CHAT_INTERRUPT", id, handleInterruptEvent);
+
   const handleDownload = async (format = "docx") => {
     try {
+      // Handle JSON export separately (no need for doc generation)
+      if (format === "json") {
+        downloadJSON(response?.item, response?.item?.title, base64Content);
+        return;
+      }
+
       const doc = await createThreatModelingDocument(
         response?.item?.title,
         response?.item?.description,
@@ -133,7 +367,6 @@ export const ThreatModel = ({ user }) => {
       }
     } catch (error) {
       console.error(`Error generating ${format} document:`, error);
-    } finally {
     }
   };
 
@@ -205,9 +438,10 @@ export const ThreatModel = ({ user }) => {
           throw new Error(`Invalid type: ${type}`);
       }
 
+      initializeThreatModelSession(newState.item);
       setResponse(newState);
     },
-    [response, setResponse]
+    [response, setResponse, initializeThreatModelSession]
   );
 
   useEffect(() => {
@@ -234,6 +468,7 @@ export const ThreatModel = ({ user }) => {
             if (!previousResponse.current) {
               previousResponse.current = JSON.parse(JSON.stringify(resultsResponse.data));
             }
+            await initializeThreatModelSession(resultsResponse.data.item);
 
             setState((prevState) => ({
               ...prevState,
@@ -293,12 +528,13 @@ export const ThreatModel = ({ user }) => {
     }
 
     return () => clearInterval(intervalId);
-  }, [id, trigger]);
+  }, [id, trigger]); // Removed function dependencies that were causing loops
 
   const handleDelete = async () => {
     setLoading(true);
     try {
       await deleteTm(response?.job_id);
+      functions.clearSession(response?.job_id);
       navigate("/");
     } catch (error) {
       console.error("Error deleting threat modeling:", error);
@@ -415,6 +651,9 @@ export const ThreatModel = ({ user }) => {
                     if (itemClickDetails.detail.id === "cp-pdf") {
                       handleDownload("pdf");
                     }
+                    if (itemClickDetails.detail.id === "cp-json") {
+                      handleDownload("json");
+                    }
                   }}
                   items={[
                     { text: "Save", id: "sv", disabled: false },
@@ -425,8 +664,9 @@ export const ThreatModel = ({ user }) => {
                       text: "Download",
                       id: "download",
                       items: [
-                        { text: "Pdf", id: "cp-pdf", disabled: false },
-                        { text: "Docx", id: "cp-doc", disabled: false },
+                        { text: "PDF", id: "cp-pdf", disabled: false },
+                        { text: "DOCX", id: "cp-doc", disabled: false },
+                        { text: "JSON", id: "cp-json", disabled: false },
                       ],
                     },
                   ]}

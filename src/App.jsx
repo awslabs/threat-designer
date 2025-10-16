@@ -10,7 +10,9 @@ import customTheme from "./customTheme";
 import "@cloudscape-design/global-styles/index.css";
 import { applyMode, Mode } from "@cloudscape-design/global-styles";
 import { applyTheme } from "@cloudscape-design/components/theming";
+import { ChatSessionProvider } from "./components/Agent/ChatContext";
 import { ThemeProvider } from "./components/ThemeContext";
+import AppRefreshManager from "./AppRefreshManager";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -107,32 +109,36 @@ const App = () => {
 
   return (
     <div>
-      {loading ? (
-        <SpaceBetween alignItems="center">
-          <div style={{ marginTop: "20px" }}>
-            <Spinner size="large" />
-          </div>
-        </SpaceBetween>
-      ) : authUser ? (
-        <ThemeProvider
-          colorMode={colorMode}
-          effectiveTheme={effectiveTheme}
-          setThemeMode={setThemeMode}
-        >
-            <SplitPanelProvider>
-              <TopNavigationMFE
-                user={authUser}
-                setAuthUser={checkAuthState}
-                colorMode={colorMode}
-                setThemeMode={setThemeMode}
-                effectiveTheme={effectiveTheme}
-              />
-              <AppLayoutMFE user={authUser} colorMode={colorMode} setThemeMode={setThemeMode} />
-            </SplitPanelProvider>
-        </ThemeProvider>
-      ) : (
-        <LoginPageInternal setAuthUser={checkAuthState} />
-      )}
+      <ThemeProvider
+        colorMode={colorMode}
+        effectiveTheme={effectiveTheme}
+        setThemeMode={setThemeMode}
+      >
+        {loading ? (
+          <SpaceBetween alignItems="center">
+            <div style={{ marginTop: "20px" }}>
+              <Spinner size="large" />
+            </div>
+          </SpaceBetween>
+        ) : authUser ? (
+          <AppRefreshManager>
+            <ChatSessionProvider>
+              <SplitPanelProvider>
+                <TopNavigationMFE
+                  user={authUser}
+                  setAuthUser={checkAuthState}
+                  colorMode={colorMode}
+                  setThemeMode={setThemeMode}
+                  effectiveTheme={effectiveTheme}
+                />
+                <AppLayoutMFE user={authUser} colorMode={colorMode} setThemeMode={setThemeMode} />
+              </SplitPanelProvider>
+            </ChatSessionProvider>
+          </AppRefreshManager>
+        ) : (
+          <LoginPageInternal setAuthUser={checkAuthState} />
+        )}
+      </ThemeProvider>
     </div>
   );
 };

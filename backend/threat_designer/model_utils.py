@@ -25,7 +25,7 @@ from constants import (
     MODEL_TEMPERATURE_REASONING,
     REASONING_BUDGET_FIELD,
     REASONING_THINKING_TYPE,
-    STOP_SEQUENCES
+    STOP_SEQUENCES,
 )
 from langchain_aws.chat_models.bedrock import ChatBedrockConverse
 from monitoring import logger, operation_context, with_error_context
@@ -214,7 +214,7 @@ def _build_main_model_config(
         logger.info(
             "Reasoning enabled for main model",
             model_id=model_config["id"],
-            token_budget=reasoning
+            token_budget=reasoning,
         )
     else:
         if reasoning != 0:
@@ -288,7 +288,7 @@ def initialize_models(
                 configs.reasoning_models,
                 configs.flows_model.get("reasoning_budget").get(str(reasoning), 0),
                 client,
-                region
+                region,
             )
 
             threats_config = _build_main_model_config(
@@ -304,7 +304,7 @@ def initialize_models(
                 configs.reasoning_models,
                 configs.gaps_model.get("reasoning_budget").get(str(reasoning), 0),
                 client,
-                region
+                region,
             )
 
             struct_config = _build_standard_model_config(
@@ -334,7 +334,7 @@ def initialize_models(
                 threats_model_id=configs.threats_model["id"],
                 gaps_model_id=configs.gaps_model["id"],
                 struct_model_id=configs.struct_model["id"],
-                summary_model_id=configs.summary_model["id"]
+                summary_model_id=configs.summary_model["id"],
             )
 
             return models

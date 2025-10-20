@@ -123,6 +123,7 @@ def _create_agent_config(event: Dict[str, Any]) -> ConfigSchema:
         "model_summary": models["summary_model"],
         "start_time": datetime.now(),
         "reasoning": thinking,
+        "recursion_limit": 50,
     }
 
 

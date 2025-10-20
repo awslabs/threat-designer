@@ -42,7 +42,7 @@ ALL_AVAILABLE_TOOLS = []
 
 
 # Budget Level Configuration
-BUDGET_MAPPING = {1: 8000, 2: 24000, 3: 63999}
+BUDGET_MAPPING = {1: 16000, 2: 32000, 3: 63999}
 
 
 def create_model_config(budget_level: int = 1):

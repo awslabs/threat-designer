@@ -82,13 +82,16 @@ def format_chat_for_frontend(backend_messages, interrupt=None):
                     current_turn["aiMessage"].append(
                         {
                             "type": "think",
-                            "content": content_item["reasoning_content"]["text"],
+                            "content": content_item["reasoning_content"].get(
+                                "text", " "
+                            ),
                         }
                     )
                 elif content_item.get("type") == "tool_use":
                     current_turn["aiMessage"].append(
                         {
                             "type": "tool",
+                            "id": content_item["id"],
                             "tool_name": content_item["name"],
                             "tool_start": True,
                         }
@@ -108,6 +111,7 @@ def format_chat_for_frontend(backend_messages, interrupt=None):
                     current_turn["aiMessage"].append(
                         {
                             "type": "tool",
+                            "id": message.tool_call_id,
                             "tool_name": message.name,
                             "tool_start": False,
                             "content": content,
@@ -119,6 +123,7 @@ def format_chat_for_frontend(backend_messages, interrupt=None):
                     current_turn["aiMessage"].append(
                         {
                             "type": "tool",
+                            "id": message.tool_call_id,
                             "tool_name": message.name,
                             "tool_start": False,
                             "content": message.content,

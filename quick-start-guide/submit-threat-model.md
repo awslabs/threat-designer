@@ -70,7 +70,7 @@ Enhance the depth of threat analysis:
 
 Typical processing times:
 
-- **Minimum**:  20 minutes for simple architectures
+- **Minimum**: 20 minutes for simple architectures
 - **Typical**: 30 minutes for most systems
 - **Factors affecting duration**:
   - Architecture complexity and size

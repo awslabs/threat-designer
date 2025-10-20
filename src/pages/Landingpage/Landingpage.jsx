@@ -227,7 +227,8 @@ const LoginPageInternal = ({ setAuthUser }) => {
               <img src={icon5} alt="Sentry" />
             </IconsContainer>
             <p>
-              <b>Threat Designer: </b>Streamline threat modeling and identify vulnerabilities using agentic AI-powered security analysis.
+              <b>Threat Designer: </b>Streamline threat modeling and identify vulnerabilities using
+              agentic AI-powered security analysis.
             </p>
           </LeftContent>
         </LeftSection>

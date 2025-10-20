@@ -112,7 +112,10 @@ class ThreatSource(BaseModel):
 
     category: Annotated[str, Field(description="Actor Category")]
     description: Annotated[
-        str, Field(description="One sentence describing their relevance to this architecture")
+        str,
+        Field(
+            description="One sentence describing their relevance to this architecture"
+        ),
     ]
     example: Annotated[str, Field(description="Brief list of 1-2 specific actor types")]
 

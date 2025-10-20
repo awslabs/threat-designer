@@ -78,17 +78,28 @@ export const addAiMessage = (sessionId, message, sessionRefs, setSessions, flush
   }
 
   const refs = getSessionRefs(sessionId, sessionRefs);
-
-  // Buffer ALL message types to maintain order
   refs.buffer = refs.buffer || [];
+
+  // Deduplicate consecutive tool messages
+  if (message.type === "tool" && refs.buffer.length > 0) {
+    const lastMsg = refs.buffer[refs.buffer.length - 1];
+
+    if (lastMsg.type === "tool" && lastMsg.id === message.id) {
+      const currentKey = `${message.tool_start}_${message.tool_update || false}`;
+      const lastKey = `${lastMsg.tool_start}_${lastMsg.tool_update || false}`;
+
+      if (currentKey === lastKey) {
+        return; // Skip consecutive duplicate
+      }
+    }
+  }
+
   refs.buffer.push(message);
 
   if (refs.bufferTimeout) {
     clearTimeout(refs.bufferTimeout);
   }
 
-  // For non-text messages, use a much shorter delay to maintain responsiveness
-  // but still preserve order
   const messageType = message.type || "text";
   const delay = messageType === "text" || messageType === "think" ? BUFFER_DELAY_MS : 2;
 

@@ -95,7 +95,6 @@ You must enable access to the following models in your AWS region:
 
 > **Note:** The default configuration uses a combination of these two models. You free to update it according to your preferences. [See Model Selection](#model-selection) for more information.
 
-
 To enable Claude, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
 
 ## Installation and Deployment

@@ -123,7 +123,7 @@ variable "model_main" {
 
 variable "model_sentry" {
   type = string
-  default = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  default = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 }
 
 variable "model_struct" {

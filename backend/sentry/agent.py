@@ -141,6 +141,7 @@ async def invoke(request: InvocationRequest, http_request: Request):
         return await handlers.handle_history(session_id)
 
     if request_type == "delete_history":
+        await cancel_stream_async(session_id)
         set_active_invocation()
         return handlers.handle_delete_history(session_header, session_id)
 

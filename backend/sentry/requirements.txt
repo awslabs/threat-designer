@@ -3,7 +3,7 @@ langgraph==0.6.10
 langchain-aws==1.0.0
 langgraph-checkpoint-aws==0.2.0
 langchain-mcp-adapters==0.1.11
-uv==0.8.21
+uv==0.9.5
 uvicorn[standard]==0.37.0
 fastapi==0.116.1
 httpx==0.28.1

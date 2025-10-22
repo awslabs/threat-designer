@@ -24,10 +24,9 @@ class Threat(BaseModel):
         ),
     ]
     stride_category: Annotated[
-        str,
+        Literal[*[category.value for category in StrideCategory]],
         Field(
-            description=f"The STRIDE category classification: One of {', '.join([category.value for category in StrideCategory])}. "
-            f"S=Spoofing, T=Tampering, R=Repudiation, I=Information Disclosure, D=Denial of Service, E=Elevation of Privilege"
+            description=f"The STRIDE category classification: One of {', '.join([category.value for category in StrideCategory])}."
         ),
     ]
     description: Annotated[

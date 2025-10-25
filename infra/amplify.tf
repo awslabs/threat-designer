@@ -41,7 +41,7 @@ resource "aws_amplify_branch" "develop" {
 
   # Optional configurations
   enable_auto_build = false
-  framework        = "React"
+  framework         = "React"
 }
 
 resource "aws_iam_role" "amplify_iam_role" {
@@ -50,7 +50,7 @@ resource "aws_iam_role" "amplify_iam_role" {
 }
 
 resource "aws_iam_role_policy" "amplify_iam_policy" {
-  name = "${local.prefix}-amplify-policy"
-  role = aws_iam_role.amplify_iam_role.id
+  name   = "${local.prefix}-amplify-policy"
+  role   = aws_iam_role.amplify_iam_role.id
   policy = templatefile("${path.module}/templates/amplify_execution_role_policy.json", {})
 }

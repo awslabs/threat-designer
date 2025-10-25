@@ -8,7 +8,7 @@ output "app_client_id" {
 }
 
 output "cognito_domain" {
-  value = "${aws_cognito_user_pool_domain.domain.domain}.auth.${var.region}.amazoncognito.com"
+  value       = "${aws_cognito_user_pool_domain.domain.domain}.auth.${var.region}.amazoncognito.com"
   description = "Cognito User Pool Domain"
 }
 
@@ -28,7 +28,7 @@ output "amplify_branch_arn" {
 }
 
 output "api_endpoint" {
-  value = "${aws_api_gateway_stage.gateway_stage.invoke_url}"
+  value = aws_api_gateway_stage.gateway_stage.invoke_url
 }
 
 output "region" {
@@ -54,7 +54,12 @@ output "reasoning_enabled" {
   ]) ? "true" : "false"
 }
 
+output "sentry_enabled" {
+  description = "Whether Sentry feature is enabled"
+  value       = var.enable_sentry
+}
+
 output "agent_runtime_arn_escaped" {
   description = "URL-encoded ARN of the Bedrock agent runtime"
-  value       = try(urlencode(aws_bedrockagentcore_agent_runtime.sentry.agent_runtime_arn), "")
+  value       = var.enable_sentry ? urlencode(aws_bedrockagentcore_agent_runtime.sentry[0].agent_runtime_arn) : ""
 }

@@ -5,9 +5,18 @@ import {
   SESSION_HISTORY_ENDPOINT,
   SESSION_PREPARE_ENDPOINT,
   SESSION_CLEAR_ENDPOINT,
+  SENTRY_ENABLED,
 } from "./constants";
 
+const checkSentryEnabled = () => {
+  if (!SENTRY_ENABLED) {
+    console.warn('Sentry feature is disabled. API call skipped.');
+    throw new Error('Sentry feature is not enabled');
+  }
+};
+
 export const fetchAvailableTools = async (sessionId) => {
+  checkSentryEnabled();
   const token = await getAuthToken();
 
   const response = await fetch(TOOLS_ENDPOINT, {
@@ -39,6 +48,7 @@ export const prepareSession = async (
   diagramPath = null,
   thinking = 0
 ) => {
+  checkSentryEnabled();
   const token = await getAuthToken();
 
   const requestBody = {
@@ -76,6 +86,7 @@ export const prepareSession = async (
 };
 
 export const clearSessionAPI = async (sessionId) => {
+  checkSentryEnabled();
   const token = await getAuthToken();
 
   const response = await fetch(SESSION_CLEAR_ENDPOINT, {
@@ -100,6 +111,7 @@ export const clearSessionAPI = async (sessionId) => {
 };
 
 export const fetchSessionHistory = async (sessionId) => {
+  checkSentryEnabled();
   const token = await getAuthToken();
 
   const response = await fetch(SESSION_HISTORY_ENDPOINT, {
@@ -130,6 +142,7 @@ export const sendMessageAPI = async (
   interrupt = false,
   interruptResponse = null
 ) => {
+  checkSentryEnabled();
   let requestBody;
 
   if (interrupt && interruptResponse) {
@@ -168,6 +181,7 @@ export const sendMessageAPI = async (
 };
 
 export const stopAPI = async (sessionId) => {
+  checkSentryEnabled();
   const token = await getAuthToken();
 
   const response = await fetch(SESSION_CLEAR_ENDPOINT, {

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useMemo 
 import { eventBus } from "./eventBus";
 import { checkForInterruptInChatTurns } from "./context/utils";
 import { useChatSessionFunctions } from "./useChatSessionFunctions";
+import { SENTRY_ENABLED } from "./context/constants";
 
 // Split contexts
 export const ChatSessionFunctionsContext = createContext(null);
@@ -26,6 +27,16 @@ export const ChatSessionProvider = ({ children }) => {
   useEffect(() => {
     sessionsRef.current = sessions;
   }, [sessions]);
+
+  // Handle disabled Sentry state
+  useEffect(() => {
+    if (!SENTRY_ENABLED) {
+      setToolsLoading(false);
+      setToolsError(new Error('Sentry feature is disabled'));
+      setAvailableTools([]);
+      toolsFetched.current = true; // Prevent further fetch attempts
+    }
+  }, []);
 
   // Create stable functions that don't depend on state directly
   const stableFunctions = useChatSessionFunctions({

@@ -32,6 +32,7 @@ import "./ThreatModeling.css";
 import { useEventReceiver } from "../Agent/useEventReceiver";
 import { useSessionInitializer } from "../Agent/useSessionInit";
 import { ChatSessionFunctionsContext } from "../Agent/ChatContext";
+import { SENTRY_ENABLED } from "../Agent/context/constants";
 
 const blobToBase64 = (blob) => {
   return new Promise((resolve) => {
@@ -148,6 +149,10 @@ export const ThreatModel = ({ user }) => {
 
   const handleSendMessage = useCallback(
     async (id, response) => {
+      if (!SENTRY_ENABLED) {
+        console.log('Sentry disabled - message not sent to backend');
+        return;
+      }
       await functions.sendMessage(id, response, true, response);
     },
     [functions]
@@ -204,11 +209,15 @@ export const ThreatModel = ({ user }) => {
         },
       };
 
-      updateSessionContext(id, sessionContext).catch((error) => {
-        console.error(`Failed to initialize session ${id}:`, error);
-      });
-
-      functions.setisVisible(true);
+      // Only update session context if Sentry is enabled
+      if (SENTRY_ENABLED) {
+        updateSessionContext(id, sessionContext).catch((error) => {
+          console.error(`Failed to initialize session ${id}:`, error);
+        });
+        functions.setisVisible(true);
+      } else {
+        console.log('Sentry disabled - session context not sent to backend');
+      }
     },
     [id, updateSessionContext, functions]
   );

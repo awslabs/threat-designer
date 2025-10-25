@@ -16,6 +16,7 @@ import {
   addAiMessage,
   cleanupSSE,
 } from "./context/sessionHelpers";
+import { SENTRY_ENABLED } from "./context/constants";
 
 export const useChatSessionFunctions = (props) => {
   const {
@@ -56,6 +57,17 @@ export const useChatSessionFunctions = (props) => {
 
     // Clear session
     const clearSession = async (sessionId) => {
+      // Handle Sentry disabled - just clear local state
+      if (!SENTRY_ENABLED) {
+        console.log(`Sentry disabled - clearing local session ${sessionId}`);
+        updateSession(sessionId, setSessions, {
+          chatTurns: [],
+          error: null,
+          isStreaming: false,
+        });
+        return { success: true };
+      }
+
       setSessionLoading(sessionId, setLoadingStates, true);
 
       try {
@@ -159,6 +171,44 @@ export const useChatSessionFunctions = (props) => {
     const initializeSession = async (sessionId, forceCheck = false) => {
       if (!forceCheck && initializingPromises.current.has(sessionId)) {
         return initializingPromises.current.get(sessionId);
+      }
+
+      // Handle Sentry disabled state - create local-only session
+      if (!SENTRY_ENABLED) {
+        if (!forceCheck && initializedSessions.current.has(sessionId)) {
+          return;
+        }
+
+        console.log(`Sentry disabled - creating local-only session for ${sessionId}`);
+        
+        setSessions((prev) => {
+          const existingSession = prev.get(sessionId);
+          if (existingSession) {
+            return prev;
+          }
+
+          const newSessions = new Map(prev);
+          newSessions.set(sessionId, {
+            id: sessionId,
+            chatTurns: [],
+            isStreaming: false,
+            error: null,
+            restoredFromBackend: false,
+            context: { diagram: null, threatModel: null },
+          });
+          return newSessions;
+        });
+
+        if (!sessionRefs.current.has(sessionId)) {
+          sessionRefs.current.set(sessionId, {
+            eventSource: null,
+            buffer: [],
+            bufferTimeout: null,
+          });
+        }
+
+        initializedSessions.current.add(sessionId);
+        return;
       }
 
       if (!toolsFetched.current) {
@@ -296,6 +346,12 @@ export const useChatSessionFunctions = (props) => {
       interruptResponse = null,
       retryAttempt = 0
     ) => {
+      // Handle Sentry disabled - no-op for message sending
+      if (!SENTRY_ENABLED) {
+        console.log(`Sentry disabled - message not sent to backend: "${userMessage}"`);
+        return;
+      }
+
       const MAX_RETRIES = 3;
       const RETRY_DELAYS = [500, 1000, 2000]; // Exponential backoff in ms
 
@@ -511,9 +567,18 @@ export const useChatSessionFunctions = (props) => {
       }
     };
 
+    // Wrap prepareSession to handle Sentry disabled
+    const prepareSessionWrapper = async (...args) => {
+      if (!SENTRY_ENABLED) {
+        console.log('Sentry disabled - session preparation skipped');
+        return { status: 'skipped', message: 'Sentry is disabled' };
+      }
+      return prepareSession(...args);
+    };
+
     return {
       initializeSession,
-      prepareSession,
+      prepareSession: prepareSessionWrapper,
       clearSession,
       setSessionContext,
       clearSessionContext,

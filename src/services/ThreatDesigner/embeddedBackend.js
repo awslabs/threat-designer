@@ -71,3 +71,13 @@ export async function deleteTm(...args) {
   const backend = await getEmbeddedBackend();
   return backend.deleteTm(...args);
 }
+
+export async function interruptJob(...args) {
+  const backend = await getEmbeddedBackend();
+  return backend.interruptJob(...args);
+}
+
+export async function getStateManager() {
+  const backend = await getEmbeddedBackend();
+  return backend.stateManager;
+}

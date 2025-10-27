@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "@cloudscape-design/global-styles/index.css";
 import { TopNavigation, Button } from "@cloudscape-design/components";
@@ -7,6 +7,7 @@ import Shield from "../../components/ThreatModeling/images/shield.png";
 import customTheme from "../../customTheme";
 import { MonitorCog, Moon, Sun } from "lucide-react";
 import { THREAT_CATALOG_ENABLED, BACKEND_MODE } from "../../config";
+import ConfirmationModal from "./ConfirmationModal";
 
 const getConditionalColor = (checkValue, effectiveTheme, colorMode) => {
   return colorMode === checkValue ? (effectiveTheme === "dark" ? "#42b4ff" : "#006ce0") : undefined;
@@ -15,10 +16,90 @@ const getConditionalColor = (checkValue, effectiveTheme, colorMode) => {
 function TopNavigationMFE({ user, setAuthUser, colorMode, setThemeMode, effectiveTheme }) {
   const navigate = useNavigate();
   const navBarRef = useRef(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  
   const i18nStrings = {
     searchIconAriaLabel: "Search",
     searchDismissIconAriaLabel: "Close search",
     overflowMenuTriggerText: "More",
+  };
+
+  /**
+   * Check if threat modeling data exists in sessionStorage
+   */
+  const hasThreateningData = () => {
+    if (BACKEND_MODE !== 'lightning') {
+      return false;
+    }
+    const allJobs = sessionStorage.getItem('tm_all_jobs');
+    return allJobs !== null && allJobs !== '[]';
+  };
+
+  /**
+   * Handle New button click
+   */
+  const handleNewClick = () => {
+    if (hasThreateningData()) {
+      // Show confirmation modal if data exists
+      setShowConfirmModal(true);
+    } else {
+      // Navigate directly if no data exists
+      navigate("/");
+    }
+  };
+
+  /**
+   * Handle confirmation modal confirm action
+   */
+  const handleConfirmClear = async () => {
+    setShowConfirmModal(false);
+    
+    if (BACKEND_MODE === 'lightning') {
+      try {
+        // Import embedded backend functions
+        const { interruptJob, getStateManager } = await import('../../services/ThreatDesigner/embeddedBackend.js');
+        const stateManager = await getStateManager();
+        
+        // Get all active jobs
+        const allJobs = stateManager.getAllJobs();
+        
+        // Interrupt all active jobs
+        if (allJobs && allJobs.length > 0) {
+          console.log(`Interrupting ${allJobs.length} active job(s)`);
+          for (const job of allJobs) {
+            try {
+              await interruptJob(job.id);
+            } catch (error) {
+              console.warn(`Failed to interrupt job ${job.id}:`, error);
+            }
+          }
+        }
+        
+        // Clear all threat modeling data except credentials
+        const keysToRemove = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          // Clear all tm_ keys EXCEPT credentials
+          if (key && key.startsWith('tm_') && key !== 'tm_aws_credentials') {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => sessionStorage.removeItem(key));
+        console.log('Cleared Lightning Mode threat modeling data (kept credentials)');
+      } catch (error) {
+        console.error('Error clearing data:', error);
+      }
+    }
+    
+    // Navigate to home
+    navigate("/");
+  };
+
+  /**
+   * Handle confirmation modal cancel action
+   */
+  const handleCancelClear = () => {
+    setShowConfirmModal(false);
   };
 
   const profileActions = [
@@ -139,22 +220,7 @@ function TopNavigationMFE({ user, setAuthUser, colorMode, setThemeMode, effectiv
                 <div style={{ display: "flex", gap: "0px" }}>
                   <Button
                     variant="link"
-                    onClick={() => {
-                      // In Lightning Mode, clear threat modeling data but keep credentials
-                      if (BACKEND_MODE === 'lightning') {
-                        const keysToRemove = [];
-                        for (let i = 0; i < sessionStorage.length; i++) {
-                          const key = sessionStorage.key(i);
-                          // Clear all tm_ keys EXCEPT credentials
-                          if (key && key.startsWith('tm_') && key !== 'tm_aws_credentials') {
-                            keysToRemove.push(key);
-                          }
-                        }
-                        keysToRemove.forEach(key => sessionStorage.removeItem(key));
-                        console.log('Cleared Lightning Mode threat modeling data (kept credentials)');
-                      }
-                      navigate("/");
-                    }}
+                    onClick={handleNewClick}
                   >
                     New
                   </Button>
@@ -217,6 +283,13 @@ function TopNavigationMFE({ user, setAuthUser, colorMode, setThemeMode, effectiv
           ]}
         />
       )}
+      <ConfirmationModal
+        visible={showConfirmModal}
+        onConfirm={handleConfirmClear}
+        onCancel={handleCancelClear}
+        title="Clear Threat Modeling Data"
+        message="All threat modeling data will be lost. This action cannot be undone. Are you sure you want to continue?"
+      />
     </div>
   );
 }

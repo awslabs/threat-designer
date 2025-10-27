@@ -19,8 +19,13 @@ const JobState = {
   THREAT_RETRY: 'THREAT_RETRY',
   FINALIZE: 'FINALIZE',
   COMPLETE: 'COMPLETE',
-  FAILED: 'FAILED'
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED'
 };
+
+// Active jobs registry to track running workflows
+const activeJobs = new Map();
+// Structure: jobId → { abortController, status, startTime, workflowPromise }
 
 /**
  * Initialize model configuration for agent execution
@@ -286,13 +291,28 @@ export async function executeAgent(params) {
  * @param {number} reasoning - Reasoning count
  */
 function executeWorkflowBackground(jobId, initialState, reasoning) {
-  // Execute in next tick to simulate background execution
-  setTimeout(async () => {
+  // Check if AbortController is available (graceful degradation)
+  const hasAbortController = typeof AbortController !== 'undefined';
+  
+  if (!hasAbortController) {
+    console.warn('AbortController not available, interruption will not be supported');
+  }
+  
+  // Create AbortController for this job (if available)
+  const abortController = hasAbortController ? new AbortController() : null;
+  
+  // Create the workflow promise
+  const workflowPromise = (async () => {
     try {
       console.log(`Starting background execution for job ${jobId}`);
 
       // Initialize model configuration
       const config = initializeModelConfig(reasoning);
+      
+      // Add abort signal to config (if available)
+      if (abortController) {
+        config.signal = abortController.signal;
+      }
 
       // Create and compile workflow
       const workflow = createThreatModelingWorkflow();
@@ -301,27 +321,83 @@ function executeWorkflowBackground(jobId, initialState, reasoning) {
       console.log('Invoking workflow...');
       const result = await workflow.invoke(initialState, config);
 
+      // Check if job was cancelled during execution (race condition handling)
+      if (!activeJobs.has(jobId)) {
+        console.log(`Job ${jobId} was cancelled during execution, skipping completion`);
+        return;
+      }
+
       console.log(`Workflow completed for job ${jobId}`);
 
       // Results are already stored by the finalize node
       // Just log completion
       console.log(`Job ${jobId} completed successfully`);
+      
+      // Remove from active jobs on successful completion
+      activeJobs.delete(jobId);
     } catch (error) {
+      // Check if this was an abort error (multiple ways to detect)
+      const isAbortError = 
+        error.name === 'AbortError' || 
+        error.message === 'AbortError' ||
+        (abortController && abortController.signal.aborted);
+      
+      if (isAbortError) {
+        console.log(`Job ${jobId} was aborted - interruption successful`);
+        // Don't update status here - interruptJob already did it
+        // Clean up from active jobs registry
+        activeJobs.delete(jobId);
+        return;
+      }
+
       console.error(`Background execution failed for job ${jobId}:`, error);
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+
+      // Check if job was cancelled during error handling (race condition)
+      const jobStillActive = activeJobs.has(jobId);
+      if (!jobStillActive) {
+        console.log(`Job ${jobId} was cancelled during error handling, skipping status update`);
+        return;
+      }
 
       // Update job status to failed (use current retry count from state if available)
       const currentStatus = stateManager.getJobStatus(jobId);
-      stateManager.setJobStatus(jobId, JobState.FAILED, currentStatus?.retry || 0);
-
-      // Store error in results
-      const existingResults = stateManager.getJobResults(jobId) || {};
-      stateManager.setJobResults(jobId, {
-        ...existingResults,
-        error: error.message,
-        error_type: error.name
-      });
+      const retryCount = currentStatus?.retry || 0;
+      
+      try {
+        stateManager.setJobStatus(jobId, JobState.FAILED, retryCount);
+        
+        // Store error in results
+        const existingResults = stateManager.getJobResults(jobId) || {};
+        stateManager.setJobResults(jobId, {
+          ...existingResults,
+          error: error.message || 'Unknown error',
+          error_type: error.name || 'Error',
+          failed_at: new Date().toISOString()
+        });
+      } catch (storageError) {
+        console.error(`Failed to store error state for job ${jobId}:`, storageError);
+      }
+      
+      // Remove from active jobs on failure
+      activeJobs.delete(jobId);
     }
-  }, 0);
+  })();
+  
+  // Store job in active jobs registry
+  activeJobs.set(jobId, {
+    abortController,
+    status: 'RUNNING',
+    startTime: Date.now(),
+    workflowPromise
+  });
+  
+  // Execute in next tick to simulate background execution
+  setTimeout(() => workflowPromise, 0);
 }
 
 /**
@@ -345,6 +421,82 @@ export function isJobExecuting(jobId) {
   ];
 
   return executingStates.includes(status.state);
+}
+
+/**
+ * Interrupt a running job
+ * @param {string} jobId - Job ID to interrupt
+ * @returns {boolean} True if job was interrupted, false if job was not found or already completed
+ */
+export function interruptJob(jobId) {
+  const job = activeJobs.get(jobId);
+  
+  if (!job) {
+    console.log(`Interruption requested for job ${jobId}, but job not found in active jobs registry`);
+    
+    // Check if job exists in storage but not in active registry
+    const status = stateManager.getJobStatus(jobId);
+    if (status) {
+      console.log(`Job ${jobId} exists in storage with status: ${status.state}`);
+      
+      // If job is in a non-terminal state but not in active registry, update to CANCELLED
+      const terminalStates = [JobState.COMPLETE, JobState.FAILED, JobState.CANCELLED];
+      if (!terminalStates.includes(status.state)) {
+        console.log(`Updating orphaned job ${jobId} to CANCELLED state`);
+        stateManager.setJobStatus(jobId, JobState.CANCELLED, status.retry || 0);
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  console.log(`Interrupting job ${jobId} (started at ${new Date(job.startTime).toISOString()})`);
+  
+  try {
+    // Abort the workflow execution (if AbortController is available)
+    if (job.abortController) {
+      job.abortController.abort();
+      console.log(`Abort signal sent for job ${jobId}`);
+    } else {
+      console.warn(`No AbortController available for job ${jobId}, interruption may not be immediate`);
+    }
+    
+    // Update job status to CANCELLED (race condition handling: check if status still exists)
+    const currentStatus = stateManager.getJobStatus(jobId);
+    if (currentStatus) {
+      stateManager.setJobStatus(jobId, JobState.CANCELLED, currentStatus.retry || 0);
+      console.log(`Job ${jobId} status updated to CANCELLED`);
+    } else {
+      console.warn(`Job ${jobId} status not found during interruption, may have been cleared`);
+    }
+    
+    // Store cancellation metadata in results
+    try {
+      const existingResults = stateManager.getJobResults(jobId) || {};
+      stateManager.setJobResults(jobId, {
+        ...existingResults,
+        cancelled_at: new Date().toISOString(),
+        cancellation_reason: 'User requested interruption'
+      });
+    } catch (storageError) {
+      console.error(`Failed to store cancellation metadata for job ${jobId}:`, storageError);
+    }
+    
+    // Remove from active jobs registry (cleanup)
+    activeJobs.delete(jobId);
+    
+    console.log(`Job ${jobId} interrupted successfully and removed from active registry`);
+    return true;
+  } catch (error) {
+    console.error(`Error during interruption of job ${jobId}:`, error);
+    
+    // Still try to clean up
+    activeJobs.delete(jobId);
+    
+    // Return true since we attempted interruption
+    return true;
+  }
 }
 
 /**
@@ -379,6 +531,14 @@ export async function waitForJobCompletion(jobId, timeoutMs = 300000) {
       throw new ThreatModelingError(
         'INTERNAL_ERROR',
         errorMsg,
+        jobId
+      );
+    }
+    
+    if (status.state === JobState.CANCELLED) {
+      throw new ThreatModelingError(
+        'INTERNAL_ERROR',
+        'Job was cancelled',
         jobId
       );
     }

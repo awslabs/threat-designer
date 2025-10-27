@@ -33,6 +33,8 @@ import { useEventReceiver } from "../Agent/useEventReceiver";
 import { useSessionInitializer } from "../Agent/useSessionInit";
 import { ChatSessionFunctionsContext } from "../Agent/ChatContext";
 import { SENTRY_ENABLED } from "../Agent/context/constants";
+import { getStateManager } from "../../services/ThreatDesigner/embeddedBackend";
+import { BACKEND_MODE } from "../../config";
 
 const blobToBase64 = (blob) => {
   return new Promise((resolve) => {
@@ -83,6 +85,7 @@ const downloadJSON = (data, filename, base64Diagram) => {
 export const ThreatModel = ({ user }) => {
   const { id = null } = useParams();
   const updateSessionContext = useSessionInitializer(id);
+  const navigate = useNavigate();
 
   // Check if Lightning Mode is enabled
   const isLightningMode = import.meta.env.VITE_BACKEND_MODE === 'lightning';
@@ -106,13 +109,37 @@ export const ThreatModel = ({ user }) => {
   const [base64Content, setBase64Content] = useState([]);
   const [response, setResponse] = useState(null);
   const previousResponse = useRef(null);
-  const navigate = useNavigate();
   const [deleteModalVisible, setDeleteModal] = useState(false);
   const { setTrail, handleHelpButtonClick, setSplitPanelOpen } = useSplitPanel();
   const functions = useContext(ChatSessionFunctionsContext);
 
   // Queue for storing interrupt events that arrive before data is loaded
   const pendingInterrupts = useRef([]);
+
+  // Validate job existence in Lightning Mode and redirect if not found
+  useEffect(() => {
+    const validateJobExists = async () => {
+      // Only validate in Lightning Mode and when we have a job ID
+      if (BACKEND_MODE === 'lightning' && id) {
+        try {
+          const stateManager = await getStateManager();
+          const jobStatus = stateManager.getJobStatus(id);
+          
+          if (!jobStatus) {
+            // Job doesn't exist in sessionStorage, redirect to homepage
+            console.warn(`Job ${id} not found in sessionStorage, redirecting to homepage`);
+            navigate('/');
+            return;
+          }
+        } catch (error) {
+          console.error('Error validating job existence:', error);
+          // On error, allow the component to continue (fail gracefully)
+        }
+      }
+    };
+
+    validateJobExists();
+  }, [id, navigate]);
 
   // Reset pending interrupts when id changes
   useEffect(() => {

@@ -37,3 +37,6 @@ export { getCredentials, setCredentials, clearCredentials, hasValidCredentials }
 
 // Export error types for error handling
 export { ThreatModelingError, ERROR_TYPES } from './adapter/errors.js';
+
+// Export agent execution control functions
+export { interruptJob, isJobExecuting } from './adapter/agentExecutor.js';

@@ -10,6 +10,20 @@ const KEYS = {
   JOB_TRAIL: 'tm_job_trail_',
   ALL_JOBS: 'tm_all_jobs',
   UPLOADED_FILES: 'tm_uploaded_files_',
+  AWS_CREDENTIALS: 'tm_aws_credentials',
+};
+
+// Job status constants
+export const JOB_STATUS = {
+  START: 'START',
+  ASSETS: 'ASSETS',
+  FLOW: 'FLOW',
+  THREAT: 'THREAT',
+  THREAT_RETRY: 'THREAT_RETRY',
+  FINALIZE: 'FINALIZE',
+  COMPLETE: 'COMPLETE',
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED',
 };
 
 /**
@@ -19,7 +33,7 @@ export class StateManager {
   /**
    * Set job status
    * @param {string} id - Job ID
-   * @param {string} state - Job state (START, ASSETS, FLOW, THREAT, THREAT_RETRY, FINALIZE, COMPLETE, FAILED)
+   * @param {string} state - Job state (START, ASSETS, FLOW, THREAT, THREAT_RETRY, FINALIZE, COMPLETE, FAILED, CANCELLED)
    * @param {number} retry - Retry count
    */
   setJobStatus(id, state, retry = 0) {
@@ -254,9 +268,12 @@ export class StateManager {
   }
 
   /**
-   * Clear all threat modeling data
+   * Clear all threat modeling data (preserves AWS credentials)
    */
   clearAllData() {
+    // Preserve AWS credentials before clearing
+    const awsCredentials = sessionStorage.getItem(KEYS.AWS_CREDENTIALS);
+    
     // Get all jobs to clear their data
     const allJobs = this.getAllJobs();
     allJobs.forEach(job => {
@@ -272,6 +289,31 @@ export class StateManager {
         sessionStorage.removeItem(key);
       }
     });
+    
+    // Restore AWS credentials if they existed
+    if (awsCredentials) {
+      sessionStorage.setItem(KEYS.AWS_CREDENTIALS, awsCredentials);
+    }
+  }
+
+  /**
+   * Check if a job is active (not in a terminal state)
+   * @param {string} id - Job ID
+   * @returns {boolean} True if job is active, false otherwise
+   */
+  isJobActive(id) {
+    const status = this.getJobStatus(id);
+    if (!status) {
+      return false;
+    }
+    
+    const terminalStates = [
+      JOB_STATUS.CANCELLED,
+      JOB_STATUS.COMPLETE,
+      JOB_STATUS.FAILED,
+    ];
+    
+    return !terminalStates.includes(status.state);
   }
 }
 
@@ -297,3 +339,4 @@ export const getUploadedFile = (key) => stateManager.getUploadedFile(key);
 export const deleteUploadedFile = (key) => stateManager.deleteUploadedFile(key);
 export const clearJobData = (id) => stateManager.clearJobData(id);
 export const clearAllData = () => stateManager.clearAllData();
+export const isJobActive = (id) => stateManager.isJobActive(id);

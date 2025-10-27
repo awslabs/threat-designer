@@ -34,7 +34,8 @@ const JobState = {
   THREAT_RETRY: 'THREAT_RETRY',
   FINALIZE: 'FINALIZE',
   COMPLETE: 'COMPLETE',
-  FAILED: 'FAILED'
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED'
 };
 
 const FLUSH_MODE_REPLACE = 0;
@@ -44,6 +45,31 @@ const MAX_RETRY_DEFAULT = 15;
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+/**
+ * Check if workflow was aborted and throw appropriate error
+ * @param {Object} config - Runnable configuration
+ * @param {string} nodeName - Name of the node checking for abort
+ * @throws {Error} AbortError if workflow was aborted
+ */
+function checkAbortSignal(config, nodeName) {
+  if (config?.signal?.aborted) {
+    console.log(`Workflow aborted, skipping ${nodeName}`);
+    const error = new Error('AbortError');
+    error.name = 'AbortError';
+    throw error;
+  }
+}
+
+/**
+ * Check if job was cancelled (not in active registry or status is CANCELLED)
+ * @param {string} jobId - Job ID
+ * @returns {boolean} True if job was cancelled
+ */
+function isJobCancelled(jobId) {
+  const status = stateManager.getJobStatus(jobId);
+  return status?.state === JobState.CANCELLED;
+}
 
 /**
  * Extract reasoning content from model response
@@ -76,14 +102,26 @@ function extractReasoningContent(response) {
 export async function generateSummary(state, config) {
   console.log('Node: generateSummary');
 
+  // Check if workflow was aborted
+  checkAbortSignal(config, 'generateSummary');
+
   // If summary already exists, skip generation
   if (state.summary) {
+    console.log('Summary already exists, skipping generation');
     return { image_data: state.image_data };
   }
 
   const job_id = state.job_id || 'unknown';
 
   try {
+    // Check if job was cancelled before starting work
+    if (isJobCancelled(job_id)) {
+      console.log(`Job ${job_id} was cancelled, aborting generateSummary`);
+      const error = new Error('AbortError');
+      error.name = 'AbortError';
+      throw error;
+    }
+
     const msg_builder = new MessageBuilder(
       state.image_data,
       state.description || '',
@@ -97,7 +135,9 @@ export async function generateSummary(state, config) {
     // Get model from config
     const model = config.configurable?.model_summary;
     if (!model) {
-      throw new Error('Summary model not found in config');
+      const error = new Error('Summary model not found in config');
+      console.error('Configuration error:', error.message);
+      throw error;
     }
 
     // Use withStructuredOutput with includeRaw to get both structured output and raw response
@@ -106,18 +146,47 @@ export async function generateSummary(state, config) {
     });
 
     // Invoke model
+    console.log(`Invoking summary model for job ${job_id}`);
     const result = await model_with_structure.invoke(messages);
+
+    // Check again after async operation
+    checkAbortSignal(config, 'generateSummary (after model invocation)');
+    
+    // Check if job was cancelled during model invocation
+    if (isJobCancelled(job_id)) {
+      console.log(`Job ${job_id} was cancelled during model invocation`);
+      const error = new Error('AbortError');
+      error.name = 'AbortError';
+      throw error;
+    }
 
     // Extract structured response and raw response
     const structured_response = result.parsed;
 
+    console.log(`Summary generated successfully for job ${job_id}`);
     return {
       image_data: state.image_data,
       summary: structured_response.summary
     };
   } catch (error) {
-    console.error('Error in generateSummary:', error);
-    stateManager.setJobStatus(job_id, JobState.FAILED, state.retry || 0);
+    // Check if this is an abort/cancellation error
+    const isAbortError = error.name === 'AbortError' || error.message === 'AbortError';
+    
+    if (isAbortError) {
+      console.log(`generateSummary aborted for job ${job_id}`);
+    } else {
+      console.error(`Error in generateSummary for job ${job_id}:`, error);
+      console.error('Error details:', { name: error.name, message: error.message });
+      
+      // Only update status if job wasn't cancelled
+      if (!isJobCancelled(job_id)) {
+        try {
+          stateManager.setJobStatus(job_id, JobState.FAILED, state.retry || 0);
+        } catch (storageError) {
+          console.error(`Failed to update job status for ${job_id}:`, storageError);
+        }
+      }
+    }
     throw error;
   }
 }
@@ -131,9 +200,20 @@ export async function generateSummary(state, config) {
 export async function defineAssets(state, config) {
   console.log('Node: defineAssets');
 
+  // Check if workflow was aborted
+  checkAbortSignal(config, 'defineAssets');
+
   const job_id = state.job_id || 'unknown';
 
   try {
+    // Check if job was cancelled before updating status
+    if (isJobCancelled(job_id)) {
+      console.log(`Job ${job_id} was cancelled, aborting defineAssets`);
+      const error = new Error('AbortError');
+      error.name = 'AbortError';
+      throw error;
+    }
+
     // Update job state
     stateManager.setJobStatus(job_id, JobState.ASSETS, state.retry || 0);
 
@@ -151,7 +231,9 @@ export async function defineAssets(state, config) {
     // Get model from config
     const model = config.configurable?.model_assets;
     if (!model) {
-      throw new Error('Assets model not found in config');
+      const error = new Error('Assets model not found in config');
+      console.error('Configuration error:', error.message);
+      throw error;
     }
 
     // Use withStructuredOutput with includeRaw to get both structured output and raw response
@@ -160,7 +242,19 @@ export async function defineAssets(state, config) {
     });
 
     // Invoke model
+    console.log(`Invoking assets model for job ${job_id}`);
     const result = await model_with_structure.invoke(messages);
+
+    // Check again after async operation
+    checkAbortSignal(config, 'defineAssets (after model invocation)');
+    
+    // Check if job was cancelled during model invocation
+    if (isJobCancelled(job_id)) {
+      console.log(`Job ${job_id} was cancelled during model invocation`);
+      const error = new Error('AbortError');
+      error.name = 'AbortError';
+      throw error;
+    }
 
     // Extract structured response and raw response
     const structured_response = result.parsed;
@@ -175,10 +269,27 @@ export async function defineAssets(state, config) {
       }
     }
 
+    console.log(`Assets defined successfully for job ${job_id}`);
     return { assets: structured_response };
   } catch (error) {
-    console.error('Error in defineAssets:', error);
-    stateManager.setJobStatus(job_id, JobState.FAILED, state.retry || 0);
+    // Check if this is an abort/cancellation error
+    const isAbortError = error.name === 'AbortError' || error.message === 'AbortError';
+    
+    if (isAbortError) {
+      console.log(`defineAssets aborted for job ${job_id}`);
+    } else {
+      console.error(`Error in defineAssets for job ${job_id}:`, error);
+      console.error('Error details:', { name: error.name, message: error.message });
+      
+      // Only update status if job wasn't cancelled
+      if (!isJobCancelled(job_id)) {
+        try {
+          stateManager.setJobStatus(job_id, JobState.FAILED, state.retry || 0);
+        } catch (storageError) {
+          console.error(`Failed to update job status for ${job_id}:`, storageError);
+        }
+      }
+    }
     throw error;
   }
 }
@@ -192,9 +303,20 @@ export async function defineAssets(state, config) {
 export async function defineFlows(state, config) {
   console.log('Node: defineFlows');
 
+  // Check if workflow was aborted
+  checkAbortSignal(config, 'defineFlows');
+
   const job_id = state.job_id || 'unknown';
 
   try {
+    // Check if job was cancelled before updating status
+    if (isJobCancelled(job_id)) {
+      console.log(`Job ${job_id} was cancelled, aborting defineFlows`);
+      const error = new Error('AbortError');
+      error.name = 'AbortError';
+      throw error;
+    }
+
     // Update job state
     stateManager.setJobStatus(job_id, JobState.FLOW, state.retry || 0);
 
@@ -212,7 +334,9 @@ export async function defineFlows(state, config) {
     // Get model from config
     const model = config.configurable?.model_flows;
     if (!model) {
-      throw new Error('Flows model not found in config');
+      const error = new Error('Flows model not found in config');
+      console.error('Configuration error:', error.message);
+      throw error;
     }
 
     // Use withStructuredOutput with includeRaw to get both structured output and raw response
@@ -221,7 +345,19 @@ export async function defineFlows(state, config) {
     });
 
     // Invoke model
+    console.log(`Invoking flows model for job ${job_id}`);
     const result = await model_with_structure.invoke(messages);
+
+    // Check again after async operation
+    checkAbortSignal(config, 'defineFlows (after model invocation)');
+    
+    // Check if job was cancelled during model invocation
+    if (isJobCancelled(job_id)) {
+      console.log(`Job ${job_id} was cancelled during model invocation`);
+      const error = new Error('AbortError');
+      error.name = 'AbortError';
+      throw error;
+    }
 
     // Extract structured response and raw response
     const structured_response = result.parsed;
@@ -236,10 +372,27 @@ export async function defineFlows(state, config) {
       }
     }
 
+    console.log(`Flows defined successfully for job ${job_id}`);
     return { system_architecture: structured_response };
   } catch (error) {
-    console.error('Error in defineFlows:', error);
-    stateManager.setJobStatus(job_id, JobState.FAILED, state.retry || 0);
+    // Check if this is an abort/cancellation error
+    const isAbortError = error.name === 'AbortError' || error.message === 'AbortError';
+    
+    if (isAbortError) {
+      console.log(`defineFlows aborted for job ${job_id}`);
+    } else {
+      console.error(`Error in defineFlows for job ${job_id}:`, error);
+      console.error('Error details:', { name: error.name, message: error.message });
+      
+      // Only update status if job wasn't cancelled
+      if (!isJobCancelled(job_id)) {
+        try {
+          stateManager.setJobStatus(job_id, JobState.FAILED, state.retry || 0);
+        } catch (storageError) {
+          console.error(`Failed to update job status for ${job_id}:`, storageError);
+        }
+      }
+    }
     throw error;
   }
 }
@@ -253,19 +406,30 @@ export async function defineFlows(state, config) {
 export async function defineThreats(state, config) {
   console.log('Node: defineThreats');
 
+  // Check if workflow was aborted
+  checkAbortSignal(config, 'defineThreats');
+
   const job_id = state.job_id || 'unknown';
   const retry_count = parseInt(state.retry || 0);
   const iteration = parseInt(state.iteration || 0);
   const max_retry = config.configurable?.max_retry || MAX_RETRY_DEFAULT;
 
   try {
+    // Check if job was cancelled before starting work
+    if (isJobCancelled(job_id)) {
+      console.log(`Job ${job_id} was cancelled, aborting defineThreats`);
+      const error = new Error('AbortError');
+      error.name = 'AbortError';
+      throw error;
+    }
+
     // Check if we've completed enough iterations
     // retry_count is 0-indexed: 0 = first iteration, 1 = second iteration, etc.
     const max_retries_reached = retry_count >= max_retry;
     const iteration_limit_reached = (retry_count >= iteration) && (iteration !== 0);
 
     if (max_retries_reached || iteration_limit_reached) {
-      console.log('Max retries reached or iteration limit reached');
+      console.log(`Iteration limit reached for job ${job_id} (retry: ${retry_count}, iteration: ${iteration}, max: ${max_retry})`);
       // Go to finalize - use retry_count as-is (will be displayed correctly in finalize)
       stateManager.setJobStatus(job_id, JobState.FINALIZE, retry_count);
       return new Command({ goto: 'finalize' });
@@ -340,7 +504,19 @@ export async function defineThreats(state, config) {
     });
 
     // Invoke model
+    console.log(`Invoking threats model for job ${job_id} (iteration ${retry_count + 1})`);
     const result = await model_with_structure.invoke(messages);
+
+    // Check again after async operation
+    checkAbortSignal(config, 'defineThreats (after model invocation)');
+    
+    // Check if job was cancelled during model invocation
+    if (isJobCancelled(job_id)) {
+      console.log(`Job ${job_id} was cancelled during model invocation`);
+      const error = new Error('AbortError');
+      error.name = 'AbortError';
+      throw error;
+    }
 
     // Extract structured response and raw response
     const structured_response = result.parsed;
@@ -366,7 +542,7 @@ export async function defineThreats(state, config) {
 
     if (iteration === 0) {
       // Auto mode: go to gap analysis (AI decides when to stop)
-      console.log('Iteration 0, go to gap analysis')
+      console.log(`Job ${job_id}: Auto mode (iteration 0), routing to gap analysis`);
       return new Command({
         goto: 'gap_analysis',
         update: {
@@ -377,7 +553,7 @@ export async function defineThreats(state, config) {
     }
 
     // Fixed iteration mode: loop back to threats directly (bypass gap analysis)
-    console.log('Fixed iteration mode, loop back to threats directly')
+    console.log(`Job ${job_id}: Fixed iteration mode, looping back to threats`);
     return new Command({
       goto: 'define_threats',
       update: {
@@ -386,8 +562,24 @@ export async function defineThreats(state, config) {
       }
     });
   } catch (error) {
-    console.error('Error in defineThreats:', error);
-    stateManager.setJobStatus(job_id, JobState.FAILED, state.retry || 0);
+    // Check if this is an abort/cancellation error
+    const isAbortError = error.name === 'AbortError' || error.message === 'AbortError';
+    
+    if (isAbortError) {
+      console.log(`defineThreats aborted for job ${job_id}`);
+    } else {
+      console.error(`Error in defineThreats for job ${job_id}:`, error);
+      console.error('Error details:', { name: error.name, message: error.message });
+      
+      // Only update status if job wasn't cancelled
+      if (!isJobCancelled(job_id)) {
+        try {
+          stateManager.setJobStatus(job_id, JobState.FAILED, state.retry || 0);
+        } catch (storageError) {
+          console.error(`Failed to update job status for ${job_id}:`, storageError);
+        }
+      }
+    }
     throw error;
   }
 }
@@ -401,9 +593,20 @@ export async function defineThreats(state, config) {
 export async function gapAnalysis(state, config) {
   console.log('Node: gapAnalysis');
 
+  // Check if workflow was aborted
+  checkAbortSignal(config, 'gapAnalysis');
+
   const job_id = state.job_id || 'unknown';
 
   try {
+    // Check if job was cancelled before starting work
+    if (isJobCancelled(job_id)) {
+      console.log(`Job ${job_id} was cancelled, aborting gapAnalysis`);
+      const error = new Error('AbortError');
+      error.name = 'AbortError';
+      throw error;
+    }
+
     // Prepare messages
     const msg_builder = new MessageBuilder(
       state.image_data,
@@ -433,7 +636,9 @@ export async function gapAnalysis(state, config) {
     // Get model from config
     const model = config.configurable?.model_gaps;
     if (!model) {
-      throw new Error('Gaps model not found in config');
+      const error = new Error('Gaps model not found in config');
+      console.error('Configuration error:', error.message);
+      throw error;
     }
 
     // Use withStructuredOutput with includeRaw to get both structured output and raw response
@@ -442,7 +647,19 @@ export async function gapAnalysis(state, config) {
     });
 
     // Invoke model
+    console.log(`Invoking gap analysis model for job ${job_id}`);
     const result = await model_with_structure.invoke(messages);
+
+    // Check again after async operation
+    checkAbortSignal(config, 'gapAnalysis (after model invocation)');
+    
+    // Check if job was cancelled during model invocation
+    if (isJobCancelled(job_id)) {
+      console.log(`Job ${job_id} was cancelled during model invocation`);
+      const error = new Error('AbortError');
+      error.name = 'AbortError';
+      throw error;
+    }
 
     // Extract structured response and raw response
     const structured_response = result.parsed;
@@ -467,18 +684,34 @@ export async function gapAnalysis(state, config) {
 
     // Route based on stop flag
     if (structured_response.stop) {
-      console.log('Stop flag is true, go to finalize')
+      console.log(`Job ${job_id}: Gap analysis determined to stop, routing to finalize`);
       return new Command({ goto: 'finalize' });
     }
 
-    console.log('Stop flag is false, go to define_threats')
+    console.log(`Job ${job_id}: Gap analysis determined to continue, routing to define_threats`);
     return new Command({
       goto: 'define_threats',
       update: { gap: [structured_response.gap] }
     });
   } catch (error) {
-    console.error('Error in gapAnalysis:', error);
-    stateManager.setJobStatus(job_id, JobState.FAILED, state.retry || 0);
+    // Check if this is an abort/cancellation error
+    const isAbortError = error.name === 'AbortError' || error.message === 'AbortError';
+    
+    if (isAbortError) {
+      console.log(`gapAnalysis aborted for job ${job_id}`);
+    } else {
+      console.error(`Error in gapAnalysis for job ${job_id}:`, error);
+      console.error('Error details:', { name: error.name, message: error.message });
+      
+      // Only update status if job wasn't cancelled
+      if (!isJobCancelled(job_id)) {
+        try {
+          stateManager.setJobStatus(job_id, JobState.FAILED, state.retry || 0);
+        } catch (storageError) {
+          console.error(`Failed to update job status for ${job_id}:`, storageError);
+        }
+      }
+    }
     throw error;
   }
 }
@@ -486,18 +719,31 @@ export async function gapAnalysis(state, config) {
 /**
  * Finalize the threat modeling workflow
  * @param {Object} state - Agent state
+ * @param {Object} config - Runnable configuration
  * @returns {Object} Final state updates
  */
-export async function finalize(state) {
+export async function finalize(state, config) {
   console.log('Node: finalize');
+
+  // Check if workflow was aborted
+  checkAbortSignal(config, 'finalize');
 
   const job_id = state.job_id || 'unknown';
 
   try {
+    // Check if job was cancelled before finalizing (race condition handling)
+    if (isJobCancelled(job_id)) {
+      console.log(`Job ${job_id} was cancelled before finalization, aborting`);
+      const error = new Error('AbortError');
+      error.name = 'AbortError';
+      throw error;
+    }
+
     // Get the internal retry count (0-indexed)
     const retry_count = parseInt(state.retry || 0);
 
     // Update job state to FINALIZE (use retry_count as-is, represents completed iterations)
+    console.log(`Finalizing job ${job_id} with ${retry_count} completed iterations`);
     stateManager.setJobStatus(job_id, JobState.FINALIZE, retry_count);
 
     // Store final results
@@ -513,7 +759,8 @@ export async function finalize(state) {
       system_architecture: state.system_architecture || null,
       threat_list: state.threat_list || null,
       retry: retry_count,
-      backup: null
+      backup: null,
+      completed_at: new Date().toISOString()
     };
 
     stateManager.setJobResults(job_id, results);
@@ -521,13 +768,49 @@ export async function finalize(state) {
     // Small delay to simulate finalization processing
     await new Promise(resolve => setTimeout(resolve, 1000));
 
+    // Check again after async operation (race condition: job might be cancelled during delay)
+    checkAbortSignal(config, 'finalize (before completion)');
+    
+    if (isJobCancelled(job_id)) {
+      console.log(`Job ${job_id} was cancelled during finalization delay`);
+      const error = new Error('AbortError');
+      error.name = 'AbortError';
+      throw error;
+    }
+
     // Update job state to COMPLETE (use same count as finalize)
     stateManager.setJobStatus(job_id, JobState.COMPLETE, retry_count);
+    console.log(`Job ${job_id} completed successfully`);
 
     return {};
   } catch (error) {
-    console.error('Error in finalize:', error);
-    stateManager.setJobStatus(job_id, JobState.FAILED, state.retry || 0);
+    // Check if this is an abort/cancellation error
+    const isAbortError = error.name === 'AbortError' || error.message === 'AbortError';
+    
+    if (isAbortError) {
+      console.log(`finalize aborted for job ${job_id} - job was cancelled`);
+    } else {
+      console.error(`Error in finalize for job ${job_id}:`, error);
+      console.error('Error details:', { name: error.name, message: error.message });
+      
+      // Only update status if job wasn't cancelled
+      if (!isJobCancelled(job_id)) {
+        try {
+          stateManager.setJobStatus(job_id, JobState.FAILED, state.retry || 0);
+          
+          // Store error in results
+          const existingResults = stateManager.getJobResults(job_id) || {};
+          stateManager.setJobResults(job_id, {
+            ...existingResults,
+            error: error.message || 'Finalization failed',
+            error_type: error.name || 'Error',
+            failed_at: new Date().toISOString()
+          });
+        } catch (storageError) {
+          console.error(`Failed to update job status for ${job_id}:`, storageError);
+        }
+      }
+    }
     throw error;
   }
 }

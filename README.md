@@ -208,6 +208,44 @@ variable "model_struct" {
 
 > **Reasoning boost** will only work with Anthropic's models starting from **Claude Sonnet 3.7**
 
+### Sentry AI Assistant (Optional Feature)
+
+Sentry is an AI-powered assistant that helps you analyze and explore threat models through conversational interaction. This feature is **optional** and can be enabled or disabled during deployment.
+
+#### Enabling/Disabling Sentry During Deployment
+
+When you run `./deployment.sh`, you will be prompted:
+
+```
+Enable Sentry AI Assistant? (y/n, default: y)
+```
+
+- **Enable (y)**: Deploys the full Sentry infrastructure including AWS Bedrock AgentCore Runtime, DynamoDB session table, and ECR repository. The Assistant drawer will be available in the UI.
+- **Disable (n)**: Skips Sentry infrastructure deployment. The Assistant drawer will be hidden from the UI, and core threat modeling features will continue to work normally.
+
+#### Toggling Sentry in Existing Deployments
+
+**To disable Sentry in an existing deployment:**
+
+
+1. Update the `.deployment.config` file in the project root:
+```bash
+ENABLE_SENTRY=false
+```
+
+2. Redeploy the solution
+
+**To enable Sentry in a deployment where it was disabled:**
+
+1. Update the `.deployment.config` file in the project root:
+```bash
+ENABLE_SENTRY=false
+```
+
+2. Redeploy the solution
+
+> **Note:** When toggling Sentry, ensure both the infrastructure (Terraform) and frontend configuration (`.env` file) are updated to maintain consistency.
+
 ## Clean up
 
 1. Empty the **Architecture Bucket**, following instructions [here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/empty-bucket.html)

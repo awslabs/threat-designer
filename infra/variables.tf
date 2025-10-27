@@ -1,6 +1,6 @@
 variable "env" {
-  type = string
-  default= "dev"
+  type    = string
+  default = "dev"
 }
 
 variable "python_runtime" {
@@ -9,7 +9,7 @@ variable "python_runtime" {
 }
 
 variable "python_layer" {
-  type = string
+  type    = string
   default = "python312"
 }
 
@@ -26,7 +26,7 @@ variable "log_level" {
 }
 
 variable "traceback_enabled" {
-  type = bool
+  type    = bool
   default = false
 }
 
@@ -34,19 +34,19 @@ variable "api_gw_stage" {
   default = "dev"
 }
 variable "lambda_concurrency" {
-  type = number
+  type        = number
   description = "Reserved concurrency setting for Lambda"
-  default = 50
+  default     = 50
 }
 
 variable "provisioned_lambda_concurrency" {
-  type = number
+  type        = number
   description = "Provision concurrency setting for the lambda"
-  default = 3
+  default     = 3
 }
 
 variable "reasoning_models" {
-  type    = list(string)
+  type = list(string)
   default = [
     "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
     "eu.anthropic.claude-sonnet-4-20250514-v1:0",
@@ -61,29 +61,29 @@ variable "reasoning_models" {
 variable "model_main" {
   type = object({
     assets = object({
-      id = string
-      max_tokens = number
+      id               = string
+      max_tokens       = number
       reasoning_budget = map(number)
     })
     flows = object({
-      id = string
-      max_tokens = number
+      id               = string
+      max_tokens       = number
       reasoning_budget = map(number)
     })
     gaps = object({
-      id = string
-      max_tokens = number
+      id               = string
+      max_tokens       = number
       reasoning_budget = map(number)
     })
     threats = object({
-      id = string
-      max_tokens = number
+      id               = string
+      max_tokens       = number
       reasoning_budget = map(number)
     })
   })
   default = {
     assets = {
-      id = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+      id         = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
       max_tokens = 64000
       reasoning_budget = {
         "1" = 16000
@@ -92,7 +92,7 @@ variable "model_main" {
       }
     }
     flows = {
-      id = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+      id         = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
       max_tokens = 64000
       reasoning_budget = {
         "1" = 8000
@@ -101,7 +101,7 @@ variable "model_main" {
       }
     }
     threats = {
-      id = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+      id         = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
       max_tokens = 64000
       reasoning_budget = {
         "1" = 24000
@@ -110,7 +110,7 @@ variable "model_main" {
       }
     }
     gaps = {
-      id = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+      id         = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
       max_tokens = 64000
       reasoning_budget = {
         "1" = 4000
@@ -122,48 +122,54 @@ variable "model_main" {
 }
 
 variable "model_sentry" {
-  type = string
+  type    = string
   default = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 }
 
 variable "model_struct" {
   type = object({
-    id          = string
-    max_tokens  = number
+    id         = string
+    max_tokens = number
   })
   default = {
-    id          = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
-    max_tokens  = 64000
+    id         = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    max_tokens = 64000
   }
 }
 
 variable "model_summary" {
   type = object({
-    id          = string
-    max_tokens  = number
+    id         = string
+    max_tokens = number
   })
   default = {
-    id          = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
-    max_tokens  = 4000
+    id         = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+    max_tokens = 4000
   }
 }
 
 variable "username" {
-  type = string
+  type        = string
   description = "Cognito username"
 }
 
 variable "email" {
-  type = string
+  type        = string
   description = "Cognito user email"
 }
 
 variable "given_name" {
-  type = string
+  type        = string
   description = "Cognito user given name"
 }
 
 variable "family_name" {
-  type = string
+  type        = string
   description = "Cognito user family name"
+}
+
+variable "enable_sentry" {
+  type        = bool
+  default     = true
+  description = "Enable or disable Sentry assistant feature"
 }

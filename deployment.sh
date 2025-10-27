@@ -31,6 +31,7 @@ use_existing_config() {
     echo -e "Family Name: ${BLUE}${FAMILY_NAME:-N/A}${NC}"
     echo -e "Email: ${BLUE}${EMAIL:-N/A}${NC}"
     echo -e "Region: ${BLUE}${REGION:-N/A}${NC}"
+    echo -e "Sentry Enabled: ${BLUE}${ENABLE_SENTRY:-true}${NC}"
     echo -e "App ID: ${BLUE}${APP_ID:-N/A}${NC}"
     
     while true; do
@@ -70,6 +71,24 @@ get_region() {
     else
         REGION="$choice"
     fi
+}
+
+# Function to get Sentry option
+get_sentry_option() {
+    while true; do
+        echo -e "${BLUE}Enable Sentry AI Assistant? (y/n, default: y)${NC}"
+        echo -e "${BLUE}Note: Disabling Sentry will reduce infrastructure costs but remove the assistant feature${NC}"
+        read -r choice
+        if [ -z "$choice" ]; then
+            ENABLE_SENTRY="true"
+            break
+        fi
+        case $choice in
+            [Yy]* ) ENABLE_SENTRY="true"; break;;
+            [Nn]* ) ENABLE_SENTRY="false"; break;;
+            * ) echo -e "${RED}Please answer y or n${NC}";;
+        esac
+    done
 }
 
 # Function to get deployment type
@@ -140,6 +159,9 @@ if [ "$USE_EXISTING" = false ]; then
         
         # Only gather user details if deploying backend or both
         if [ "$DEPLOY_TYPE" != "frontend" ]; then
+            # Get Sentry option
+            get_sentry_option
+            
             # Get user inputs
             get_input "Enter username:" USERNAME
             # Email validation
@@ -160,6 +182,7 @@ if [ "$USE_EXISTING" = false ]; then
         echo -e "Deployment Type: ${BLUE}$DEPLOY_TYPE${NC}"
         echo -e "Region: ${BLUE}$REGION${NC}"
         if [ "$DEPLOY_TYPE" != "frontend" ]; then
+            echo -e "Sentry Enabled: ${BLUE}$ENABLE_SENTRY${NC}"
             echo -e "Username: ${BLUE}$USERNAME${NC}"
             echo -e "Given Name: ${BLUE}$GIVEN_NAME${NC}"
             echo -e "Family Name: ${BLUE}$FAMILY_NAME${NC}"
@@ -180,6 +203,11 @@ if [ "$USE_EXISTING" = false ]; then
 else
     # If using existing config, still need to set deployment type
     get_deployment_type
+    
+    # Set default for ENABLE_SENTRY if not in config (for backward compatibility)
+    if [ -z "$ENABLE_SENTRY" ]; then
+        ENABLE_SENTRY="true"
+    fi
 fi
 
 ZIP_FILE="build.zip"
@@ -207,7 +235,8 @@ deploy_backend() {
         -var="given_name=$GIVEN_NAME" \
         -var="family_name=$FAMILY_NAME" \
         -var="email=$EMAIL" \
-        -var="region=$REGION"; then
+        -var="region=$REGION" \
+        -var="enable_sentry=$ENABLE_SENTRY"; then
         echo -e "${RED}Terraform apply failed. Exiting...${NC}"
         exit 1
     fi
@@ -215,7 +244,6 @@ deploy_backend() {
     # Extract values from terraform output
     if ! APP_ID=$(terraform output -raw amplify_app_id) || \
        ! VITE_APP_ENDPOINT=$(terraform output -raw api_endpoint) || \
-       ! VITE_APP_SENTRY=$(terraform output -raw agent_runtime_arn_escaped) || \
        ! VITE_COGNITO_REGION=$(terraform output -raw region) || \
        ! VITE_USER_POOL_ID=$(terraform output -raw user_pool_id) || \
        ! VITE_APP_CLIENT_ID=$(terraform output -raw app_client_id) || \
@@ -224,6 +252,19 @@ deploy_backend() {
         echo -e "${RED}Failed to get one or more required Terraform outputs. Exiting...${NC}"
         exit 1
     fi
+    
+    # Conditionally set VITE_APP_SENTRY based on Sentry enabled status
+    if [ "$ENABLE_SENTRY" = "true" ]; then
+        if ! VITE_APP_SENTRY=$(terraform output -raw agent_runtime_arn_escaped); then
+            echo -e "${RED}Failed to get Sentry ARN from Terraform output. Exiting...${NC}"
+            exit 1
+        fi
+        VITE_SENTRY_ENABLED="true"
+    else
+        VITE_APP_SENTRY=""
+        VITE_SENTRY_ENABLED="false"
+    fi
+    
     VITE_REDIRECT_SIGN_IN="https://dev.${APP_ID}.amplifyapp.com"
     VITE_REDIRECT_SIGN_OUT="https://dev.${APP_ID}.amplifyapp.com"
     export AWS_DEFAULT_REGION=$REGION
@@ -235,6 +276,7 @@ deploy_backend() {
     cat > .env << EOF
 VITE_APP_ENDPOINT=$VITE_APP_ENDPOINT
 VITE_APP_SENTRY=$VITE_APP_SENTRY
+VITE_SENTRY_ENABLED=$VITE_SENTRY_ENABLED
 VITE_COGNITO_REGION=$VITE_COGNITO_REGION
 VITE_USER_POOL_ID=$VITE_USER_POOL_ID
 VITE_APP_CLIENT_ID=$VITE_APP_CLIENT_ID
@@ -253,6 +295,7 @@ EMAIL=$EMAIL
 GIVEN_NAME=$GIVEN_NAME
 FAMILY_NAME=$FAMILY_NAME
 REGION=$REGION
+ENABLE_SENTRY=$ENABLE_SENTRY
 EOF
 
     echo -e "${GREEN}Backend deployment completed successfully${NC}"

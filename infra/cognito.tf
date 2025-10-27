@@ -12,11 +12,11 @@ resource "aws_cognito_user_pool" "user_pool" {
   }
 
   # Optional: Configure MFA
-  mfa_configuration = "OFF"  # or "ON", "OPTIONAL"
+  mfa_configuration = "OFF" # or "ON", "OPTIONAL"
 
   # Optional: Configure verification
   auto_verified_attributes = ["email"]
-  
+
   # Optional: Configure account recovery
   account_recovery_setting {
     recovery_mechanism {
@@ -43,20 +43,20 @@ resource "aws_cognito_user_pool_client" "client" {
   generate_secret = false
 
   access_token_validity  = 8
-  id_token_validity     = 8
+  id_token_validity      = 8
   refresh_token_validity = 30
 
   token_validity_units {
     access_token  = "hours"
-    id_token     = "hours"
+    id_token      = "hours"
     refresh_token = "days"
   }
 
   allowed_oauth_flows                  = ["code", "implicit"]
   allowed_oauth_flows_user_pool_client = true
   supported_identity_providers         = ["COGNITO"]
-  allowed_oauth_scopes                = ["email", "openid", "profile"]
-  
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+
   # Using your specific Amplify app domain
   callback_urls = ["https://${aws_amplify_branch.develop.branch_name}.${aws_amplify_app.threat-designer.default_domain}"]
   logout_urls   = ["https://${aws_amplify_branch.develop.branch_name}.${aws_amplify_app.threat-designer.default_domain}"]

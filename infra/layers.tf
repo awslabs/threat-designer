@@ -20,12 +20,12 @@ resource "aws_s3_object" "authorization_layer_zip" {
 
 # Create Lambda layer using S3
 resource "aws_lambda_layer_version" "lambda_layer_authorization" {
-  s3_bucket           = aws_s3_bucket.lambda_artifacts.bucket
-  s3_key              = aws_s3_object.authorization_layer_zip.key
-  s3_object_version   = aws_s3_object.authorization_layer_zip.version_id
-  source_code_hash    = data.archive_file.lambda_layer_authorization.output_base64sha256
-  layer_name          = "${local.prefix}-authorization-layer"
-  description         = "Authorization lambda layer"
-  compatible_runtimes = ["python3.12"]
+  s3_bucket                = aws_s3_bucket.lambda_artifacts.bucket
+  s3_key                   = aws_s3_object.authorization_layer_zip.key
+  s3_object_version        = aws_s3_object.authorization_layer_zip.version_id
+  source_code_hash         = data.archive_file.lambda_layer_authorization.output_base64sha256
+  layer_name               = "${local.prefix}-authorization-layer"
+  description              = "Authorization lambda layer"
+  compatible_runtimes      = ["python3.12"]
   compatible_architectures = ["x86_64"]
 }

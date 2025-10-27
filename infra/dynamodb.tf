@@ -17,10 +17,10 @@ resource "aws_dynamodb_table" "threat_designer_state" {
   }
 
   global_secondary_index {
-    name               = "owner-job-index"
-    hash_key          = "owner"
-    range_key         = "job_id"
-    projection_type   = "ALL"
+    name            = "owner-job-index"
+    hash_key        = "owner"
+    range_key       = "job_id"
+    projection_type = "ALL"
   }
 }
 

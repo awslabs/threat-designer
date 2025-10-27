@@ -8,6 +8,7 @@ import Agent from "../../pages/Agent/Agent";
 import Button from "@cloudscape-design/components/button";
 import { useContext } from "react";
 import { ChatSessionFunctionsContext } from "../Agent/ChatContext";
+import { isSentryEnabled } from "../../config";
 
 const appLayoutLabels = {
   navigation: "Side navigation",
@@ -28,6 +29,7 @@ function AppLayoutMFE({ user }) {
   const trimmedPath = location.pathname.substring(1);
 
   const functions = useContext(ChatSessionFunctionsContext);
+  const sentryEnabled = isSentryEnabled();
 
   const handleClearSession = async () => {
     if (isValidUUID(trimmedPath)) {
@@ -51,7 +53,7 @@ function AppLayoutMFE({ user }) {
     }
   };
 
-  const items = [
+  const items = sentryEnabled ? [
     {
       ariaLabels: {
         closeButton: "Close",
@@ -93,7 +95,7 @@ function AppLayoutMFE({ user }) {
         iconName: "gen-ai",
       },
     },
-  ];
+  ] : [];
 
   return (
     <div>
@@ -103,7 +105,7 @@ function AppLayoutMFE({ user }) {
           splitPanelOpen={splitPanelOpen}
           splitPanelPreferences={{ position: "side" }}
           onSplitPanelToggle={(event) => setSplitPanelOpen(event.detail.open)}
-          drawers={!splitPanelOpen && functions.visible ? items : []}
+          drawers={!splitPanelOpen && functions.visible && sentryEnabled ? items : []}
           splitPanel={
             <SplitPanel
               hidePreferencesButton={true}

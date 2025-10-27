@@ -108,22 +108,22 @@
 }
 
 .expanded-content {
-  display: grid;
-  grid-template-rows: 0fr;
+  max-height: 0;
+  overflow: hidden;
   transition:
-    grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     opacity 0.3s ease;
   opacity: 0;
 }
 
 .expanded-content.show {
-  grid-template-rows: 1fr;
+  max-height: 400px; /* Set to slightly larger than your max content height */
   opacity: 1;
 }
 
 .expanded-content-inner {
   overflow: hidden;
-  overflow-y: scroll;
+  overflow-y: auto;
   max-height: 300px;
   padding-top: 16px;
   margin-top: 16px;

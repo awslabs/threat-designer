@@ -97,7 +97,7 @@ resource "aws_lambda_permission" "api_gw" {
   function_name = aws_lambda_function.backend.function_name
   principal     = "apigateway.amazonaws.com"
   qualifier     = aws_lambda_alias.backend.name
-  source_arn = "${aws_api_gateway_rest_api.threat_design_api.execution_arn}/*/*"
+  source_arn    = "${aws_api_gateway_rest_api.threat_design_api.execution_arn}/*/*"
 }
 
 
@@ -107,7 +107,7 @@ resource "aws_api_gateway_account" "gw_account" {
 
 
 resource "aws_cloudwatch_log_group" "api_gw" {
-  name       = "/aws/api_gw/${aws_api_gateway_rest_api.threat_design_api.id}"
+  name = "/aws/api_gw/${aws_api_gateway_rest_api.threat_design_api.id}"
 
   retention_in_days = 30
 }
@@ -119,7 +119,7 @@ resource "aws_iam_role" "cloudwatch" {
 
 
 resource "aws_iam_role_policy" "cloudwatch" {
-  name = "${local.prefix}-cloudwatch-policy"
-  role = aws_iam_role.cloudwatch.id
+  name   = "${local.prefix}-cloudwatch-policy"
+  role   = aws_iam_role.cloudwatch.id
   policy = templatefile("${path.module}/templates/api_gateway_cloudwatch_policy.json", {})
 }

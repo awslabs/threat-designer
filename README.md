@@ -97,6 +97,43 @@ You must enable access to the following models in your AWS region:
 
 To enable Claude, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
 
+## Deployment Options
+
+Threat Designer offers two deployment modes:
+
+1. **Full Backend Deployment** (AWS Infrastructure) - Complete solution with all features
+2. **Lightning Mode** (Static Hosting) - Client-side only, perfect for GitLab Pages or other static hosts
+
+### Lightning Mode (Static Hosting)
+
+Lightning Mode runs entirely in the browser with an embedded JavaScript backend. Perfect for:
+- GitLab Pages
+- GitHub Pages
+- Netlify, Vercel, or any static hosting
+- No AWS infrastructure required (users provide their own AWS credentials)
+
+**Quick Deploy to GitLab Pages:**
+
+1. Push the repository to GitLab
+2. The included `.gitlab-ci.yml` will automatically build and deploy
+3. Access your site at `https://username.gitlab.io/threat-designer/`
+
+**Features in Lightning Mode:**
+- ✅ Full threat modeling workflow
+- ✅ Architecture diagram upload
+- ✅ Threat analysis and generation
+- ✅ Export to PDF/DOCX/JSON
+- ✅ Replay functionality
+- ❌ Threat Catalog (requires backend)
+- ❌ Sentry AI Assistant (requires backend)
+- ❌ Reasoning trail visualization
+
+**Detailed Lightning Mode deployment guide:** See [GITLAB_PAGES_DEPLOYMENT.md](GITLAB_PAGES_DEPLOYMENT.md)
+
+---
+
+### Full Backend Deployment (AWS Infrastructure)
+
 ## Installation and Deployment
 
 1. Clone the Repository

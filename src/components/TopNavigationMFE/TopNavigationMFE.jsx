@@ -6,6 +6,7 @@ import { logOut } from "../../services/Auth/auth";
 import Shield from "../../components/ThreatModeling/images/shield.png";
 import customTheme from "../../customTheme";
 import { MonitorCog, Moon, Sun } from "lucide-react";
+import { THREAT_CATALOG_ENABLED, BACKEND_MODE } from "../../config";
 
 const getConditionalColor = (checkValue, effectiveTheme, colorMode) => {
   return colorMode === checkValue ? (effectiveTheme === "dark" ? "#42b4ff" : "#006ce0") : undefined;
@@ -139,19 +140,34 @@ function TopNavigationMFE({ user, setAuthUser, colorMode, setThemeMode, effectiv
                   <Button
                     variant="link"
                     onClick={() => {
+                      // In Lightning Mode, clear threat modeling data but keep credentials
+                      if (BACKEND_MODE === 'lightning') {
+                        const keysToRemove = [];
+                        for (let i = 0; i < sessionStorage.length; i++) {
+                          const key = sessionStorage.key(i);
+                          // Clear all tm_ keys EXCEPT credentials
+                          if (key && key.startsWith('tm_') && key !== 'tm_aws_credentials') {
+                            keysToRemove.push(key);
+                          }
+                        }
+                        keysToRemove.forEach(key => sessionStorage.removeItem(key));
+                        console.log('Cleared Lightning Mode threat modeling data (kept credentials)');
+                      }
                       navigate("/");
                     }}
                   >
                     New
                   </Button>
-                  <Button
-                    variant="link"
-                    onClick={() => {
-                      navigate("/threat-catalog");
-                    }}
-                  >
-                    Threat Catalog
-                  </Button>
+                  {THREAT_CATALOG_ENABLED && (
+                    <Button
+                      variant="link"
+                      onClick={() => {
+                        navigate("/threat-catalog");
+                      }}
+                    >
+                      Threat Catalog
+                    </Button>
+                  )}
                 </div>
               </div>
             ),

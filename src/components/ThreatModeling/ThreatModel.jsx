@@ -84,6 +84,9 @@ export const ThreatModel = ({ user }) => {
   const { id = null } = useParams();
   const updateSessionContext = useSessionInitializer(id);
 
+  // Check if Lightning Mode is enabled
+  const isLightningMode = import.meta.env.VITE_BACKEND_MODE === 'lightning';
+
   const BreadcrumbItems = [
     { text: "Threat Catalog", href: "/threat-catalog" },
     { text: `${id}`, href: `/${id}` },
@@ -160,6 +163,11 @@ export const ThreatModel = ({ user }) => {
 
   const initializeThreatModelSession = useCallback(
     async (threatModelData) => {
+      // Defensive check: threat_list might be null if workflow hasn't completed
+      if (!threatModelData.threat_list) {
+        console.warn('Threat list not yet available, skipping session initialization');
+        return;
+      }
       const threats = threatModelData.threat_list.threats || [];
 
       // Calculate likelihood distribution
@@ -668,7 +676,8 @@ export const ThreatModel = ({ user }) => {
                     { text: "Save", id: "sv", disabled: false },
                     { text: "Delete", id: "rm", disabled: false },
                     { text: "Replay", id: "re", disabled: false },
-                    { text: "Trail", id: "tr", disabled: false },
+                    // Hide Trail button in Lightning Mode (reasoning trail not supported)
+                    ...(!isLightningMode ? [{ text: "Trail", id: "tr", disabled: false }] : []),
                     {
                       text: "Download",
                       id: "download",

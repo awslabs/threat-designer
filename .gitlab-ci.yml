@@ -1,0 +1,63 @@
+# GitLab CI/CD configuration for deploying Threat Designer Lightning Mode to GitLab Pages
+
+# Define stages
+stages:
+  - build
+  - deploy
+
+# Cache node_modules to speed up builds
+cache:
+  key:
+    files:
+      - package-lock.json
+  paths:
+    - node_modules/
+    - embedded-backend/node_modules/
+
+# Build job - builds the Lightning Mode version
+build:
+  stage: build
+  image: node:20
+  script:
+    # Install dependencies for main app
+    - npm ci
+    
+    # Install dependencies for embedded backend
+    - cd embedded-backend
+    - npm ci
+    - cd ..
+    
+    # Build the Lightning Mode version
+    - npm run build:lightning
+    
+    # Verify build output
+    - ls -la dist/
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 hour
+  only:
+    - main
+    - master
+    - develop
+
+# Deploy to GitLab Pages
+pages:
+  stage: deploy
+  image: alpine:latest
+  script:
+    # GitLab Pages expects the content in a 'public' directory
+    - rm -rf public
+    - mv dist public
+    
+    # Create a .nojekyll file to prevent Jekyll processing
+    - touch public/.nojekyll
+    
+    # Verify deployment content
+    - ls -la public/
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
+    - master

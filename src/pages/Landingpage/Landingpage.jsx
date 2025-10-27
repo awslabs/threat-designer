@@ -211,7 +211,9 @@ const LoginPageInternal = ({ setAuthUser }) => {
 
   const handleSignInSuccess = () => {
     setIsAuthenticated(true);
-    checkAuthStatus();
+    // Call the parent's checkAuthState to re-check authentication
+    // This works for both Lightning Mode and Remote Mode
+    setAuthUser();
   };
 
   return (

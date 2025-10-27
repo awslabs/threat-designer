@@ -219,24 +219,6 @@ def invoke_lambda(owner, payload):
     assumptions = payload.get("assumptions", [])
     title = payload.get("title", " ")
     try:
-        # lambda_client.invoke(
-        #     FunctionName=FUNCTION,
-        #     InvocationType="Event",
-        #     Payload=json.dumps(
-        #         {
-        #             "s3_location": s3_location,
-        #             "id": id,
-        #             "reasoning": reasoning,
-        #             "iteration": iteration,
-        #             "description": description,
-        #             "assumptions": assumptions,
-        #             "owner": owner,
-        #             "title": title,
-        #             "replay": payload.get("replay", False),
-        #             "instructions": instructions,
-        #         }
-        #     ),
-        # )
         agent_core_client.invoke_agent_runtime(
             agentRuntimeArn=AGENT_CORE_RUNTIME,
             runtimeSessionId=str(uuid.uuid4()),
@@ -262,7 +244,7 @@ def invoke_lambda(owner, payload):
             "s3_location": s3_location,
             "owner": owner,
             "title": title,
-            "retry": reasoning,
+            "reasoning": reasoning,
         }
         if not payload.get("replay", False):
             create_dynamodb_item(agent_state, AGENT_TABLE)

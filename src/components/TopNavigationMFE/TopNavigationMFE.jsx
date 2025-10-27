@@ -102,8 +102,10 @@ function TopNavigationMFE({ user, setAuthUser, colorMode, setThemeMode, effectiv
     setShowConfirmModal(false);
   };
 
+  const signOutText = BACKEND_MODE === 'lightning' ? 'Clear Credentials' : 'Sign out';
+  
   const profileActions = [
-    { id: "signout", text: "Sign out" },
+    { id: "signout", text: signOutText },
     {
       id: "theme",
       text: "Theme",
@@ -259,12 +261,29 @@ function TopNavigationMFE({ user, setAuthUser, colorMode, setThemeMode, effectiv
               iconName: "user-profile",
               items: profileActions,
 
-              onItemClick: ({ detail }) => {
+              onItemClick: async ({ detail }) => {
                 switch (detail.id) {
                   case "signout":
-                    logOut().then(() => {
-                      setAuthUser(null);
-                    });
+                    if (BACKEND_MODE === 'lightning') {
+                      // Clear credentials from sessionStorage
+                      try {
+                        const { clearCredentials } = await import('../../../embedded-backend/src/config/credentials.js');
+                        clearCredentials();
+                        console.log('Cleared AWS credentials from sessionStorage');
+                        
+                        // Force reload to reset auth state and show login page
+                        window.location.href = '/login';
+                      } catch (error) {
+                        console.error('Error clearing credentials:', error);
+                        // Still try to navigate even if clearing fails
+                        window.location.href = '/login';
+                      }
+                    } else {
+                      // Standard sign-out flow for remote mode
+                      logOut().then(() => {
+                        setAuthUser(null);
+                      });
+                    }
                     break;
                   case "light":
                     setThemeMode("LIGHT");

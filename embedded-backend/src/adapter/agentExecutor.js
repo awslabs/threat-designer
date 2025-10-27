@@ -42,11 +42,11 @@ function initializeModelConfig(reasoning = 0) {
       model_flows: models.flows_model,
       model_threats: models.threats_model,
       model_gaps: models.gaps_model,
-      
+
       // Utility models
       model_summary: models.summary_model,
       model_struct: models.struct_model,
-      
+
       // Workflow configuration
       reasoning: reasoning > 0,
       max_retry: 15
@@ -99,7 +99,7 @@ function initializeNewJobState(params) {
     description: description || '',
     assumptions: assumptions || [],
     iteration: iteration || 0,
-    retry: 1, // Always start at 1 - retry is the iteration counter, reasoning is for model config
+    retry: 0,  // Start at 0 - retry is the iteration counter (0-indexed)
     image_data,
     replay: false,
     instructions: instructions || null,
@@ -161,6 +161,16 @@ function initializeReplayState(id, params) {
     }
   }
 
+  // Filter threat_list to only include starred threats for replay
+  let threat_list = null;
+  if (existingResults.threat_list) {
+    const threat_list_data = { ...existingResults.threat_list };
+    threat_list_data.threats = (threat_list_data.threats || []).filter(
+      threat => threat.starred === true
+    );
+    threat_list = threat_list_data;
+  }
+
   return {
     job_id: id,
     s3_location: existingResults.s3_location || '',
@@ -169,14 +179,14 @@ function initializeReplayState(id, params) {
     description: existingResults.description || '',
     assumptions: existingResults.assumptions || [],
     iteration: iteration || 0,
-    retry: 1, // Always reset retry to 1 for replay to avoid using previous run's retry count
+    retry: 0, // Always reset retry to 0 for replay (0-indexed iteration counter)
     image_data,
     replay: true,
     instructions: instructions || null,
     summary: existingResults.summary || null,
     assets: existingResults.assets || null,
     system_architecture: existingResults.system_architecture || null,
-    threat_list: existingResults.threat_list || null,
+    threat_list: threat_list,
     gap: [],
     stop: false
   };
@@ -225,8 +235,8 @@ export async function executeAgent(params) {
       });
     }
 
-    // Initialize job status
-    stateManager.setJobStatus(jobId, JobState.START, reasoning || 1);
+    // Initialize job status with retry count 0 (not reasoning level)
+    stateManager.setJobStatus(jobId, JobState.START, 0);
 
     // Initialize job trail
     stateManager.setJobTrail(jobId, {
@@ -242,8 +252,7 @@ export async function executeAgent(params) {
       stateManager.addJobToIndex(jobId, {
         title: title || '',
         owner: 'LIGHTNING_USER',
-        s3_location: s3_location || '',
-        retry: reasoning || 1
+        s3_location: s3_location || ''
       });
     }
 
@@ -254,8 +263,8 @@ export async function executeAgent(params) {
   } catch (error) {
     console.error('Error executing agent:', error);
 
-    // Update job status to failed
-    stateManager.setJobStatus(jobId, JobState.FAILED, reasoning || 1);
+    // Update job status to failed (use 0 as initial retry count)
+    stateManager.setJobStatus(jobId, JobState.FAILED, 0);
 
     // Re-throw as ThreatModelingError if not already
     if (error instanceof ThreatModelingError) {
@@ -293,7 +302,6 @@ function executeWorkflowBackground(jobId, initialState, reasoning) {
       const result = await workflow.invoke(initialState, config);
 
       console.log(`Workflow completed for job ${jobId}`);
-      console.log('Final state:', result);
 
       // Results are already stored by the finalize node
       // Just log completion
@@ -301,8 +309,9 @@ function executeWorkflowBackground(jobId, initialState, reasoning) {
     } catch (error) {
       console.error(`Background execution failed for job ${jobId}:`, error);
 
-      // Update job status to failed
-      stateManager.setJobStatus(jobId, JobState.FAILED, reasoning);
+      // Update job status to failed (use current retry count from state if available)
+      const currentStatus = stateManager.getJobStatus(jobId);
+      stateManager.setJobStatus(jobId, JobState.FAILED, currentStatus?.retry || 0);
 
       // Store error in results
       const existingResults = stateManager.getJobResults(jobId) || {};

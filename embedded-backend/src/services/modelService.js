@@ -11,8 +11,7 @@ import { DEFAULT_MODEL_CONFIG } from '../config/modelConfig.js';
 import { validateModelConfig } from '../config/configValidator.js';
 
 // Temperature constants
-const MODEL_TEMPERATURE_DEFAULT = 0.7;
-const MODEL_TEMPERATURE_REASONING = 1.0;
+const MODEL_TEMPERATURE_DEFAULT = 0.0;
 
 /**
  * Initialize a ChatBedrockConverse model instance
@@ -23,7 +22,7 @@ const MODEL_TEMPERATURE_REASONING = 1.0;
  */
 export function initializeModel(modelId, temperature, additionalConfig = {}) {
   const credentials = getCredentials();
-  
+
   if (!credentials) {
     throw new Error('AWS credentials not configured');
   }
@@ -37,19 +36,11 @@ export function initializeModel(modelId, temperature, additionalConfig = {}) {
     accessKeyId: credentials.accessKeyId,
     secretAccessKey: credentials.secretAccessKey
   };
-  
+
   // Only add sessionToken if it's provided and not null/empty
   if (credentials.sessionToken && credentials.sessionToken.trim()) {
     credentialsConfig.sessionToken = credentials.sessionToken.trim();
   }
-
-  console.log('Initializing ChatBedrockConverse with:', {
-    model: modelId,
-    region: credentials.region,
-    accessKeyIdLength: credentialsConfig.accessKeyId,
-    secretAccessKeyLength: credentialsConfig.secretAccessKey,
-    hasSessionToken: !!credentialsConfig.sessionToken
-  });
 
   return new ChatBedrockConverse({
     model: modelId,
@@ -73,7 +64,7 @@ export function initializeModel(modelId, temperature, additionalConfig = {}) {
 function createNodeModel(nodeConfig, reasoning, reasoningModels, credentials, nodeName) {
   const modelId = nodeConfig.id;
   const maxTokens = nodeConfig.max_tokens;
-  
+
   // Build base configuration
   const config = {
     model: modelId,
@@ -82,48 +73,51 @@ function createNodeModel(nodeConfig, reasoning, reasoningModels, credentials, no
       accessKeyId: credentials.accessKeyId,
       secretAccessKey: credentials.secretAccessKey
     },
-    maxTokens: maxTokens,
-    temperature: MODEL_TEMPERATURE_DEFAULT
+    maxTokens: maxTokens
   };
-  
+
   // Add session token if present
   if (credentials.sessionToken && credentials.sessionToken.trim()) {
     config.credentials.sessionToken = credentials.sessionToken.trim();
   }
-  
+
   // Check if reasoning is enabled and model supports reasoning
   const reasoningEnabled = reasoning > 0 && reasoningModels.includes(modelId);
-  
+
   if (reasoningEnabled) {
     // Get reasoning budget from nodeConfig
     const reasoningBudget = nodeConfig.reasoning_budget[reasoning.toString()];
-    
+
     if (!reasoningBudget) {
       console.warn(
         `No reasoning budget defined for ${nodeName} at level ${reasoning}, using default`
       );
     } else {
       // Add modelKwargs with thinking configuration
-      config.modelKwargs = {
+      // When reasoning is enabled, do NOT set temperature as it conflicts with reasoning
+      config.additionalModelRequestFields = {
         thinking: {
           type: 'enabled',
-          budget: reasoningBudget
+          budget_tokens: reasoningBudget
         }
       };
-      // Set temperature to MODEL_TEMPERATURE_REASONING when reasoning is enabled
-      config.temperature = MODEL_TEMPERATURE_REASONING;
-      
+
       console.log(
         `Reasoning enabled for ${nodeName}: budget=${reasoningBudget}, model=${modelId}`
       );
     }
-  } else if (reasoning > 0) {
-    // Log warning if reasoning requested but model doesn't support it
-    console.warn(
-      `Reasoning requested for ${nodeName} but model ${modelId} does not support it`
-    );
+  } else {
+    // Only set temperature when reasoning is NOT enabled
+    config.temperature = MODEL_TEMPERATURE_DEFAULT;
+
+    if (reasoning > 0) {
+      // Log warning if reasoning requested but model doesn't support it
+      console.warn(
+        `Reasoning requested for ${nodeName} but model ${modelId} does not support it`
+      );
+    }
   }
-  
+
   // Return initialized ChatBedrockConverse instance
   return new ChatBedrockConverse(config);
 }
@@ -147,15 +141,15 @@ function createStandardModel(modelConfig, credentials, modelName) {
     maxTokens: modelConfig.max_tokens,
     temperature: MODEL_TEMPERATURE_DEFAULT
   };
-  
+
   // Add session token if present
   if (credentials.sessionToken && credentials.sessionToken.trim()) {
     config.credentials.sessionToken = credentials.sessionToken.trim();
   }
-  
+
   // Log model initialization
   console.log(`Initialized ${modelName} model: ${modelConfig.id}`);
-  
+
   // Return initialized ChatBedrockConverse instance
   return new ChatBedrockConverse(config);
 }
@@ -169,22 +163,22 @@ function createStandardModel(modelConfig, credentials, modelName) {
 export function initializeModels(reasoning = 0, customConfig = null) {
   try {
     const config = customConfig || DEFAULT_MODEL_CONFIG;
-    
+
     // Call validateModelConfig to validate configuration before initialization
     validateModelConfig(config);
-    
+
     // Get AWS credentials
     const credentials = getCredentials();
     if (!credentials) {
       throw new Error('AWS credentials not configured');
     }
-    
+
     if (!credentials.accessKeyId || !credentials.secretAccessKey) {
       throw new Error('Invalid AWS credentials: missing accessKeyId or secretAccessKey');
     }
-    
+
     console.log('Initializing models with reasoning level:', reasoning);
-    
+
     // Call createNodeModel for assets with config.model_main.assets
     const assets_model = createNodeModel(
       config.model_main.assets,
@@ -193,7 +187,7 @@ export function initializeModels(reasoning = 0, customConfig = null) {
       credentials,
       'assets'
     );
-    
+
     // Call createNodeModel for flows with config.model_main.flows
     const flows_model = createNodeModel(
       config.model_main.flows,
@@ -202,7 +196,7 @@ export function initializeModels(reasoning = 0, customConfig = null) {
       credentials,
       'flows'
     );
-    
+
     // Call createNodeModel for threats with config.model_main.threats
     const threats_model = createNodeModel(
       config.model_main.threats,
@@ -211,7 +205,7 @@ export function initializeModels(reasoning = 0, customConfig = null) {
       credentials,
       'threats'
     );
-    
+
     // Call createNodeModel for gaps with config.model_main.gaps
     const gaps_model = createNodeModel(
       config.model_main.gaps,
@@ -220,23 +214,23 @@ export function initializeModels(reasoning = 0, customConfig = null) {
       credentials,
       'gaps'
     );
-    
+
     // Call createStandardModel for summary with config.model_summary
     const summary_model = createStandardModel(
       config.model_summary,
       credentials,
       'summary'
     );
-    
+
     // Call createStandardModel for struct with config.model_struct
     const struct_model = createStandardModel(
       config.model_struct,
       credentials,
       'struct'
     );
-    
+
     console.log('All models initialized successfully');
-    
+
     // Return object with assets_model, flows_model, threats_model, gaps_model, summary_model, and struct_model
     return {
       assets_model,
@@ -249,7 +243,7 @@ export function initializeModels(reasoning = 0, customConfig = null) {
   } catch (error) {
     // Add error handling with meaningful error messages
     console.error('Failed to initialize models:', error);
-    
+
     if (error.message.includes('credentials')) {
       throw new Error('AWS credentials are invalid or missing: ' + error.message);
     } else if (error.message.includes('Configuration')) {

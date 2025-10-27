@@ -38,7 +38,7 @@ export const DEFAULT_MODEL_CONFIG = {
       }
     },
     flows: {
-      id: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+      id: "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
       max_tokens: 64000,
       reasoning_budget: {
         "1": 8000,
@@ -56,7 +56,7 @@ export const DEFAULT_MODEL_CONFIG = {
       }
     },
     gaps: {
-      id: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+      id: "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
       max_tokens: 64000,
       reasoning_budget: {
         "1": 4000,

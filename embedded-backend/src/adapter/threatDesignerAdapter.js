@@ -294,7 +294,6 @@ export const getDownloadUrl = withErrorHandling(async (fileName) => {
  * @returns {Promise<Object>} Response with job status: { data: { id: string, state: string, retry: number } }
  */
 export const getThreatModelingStatus = withErrorHandling(async (id) => {
-  console.log('getThreatModelingStatus called', { id });
   
   // Validate parameters
   validateParams({ id }, ['id']);

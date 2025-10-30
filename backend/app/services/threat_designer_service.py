@@ -218,28 +218,12 @@ def invoke_lambda(owner, payload):
     description = payload.get("description", " ")
     assumptions = payload.get("assumptions", [])
     title = payload.get("title", " ")
+    session_id = str(uuid.uuid4())
+    LOG.info(f"Agent invoked with session: {session_id}")
     try:
-        # lambda_client.invoke(
-        #     FunctionName=FUNCTION,
-        #     InvocationType="Event",
-        #     Payload=json.dumps(
-        #         {
-        #             "s3_location": s3_location,
-        #             "id": id,
-        #             "reasoning": reasoning,
-        #             "iteration": iteration,
-        #             "description": description,
-        #             "assumptions": assumptions,
-        #             "owner": owner,
-        #             "title": title,
-        #             "replay": payload.get("replay", False),
-        #             "instructions": instructions,
-        #         }
-        #     ),
-        # )
         agent_core_client.invoke_agent_runtime(
             agentRuntimeArn=AGENT_CORE_RUNTIME,
-            runtimeSessionId=str(uuid.uuid4()),
+            runtimeSessionId=session_id,
             payload=json.dumps(
                 {
                     "input": {

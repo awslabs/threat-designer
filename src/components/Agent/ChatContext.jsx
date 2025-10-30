@@ -32,7 +32,7 @@ export const ChatSessionProvider = ({ children }) => {
   useEffect(() => {
     if (!SENTRY_ENABLED) {
       setToolsLoading(false);
-      setToolsError(new Error('Sentry feature is disabled'));
+      setToolsError(new Error("Sentry feature is disabled"));
       setAvailableTools([]);
       toolsFetched.current = true; // Prevent further fetch attempts
     }

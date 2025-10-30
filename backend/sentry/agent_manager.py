@@ -1,11 +1,10 @@
 from typing import Optional, List, Dict, Any
-from langchain_aws import ChatBedrockConverse
 from config import (
     ALL_AVAILABLE_TOOLS,
     checkpointer,
     boto_client,
     S3_BUCKET,
-    create_model_config,
+    create_model,
 )
 from utils import get_or_create_agent, logger
 
@@ -40,8 +39,7 @@ class AgentManager:
             self.cached_agent = None  # Force recreation
 
         # Create new LLM with updated config
-        config = create_model_config(budget_level)
-        llm = ChatBedrockConverse(**config)
+        llm = create_model(budget_level)
 
         result = await get_or_create_agent(
             tool_preferences,

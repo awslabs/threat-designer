@@ -61,10 +61,18 @@ def with_error_context(operation_name: str):
                 show_traceback = (
                     os.environ.get(ENV_TRACEBACK_ENABLED, "false").lower() == "true"
                 )
-                logger.error(f"Error in {operation_name}: {e}", exc_info=show_traceback)
+                error_str = str(e)
+                logger.error(
+                    "Error in operation",
+                    operation=operation_name,
+                    error=error_str,
+                    exc_info=show_traceback,
+                )
 
                 # Use centralized error messages for consistent formatting
-                error_message = _get_error_message_for_operation(operation_name, str(e))
+                error_message = _get_error_message_for_operation(
+                    operation_name, error_str
+                )
                 raise ThreatModelingError(error_message)
 
         return wrapper

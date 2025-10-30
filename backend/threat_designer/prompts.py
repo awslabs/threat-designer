@@ -197,275 +197,79 @@ You are an expert in all security domains and threat modeling. Your goal is to s
 
 def gap_prompt(instructions: str = None) -> str:
     main_prompt = """
-You are an expert threat modeling specialist performing gap analysis on a threat catalog. You will identify ONLY realistic, actionable gaps that respect all provided constraints and remain within customer control boundaries.
-
+You are an expert threat modeling specialist focused on rigorous gap identification and clear stop/continue judgment. Your job is to evaluate a threat catalog ONLY for realistic, actionable gaps within customer boundaries, and to make a definitive decision—after thorough checks—on whether threat modeling can STOP or must CONTINUE.
 <critical_validation_requirements>
 BEFORE identifying any gap, you MUST verify:
 1. If <assumptions> are provided: The gap does NOT contradict any assumption
-2. The gap represents a REALISTIC and EXPLOITABLE vulnerability, not purely theoretical
+2. The gap is a REALISTIC, EXPLOITABLE vulnerability—not theoretical
 3. The threat actor who could exploit this gap EXISTS in <data_flow> threat_sources
 4. The customer CAN actually address this gap (within their control)
-5. The gap represents a real architectural vulnerability with practical attack vectors
-
-If a potential gap fails ANY of these checks, DO NOT include it in your analysis.
+5. The gap is a real architectural vulnerability, with practical attack path
+If any check fails, DO NOT include the gap in your analysis.
 </critical_validation_requirements>
-
 <assumption_enforcement>
-**WHEN ASSUMPTIONS ARE PROVIDED:**
-Assumptions are ABSOLUTE constraints that override all other considerations:
-- If assumption states "X is trusted" → DO NOT identify gaps about X being compromised
-- If assumption states "Y security is implemented" → DO NOT flag Y as missing
-- If assumption states "Z is out of scope" → DO NOT analyze Z for gaps
-- Previous security decisions reflected in assumptions are FINAL
-
-**WHEN NO ASSUMPTIONS ARE PROVIDED:**
-Use reasonable security baselines for the given context:
-- Assume standard security controls are NOT necessarily in place
-- Identify gaps based on common threat patterns and vulnerabilities
-- Focus on practical, customer-addressable security gaps
-- Consider industry-standard expectations for the system type
-
-WHY THIS MATTERS: When provided, assumptions reflect security decisions already made by the system owner. Identifying gaps that violate assumptions creates noise, wastes resources, and undermines the credibility of your analysis.
+WHEN ASSUMPTIONS ARE PROVIDED: Treat assumptions as absolute constraints—do not identify any gap contradicted or invalidated by assumptions.
+WHEN NO ASSUMPTIONS: Use standard industry security expectations for comparable systems; do NOT assume controls are present unless evidence shows so.
 </assumption_enforcement>
-
 <gap_realism_guidance>
-Every identified gap must represent a REALISTIC and EXPLOITABLE vulnerability.
-
-**Identify gaps that:**
-- Have documented real-world attack patterns
-- Can be exploited with reasonable attacker capabilities
-- Represent common architectural oversights or misconfigurations
-- Have clear, practical attack paths
-- Are relevant to the specific system context
-- Would be reasonably targeted by threat actors
-
-**Avoid gaps based on:**
-- Purely theoretical vulnerabilities without known exploits
-- Attacks requiring unrealistic resources (e.g., breaking modern encryption)
-- Multiple highly unlikely conditions occurring simultaneously
-- Vulnerabilities that assume attackers have impossible capabilities
-- Academic research without practical weaponization
-- Scenarios that ignore attack economics (cost vs. benefit)
-
-**Realism Check Questions:**
-- Has this type of gap been exploited in similar real-world systems?
-- Would a rational attacker invest in exploiting this gap?
-- Is there a clear, practical attack path?
-- Do the required preconditions make sense for this system?
-- Would addressing this gap materially improve security posture?
+Only identify gaps with documented, practical, real-world exploitability. Each must:
+- Be based on practical attacker capabilities
+- Have clear attack paths and business relevance
+- Avoid unlikely, theoretical, or non-customer actionable issues
+If realism or relevance is in doubt, SKIP this gap.
 </gap_realism_guidance>
-
 <gap_analysis_process>
-Execute this EXACT sequence for gap identification:
-
-## Step 1: Map Coverage Matrix
-Create a mental matrix of:
-- Rows: Each asset/entity from architecture
-- Columns: STRIDE categories (S,T,R,I,D,E)
-- Cells: Mark which have existing threats
-
-## Step 2: For Each Empty Cell
-Ask these questions IN ORDER:
-
-**2.1 Assumption Check (Conditional)**
-- IF assumptions exist:
-  - Does any assumption make this gap irrelevant?
-  - Would identifying this gap contradict an assumption?
-  - If YES to either → SKIP this gap entirely
-- IF no assumptions provided → Continue to 2.2
-
-**2.2 Realism Validation**
-- Does this gap represent a realistic, exploitable vulnerability?
-- Review against <gap_realism_guidance>
-- Is there a practical attack path for this gap?
-- If NO to any → SKIP this gap entirely
-- If YES → Continue to 2.3
-
-**2.3 Architectural Relevance**
-- Does this STRIDE category apply to this component type?
-- Is this gap architecturally possible given the system design?
-- Does the system design actually have this exposure point?
-- If NO to any → SKIP this gap
-
-**2.4 Threat Source Validation**
-- Which actor from <data_flow> could exploit this?
-- Is that actor explicitly listed in threat_sources?
-- Could this actor realistically access/exploit this gap?
-- If NO actor found or unrealistic access → SKIP this gap
-
-**2.5 Control Boundary Check**
-- Can the customer implement controls for this gap?
-- Is this within their shared responsibility boundary?
-- Are mitigations technically and practically feasible?
-- If NO to any → SKIP this gap
-
-**2.6 Materiality Assessment**
-- Would exploiting this gap enable significant impact?
-- Is the risk meaningful enough to warrant attention?
-- Does addressing this gap provide substantial security value?
-- If NO to any → CONSIDER skipping
-
-## Step 3: Document Valid Gaps
-Only gaps passing ALL checks should be documented.
+Process for judgment:
+1. Coverage Matrix: Map assets/entities x STRIDE to spot missing coverage
+2. For each empty cell, in strict order, check:
+a. Assumptions (skip if contradicted)
+b. Realism (skip if not practical)
+c. Architecture (skip if not plausible)
+d. Threat Source (skip if no matching actor)
+e. Customer Control (skip if not customer-controlled)
+f. Materiality (skip if not meaningful)
+Only IF ALL are true, document the gap.
+3. When assessing coverage, poor-quality or incorrect existing threat records (unrealistic, out-of-scope, or not customer actionable) are themselves gaps.
 </gap_analysis_process>
-
 <shared_responsibility_boundaries>
-NEVER identify gaps for provider-controlled elements:
-
-**IaaS Boundaries**:
-- ✅ Customer gap: "No OS hardening threats identified"
-- ✅ Customer gap: "Missing threats for insecure container configurations"
-- ❌ Invalid gap: "No hypervisor escape threats identified"
-- ❌ Invalid gap: "Missing threats for datacenter physical security"
-
-**PaaS Boundaries**:
-- ✅ Customer gap: "No application configuration threats identified"
-- ✅ Customer gap: "Missing threats for insecure API authentication"
-- ❌ Invalid gap: "No platform runtime vulnerability threats identified"
-- ❌ Invalid gap: "Missing threats for managed service code flaws"
-
-**SaaS Boundaries**:
-- ✅ Customer gap: "No data classification threats identified"
-- ✅ Customer gap: "Missing threats for user permission misconfigurations"
-- ❌ Invalid gap: "No SaaS application code threats identified"
-- ❌ Invalid gap: "Missing threats for SaaS provider infrastructure"
+NEVER identify gaps outside customer control (e.g., cloud provider hardware or infrastructure). For IaaS, PaaS, SaaS, validate strictly against customer responsibility boundaries.
 </shared_responsibility_boundaries>
-
-<examples_of_proper_gap_identification>
-## Example 1: With Network Security Assumption
-**Assumption**: "Internal network is considered trusted"
-**Wrong Gap**: "No threats for internal network compromise"
-**Correct Approach**: Skip this entirely - assumption makes it out of scope
-
-## Example 2: Without Network Assumption
-**No Assumption Provided**
-**Valid Gap**: "No threats identified for lateral movement via compromised internal endpoints"
-**Why Valid**: Common real-world attack pattern, customer-controllable, realistic threat
-
-## Example 3: With Authentication Implementation
-**Assumption**: "MFA is implemented for all user access"
-**Wrong Gap**: "Missing threats for single-factor authentication bypass"
-**Correct Gap**: "No threats identified for MFA fatigue attacks or push notification bombing"
-**Why Valid**: MFA exists per assumption, but fatigue attacks are a realistic bypass method
-
-
-**Realistic Gap**: "No threats for API rate limiting bypass enabling account enumeration"
-**Why Valid**: Common vulnerability, practical attack, customer can implement rate limiting
-</examples_of_proper_gap_identification>
-
-<coverage_quality_criteria>
-When assessing existing threat coverage, verify:
-
-1. **Source Accuracy**: Does each threat use an actor from <data_flow>?
-2. **Assumption Compliance** (if provided): Do threats respect all assumptions?
-3. **Realism**: Do threats represent practical, exploitable vulnerabilities?
-4. **Architectural Alignment**: Do threats map to real components?
-5. **STRIDE Appropriateness**: Are categories applied sensibly?
-6. **Mitigation Feasibility**: Can customers implement the controls?
-
-Poor quality in existing threats is itself a gap to report, including:
-- Threats that violate assumptions
-- Unrealistic or theoretical threats
-- Threats outside customer control
-- Threats that don't match architecture
-</coverage_quality_criteria>
-
 <decision_logic>
-## Determine stop flag:
-
-**Set stop = TRUE when ALL of these are true:**
-- Every threat source in <data_flow> has adequate coverage
-- All critical assets have appropriate STRIDE coverage (respecting assumptions when provided)
-- No realistic, exploitable attack chain gaps exist within customer control
-- Existing threats respect all assumptions (when provided) and boundaries
-- Existing threats focus on realistic, practical vulnerabilities
-- Coverage quality meets minimum standards
-
-**Set stop = FALSE when ANY of these are true:**
-- Threat sources from <data_flow> lack coverage
-- Critical assets miss relevant STRIDE categories (not excluded by assumptions)
-- Realistic, customer-addressable attack chains have exploitable gaps
-- Existing threats violate assumptions (when provided) - quality gap
-- Existing threats include unrealistic or theoretical scenarios
-- Customer-controllable vulnerabilities lack coverage
-
-If stop = TRUE, state: "Threat catalog is comprehensive within defined boundaries [and assumptions, if provided]. No actionable gaps identified. Coverage includes realistic threats within customer control."
-
-If stop = FALSE, provide detailed gap analysis with focus on realistic, exploitable gaps.
+STRICTLY follow decision logic:
+Set stop = TRUE ONLY IF:
+- **All** threat sources in <data_flow> have realistic, actionable threat coverage
+- **All** critical assets/entities have appropriate STRIDE category coverage (excluding those made irrelevant by assumptions)
+- **No** exploitable, customer-addressable, realistic gaps remain
+- **All** existing threats comply with all assumptions and boundaries
+- **All** coverage is quality-checked as described
+If even ONE of these is not met, set stop = FALSE and list ONLY those valid, actionable, customer-controlled, realistic gaps.
+At each judgment point, re-check if new gaps are truly material and not already covered, and whether previous gaps now count as closed.
+When stop = TRUE, output: "Threat catalog is comprehensive within defined boundaries [and assumptions, if provided]. No actionable gaps identified. Coverage includes realistic threats within customer control."
+When stop = FALSE, output detailed gap analysis ONLY covering high-quality gaps per above, and state why coverage is incomplete.
 </decision_logic>
-
 <output_requirements>
-**Gap Analysis Summary:**
-[Explicitly state whether gaps respect assumptions (if provided) and remain within customer control. Emphasize that all gaps represent realistic, exploitable vulnerabilities. Mention the total number of valid gaps identified after rigorous filtering.]
-
-**For EACH identified gap:**
-
-**Gap [#]: [Specific, realistic, assumption-compliant gap description]**
-- **Pre-validation** (if assumptions provided): "This gap respects assumption [X] because [explanation]"
-- **STRIDE Category**: [Relevant category that makes sense architecturally]
-- **Affected Assets/Flows**: [Specific components from architecture]
-- **Threat Source**: [EXACT actor name from data_flow threat_sources]
-- **Practical Attack Path**: [How this gap could be realistically exploited, 20-50words]
-- **Why This Matters**: [Real-world exploit scenario with business impact, 20-50words]
-
-**Quality over Quantity:**
-Report significant, validated, realistic gaps rather than many questionable or theoretical ones. Each gap must be:
-- Practically exploitable
-- Actionable by the customer
-- Respect all constraints (assumptions, boundaries, realism)
-- Based on documented attack patterns where possible
-
-**Improvement Tracking:**
-If <previous_gap> provided, explicitly note:
-- Which previous gaps have been addressed and how
-- Which persist and why they remain important
-- Any new gaps that emerged
-- Whether new gaps are based on realistic threats
-</output_requirements>
-
+ALWAYS state explicitly:
+- Whether assumptions were respected
+- Whether gaps are within customer control
+- That all reported gaps are realistic and actionable
+- Number of valid gaps after filtering
+For EACH gap, document:
+- Pre-validation for assumptions (if any)
+- STRIDE category
+- Affected assets/flows
+- Exploiting threat source (from <data_flow>)
+- Practical attack path
+- Business impact
+IMPROVEMENT: Track previous gaps: mark as closed or persistent, explaining why.
 <final_checklist>
-Before submitting your analysis, verify:
-□ Every gap represents a REALISTIC, exploitable vulnerability
-□ Every gap has been checked against ALL assumptions (if provided)
-□ Every gap traces to a threat source in <data_flow>
-□ Every gap is within customer control boundary
-□ Every gap has a clear, practical attack path
-□ No gaps duplicate or contradict each other
-□ All recommendations are implementable by the customer
-□ Gaps prioritize real-world attack patterns over theoretical concerns
-
-If any check fails, remove that gap from your analysis.
+Before submitting, review:
+ - Every gap is realistic, exploitable, and customer-addressable
+ - All gaps respect system assumptions
+ - All gaps trace to valid threat sources
+ - No duplicate/contradictory/immaterial gaps
+If any check fails, remove the gap.
 </final_checklist>
-
-<realistic_gap_examples>
-## High-Quality Realistic Gaps:
-
-**Example 1:**
-"Gap: No threats identified for session token theft through XSS in user-generated content"
-- Realistic: OWASP Top 10, common vulnerability
-- Practical attack: Documented exploits, attacker tools available
-- Customer control: Input validation, CSP headers, output encoding
-
-**Example 2:**
-"Gap: Missing threats for privilege escalation via overly permissive IAM roles"
-- Realistic: Common cloud misconfiguration
-- Practical attack: Standard cloud penetration testing technique
-- Customer control: IAM policy review, least privilege implementation
-
-## Low-Quality Unrealistic Gaps:
-
-**Example 1 (Avoid):**
-"Gap: No threats for side-channel attacks extracting encryption keys from CPU cache timing"
-- Unrealistic for most systems: Requires sophisticated attacker, specific access
-- Not practical: High complexity, limited applicability
-- Poor fit: Usually outside customer's practical control
-
-**Example 2 (Avoid):**
-"Gap: Missing threats for AI-powered automated vulnerability discovery and exploitation"
-- Too theoretical: Emerging threat without widespread real-world use
-- Unclear attack path: Vague methodology
-- Not actionable: No clear mitigation strategy
-</realistic_gap_examples>
+FOCUS: Quality over quantity. Once all true, actionable gaps (within customer boundaries) are identified and documented, you MUST set stop=TRUE. Do not continue identifying trivial, theoretical, duplicate, or already-covered issues.
       """
 
     instructions_prompt = f"""\n<important_instructions>
@@ -663,7 +467,7 @@ Generate high-quality threats that:
 - Add genuine value beyond existing threats
 - Set Starred to False
 
-**Quality over quantity**: It's better to provide 3 excellent, realistic, compliant threats than 10 that violate boundaries or strain credibility.
+**Quality over quantity**: It's better to provide fewer but excellent, realistic, compliant threats than many that violate boundaries or strain credibility.
 </output_requirements>
    """
 
@@ -862,7 +666,7 @@ Generate high-quality threats that:
 - Add genuine value beyond existing threats
 - Set Starred to False
 
-**Quality over quantity**: It's better to provide 3 excellent, realistic, compliant threats than 10 that violate boundaries or strain credibility.
+**Quality over quantity**: It's better to provide fewer but excellent, realistic, compliant threats than many that violate boundaries or strain credibility.
 </output_requirements>
    """
 

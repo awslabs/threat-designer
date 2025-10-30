@@ -206,7 +206,7 @@ class ThreatDefinitionService:
         self, retry_count: int, iteration: int, config: RunnableConfig
     ) -> bool:
         """Check if threat modeling should finalize."""
-        max_retries_reached = retry_count > self.config.max_retry
+        max_retries_reached = retry_count > self.config.max_retries
         iteration_limit_reached = (retry_count > iteration) and (iteration != 0)
 
         return max_retries_reached or iteration_limit_reached
@@ -419,5 +419,6 @@ class ReplayService:
                 self.state_service.update_with_backup(job_id)
                 return "replay"
             except Exception as e:
-                logger.error(f"Replay routing failed: {e}")
+                error_str = str(e)
+                logger.error("Replay routing failed", error=error_str)
                 raise e

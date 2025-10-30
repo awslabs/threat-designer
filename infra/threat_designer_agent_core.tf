@@ -1,19 +1,31 @@
 resource "aws_bedrockagentcore_agent_runtime" "threat_designer" {
   agent_runtime_name = "threat_designer_agent"
   role_arn           = aws_iam_role.threat_designer_role.arn
-  environment_variables = {
-    AGENT_STATE_TABLE   = aws_dynamodb_table.threat_designer_state.id,
-    JOB_STATUS_TABLE    = aws_dynamodb_table.threat_designer_status.id,
-    AGENT_TRAIL_TABLE   = aws_dynamodb_table.threat_designer_trail.id,
-    REGION              = var.region,
-    LOG_LEVEL           = var.log_level,
-    TRACEBACK_ENABLED   = var.traceback_enabled,
-    ARCHITECTURE_BUCKET = aws_s3_bucket.architecture_bucket.id,
-    MAIN_MODEL          = jsonencode(var.model_main),
-    MODEL_STRUCT        = jsonencode(var.model_struct),
-    MODEL_SUMMARY       = jsonencode(var.model_summary),
-    REASONING_MODELS    = jsonencode(var.reasoning_models)
-  }
+  environment_variables = merge(
+    {
+      AGENT_STATE_TABLE   = aws_dynamodb_table.threat_designer_state.id,
+      JOB_STATUS_TABLE    = aws_dynamodb_table.threat_designer_status.id,
+      AGENT_TRAIL_TABLE   = aws_dynamodb_table.threat_designer_trail.id,
+      REGION              = var.region,
+      LOG_LEVEL           = var.log_level,
+      TRACEBACK_ENABLED   = var.traceback_enabled,
+      ARCHITECTURE_BUCKET = aws_s3_bucket.architecture_bucket.id,
+      MODEL_PROVIDER      = var.model_provider
+    },
+    var.model_provider == "bedrock" ? {
+      MAIN_MODEL       = jsonencode(var.model_main),
+      MODEL_STRUCT     = jsonencode(var.model_struct),
+      MODEL_SUMMARY    = jsonencode(var.model_summary),
+      REASONING_MODELS = jsonencode(var.reasoning_models)
+    } : {},
+    var.model_provider == "openai" ? {
+      OPENAI_API_KEY   = var.openai_api_key,
+      MAIN_MODEL       = jsonencode(var.openai_model_main),
+      MODEL_STRUCT     = jsonencode(var.openai_model_struct),
+      MODEL_SUMMARY    = jsonencode(var.openai_model_summary),
+      REASONING_MODELS = jsonencode(var.openai_reasoning_models)
+    } : {}
+  )
   agent_runtime_artifact {
     container_configuration {
       container_uri = "${aws_ecr_repository.threat-designer.repository_url}:latest"

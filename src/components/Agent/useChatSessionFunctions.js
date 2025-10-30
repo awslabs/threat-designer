@@ -180,7 +180,7 @@ export const useChatSessionFunctions = (props) => {
         }
 
         console.log(`Sentry disabled - creating local-only session for ${sessionId}`);
-        
+
         setSessions((prev) => {
           const existingSession = prev.get(sessionId);
           if (existingSession) {
@@ -441,33 +441,102 @@ export const useChatSessionFunctions = (props) => {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        if (interrupt) {
+          // Use buffering for interrupt messages (which can have large JSON)
+          let buffer = "";
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n");
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
+            const chunk = decoder.decode(value);
+            buffer += chunk;
+
+            // Only process complete lines (ending with \n)
+            let newlineIndex;
+            while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+              const line = buffer.slice(0, newlineIndex);
+              buffer = buffer.slice(newlineIndex + 1);
+
+              if (line.startsWith("data: ")) {
+                try {
+                  const jsonStr = line.slice(6).trim();
+                  if (jsonStr) {
+                    const data = JSON.parse(jsonStr);
+
+                    if (data.type === "interrupt") {
+                      console.log(`Interrupt received for session ${sessionId}:`, data.content);
+                      emitInterruptEvent(sessionId, data, "sse", eventBus);
+                      return;
+                    }
+
+                    if (data.end) {
+                      addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
+                      cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
+                      return;
+                    }
+
+                    addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
+                  }
+                } catch (err) {
+                  console.error("Error parsing interrupt streaming response:", err);
+                  console.error("Failed line length:", line.length);
+                  console.error("Line starts with:", line.substring(0, 100));
+                  console.error("Line ends with:", line.substring(line.length - 100));
+                }
+              }
+            }
+          }
+
+          // Handle any remaining data in buffer after stream ends
+          if (buffer.trim()) {
+            if (buffer.startsWith("data: ")) {
               try {
-                const data = JSON.parse(line.slice(6));
-
-                if (data.type === "interrupt") {
-                  console.log(`Interrupt received for session ${sessionId}:`, data.content);
-                  emitInterruptEvent(sessionId, data, "sse", eventBus);
-                  return;
+                const jsonStr = buffer.slice(6).trim();
+                if (jsonStr) {
+                  const data = JSON.parse(jsonStr);
+                  if (data.type === "interrupt") {
+                    console.log(`Interrupt received for session ${sessionId}:`, data.content);
+                    emitInterruptEvent(sessionId, data, "sse", eventBus);
+                  } else {
+                    addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
+                  }
                 }
-
-                if (data.end) {
-                  addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
-                  cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
-                  return;
-                }
-
-                addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
               } catch (err) {
-                console.error("Error parsing streaming response:", err);
+                console.error("Error parsing remaining interrupt buffer:", err);
+              }
+            }
+          }
+        } else {
+          // Original logic for regular messages
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split("\n");
+
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+
+                  if (data.type === "interrupt") {
+                    console.log(`Interrupt received for session ${sessionId}:`, data.content);
+                    emitInterruptEvent(sessionId, data, "sse", eventBus);
+                    return;
+                  }
+
+                  if (data.end) {
+                    addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
+                    cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
+                    return;
+                  }
+
+                  addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
+                } catch (err) {
+                  console.error("Error parsing streaming response:", err);
+                }
               }
             }
           }
@@ -570,8 +639,8 @@ export const useChatSessionFunctions = (props) => {
     // Wrap prepareSession to handle Sentry disabled
     const prepareSessionWrapper = async (...args) => {
       if (!SENTRY_ENABLED) {
-        console.log('Sentry disabled - session preparation skipped');
-        return { status: 'skipped', message: 'Sentry is disabled' };
+        console.log("Sentry disabled - session preparation skipped");
+        return { status: "skipped", message: "Sentry is disabled" };
       }
       return prepareSession(...args);
     };

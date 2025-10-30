@@ -38,7 +38,7 @@ The AI agent uses your **persisted (saved) state** as input for the replay. Any 
 Control the depth and comprehensiveness of the analysis:
 
 - **Auto**: Let the agent determine when the threat model is complete (recommended)
-- **Manual (1-15)**: Set a specific number of analysis runs
+- **Manual (1-10)**: Set a specific number of analysis runs
 - More iterations typically yield more comprehensive threat discovery
 - Consider your architecture's complexity when choosing
 

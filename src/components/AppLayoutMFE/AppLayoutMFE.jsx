@@ -53,49 +53,51 @@ function AppLayoutMFE({ user }) {
     }
   };
 
-  const items = sentryEnabled ? [
-    {
-      ariaLabels: {
-        closeButton: "Close",
-        drawerName: "Assistant",
-        triggerButton: "Open Assistant",
-        resizeHandle: "Resize Assistant",
-      },
-      resizable: true,
-      defaultSize: 650,
-      content: (
-        <div
-          style={{
-            overflowY: "auto",
-            minWidth: "600",
-            paddingLeft: "10px",
-            paddingTop: "10px",
-            paddingRight: "24px",
-            paddingBottom: "0px",
-          }}
-        >
-          <div
-            style={{
-              marginBottom: "0px",
-              marginTop: "6px",
-              paddingRight: "50px",
-              display: "flex",
-              justifyContent: "flex-end",
-            }}
-          >
-            <Button iconName="edit" variant="link" onClick={handleClearSession}>
-              New Chat
-            </Button>
-          </div>
-          <Agent user={user} inTools={true} />
-        </div>
-      ),
-      id: "Assistant",
-      trigger: {
-        iconName: "gen-ai",
-      },
-    },
-  ] : [];
+  const items = sentryEnabled
+    ? [
+        {
+          ariaLabels: {
+            closeButton: "Close",
+            drawerName: "Assistant",
+            triggerButton: "Open Assistant",
+            resizeHandle: "Resize Assistant",
+          },
+          resizable: true,
+          defaultSize: 650,
+          content: (
+            <div
+              style={{
+                overflowY: "auto",
+                minWidth: "600",
+                paddingLeft: "10px",
+                paddingTop: "10px",
+                paddingRight: "24px",
+                paddingBottom: "0px",
+              }}
+            >
+              <div
+                style={{
+                  marginBottom: "0px",
+                  marginTop: "6px",
+                  paddingRight: "50px",
+                  display: "flex",
+                  justifyContent: "flex-end",
+                }}
+              >
+                <Button iconName="edit" variant="link" onClick={handleClearSession}>
+                  New Chat
+                </Button>
+              </div>
+              <Agent user={user} inTools={true} />
+            </div>
+          ),
+          id: "Assistant",
+          trigger: {
+            iconName: "gen-ai",
+          },
+        },
+      ]
+    : [];
 
   return (
     <div>

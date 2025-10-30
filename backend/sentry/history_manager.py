@@ -79,6 +79,7 @@ def format_chat_for_frontend(backend_messages, interrupt=None):
             # Process each content item in the AIMessage
             for content_item in message.content:
                 if content_item.get("type") == "reasoning_content":
+                    # Bedrock format
                     current_turn["aiMessage"].append(
                         {
                             "type": "think",
@@ -87,11 +88,38 @@ def format_chat_for_frontend(backend_messages, interrupt=None):
                             ),
                         }
                     )
+                elif content_item.get("type") == "reasoning":
+                    # OpenAI GPT-5 format: {"type": "reasoning", "summary": [{"type": "summary_text", "text": "..."}]}
+                    summary = content_item.get("summary", [])
+                    if summary and isinstance(summary, list):
+                        # Combine all summary text items into one reasoning block
+                        combined_text = "\n\n".join(
+                            item.get("text", "")
+                            for item in summary
+                            if item.get("type") == "summary_text" and item.get("text")
+                        )
+                        if combined_text:
+                            current_turn["aiMessage"].append(
+                                {
+                                    "type": "think",
+                                    "content": combined_text,
+                                }
+                            )
                 elif content_item.get("type") == "tool_use":
                     current_turn["aiMessage"].append(
                         {
                             "type": "tool",
                             "id": content_item["id"],
+                            "tool_name": content_item["name"],
+                            "tool_start": True,
+                        }
+                    )
+                elif content_item.get("type") == "function_call":
+                    # OpenAI function call format
+                    current_turn["aiMessage"].append(
+                        {
+                            "type": "tool",
+                            "id": content_item.get("call_id"),
                             "tool_name": content_item["name"],
                             "tool_start": True,
                         }

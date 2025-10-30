@@ -28,6 +28,7 @@ from constants import (
     HTTP_STATUS_UNPROCESSABLE_ENTITY,
     REASONING_DISABLED,
     VALID_REASONING_VALUES,
+    DEFAULT_MAX_RETRY,
     JobState,
 )
 from exceptions import ThreatModelingError, ValidationError
@@ -122,8 +123,8 @@ def _create_agent_config(event: Dict[str, Any]) -> ConfigSchema:
         "model_struct": models["struct_model"],
         "model_summary": models["summary_model"],
         "start_time": datetime.now(),
+        "max_retries": DEFAULT_MAX_RETRY,
         "reasoning": thinking,
-        "recursion_limit": 50,
     }
 
 
@@ -457,7 +458,7 @@ async def handler(request: InvocationRequest, http_request: Request) -> Dict[str
             )
 
             # Create full configuration for the agent
-            config = {"configurable": agent_config}
+            config = {"configurable": agent_config, "recursion_limit": 50}
 
             # Submit the agent execution to run in background
             loop = asyncio.get_event_loop()

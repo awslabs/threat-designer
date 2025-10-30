@@ -45,7 +45,7 @@ Document the context and constraints of your system:
 Control how thoroughly the agent analyzes your architecture:
 
 - **Auto** (recommended for first-time users): The agent determines when the threat model is comprehensive
-- **Manual**: Set a specific number of analysis runs (1-15)
+- **Manual**: Set a specific number of analysis runs (1-10)
   - More iterations = more comprehensive threat catalog
   - Be aware: higher iteration counts may increase the risk of hallucinations
   - Processing time increases with iteration count

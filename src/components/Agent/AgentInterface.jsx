@@ -40,13 +40,24 @@ function ChatInterface({ user, inTools }) {
     throw new Error("ChatInterface must be used within a ChatSessionProvider");
   }
 
+  // Check if using OpenAI provider
+  const isOpenAI = import.meta.env.VITE_MODEL_PROVIDER === "openai";
+
   // Load preferences from localStorage on mount
   const [budget, setBudget] = useState(() => {
     const savedBudget = localStorage.getItem(THINKING_BUDGET_KEY);
+    // For OpenAI, default to "1" (low) and never allow "0"
+    if (isOpenAI) {
+      return savedBudget && savedBudget !== "0" ? savedBudget : "1";
+    }
     return savedBudget || "1";
   });
 
   const [thinkingEnabled, setThinkingEnabled] = useState(() => {
+    // For OpenAI, reasoning is always enabled
+    if (isOpenAI) {
+      return true;
+    }
     const savedEnabled = localStorage.getItem(THINKING_ENABLED_KEY);
     if (savedEnabled !== null) {
       return savedEnabled === "true";
@@ -115,19 +126,32 @@ function ChatInterface({ user, inTools }) {
   }, [availableTools, toolsInitialized]);
 
   // Save budget to localStorage when it changes
-  const handleBudgetChange = useCallback((newBudget) => {
-    setBudget(newBudget);
-    localStorage.setItem(THINKING_BUDGET_KEY, newBudget);
+  const handleBudgetChange = useCallback(
+    (newBudget) => {
+      // For OpenAI, prevent setting budget to "0"
+      if (isOpenAI && newBudget === "0") {
+        return;
+      }
 
-    if (newBudget !== "0") {
-      setThinkingEnabled(true);
-      localStorage.setItem(THINKING_ENABLED_KEY, "true");
-    }
-  }, []);
+      setBudget(newBudget);
+      localStorage.setItem(THINKING_BUDGET_KEY, newBudget);
+
+      if (newBudget !== "0") {
+        setThinkingEnabled(true);
+        localStorage.setItem(THINKING_ENABLED_KEY, "true");
+      }
+    },
+    [isOpenAI]
+  );
 
   // Handle thinking toggle
   const handleThinkingToggle = useCallback(
     (isToggled) => {
+      // For OpenAI, reasoning cannot be disabled
+      if (isOpenAI && !isToggled) {
+        return;
+      }
+
       setThinkingEnabled(isToggled);
       localStorage.setItem(THINKING_ENABLED_KEY, String(isToggled));
 
@@ -137,7 +161,7 @@ function ChatInterface({ user, inTools }) {
         localStorage.setItem(THINKING_BUDGET_KEY, defaultBudget);
       }
     },
-    [budget]
+    [budget, isOpenAI]
   );
 
   // Handle tool items change and save to localStorage
@@ -202,12 +226,15 @@ function ChatInterface({ user, inTools }) {
             <path d="M12 6v6l4 2" />
           </svg>
         ),
-        isToggle: true,
+        // For OpenAI, make it non-toggleable (always active)
+        isToggle: !isOpenAI,
         showDropdown: true,
         dropdownContent: () => (
           <ThinkingBudgetWrapper initialBudget={budget} onBudgetChange={handleBudgetChange} />
         ),
         defaultToggled: thinkingEnabled,
+        // For OpenAI, make it always appear active
+        alwaysActive: isOpenAI,
         onClick: (message, sessionId, isToggled) => {
           handleActionButtonClick("thinking", message, sessionId, isToggled);
         },
@@ -238,6 +265,7 @@ function ChatInterface({ user, inTools }) {
       handleActionButtonClick,
       toolItems,
       handleToolItemsChange,
+      isOpenAI,
     ]
   );
 

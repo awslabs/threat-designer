@@ -2,12 +2,21 @@ resource "aws_bedrockagentcore_agent_runtime" "sentry" {
   count              = var.enable_sentry ? 1 : 0
   agent_runtime_name = "threat_designer_sentry"
   role_arn           = aws_iam_role.sentry_role[0].arn
-  environment_variables = {
-    SESSION_TABLE = aws_dynamodb_table.sentry_session[0].id,
-    S3_BUCKET     = aws_s3_bucket.architecture_bucket.id,
-    MODEL_ID      = var.model_sentry,
-    REGION        = var.region
-  }
+  environment_variables = merge(
+    {
+      SESSION_TABLE  = aws_dynamodb_table.sentry_session[0].id,
+      S3_BUCKET      = aws_s3_bucket.architecture_bucket.id,
+      REGION         = var.region,
+      MODEL_PROVIDER = var.model_provider
+    },
+    var.model_provider == "bedrock" ? {
+      MODEL_ID = var.model_sentry
+    } : {},
+    var.model_provider == "openai" ? {
+      OPENAI_API_KEY = var.openai_api_key,
+      MODEL_ID       = var.openai_sentry_model_id
+    } : {}
+  )
   authorizer_configuration {
     custom_jwt_authorizer {
       discovery_url   = "https://cognito-idp.${var.region}.amazonaws.com/${aws_cognito_user_pool.user_pool.id}/.well-known/openid-configuration"

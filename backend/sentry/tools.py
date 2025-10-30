@@ -2,17 +2,23 @@ from langchain_core.tools import tool
 from data_model import Threat
 from typing import List
 from langgraph.types import interrupt
-from pydantic import Field
+import json
 
 
 @tool(
     name_or_callable="add_threats",
-    description=""" Used to add new threats to the existing catalog. Add at most 5 threats within a single tool invocation """,
+    description=""" Used to add new threats to the existing catalog. Do not pass more than 20 threats within a single tool invocation """,
 )
 def add_threats(threats: List[Threat]):
+    # Properly serialize the data using json.dumps
+    payload_data = [threat.model_dump() for threat in threats]
+
+    # Ensure all strings are properly escaped
+    json_safe_payload = json.loads(json.dumps(payload_data))
+
     response = interrupt(
         {
-            "payload": [threat.model_dump() for threat in threats],
+            "payload": json_safe_payload,
             "tool_name": "add_threats",
         }
     )

@@ -35,3 +35,21 @@ class ValidationError(ThreatModelingError):
     """Raised when data validation fails."""
 
     pass
+
+
+class ModelProviderError(ThreatModelingError):
+    """Raised when model provider configuration is invalid."""
+
+    pass
+
+
+class OpenAIAuthenticationError(ThreatModelingError):
+    """Raised when OpenAI API key authentication fails."""
+
+    pass
+
+
+class OpenAIRateLimitError(ThreatModelingError):
+    """Raised when OpenAI rate limits are exceeded."""
+
+    pass

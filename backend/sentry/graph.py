@@ -1,3 +1,4 @@
+import os
 from typing import (
     List,
     Optional,
@@ -23,6 +24,12 @@ import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
+# Import model provider constants
+try:
+    from config import MODEL_PROVIDER
+except ImportError:
+    MODEL_PROVIDER = os.environ.get("MODEL_PROVIDER", "bedrock")
+
 
 class ReactAgent:
     def __init__(
@@ -38,6 +45,7 @@ class ReactAgent:
             prompt or "You are a helpful AI assistant with vision capabilities."
         )
         self.checkpointer = checkpointer
+        self.provider = MODEL_PROVIDER
 
         self.llm_with_tools = (
             self.llm.bind_tools(self.tools) if self.tools else self.llm
@@ -47,6 +55,12 @@ class ReactAgent:
         self.tools_by_name = {tool.name: tool for tool in self.tools}
 
         self.graph = self._build_graph()
+
+    def _add_cache_point_if_bedrock(self) -> List[Dict[str, Any]]:
+        """Add cache point marker only for Bedrock provider."""
+        if self.provider == "bedrock":
+            return [{"cachePoint": {"type": "default"}}]
+        return []
 
     def _preprocess_messages_for_image(
         self, messages: List[BaseMessage], image_data: Optional[str]
@@ -69,9 +83,9 @@ class ReactAgent:
             if isinstance(content, str):
                 new_content = [
                     {"type": "image_url", "image_url": {"url": image_data}},
-                    {"cachePoint": {"type": "default"}},
-                    {"type": "text", "text": content},
                 ]
+                new_content.extend(self._add_cache_point_if_bedrock())
+                new_content.append({"type": "text", "text": content})
                 processed_messages[0] = HumanMessage(content=new_content)
 
             # Handle list content
@@ -85,16 +99,17 @@ class ReactAgent:
                 ):
                     new_content = [
                         {"type": "image_url", "image_url": {"url": image_data}},
-                        {"cachePoint": {"type": "default"}},
-                    ] + content
+                    ]
+                    new_content.extend(self._add_cache_point_if_bedrock())
+                    new_content.extend(content)
                     processed_messages[0] = HumanMessage(content=new_content)
 
             # Handle empty or other content types
             elif not content or (isinstance(content, list) and len(content) == 0):
                 new_content = [
                     {"type": "image_url", "image_url": {"url": image_data}},
-                    {"cachePoint": {"type": "default"}},
                 ]
+                new_content.extend(self._add_cache_point_if_bedrock())
                 processed_messages[0] = HumanMessage(content=new_content)
 
         return processed_messages

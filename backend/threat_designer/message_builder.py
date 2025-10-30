@@ -1,8 +1,11 @@
 """Message building utilities for model interactions."""
 
+import os
 from typing import Any, Dict, List
 
 from langchain_core.messages.human import HumanMessage
+
+from constants import ENV_MODEL_PROVIDER, MODEL_PROVIDER_BEDROCK
 
 
 class MessageBuilder:
@@ -19,11 +22,16 @@ class MessageBuilder:
         self.image_data = image_data
         self.description = description
         self.assumptions = assumptions
+        self.provider = os.environ.get(ENV_MODEL_PROVIDER, MODEL_PROVIDER_BEDROCK)
+
+    def _add_cache_point_if_bedrock(self) -> List[Dict[str, Any]]:
+        """Add cache point marker only for Bedrock provider."""
+        if self.provider == MODEL_PROVIDER_BEDROCK:
+            return [{"cachePoint": {"type": "default"}}]
+        return []
 
     def base_msg(self, caching: bool = False) -> List[Dict[str, Any]]:
         """Base message for all messages."""
-
-        cache_config = {"cachePoint": {"type": "default"}}
 
         base_message = [
             {"type": "text", "text": "<architecture_diagram>"},
@@ -37,7 +45,7 @@ class MessageBuilder:
         ]
 
         if caching:
-            base_message.append(cache_config)
+            base_message.extend(self._add_cache_point_if_bedrock())
 
         return base_message
 
@@ -111,14 +119,21 @@ class MessageBuilder:
                 "text": f"<identified_assets_and_entities>{assets}</identified_assets_and_entities>",
             },
             {"type": "text", "text": f"<data_flow>{flows}</data_flow>"},
-            {"cachePoint": {"type": "default"}},
-            {"type": "text", "text": f"<threats>{threat_list}</threats>"},
-            {"type": "text", "text": f"<gap>{gap}</gap>"},
-            {
-                "type": "text",
-                "text": "Identify missing threats and respective mitigations for the solution",
-            },
         ]
+
+        # Add cache point only for Bedrock
+        threat_msg.extend(self._add_cache_point_if_bedrock())
+
+        threat_msg.extend(
+            [
+                {"type": "text", "text": f"<threats>{threat_list}</threats>"},
+                {"type": "text", "text": f"<gap>{gap}</gap>"},
+                {
+                    "type": "text",
+                    "text": "Identify missing threats and respective mitigations for the solution",
+                },
+            ]
+        )
 
         base_message = self.base_msg(caching=True)
         base_message.extend(threat_msg)
@@ -135,14 +150,21 @@ class MessageBuilder:
                 "text": f"<identified_assets_and_entities>{assets}</identified_assets_and_entities>",
             },
             {"type": "text", "text": f"<data_flow>{flows}</data_flow>"},
-            {"cachePoint": {"type": "default"}},
-            {"type": "text", "text": f"<threats>{threat_list}</threats>"},
-            {"type": "text", "text": f"<previous_gap>{gap}</previous_gap>\n"},
-            {
-                "type": "text",
-                "text": "Identify missing threats and respective mitigations for the solution",
-            },
         ]
+
+        # Add cache point only for Bedrock
+        gap_msg.extend(self._add_cache_point_if_bedrock())
+
+        gap_msg.extend(
+            [
+                {"type": "text", "text": f"<threats>{threat_list}</threats>"},
+                {"type": "text", "text": f"<previous_gap>{gap}</previous_gap>\n"},
+                {
+                    "type": "text",
+                    "text": "Identify missing threats and respective mitigations for the solution",
+                },
+            ]
+        )
 
         base_message = self.base_msg(caching=True)
         base_message.extend(gap_msg)

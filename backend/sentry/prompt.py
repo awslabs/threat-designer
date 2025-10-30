@@ -1,5 +1,12 @@
+import os
 from langchain_core.messages import SystemMessage
 from datetime import datetime
+
+# Import model provider constants
+try:
+    from config import MODEL_PROVIDER
+except ImportError:
+    MODEL_PROVIDER = os.environ.get("MODEL_PROVIDER", "bedrock")
 
 
 def system_prompt(context):
@@ -324,11 +331,15 @@ Sentry acts as a trusted security advisor where every recommendation enhances th
 
     """
 
-    return SystemMessage(
-        content=[
-            {"type": "text", "text": main_prompt},
-            {"cachePoint": {"type": "default"}},
-            {"type": "text", "text": context_prompt},
-            {"cachePoint": {"type": "default"}},
-        ]
-    )
+    # Build content with conditional cache points (Bedrock only)
+    content = [{"type": "text", "text": main_prompt}]
+
+    if MODEL_PROVIDER == "bedrock":
+        content.append({"cachePoint": {"type": "default"}})
+
+    content.append({"type": "text", "text": context_prompt})
+
+    if MODEL_PROVIDER == "bedrock":
+        content.append({"cachePoint": {"type": "default"}})
+
+    return SystemMessage(content=content)

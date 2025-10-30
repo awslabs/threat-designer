@@ -32,6 +32,7 @@ const ChatInput = ({
   const debounceTimerRef = useRef(null);
   const prevMessageRef = useRef("");
   const preparingRef = useRef(false);
+  const isFirstMount = useRef(true);
   const { effectiveTheme } = useTheme();
   const functions = useContext(ChatSessionFunctionsContext);
   const context = functions.getSessionContext(sessionId);
@@ -140,14 +141,16 @@ const ChatInput = ({
     processedThinkingBudget,
   ]);
 
-  // Call prepareSession when main parameters change
   useEffect(() => {
+    if (isFirstMount.current) {
+      const timer = setTimeout(() => {
+        isFirstMount.current = false;
+      }, 2000);
+
+      return () => clearTimeout(timer);
+    }
     prepareSession();
   }, [prepareSession]);
-
-  useEffect(() => {
-    prepareSession();
-  }, []);
 
   // Debounced prepareSession call when user is typing
   useEffect(() => {
@@ -446,12 +449,14 @@ const ChatInput = ({
             {actionButtons.map((button, index) => {
               const isToggled = button.isToggle && toggleStates[button.id];
               const isDropdownOpen = dropdownStates[button.id];
+              // For alwaysActive buttons, treat them as always toggled
+              const isActive = button.alwaysActive || isToggled;
 
               return (
                 <button
                   key={button.id || index}
                   ref={(el) => (buttonRefs.current[button.id] = el)}
-                  className={`action-button ${button.isToggle ? "toggle-button" : ""} ${isToggled ? "toggled" : ""} ${isDropdownOpen ? "dropdown-open" : ""}`}
+                  className={`action-button ${button.isToggle || button.alwaysActive ? "toggle-button" : ""} ${isActive ? "toggled" : ""} ${isDropdownOpen ? "dropdown-open" : ""}`}
                   onClick={() => handleToggleButton(button)}
                   disabled={button.disabled || disabled || isStreaming}
                   title={button.title}
@@ -461,32 +466,33 @@ const ChatInput = ({
                     {button.icon && <span className="action-icon">{button.icon}</span>}
                     {button.label && <span className="button-label">{button.label}</span>}
                   </span>
-                  {button.isToggle && isToggled && button.showDropdown && (
-                    <>
-                      <span className="button-separator"></span>
-                      <span
-                        className="dropdown-arrow"
-                        onClick={(e) => handleDropdownClick(button, e)}
-                      >
-                        <svg
-                          viewBox="0 0 24 24"
-                          width="14"
-                          height="14"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          style={{
-                            transform: isDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
-                            transition: "transform 0.2s ease",
-                          }}
+                  {((button.isToggle && isToggled) || button.alwaysActive) &&
+                    button.showDropdown && (
+                      <>
+                        <span className="button-separator"></span>
+                        <span
+                          className="dropdown-arrow"
+                          onClick={(e) => handleDropdownClick(button, e)}
                         >
-                          <path d="M6 9l6 6 6-6" />
-                        </svg>
-                      </span>
-                    </>
-                  )}
+                          <svg
+                            viewBox="0 0 24 24"
+                            width="14"
+                            height="14"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            style={{
+                              transform: isDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                              transition: "transform 0.2s ease",
+                            }}
+                          >
+                            <path d="M6 9l6 6 6-6" />
+                          </svg>
+                        </span>
+                      </>
+                    )}
                 </button>
               );
             })}

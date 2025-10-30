@@ -18,7 +18,7 @@
   - [Step 3: Submit Your First Threat Model](#step-3-submit-your-first-threat-model)
   - [Step 4: Review Results](#step-4-review-results)
 - [Security Considerations](#security-considerations)
-  - [AWS Bedrock Credentials](#aws-bedrock-credentials)
+  - [Amazon Bedrock Credentials](#aws-bedrock-credentials)
   - [OpenAI API Key Security](#openai-api-key-security)
   - [Best Practices Checklist](#best-practices-checklist)
 
@@ -30,7 +30,7 @@ Lightning mode is a lightweight, browser-based version of Threat Designer that p
 
 ### How Lightning Mode Works
 
-Lightning mode runs entirely in your web browser using either AWS Bedrock or OpenAI's GPT models. All data is stored temporarily in your browser's session storage, making it a stateless solution that requires no server infrastructure, databases, or persistent storage.
+Lightning mode runs entirely in your web browser using either Amazon Bedrock or OpenAI's GPT models. All data is stored temporarily in your browser's session storage, making it a stateless solution that requires no server infrastructure, databases, or persistent storage.
 
 ### Lightning Mode vs Full Deployment
 
@@ -44,7 +44,7 @@ Lightning mode runs entirely in your web browser using either AWS Bedrock or Ope
 | **Core Threat Modeling**    | ✅ Available                                     | ✅ Available                                    |
 | **Architecture Analysis**   | ✅ Available                                     | ✅ Available                                    |
 | **Export (PDF/DOCX/JSON)**  | ✅ Available                                     | ✅ Available                                    |
-| **AI Provider Options**     | AWS Bedrock or OpenAI                            | AWS Bedrock or OpenAI                           |
+| **AI Provider Options**     | Amazon Bedrock or OpenAI                            | Amazon Bedrock or OpenAI                           |
 | **Best For**                | Evaluation, demos, quick assessments             | Production use, team collaboration              |
 
 ### Feature Limitations
@@ -70,9 +70,9 @@ Before using Lightning mode, ensure you have one of the following AI provider se
 
 ### 1. AI Provider Access
 
-You need access to **either** AWS Bedrock **or** OpenAI's API (not both simultaneously):
+You need access to **either** Amazon Bedrock **or** OpenAI's API (not both simultaneously):
 
-#### Option A: AWS Bedrock
+#### Option A: Amazon Bedrock
 
 - AWS account with access to Amazon Bedrock in a supported region
 - Lightning mode uses the following models:
@@ -88,9 +88,9 @@ You need access to **either** AWS Bedrock **or** OpenAI's API (not both simultan
 
 ### 2. Enable Model Access
 
-#### For AWS Bedrock:
+#### For Amazon Bedrock:
 
-Ensure you have enabled access to Claude models in your AWS Bedrock console for your chosen region.
+Ensure you have enabled access to Claude models in your Amazon Bedrock console for your chosen region.
 
 #### For OpenAI:
 
@@ -98,9 +98,9 @@ Ensure your OpenAI API account has sufficient credits and access to GPT-4o model
 
 ### 3. Credentials
 
-#### For AWS Bedrock:
+#### For Amazon Bedrock:
 
-AWS credentials with permissions to invoke Bedrock models. See the [AWS Bedrock Credentials](#aws-bedrock-credentials) section for recommended credential types and IAM policies.
+AWS credentials with permissions to invoke Bedrock models. See the [Amazon Bedrock Credentials](#aws-bedrock-credentials) section for recommended credential types and IAM policies.
 
 #### For OpenAI:
 
@@ -130,9 +130,9 @@ Navigate to the Lightning mode application URL in your web browser.
 
 On the login page, you'll see options to choose your AI provider:
 
-#### Option A: AWS Bedrock Configuration
+#### Option A: Amazon Bedrock Configuration
 
-Select "AWS Bedrock" and provide:
+Select "Amazon Bedrock" and provide:
 
 1. **AWS Access Key ID** (required)
 2. **AWS Secret Access Key** (required)
@@ -177,7 +177,7 @@ After processing completes (typically 15-30 minutes depending on settings):
 
 Security is paramount when working with AI provider credentials. Follow these best practices based on your chosen provider.
 
-### AWS Bedrock Credentials
+### Amazon Bedrock Credentials
 
 #### Use Short-Lived Credentials (Strongly Recommended)
 
@@ -258,7 +258,7 @@ This policy:
 
 ### Best Practices Checklist
 
-#### For AWS Bedrock:
+#### For Amazon Bedrock:
 
 - ✅ Use temporary credentials with short expiration times (1-4 hours)
 - ✅ Create a dedicated IAM policy with minimal Bedrock permissions
@@ -282,7 +282,7 @@ This policy:
 
 ### Credential Expiration and Management
 
-#### AWS Bedrock:
+#### Amazon Bedrock:
 
 If you're using temporary credentials:
 

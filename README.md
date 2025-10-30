@@ -76,15 +76,15 @@ You need access to **either** Amazon Bedrock **or** OpenAI's API (not both simul
 
 - AWS account with access to Amazon Bedrock in a supported region
 - Lightning mode uses the following models:
-  - **Claude 3.5 Haiku** - Used for asset identification and threat analysis
-  - **Claude 3.5 Sonnet** - Used for flow analysis and gap identification
+  - **Claude 4.5 Haiku** - Used for asset identification and threat analysis
+  - **Claude 4.5 Sonnet** - Used for flow analysis and gap identification
 
 #### Option B: OpenAI API
 
 - OpenAI API account with access to GPT models
 - Lightning mode uses the following models:
-  - **GPT-4o** - Used for comprehensive threat analysis
-  - **GPT-4o-mini** - Used for asset identification and supporting analysis
+  - **GPT-5** - Used for flow analysis and gap identification
+  - **GPT-5 Mini** - Used for asset identification and threat analysis
 
 ### 2. Enable Model Access
 
@@ -94,7 +94,7 @@ Ensure you have enabled access to Claude models in your Amazon Bedrock console f
 
 #### For OpenAI:
 
-Ensure your OpenAI API account has sufficient credits and access to GPT-4o models.
+Ensure your OpenAI API account has sufficient credits and access to GPT-5 models.
 
 ### 3. Credentials
 

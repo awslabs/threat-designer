@@ -63,3 +63,8 @@ output "agent_runtime_arn_escaped" {
   description = "URL-encoded ARN of the Bedrock agent runtime"
   value       = var.enable_sentry ? urlencode(aws_bedrockagentcore_agent_runtime.sentry[0].agent_runtime_arn) : ""
 }
+
+output "model_provider" {
+  description = "Configured model provider (bedrock or openai)"
+  value       = var.model_provider
+}

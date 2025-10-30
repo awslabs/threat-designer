@@ -43,12 +43,22 @@ async def lifespan(app: FastAPI):
         mcp_config = load_mcp_config()
         mcp_tools = MultiServerMCPClient(mcp_config)
         mcp_tools_list = await mcp_tools.get_tools()
+
+        # Filter out unwanted tools
+        excluded_tools = {"aws___list_regions"}
+        filtered_mcp_tools = [
+            tool for tool in mcp_tools_list if tool.name not in excluded_tools
+        ]
+
+        if len(filtered_mcp_tools) < len(mcp_tools_list):
+            excluded_count = len(mcp_tools_list) - len(filtered_mcp_tools)
+            logger.info(f"Filtered out {excluded_count} MCP tool(s): {excluded_tools}")
     except Exception as e:
         logger.error(f"Failed to load mcp tools: {e}")
-        mcp_tools_list = []
+        filtered_mcp_tools = []
     try:
         ALL_AVAILABLE_TOOLS.clear()
-        ALL_AVAILABLE_TOOLS.extend(mcp_tools_list)
+        ALL_AVAILABLE_TOOLS.extend(filtered_mcp_tools)
         ALL_AVAILABLE_TOOLS.extend([add_threats, edit_threats, delete_threats])
         await agent_manager.initialize_default_agent()
     except Exception as e:

@@ -94,15 +94,13 @@ class ContinueThreatModeling(BaseModel):
     stop: Annotated[
         bool,
         Field(
-            description="Should continue evaluation further threats or the catalog is comprehensive"
-            " and complete."
+            description="Should continue evaluation further threats or the catalog is comprehensive and complete."
         ),
     ]
     gap: Annotated[
         Optional[str],
         Field(
-            description="An in depth gap analysis on how to improve the threat catalog."
-            " Required only when 'stop' is False"
+            description="List all identified gaps to improve the threat model. Required only when 'stop' is False"
         ),
     ] = ""
 

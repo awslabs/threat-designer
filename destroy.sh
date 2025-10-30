@@ -68,12 +68,24 @@ fi
 
 # Run terraform destroy
 echo -e "\n${BLUE}Starting infrastructure destruction...${NC}"
-if ! terraform destroy -auto-approve \
-    -var="username=$USERNAME" \
-    -var="given_name=$GIVEN_NAME" \
-    -var="family_name=$FAMILY_NAME" \
-    -var="email=$EMAIL" \
-    -var="region=$REGION"; then
+
+# Build terraform destroy command with required variables
+TF_DESTROY_VARS="-var=username=$USERNAME"
+TF_DESTROY_VARS="$TF_DESTROY_VARS -var=given_name=$GIVEN_NAME"
+TF_DESTROY_VARS="$TF_DESTROY_VARS -var=family_name=$FAMILY_NAME"
+TF_DESTROY_VARS="$TF_DESTROY_VARS -var=email=$EMAIL"
+TF_DESTROY_VARS="$TF_DESTROY_VARS -var=region=$REGION"
+
+# Add enable_sentry if it exists in config, otherwise use default
+if [ -n "$ENABLE_SENTRY" ]; then
+    TF_DESTROY_VARS="$TF_DESTROY_VARS -var=enable_sentry=$ENABLE_SENTRY"
+fi
+
+# Set safe defaults for model provider variables (not needed for destroy but required by Terraform)
+TF_DESTROY_VARS="$TF_DESTROY_VARS -var=model_provider=bedrock"
+TF_DESTROY_VARS="$TF_DESTROY_VARS -var=openai_api_key=dummy-key-for-destroy"
+
+if ! terraform destroy -auto-approve $TF_DESTROY_VARS; then
     echo -e "${RED}Terraform destroy failed. Exiting...${NC}"
     exit 1
 fi

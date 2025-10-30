@@ -2,8 +2,8 @@ import "@aws-amplify/ui-react/styles.css";
 
 let config = {
   controlPlaneAPI: import.meta.env.VITE_APP_ENDPOINT,
-  sentryEnabled: import.meta.env.VITE_SENTRY_ENABLED === 'true',
-  sentryArn: import.meta.env.VITE_APP_SENTRY || '',
+  sentryEnabled: import.meta.env.VITE_SENTRY_ENABLED === "true",
+  sentryArn: import.meta.env.VITE_APP_SENTRY || "",
 };
 
 const amplifyConfig = {

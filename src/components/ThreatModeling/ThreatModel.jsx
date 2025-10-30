@@ -150,7 +150,7 @@ export const ThreatModel = ({ user }) => {
   const handleSendMessage = useCallback(
     async (id, response) => {
       if (!SENTRY_ENABLED) {
-        console.log('Sentry disabled - message not sent to backend');
+        console.log("Sentry disabled - message not sent to backend");
         return;
       }
       await functions.sendMessage(id, response, true, response);
@@ -216,7 +216,7 @@ export const ThreatModel = ({ user }) => {
         });
         functions.setisVisible(true);
       } else {
-        console.log('Sentry disabled - session context not sent to backend');
+        console.log("Sentry disabled - session context not sent to backend");
       }
     },
     [id, updateSessionContext, functions]

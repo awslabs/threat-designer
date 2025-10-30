@@ -30,6 +30,12 @@ ENV_MODEL_STRUCT = "MODEL_STRUCT"
 ENV_MODEL_SUMMARY = "MODEL_SUMMARY"
 ENV_REASONING_MODELS = "REASONING_MODELS"
 
+# Model provider configuration
+ENV_MODEL_PROVIDER = "MODEL_PROVIDER"
+MODEL_PROVIDER_BEDROCK = "bedrock"
+MODEL_PROVIDER_OPENAI = "openai"
+ENV_OPENAI_API_KEY = "OPENAI_API_KEY"
+
 
 # ============================================================================
 # DEFAULT VALUES
@@ -40,7 +46,7 @@ DEFAULT_REGION = "us-west-2"
 DEFAULT_TIMEOUT = 1000
 
 # Model configuration defaults
-DEFAULT_MAX_RETRY = 15
+DEFAULT_MAX_RETRY = 10
 DEFAULT_MAX_EXECUTION_TIME_MINUTES = 12
 DEFAULT_REASONING_ENABLED = False
 DEFAULT_SUMMARY_MAX_WORDS = 40
@@ -195,6 +201,25 @@ VALID_REASONING_VALUES = [REASONING_DISABLED, *REASONING_ENABLED]
 # Reasoning model configuration
 REASONING_THINKING_TYPE = "enabled"
 REASONING_BUDGET_FIELD = "budget_tokens"
+
+# OpenAI reasoning effort mapping for mini models
+OPENAI_REASONING_EFFORT_MAP_MINI: Dict[int, str] = {
+    0: "minimal",
+    1: "low",
+    2: "medium",
+    3: "high",
+}
+
+# OpenAI reasoning effort mapping for standard models
+OPENAI_REASONING_EFFORT_MAP_STANDARD: Dict[int, str] = {
+    0: "minimal",
+    1: "minimal",
+    2: "low",
+    3: "low",
+}
+
+# Known GPT-5 family models that support reasoning
+OPENAI_GPT5_FAMILY_MODELS: List[str] = ["gpt-5-2025-08-07", "gpt-5-mini-2025-08-07"]
 
 
 # ============================================================================

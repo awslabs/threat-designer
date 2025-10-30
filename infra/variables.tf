@@ -123,7 +123,7 @@ variable "model_main" {
 
 variable "model_sentry" {
   type    = string
-  default = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+  default = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
 }
 
 variable "model_struct" {
@@ -172,4 +172,98 @@ variable "enable_sentry" {
   type        = bool
   default     = true
   description = "Enable or disable Sentry assistant feature"
+}
+
+variable "model_provider" {
+  type        = string
+  description = "Model provider to use: bedrock or openai"
+  default     = "openai"
+
+  validation {
+    condition     = contains(["bedrock", "openai"], var.model_provider)
+    error_message = "model_provider must be either 'bedrock' or 'openai'"
+  }
+}
+
+variable "openai_api_key" {
+  type        = string
+  description = "OpenAI API key for authentication (provided at deployment time, not stored locally)"
+  default     = ""
+  sensitive   = true
+}
+
+variable "openai_model_main" {
+  type = object({
+    assets = object({
+      id         = string
+      max_tokens = number
+    })
+    flows = object({
+      id         = string
+      max_tokens = number
+    })
+    gaps = object({
+      id         = string
+      max_tokens = number
+    })
+    threats = object({
+      id         = string
+      max_tokens = number
+    })
+  })
+  description = "OpenAI model configurations for main workflow stages"
+  default = {
+    assets = {
+      id         = "gpt-5-mini-2025-08-07"
+      max_tokens = 64000
+    }
+    flows = {
+      id         = "gpt-5-2025-08-07"
+      max_tokens = 64000
+    }
+    threats = {
+      id         = "gpt-5-mini-2025-08-07"
+      max_tokens = 64000
+    }
+    gaps = {
+      id         = "gpt-5-2025-08-07"
+      max_tokens = 64000
+    }
+  }
+}
+
+variable "openai_model_struct" {
+  type = object({
+    id         = string
+    max_tokens = number
+  })
+  description = "OpenAI model configuration for structured output"
+  default = {
+    id         = "gpt-5-mini-2025-08-07"
+    max_tokens = 64000
+  }
+}
+
+variable "openai_model_summary" {
+  type = object({
+    id         = string
+    max_tokens = number
+  })
+  description = "OpenAI model configuration for summary generation"
+  default = {
+    id         = "gpt-5-mini-2025-08-07"
+    max_tokens = 4000
+  }
+}
+
+variable "openai_reasoning_models" {
+  type        = list(string)
+  description = "List of OpenAI GPT-5 models that support reasoning"
+  default     = ["gpt-5-2025-08-07", "gpt-5-mini-2025-08-07"]
+}
+
+variable "openai_sentry_model_id" {
+  type        = string
+  description = "OpenAI model ID for Sentry assistant"
+  default     = "gpt-5-2025-08-07"
 }

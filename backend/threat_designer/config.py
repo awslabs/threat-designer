@@ -6,12 +6,14 @@ from constants import (
     DEFAULT_REASONING_ENABLED,
     DEFAULT_SUMMARY_MAX_WORDS,
     ENV_AGENT_STATE_TABLE,
+    ENV_MODEL_PROVIDER,
     MAX_EXECUTION_TIME_MINUTES,
     MAX_RETRY_COUNT,
     MAX_SUMMARY_WORDS,
     MIN_EXECUTION_TIME_MINUTES,
     MIN_RETRY_COUNT,
     MIN_SUMMARY_WORDS,
+    MODEL_PROVIDER_BEDROCK,
 )
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -21,7 +23,8 @@ class ThreatModelingConfig(BaseSettings):
     """Configuration settings for threat modeling workflow."""
 
     agent_state_table: str = Field(..., env=ENV_AGENT_STATE_TABLE)
-    max_retry: int = Field(
+    model_provider: str = Field(default=MODEL_PROVIDER_BEDROCK, env=ENV_MODEL_PROVIDER)
+    max_retries: int = Field(
         default=DEFAULT_MAX_RETRY, ge=MIN_RETRY_COUNT, le=MAX_RETRY_COUNT
     )
     max_execution_time_minutes: int = Field(

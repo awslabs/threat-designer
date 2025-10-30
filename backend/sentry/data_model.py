@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from typing import Literal, List, Annotated
 from enum import Enum
 
@@ -26,7 +26,7 @@ class Threat(BaseModel):
     stride_category: Annotated[
         Literal[*[category.value for category in StrideCategory]],
         Field(
-            description=f"The STRIDE category classification: One of {', '.join([category.value for category in StrideCategory])}."
+            description=f"The STRIDE category classification: You have to choose only one value of {', '.join([category.value for category in StrideCategory])}."
         ),
     ]
     description: Annotated[
@@ -78,3 +78,25 @@ class Threat(BaseModel):
             description="The attack vector or pathway through which the threat could be delivered or executed"
         ),
     ]
+
+    @validator("description", "impact", "vector", pre=True)
+    def escape_special_chars(cls, v):
+        if isinstance(v, str):
+            # Replace problematic characters
+            v = v.replace("\n", " ")
+            v = v.replace("\r", " ")
+            v = v.replace("\t", " ")
+            # Remove or escape quotes within the content
+            v = v.replace('"', '\\"')
+            v = v.replace("'", "\\'")
+        return v
+
+    @validator("mitigations", "prerequisites", pre=True, each_item=True)
+    def escape_list_items(cls, v):
+        if isinstance(v, str):
+            v = v.replace("\n", " ")
+            v = v.replace("\r", " ")
+            v = v.replace("\t", " ")
+            v = v.replace('"', '\\"')
+            v = v.replace("'", "\\'")
+        return v

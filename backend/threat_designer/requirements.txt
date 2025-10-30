@@ -1,9 +1,0 @@
-
-langgraph==1.0.0
-langchain-aws==1.0.0
-uv==0.9.5
-uvicorn[standard]==0.37.0
-fastapi==0.116.1
-httpx==0.28.1
-structlog==25.4.0
-pydantic-settings==2.11.0

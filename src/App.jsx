@@ -13,6 +13,7 @@ import { applyTheme } from "@cloudscape-design/components/theming";
 import { ChatSessionProvider } from "./components/Agent/ChatContext";
 import { ThemeProvider } from "./components/ThemeContext";
 import AppRefreshManager from "./AppRefreshManager";
+import { useBeforeUnload } from "./hooks/useBeforeUnload";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -62,6 +63,9 @@ const App = () => {
   useEffect(() => {
     checkAuthState();
   }, []);
+
+  // Enable browser navigation warning for data loss prevention in Lightning Mode
+  useBeforeUnload();
 
   useEffect(() => {
     const newEffectiveTheme = getEffectiveTheme(colorMode);

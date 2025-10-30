@@ -1,4 +1,0 @@
-langchain-aws==0.2.30
-langgraph==0.5.3
-structlog==25.4.0
-pydantic-settings==2.10.1

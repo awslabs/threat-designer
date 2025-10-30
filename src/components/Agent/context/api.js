@@ -10,8 +10,8 @@ import {
 
 const checkSentryEnabled = () => {
   if (!SENTRY_ENABLED) {
-    console.warn('Sentry feature is disabled. API call skipped.');
-    throw new Error('Sentry feature is not enabled');
+    console.warn("Sentry feature is disabled. API call skipped.");
+    throw new Error("Sentry feature is not enabled");
   }
 };
 

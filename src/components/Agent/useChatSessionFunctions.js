@@ -180,7 +180,7 @@ export const useChatSessionFunctions = (props) => {
         }
 
         console.log(`Sentry disabled - creating local-only session for ${sessionId}`);
-        
+
         setSessions((prev) => {
           const existingSession = prev.get(sessionId);
           if (existingSession) {
@@ -570,8 +570,8 @@ export const useChatSessionFunctions = (props) => {
     // Wrap prepareSession to handle Sentry disabled
     const prepareSessionWrapper = async (...args) => {
       if (!SENTRY_ENABLED) {
-        console.log('Sentry disabled - session preparation skipped');
-        return { status: 'skipped', message: 'Sentry is disabled' };
+        console.log("Sentry disabled - session preparation skipped");
+        return { status: "skipped", message: "Sentry is disabled" };
       }
       return prepareSession(...args);
     };

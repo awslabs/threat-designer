@@ -87,6 +87,10 @@ MITIGATION_MAX_ITEMS = 5
 # Summary configuration
 SUMMARY_MAX_WORDS_DEFAULT = 40
 
+# Tool usage limits
+MAX_ADD_THREATS_USES = 7
+MAX_GAP_ANALYSIS_USES = 2
+
 
 # ============================================================================
 # JOB STATES (ENUM)
@@ -277,6 +281,8 @@ WORKFLOW_NODE_IMAGE_TO_BASE64 = "image_to_base64"
 WORKFLOW_NODE_ASSET = "asset"
 WORKFLOW_NODE_FLOWS = "flows"
 WORKFLOW_NODE_THREATS = "threats"
+WORKFLOW_NODE_THREATS_TRADITIONAL = "threats_traditional"
+WORKFLOW_NODE_THREATS_AGENTIC = "threats_agentic"
 WORKFLOW_NODE_GAP_ANALYSIS = "gap_analysis"
 WORKFLOW_NODE_FINALIZE = "finalize"
 

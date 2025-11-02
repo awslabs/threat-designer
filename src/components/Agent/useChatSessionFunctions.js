@@ -508,12 +508,61 @@ export const useChatSessionFunctions = (props) => {
             }
           }
         } else {
-          // Original logic for regular messages
+          // Regular messages - immediate streaming with selective buffering for tool updates
+          let buffer = "";
+          let processingToolUpdate = false;
+
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
             const chunk = decoder.decode(value);
+
+            // If we're in tool update mode, use buffering
+            if (processingToolUpdate) {
+              buffer += chunk;
+
+              let newlineIndex;
+              while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+                const line = buffer.slice(0, newlineIndex);
+                buffer = buffer.slice(newlineIndex + 1);
+
+                if (line.startsWith("data: ")) {
+                  try {
+                    const jsonStr = line.slice(6).trim();
+                    if (jsonStr) {
+                      const data = JSON.parse(jsonStr);
+
+                      // Check if still in tool update
+                      if (data.type === "tool" && data.tool_update) {
+                        addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
+                      } else {
+                        // Exit tool update mode
+                        processingToolUpdate = false;
+
+                        if (data.type === "interrupt") {
+                          emitInterruptEvent(sessionId, data, "sse", eventBus);
+                          return;
+                        }
+
+                        if (data.end) {
+                          addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
+                          cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
+                          return;
+                        }
+
+                        addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
+                      }
+                    }
+                  } catch (err) {
+                    console.error("Error parsing tool update:", err);
+                  }
+                }
+              }
+              continue;
+            }
+
+            // Normal immediate streaming for non-tool messages
             const lines = chunk.split("\n");
 
             for (const line of lines) {
@@ -521,8 +570,14 @@ export const useChatSessionFunctions = (props) => {
                 try {
                   const data = JSON.parse(line.slice(6));
 
+                  // Detect tool start - switch to buffering mode for subsequent updates
+                  if (data.type === "tool" && data.tool_start) {
+                    addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
+                    processingToolUpdate = true;
+                    continue;
+                  }
+
                   if (data.type === "interrupt") {
-                    console.log(`Interrupt received for session ${sessionId}:`, data.content);
                     emitInterruptEvent(sessionId, data, "sse", eventBus);
                     return;
                   }
@@ -538,6 +593,19 @@ export const useChatSessionFunctions = (props) => {
                   console.error("Error parsing streaming response:", err);
                 }
               }
+            }
+          }
+
+          // Handle any remaining buffered data
+          if (buffer.trim() && buffer.startsWith("data: ")) {
+            try {
+              const jsonStr = buffer.slice(6).trim();
+              if (jsonStr) {
+                const data = JSON.parse(jsonStr);
+                addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
+              }
+            } catch (err) {
+              console.error("Error parsing remaining buffer:", err);
             }
           }
         }

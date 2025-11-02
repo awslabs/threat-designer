@@ -44,8 +44,26 @@ from langchain_core.messages.human import HumanMessage
 from monitoring import operation_context, with_error_context
 from prompts import structure_prompt
 from state import AgentState
+from langgraph.types import Overwrite
 
 logger = structlog.get_logger()
+
+
+def unwrap_overwrite(value: Any) -> Any:
+    """
+    Unwrap LangGraph Overwrite objects to get the actual value.
+
+    Args:
+        value: Any value that might be wrapped in Overwrite
+
+    Returns:
+        The unwrapped value, or the original value if not wrapped
+    """
+    # Check if value is an Overwrite instance by checking for the 'value' attribute
+    if isinstance(value, Overwrite):
+        return value.value
+    return value
+
 
 # Environment variable lookups using centralized constants
 JOB_STATUS_TABLE = os.environ.get(ENV_JOB_STATUS_TABLE)
@@ -93,6 +111,7 @@ def update_job_state(
     job_id: str,
     state: AgentState,
     retry: Optional[bool] = None,
+    detail: Optional[str] = None,
     job_context_id: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
@@ -102,6 +121,7 @@ def update_job_state(
         job_id: Unique identifier for the job.
         state: New state to set for the job.
         retry: Optional retry flag to set.
+        detail: Optional detail message for the current state (e.g., "Thinking", "Reviewing catalog").
         job_context_id: Optional job context for operation tracking.
 
     Returns:
@@ -146,6 +166,16 @@ def update_job_state(
                 update_expr += f", #{DB_FIELD_RETRY} = :{DB_FIELD_RETRY}"
                 expr_names[f"#{DB_FIELD_RETRY}"] = DB_FIELD_RETRY
                 expr_values[f":{DB_FIELD_RETRY}"] = retry
+
+            # Add detail if provided (or remove it if None)
+            if detail is not None:
+                update_expr += ", #detail = :detail"
+                expr_names["#detail"] = "detail"
+                expr_values[":detail"] = detail
+            elif detail is None and retry is None:
+                # If detail is explicitly None and we're not setting retry, remove the detail field
+                update_expr += " REMOVE #detail"
+                expr_names["#detail"] = "detail"
 
             response = table.update_item(
                 Key={DB_FIELD_ID: job_id},
@@ -384,19 +414,22 @@ def create_dynamodb_item(
 
             current_utc = datetime.now(timezone.utc).isoformat()
 
+            # Unwrap any Overwrite objects from state
+            threat_list = unwrap_overwrite(agent_state["threat_list"])
+            assets = unwrap_overwrite(agent_state["assets"])
+            system_architecture = unwrap_overwrite(agent_state["system_architecture"])
+
             # Convert agent state to DynamoDB item
             item = {
                 DB_FIELD_JOB_ID: job_id,
                 "summary": agent_state.get("summary"),
-                "assets": agent_state["assets"].dict()
-                if hasattr(agent_state["assets"], "dict")
-                else agent_state["assets"],
-                "system_architecture": agent_state["system_architecture"].dict()
-                if hasattr(agent_state["system_architecture"], "dict")
-                else agent_state["system_architecture"],
-                "threat_list": agent_state["threat_list"].dict()
-                if hasattr(agent_state["threat_list"], "dict")
-                else agent_state["threat_list"],
+                "assets": assets.dict() if hasattr(assets, "dict") else assets,
+                "system_architecture": system_architecture.dict()
+                if hasattr(system_architecture, "dict")
+                else system_architecture,
+                "threat_list": threat_list.dict()
+                if hasattr(threat_list, "dict")
+                else threat_list,
                 "description": agent_state.get("description"),
                 "assumptions": agent_state.get("assumptions"),
                 "s3_location": agent_state["s3_location"],

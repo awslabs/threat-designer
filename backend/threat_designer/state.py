@@ -2,6 +2,7 @@
 
 import operator
 from datetime import datetime
+from langgraph.graph import MessagesState
 from typing import Annotated, List, Literal, Optional, TypedDict
 
 from constants import (
@@ -200,15 +201,12 @@ class Threat(BaseModel):
             description="The attack vector or pathway through which the threat could be delivered or executed",
         ),
     ]
-    starred: Optional[
-        Annotated[
-            bool,
-            Field(
-                default=False,
-                description="User-defined flag for prioritization or tracking. Ignored by automated threat modeling agents",
-            ),
-        ]
-    ]
+    starred: Annotated[
+        bool,
+        Field(
+            description="User-defined flag for prioritization or tracking. Ignored by automated threat modeling agents",
+        ),
+    ] = False
 
 
 class ThreatsList(BaseModel):
@@ -225,6 +223,13 @@ class ThreatsList(BaseModel):
         combined_threats = self.threats + new_threats
         return ThreatsList(threats=combined_threats)
 
+    def remove(self, threat_name: str) -> "ThreatsList":
+        """Remove a threat by name and return a new ThreatsList instance."""
+        filtered_threats = [
+            threat for threat in self.threats if threat.name != threat_name
+        ]
+        return ThreatsList(threats=filtered_threats)
+
 
 class AgentState(TypedDict):
     """Container for the internal state of the threat modeling agent."""
@@ -240,7 +245,7 @@ class AgentState(TypedDict):
     threat_list: Annotated[ThreatsList, operator.add]
     job_id: Optional[str] = None
     retry: Optional[int] = 1
-    iteration: Optional[int] = 1
+    iteration: Optional[int] = 0
     s3_location: Optional[str]
     title: Optional[str] = None
     owner: Optional[str] = None
@@ -248,3 +253,22 @@ class AgentState(TypedDict):
     gap: Annotated[List[str], operator.add] = []
     replay: Optional[bool] = False
     instructions: Optional[str] = None
+
+
+class ThreatState(MessagesState):
+    """Container for the internal state of the subgraph."""
+
+    threat_list: Annotated[ThreatsList, operator.add]
+    tool_use: int = 0
+    gap_tool_use: int = 0
+    assets: Optional[AssetsList] = None
+    image_data: Optional[str] = None
+    system_architecture: Optional[FlowsList] = None
+    description: Optional[str] = None
+    assumptions: Optional[List[str]] = None
+    gap: Annotated[List[str], operator.add] = []
+    instructions: Optional[str] = None
+    job_id: Optional[str] = None
+    retry: Optional[int] = 1
+    iteration: Optional[int] = 0
+    replay: Optional[bool] = False

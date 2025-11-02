@@ -7,7 +7,7 @@ import json
 
 @tool(
     name_or_callable="add_threats",
-    description=""" Used to add new threats to the existing catalog. Do not pass more than 20 threats within a single tool invocation """,
+    description=""" Used to add new threats to the existing catalog""",
 )
 def add_threats(threats: List[Threat]):
     # Properly serialize the data using json.dumps

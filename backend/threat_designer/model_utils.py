@@ -29,8 +29,6 @@ from constants import (
     MODEL_TEMPERATURE_DEFAULT,
     MODEL_TEMPERATURE_REASONING,
     OPENAI_GPT5_FAMILY_MODELS,
-    OPENAI_REASONING_EFFORT_MAP_MINI,
-    OPENAI_REASONING_EFFORT_MAP_STANDARD,
     REASONING_BUDGET_FIELD,
     REASONING_THINKING_TYPE,
     STOP_SEQUENCES,
@@ -64,6 +62,7 @@ class ModelConfigurations:
     assets_model: ModelConfig
     flows_model: ModelConfig
     threats_model: ModelConfig
+    threats_agent_model: ModelConfig
     gaps_model: ModelConfig
     struct_model: ModelConfig
     summary_model: ModelConfig
@@ -88,6 +87,7 @@ def _load_model_configs() -> ModelConfigurations:
         assets_model = model_main.get("assets")
         flows_model = model_main.get("flows")
         threats_model = model_main.get("threats")
+        threats_agent_model = model_main.get("threats_agent")
         gaps_model = model_main.get("gaps")
         struct_model = json.loads(os.environ.get(ENV_MODEL_STRUCT, "{}"))
         summary_model = json.loads(os.environ.get(ENV_MODEL_SUMMARY, "{}"))
@@ -101,6 +101,8 @@ def _load_model_configs() -> ModelConfigurations:
             missing_configs.append("flows")
         if not threats_model:
             missing_configs.append("threats")
+        if not threats_agent_model:
+            missing_configs.append("threats_agent")
         if not gaps_model:
             missing_configs.append("gaps")
         if not struct_model:
@@ -127,6 +129,9 @@ def _load_model_configs() -> ModelConfigurations:
             assets_model_id=assets_model.get("id") if assets_model else None,
             flows_model_id=flows_model.get("id") if flows_model else None,
             threats_model_id=threats_model.get("id") if threats_model else None,
+            threats_agent_model_id=threats_agent_model.get("id")
+            if threats_agent_model
+            else None,
             gaps_model_id=gaps_model.get("id") if gaps_model else None,
             struct_model_id=struct_model.get("id") if struct_model else None,
             summary_model_id=summary_model.get("id") if summary_model else None,
@@ -137,6 +142,7 @@ def _load_model_configs() -> ModelConfigurations:
             assets_model=assets_model,
             flows_model=flows_model,
             threats_model=threats_model,
+            threats_agent_model=threats_agent_model,
             gaps_model=gaps_model,
             struct_model=struct_model,
             summary_model=summary_model,
@@ -248,7 +254,8 @@ def _build_main_model_config(
             "thinking": {
                 "type": REASONING_THINKING_TYPE,
                 REASONING_BUDGET_FIELD: reasoning,
-            }
+            },
+            "anthropic_beta": ["interleaved-thinking-2025-05-14"],
         }
         config["temperature"] = MODEL_TEMPERATURE_REASONING
 
@@ -331,6 +338,16 @@ def _initialize_bedrock_models(
             region,
         )
 
+        threats_agent_config = _build_main_model_config(
+            configs.threats_agent_model,
+            configs.reasoning_models,
+            configs.threats_agent_model.get("reasoning_budget", {}).get(
+                str(reasoning), 0
+            ),
+            client,
+            region,
+        )
+
         gaps_config = _build_main_model_config(
             configs.gaps_model,
             configs.reasoning_models,
@@ -353,6 +370,7 @@ def _initialize_bedrock_models(
             "assets_model": ChatBedrockConverse(**assets_config),
             "flows_model": ChatBedrockConverse(**flows_config),
             "threats_model": ChatBedrockConverse(**threats_config),
+            "threats_agent_model": ChatBedrockConverse(**threats_agent_config),
             "gaps_model": ChatBedrockConverse(**gaps_config),
             "struct_model": ChatBedrockConverse(**struct_config),
             "summary_model": ChatBedrockConverse(**summary_config),
@@ -364,6 +382,7 @@ def _initialize_bedrock_models(
             assets_model_id=configs.assets_model["id"],
             flows_model_id=configs.flows_model["id"],
             threats_model_id=configs.threats_model["id"],
+            threats_agent_model_id=configs.threats_agent_model["id"],
             gaps_model_id=configs.gaps_model["id"],
             struct_model_id=configs.struct_model["id"],
             summary_model_id=configs.summary_model["id"],
@@ -382,15 +401,19 @@ def _initialize_bedrock_models(
 
 
 def _create_openai_model(
-    model_config: ModelConfig, reasoning: int, reasoning_models: list
+    model_config: ModelConfig,
+    reasoning: int,
+    reasoning_models: list,
+    reasoning_effort_map: dict = None,
 ) -> Any:
     """
     Create a single OpenAI model instance.
 
     Args:
-        model_config: Model configuration with id and max_tokens.
+        model_config: Model configuration with id, max_tokens, and optional reasoning_effort map.
         reasoning: Reasoning level (0-3).
         reasoning_models: List of model IDs that support reasoning.
+        reasoning_effort_map: Optional dict mapping reasoning levels to effort strings. If not provided, uses model_config.
 
     Returns:
         ChatOpenAI: Configured OpenAI model instance.
@@ -419,28 +442,32 @@ def _create_openai_model(
         "max_tokens": max_tokens,
         "temperature": MODEL_TEMPERATURE_DEFAULT,
         "api_key": api_key,
+        "use_responses_api": True,
     }
 
     # Add reasoning effort if applicable
-    if reasoning and model_id in reasoning_models:
-        # Determine which effort mapping to use based on model type
-        is_mini_model = "mini" in model_id.lower()
-        effort_map = (
-            OPENAI_REASONING_EFFORT_MAP_MINI
-            if is_mini_model
-            else OPENAI_REASONING_EFFORT_MAP_STANDARD
-        )
+    if model_id in reasoning_models:
+        # OpenAI GPT-5 models always have reasoning enabled
+        # Use provided reasoning_effort_map or get from model_config
+        effort_map = reasoning_effort_map or model_config.get("reasoning_effort", {})
 
-        reasoning_effort = effort_map.get(reasoning)
-        if reasoning_effort:
-            config["reasoning_effort"] = reasoning_effort
-            logger.info(
-                "Reasoning enabled for OpenAI model",
-                model_id=model_id,
-                reasoning_level=reasoning,
-                reasoning_effort=reasoning_effort,
-                is_mini_model=is_mini_model,
-            )
+        # Convert reasoning level to string for map lookup
+        # If reasoning=0, use "minimal" as default since GPT-5 always has reasoning on
+        if reasoning == 0:
+            reasoning_effort = "minimal"
+        else:
+            reasoning_effort = effort_map.get(str(reasoning), "minimal")
+
+        config["reasoning"] = {
+            "effort": reasoning_effort,
+            "summary": "detailed",
+        }
+        logger.info(
+            "Reasoning configured for OpenAI model",
+            model_id=model_id,
+            reasoning_level=reasoning,
+            reasoning_effort=reasoning_effort,
+        )
     elif reasoning != 0:
         logger.warning(
             "Reasoning requested but model does not support it",
@@ -506,6 +533,9 @@ def _initialize_openai_models(
             "threats_model": _create_openai_model(
                 configs.threats_model, reasoning, configs.reasoning_models
             ),
+            "threats_agent_model": _create_openai_model(
+                configs.threats_agent_model, reasoning, configs.reasoning_models
+            ),
             "gaps_model": _create_openai_model(
                 configs.gaps_model, reasoning, configs.reasoning_models
             ),
@@ -523,6 +553,7 @@ def _initialize_openai_models(
             assets_model_id=configs.assets_model["id"],
             flows_model_id=configs.flows_model["id"],
             threats_model_id=configs.threats_model["id"],
+            threats_agent_model_id=configs.threats_agent_model["id"],
             gaps_model_id=configs.gaps_model["id"],
             struct_model_id=configs.struct_model["id"],
             summary_model_id=configs.summary_model["id"],
@@ -563,6 +594,7 @@ def initialize_models(
             - 'assets_model':  Model instance for asset analysis
             - 'flows_model':   Model instance for flow analysis
             - 'threats_model': Model instance for threat analysis
+            - 'threats_agent_model': Model instance for agentic threat analysis
             - 'gaps_model':    Model instance for gap analysis
             - 'struct_model':  Model instance for structured outputs
             - 'summary_model': Model instance for summarization

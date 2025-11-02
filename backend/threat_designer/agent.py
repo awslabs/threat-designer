@@ -119,6 +119,7 @@ def _create_agent_config(event: Dict[str, Any]) -> ConfigSchema:
         "model_assets": models["assets_model"],
         "model_flows": models["flows_model"],
         "model_threats": models["threats_model"],
+        "model_threats_agent": models["threats_agent_model"],
         "model_gaps": models["gaps_model"],
         "model_struct": models["struct_model"],
         "model_summary": models["summary_model"],

@@ -19,6 +19,28 @@ from utils import handle_asset_error
 class ModelService:
     """Service for managing model interactions."""
 
+    def get_model_with_tools(
+        self, model: Any, tools: List[Any], tool_choice: str = "auto"
+    ) -> Any:
+        """Bind tools to a model with specified tool choice.
+
+        This method binds tools to a model for agentic workflows where the model
+        can choose which tools to call. Unlike invoke_structured_model which forces
+        a specific tool, this allows the model to autonomously select tools.
+
+        Args:
+            model: The language model to bind tools to
+            tools: List of tool functions to bind
+            tool_choice: Tool choice strategy ("auto", "any", or None)
+                        "auto" - model decides whether to call tools
+                        "any" - model must call at least one tool
+                        None - no tool choice constraint
+
+        Returns:
+            Model with tools bound and configured tool choice
+        """
+        return model.bind_tools(tools, tool_choice=tool_choice)
+
     def _get_tool_choice(self, model: Any, tools: List[Type], reasoning: bool) -> Any:
         """Get appropriate tool_choice based on provider and reasoning mode."""
         # Check if this is an OpenAI model

@@ -230,6 +230,36 @@ const useWindowSize = () => {
   return windowSize;
 };
 
+const AnimatedSubtitle = styled.div`
+  @keyframes fadeSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeSlideOut {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  animation: fadeSlideIn 0.4s ease-out forwards;
+
+  &.exiting {
+    animation: fadeSlideOut 0.3s ease-in forwards;
+  }
+`;
+
 export const Stepper = ({ steps, currentStep = 0, onViewportChange }) => {
   const { width } = useWindowSize();
   const isMobile = width < 480;
@@ -261,7 +291,12 @@ export const Stepper = ({ steps, currentStep = 0, onViewportChange }) => {
             </div>
             <div className="step-text">
               <div className="step-title">{activeStep.title}</div>
-              <div className="step-subtitle">{activeStep.subtitle}</div>
+              <AnimatedSubtitle
+                key={activeStep.key || activeStep.subtitle}
+                className="step-subtitle"
+              >
+                {activeStep.subtitle}
+              </AnimatedSubtitle>
             </div>
           </div>
         </div>
@@ -308,7 +343,9 @@ export const Stepper = ({ steps, currentStep = 0, onViewportChange }) => {
               {!isTablet && (
                 <div className="step-text">
                   <div className="step-title">{step.title}</div>
-                  <div className="step-subtitle">{step.subtitle}</div>
+                  <AnimatedSubtitle key={step.key || step.subtitle} className="step-subtitle">
+                    {step.subtitle}
+                  </AnimatedSubtitle>
                 </div>
               )}
               {index !== steps.length - 1 && (

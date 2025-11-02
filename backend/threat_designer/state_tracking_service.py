@@ -21,13 +21,24 @@ class StateService:
 
     @with_error_context("job state update")
     def update_job_state(
-        self, job_id: str, state: JobState, retry_count: Optional[int] = None
+        self,
+        job_id: str,
+        state: JobState,
+        retry_count: Optional[int] = None,
+        detail: Optional[str] = None,
     ) -> None:
-        """Update job state with error handling."""
+        """Update job state with error handling.
+
+        Args:
+            job_id: Unique identifier for the job.
+            state: New state to set for the job.
+            retry_count: Optional retry count to set.
+            detail: Optional detail message for the current state (e.g., "Thinking", "Reviewing catalog").
+        """
         try:
             # Convert enum to string value for the underlying utility function
             state_value = state.value if isinstance(state, JobState) else state
-            update_job_state(job_id, state_value, retry_count)
+            update_job_state(job_id, state_value, retry_count, detail)
         except Exception as e:
             raise StateUpdateError(f"Failed to update job state: {str(e)}")
 

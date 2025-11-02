@@ -90,6 +90,7 @@ export const ThreatModel = ({ user }) => {
   ];
   const [breadcrumbs, setBreadcrumbs] = useState(BreadcrumbItems);
   const [tmStatus, setTmStatus] = useState("START");
+  const [tmDetail, setTmDetail] = useState(null);
   const [iteration, setIteration] = useState(null);
   const [loading, setLoading] = useState(true);
   const [trigger, setTrigger] = useState(null);
@@ -462,7 +463,9 @@ export const ThreatModel = ({ user }) => {
         const statusResponse = await getThreatModelingStatus(id);
         const currentStatus = statusResponse.data.state;
         const retry = statusResponse.data.retry;
+        const detail = statusResponse.data.detail;
         setIteration(retry);
+        setTmDetail(detail);
 
         if (currentStatus === "COMPLETE") {
           clearInterval(intervalId);
@@ -533,7 +536,7 @@ export const ThreatModel = ({ user }) => {
 
     if (id) {
       checkStatus();
-      intervalId = setInterval(checkStatus, 2000);
+      intervalId = setInterval(checkStatus, 1000);
     }
 
     return () => clearInterval(intervalId);
@@ -710,7 +713,7 @@ export const ThreatModel = ({ user }) => {
             >
               {state.processing && (
                 <div style={{ width: "100%", marginTop: "200px" }}>
-                  <Processing status={tmStatus} iteration={iteration} id={id} />
+                  <Processing status={tmStatus} iteration={iteration} id={id} detail={tmDetail} />
                 </div>
               )}
               {state.results && (

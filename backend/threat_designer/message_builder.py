@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 from langchain_core.messages.human import HumanMessage
 
 from constants import ENV_MODEL_PROVIDER, MODEL_PROVIDER_BEDROCK
+from monitoring import logger, with_error_context
 
 
 class MessageBuilder:
@@ -30,7 +31,9 @@ class MessageBuilder:
             return [{"cachePoint": {"type": "default"}}]
         return []
 
-    def base_msg(self, caching: bool = False) -> List[Dict[str, Any]]:
+    def base_msg(
+        self, caching: bool = False, details: bool = True
+    ) -> List[Dict[str, Any]]:
         """Base message for all messages."""
 
         base_message = [
@@ -40,9 +43,21 @@ class MessageBuilder:
                 "image_url": {"url": f"data:image/jpeg;base64,{self.image_data}"},
             },
             {"type": "text", "text": "</architecture_diagram>"},
-            {"type": "text", "text": f"<description>{self.description}</description>"},
-            {"type": "text", "text": f"<assumptions>{self.assumptions}</assumptions>"},
         ]
+
+        if details:
+            base_message.extend(
+                [
+                    {
+                        "type": "text",
+                        "text": f"<description>{self.description}</description>",
+                    },
+                    {
+                        "type": "text",
+                        "text": f"<assumptions>{self.assumptions}</assumptions>",
+                    },
+                ]
+            )
 
         if caching:
             base_message.extend(self._add_cache_point_if_bedrock())
@@ -109,7 +124,7 @@ class MessageBuilder:
         return HumanMessage(content=base_message)
 
     def create_threat_improve_message(
-        self, assets: str, flows: str, threat_list: str, gap: str
+        self, assets: str, flows: str, threat_list: str
     ) -> HumanMessage:
         """Create threat improvement analysis message."""
 
@@ -127,7 +142,6 @@ class MessageBuilder:
         threat_msg.extend(
             [
                 {"type": "text", "text": f"<threats>{threat_list}</threats>"},
-                {"type": "text", "text": f"<gap>{gap}</gap>"},
                 {
                     "type": "text",
                     "text": "Identify missing threats and respective mitigations for the solution",
@@ -136,6 +150,31 @@ class MessageBuilder:
         )
 
         base_message = self.base_msg(caching=True)
+        base_message.extend(threat_msg)
+        return HumanMessage(content=base_message)
+
+    def create_threat_agent_message(self, threats=True) -> HumanMessage:
+        """Create threat agent message."""
+
+        threat_msg = []
+
+        if not threats:
+            threat_msg.append(
+                {
+                    "type": "text",
+                    "text": "Currently the threat catalog is empty, No threats have been cataloged yet",
+                }
+            )
+
+        threat_msg.append(
+            {
+                "type": "text",
+                "text": "Create the comprehensive threat catalog while honoring the ground rules.",
+            }
+        )
+
+        threat_msg.extend(self._add_cache_point_if_bedrock())
+        base_message = self.base_msg(caching=True, details=False)
         base_message.extend(threat_msg)
         return HumanMessage(content=base_message)
 
@@ -161,7 +200,7 @@ class MessageBuilder:
                 {"type": "text", "text": f"<previous_gap>{gap}</previous_gap>\n"},
                 {
                     "type": "text",
-                    "text": "Identify missing threats and respective mitigations for the solution",
+                    "text": "Proceed with gap analysis",
                 },
             ]
         )

@@ -80,6 +80,11 @@ variable "model_main" {
       max_tokens       = number
       reasoning_budget = map(number)
     })
+    threats_agent = object({
+      id               = string
+      max_tokens       = number
+      reasoning_budget = map(number)
+    })
   })
   default = {
     assets = {
@@ -109,13 +114,22 @@ variable "model_main" {
         "3" = 63999
       }
     }
+    threats_agent = {
+      id         = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+      max_tokens = 64000
+      reasoning_budget = {
+        "1" = 24000
+        "2" = 48000
+        "3" = 63999
+      }
+    }
     gaps = {
       id         = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
       max_tokens = 64000
       reasoning_budget = {
-        "1" = 4000
-        "2" = 8000
-        "3" = 12000
+        "1" = 8000
+        "2" = 12000
+        "3" = 16000
       }
     }
   }
@@ -195,20 +209,29 @@ variable "openai_api_key" {
 variable "openai_model_main" {
   type = object({
     assets = object({
-      id         = string
-      max_tokens = number
+      id               = string
+      max_tokens       = number
+      reasoning_effort = map(string)
     })
     flows = object({
-      id         = string
-      max_tokens = number
+      id               = string
+      max_tokens       = number
+      reasoning_effort = map(string)
     })
     gaps = object({
-      id         = string
-      max_tokens = number
+      id               = string
+      max_tokens       = number
+      reasoning_effort = map(string)
     })
     threats = object({
-      id         = string
-      max_tokens = number
+      id               = string
+      max_tokens       = number
+      reasoning_effort = map(string)
+    })
+    threats_agent = object({
+      id               = string
+      max_tokens       = number
+      reasoning_effort = map(string)
     })
   })
   description = "OpenAI model configurations for main workflow stages"
@@ -216,18 +239,52 @@ variable "openai_model_main" {
     assets = {
       id         = "gpt-5-mini-2025-08-07"
       max_tokens = 64000
+      reasoning_effort = {
+        "0" = "low"
+        "1" = "medium"
+        "2" = "high"
+        "3" = "high"
+      }
     }
     flows = {
       id         = "gpt-5-2025-08-07"
       max_tokens = 64000
+      reasoning_effort = {
+        "0" = "minimal"
+        "1" = "minimal"
+        "2" = "low"
+        "3" = "low"
+      }
     }
     threats = {
       id         = "gpt-5-mini-2025-08-07"
-      max_tokens = 64000
+      max_tokens = 128000
+      reasoning_effort = {
+        "0" = "minimal"
+        "1" = "low"
+        "2" = "medium"
+        "3" = "high"
+      }
+    }
+    threats_agent = {
+      id         = "gpt-5-2025-08-07"
+      max_tokens = 128000
+      reasoning_effort = {
+        "0" = "minimal"
+        "1" = "low"
+        "2" = "medium"
+        "3" = "high"
+      }
     }
     gaps = {
       id         = "gpt-5-2025-08-07"
       max_tokens = 64000
+      reasoning_effort = {
+        "0" = "minimal"
+        "1" = "minimal"
+        "2" = "low"
+        "3" = "medium"
+      }
     }
   }
 }

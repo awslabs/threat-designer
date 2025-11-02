@@ -266,10 +266,18 @@ def check_status(job_id):
 
         # Check if the item exists
         if "Item" in response:
-            # Assuming there's a 'status' field in your DynamoDB item
-            status = response["Item"].get("state", "Unknown")
-            retry = response["Item"].get("retry", 0)
-            return {"id": job_id, "state": status, "retry": int(retry)}
+            item = response["Item"]
+            status = item.get("state", "Unknown")
+            retry = item.get("retry", 0)
+            detail = item.get("detail")  # Get detail field if present
+
+            result = {"id": job_id, "state": status, "retry": int(retry)}
+
+            # Only include detail if it exists
+            if detail is not None:
+                result["detail"] = detail
+
+            return result
         else:
             return {"id": job_id, "state": "Not Found"}
 

@@ -7,7 +7,7 @@ import thinking from "./images/thinking.svg";
 import complete from "./images/complete.svg";
 import { Assets, Flows, Threats, Thinking, Complete, Stepper } from "./CustomIcons";
 
-export default function Processing({ status, iteration, id }) {
+export default function Processing({ status, iteration, id, detail }) {
   const [viewport, setViewport] = useState({
     isMobile: false,
     isTablet: false,
@@ -68,7 +68,9 @@ export default function Processing({ status, iteration, id }) {
       {
         icon: <Threats />,
         title: `Threats ${iteration !== 0 ? `(${iteration})` : ""}`,
-        subtitle: "Cataloging threats",
+        // Use detail if current step is Threats (step 3), otherwise default to "Cataloging threats"
+        subtitle: currentStep === 3 && detail ? detail : "Cataloging threats",
+        key: currentStep === 3 ? detail : "default", // Add key to trigger transition on detail change
       },
       {
         icon: <Complete />,
@@ -76,8 +78,8 @@ export default function Processing({ status, iteration, id }) {
         subtitle: "Finalizing threat model",
       },
     ],
-    [iteration]
-  ); // Include iteration as dependency since it affects the title
+    [iteration, currentStep, detail]
+  ); // Include iteration, currentStep, and detail as dependencies
 
   useEffect(() => {
     if (status) {

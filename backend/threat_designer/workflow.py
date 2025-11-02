@@ -9,9 +9,10 @@ from constants import (
     WORKFLOW_NODE_ASSET,
     WORKFLOW_NODE_FINALIZE,
     WORKFLOW_NODE_FLOWS,
-    WORKFLOW_NODE_GAP_ANALYSIS,
     WORKFLOW_NODE_IMAGE_TO_BASE64,
     WORKFLOW_NODE_THREATS,
+    WORKFLOW_NODE_THREATS_AGENTIC,
+    WORKFLOW_NODE_THREATS_TRADITIONAL,
     WORKFLOW_ROUTE_FULL,
     WORKFLOW_ROUTE_REPLAY,
 )
@@ -22,7 +23,6 @@ from model_service import ModelService
 from nodes import (
     AssetDefinitionService,
     FlowDefinitionService,
-    GapAnalysisService,
     ReplayService,
     SummaryService,
     ThreatDefinitionService,
@@ -30,6 +30,7 @@ from nodes import (
 )
 from state import AgentState, ConfigSchema
 from state_tracking_service import StateService
+from workflow_threats import threats_subgraph
 
 
 class ThreatModelingOrchestrator:
@@ -50,7 +51,6 @@ class ThreatModelingOrchestrator:
         self.threat_service = ThreatDefinitionService(
             self.model_service, self.state_service, config
         )
-        self.gap_service = GapAnalysisService(self.model_service, self.state_service)
         self.finalization_service = WorkflowFinalizationService(self.state_service)
         self.replay_service = ReplayService(self.state_service)
 
@@ -70,14 +70,6 @@ class ThreatModelingOrchestrator:
         """Define data flows between assets."""
         return self.flow_service.define_flows(state, config)
 
-    def define_threats(self, state: AgentState, config: RunnableConfig) -> Command:
-        """Define threats and mitigations."""
-        return self.threat_service.define_threats(state, config)
-
-    def gap_analysis(self, state: AgentState, config: RunnableConfig) -> Command:
-        """Analyze gaps in threat model."""
-        return self.gap_service.analyze_gaps(state, config)
-
     def finalize(self, state: AgentState) -> Command:
         """Finalize the workflow."""
         return self.finalization_service.finalize_workflow(state)
@@ -85,6 +77,30 @@ class ThreatModelingOrchestrator:
     def route_replay(self, state: AgentState) -> str:
         """Route based on replay flag."""
         return self.replay_service.route_replay(state)
+
+    def define_threats_traditional(
+        self, state: AgentState, config: RunnableConfig
+    ) -> Command:
+        """Define threats using traditional approach."""
+        return self.threat_service.define_threats(state, config)
+
+    def threats_router(self, state: AgentState) -> Dict[str, Any]:
+        """Passthrough node that returns state unchanged for routing."""
+        return {}
+
+    def route_threats_by_iteration(self, state: AgentState) -> str:
+        """Route to agentic subgraph or traditional node based on iteration parameter.
+
+        Args:
+            state: Current AgentState containing iteration parameter
+
+        Returns:
+            str: WORKFLOW_NODE_THREATS_AGENTIC if iteration == 0, WORKFLOW_NODE_THREATS_TRADITIONAL otherwise
+        """
+        iteration = state.get("iteration", 0)
+        if iteration == 0:
+            return WORKFLOW_NODE_THREATS_AGENTIC
+        return WORKFLOW_NODE_THREATS_TRADITIONAL
 
 
 # Initialize the orchestrator
@@ -97,22 +113,49 @@ workflow = StateGraph(AgentState, ConfigSchema)
 workflow.add_node(WORKFLOW_NODE_IMAGE_TO_BASE64, orchestrator.image_to_base64)
 workflow.add_node(WORKFLOW_NODE_ASSET, orchestrator.define_assets)
 workflow.add_node(WORKFLOW_NODE_FLOWS, orchestrator.define_flows)
-workflow.add_node(WORKFLOW_NODE_THREATS, orchestrator.define_threats)
-workflow.add_node(WORKFLOW_NODE_GAP_ANALYSIS, orchestrator.gap_analysis)
+workflow.add_node(WORKFLOW_NODE_THREATS, orchestrator.threats_router)  # Routing node
+workflow.add_node(
+    WORKFLOW_NODE_THREATS_TRADITIONAL, orchestrator.define_threats_traditional
+)
+workflow.add_node(WORKFLOW_NODE_THREATS_AGENTIC, threats_subgraph)
 workflow.add_node(WORKFLOW_NODE_FINALIZE, orchestrator.finalize)
 
 # Set entry point and edges
 workflow.set_entry_point(WORKFLOW_NODE_IMAGE_TO_BASE64)
+
+# Route from image_to_base64 based on replay flag
 workflow.add_conditional_edges(
     WORKFLOW_NODE_IMAGE_TO_BASE64,
     orchestrator.route_replay,
     {
-        WORKFLOW_ROUTE_REPLAY: WORKFLOW_NODE_THREATS,
+        WORKFLOW_ROUTE_REPLAY: WORKFLOW_NODE_THREATS,  # Skip to threats routing node
         WORKFLOW_ROUTE_FULL: WORKFLOW_NODE_ASSET,
     },
 )
+
 workflow.add_edge(WORKFLOW_NODE_ASSET, WORKFLOW_NODE_FLOWS)
-workflow.add_edge(WORKFLOW_NODE_FLOWS, WORKFLOW_NODE_THREATS)
+
+# Add conditional routing from flows based on iteration parameter
+# This routes to either agentic subgraph or traditional node
+workflow.add_conditional_edges(
+    WORKFLOW_NODE_FLOWS,
+    orchestrator.route_threats_by_iteration,
+    {
+        WORKFLOW_NODE_THREATS_AGENTIC: WORKFLOW_NODE_THREATS_AGENTIC,
+        WORKFLOW_NODE_THREATS_TRADITIONAL: WORKFLOW_NODE_THREATS_TRADITIONAL,
+    },
+)
+
+# Add a routing node for threats that checks iteration
+# This is used when coming from replay mode
+workflow.add_conditional_edges(
+    WORKFLOW_NODE_THREATS,
+    orchestrator.route_threats_by_iteration,
+    {
+        WORKFLOW_NODE_THREATS_AGENTIC: WORKFLOW_NODE_THREATS_AGENTIC,
+        WORKFLOW_NODE_THREATS_TRADITIONAL: WORKFLOW_NODE_THREATS_TRADITIONAL,
+    },
+)
 
 # Compile the workflow
 agent = workflow.compile()

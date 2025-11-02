@@ -239,7 +239,7 @@ class ThreatDefinitionService:
 
         if retry_count > 1 or len(threats) > 0:
             human_message = msg_builder.create_threat_improve_message(
-                state["assets"], state["system_architecture"], state["threat_list"], gap
+                state["assets"], state["system_architecture"], state["threat_list"]
             )
             if state.get("replay") and state.get("instructions"):
                 system_prompt = SystemMessage(

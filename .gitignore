@@ -37,3 +37,4 @@ build.zip
 .deployment.config
 /infra/build
 /.vscode
+/.kiro

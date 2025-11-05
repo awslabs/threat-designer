@@ -20,6 +20,23 @@ const ALERT_MESSAGES = {
     msg: "An error occurred while processing the threat model.",
     button: "Restore previous version",
   },
+  LockLost: {
+    title: "Edit lock lost",
+    msg: "Another user has taken the edit lock. The threat model is now in read-only mode.",
+  },
+  LockConflict: {
+    title: "Threat model is locked",
+    msg: "This threat model is currently being edited by another user.",
+  },
+  Conflict: {
+    title: "Conflict detected",
+    msg: "The threat model has been modified by another user since you last loaded it.",
+    button: "Resolve conflict",
+  },
+  Unauthorized: {
+    title: "Save failed - Unauthorized",
+    msg: "You don't have permission to save changes. The threat model may be locked by another user or you may have lost edit access.",
+  },
 };
 
 export const useAlert = () => {
@@ -27,14 +44,16 @@ export const useAlert = () => {
     visible: false,
     state: "Info",
     loading: false,
+    data: null,
   });
 
-  const showAlert = (state, loading = false) => {
+  const showAlert = (state, loading = false, data = null) => {
     setAlert((prev) => ({
       ...prev,
       visible: true,
       state,
       loading,
+      data,
     }));
   };
 
@@ -43,6 +62,7 @@ export const useAlert = () => {
       state: "Info",
       visible: false,
       loading: false,
+      data: null,
     });
   };
 

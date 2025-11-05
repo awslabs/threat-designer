@@ -56,6 +56,16 @@ Interact with Sentry, Threat Designer's built-in AI assistant, for conversationa
 
 **Start here if**: You want to explore your threat model interactively, ask security questions, or get AI-assisted recommendations.
 
+### [How to Collaborate on Threat Models](./collaborate-on-threat-models.md)
+
+Share threat models with team members and work together while maintaining data integrity. This guide covers:
+
+- Sharing threat models and managing collaborator access levels
+- Understanding edit locks and how they prevent conflicts
+- Resolving conflicts when multiple users make changes
+
+**Start here if**: You want to work on threat models with your team or need to share results with stakeholders.
+
 ---
 
 ## Recommended Workflow
@@ -64,9 +74,10 @@ For the best experience with Threat Designer, we recommend this workflow:
 
 1. **Submit** → Create your initial threat model with an architecture diagram ([Submission Guide](./submit-threat-model.md))
 2. **Review** → Examine the AI-generated results and make manual refinements ([Interaction Guide](./interact-with-threat-model-results.md))
-3. **Enhance** → Use Sentry to explore gaps, improve descriptions, and add missing threats ([Sentry Guide](./using-sentry.md))
-4. **Refine** → Replay with updated parameters or instructions to expand your analysis ([Replay Guide](./replay-threat-model.md))
-5. **Iterate** → Repeat steps 2-4 as your architecture evolves or your understanding deepens
+3. **Collaborate** → Share with team members for review and collective input ([Collaboration Guide](./collaborate-on-threat-models.md))
+4. **Enhance** → Use Sentry to explore gaps, improve descriptions, and add missing threats ([Sentry Guide](./using-sentry.md))
+5. **Refine** → Replay with updated parameters or instructions to expand your analysis ([Replay Guide](./replay-threat-model.md))
+6. **Iterate** → Repeat steps 2-5 as your architecture evolves or your understanding deepens
 
 ---
 
@@ -76,6 +87,7 @@ For the best experience with Threat Designer, we recommend this workflow:
 | ------------------------------ | --------------------------------------------------- | ---------------------------------- |
 | Create first threat model      | [Submit](./submit-threat-model.md)                  | 5 min setup + 15-30 min processing |
 | Review and edit results        | [Interact](./interact-with-threat-model-results.md) | 10-30 min                          |
+| Share with team members        | [Collaborate](./collaborate-on-threat-models.md)    | 2-5 min                            |
 | Ask AI questions about threats | [Sentry](./using-sentry.md)                         | Ongoing                            |
 | Update with new parameters     | [Replay](./replay-threat-model.md)                  | 5 min setup + 5-20 min processing  |
 

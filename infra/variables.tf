@@ -36,7 +36,7 @@ variable "api_gw_stage" {
 variable "lambda_concurrency" {
   type        = number
   description = "Reserved concurrency setting for Lambda"
-  default     = 50
+  default     = 100
 }
 
 variable "provisioned_lambda_concurrency" {

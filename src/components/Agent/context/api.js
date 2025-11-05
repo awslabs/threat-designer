@@ -7,6 +7,7 @@ import {
   SESSION_CLEAR_ENDPOINT,
   SENTRY_ENABLED,
 } from "./constants";
+import { createSentrySessionHeader } from "../../../utils/sessionSeed";
 
 const checkSentryEnabled = () => {
   if (!SENTRY_ENABLED) {
@@ -24,7 +25,7 @@ export const fetchAvailableTools = async (sessionId) => {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-      "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": sessionId,
+      "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": createSentrySessionHeader(sessionId),
     },
     body: JSON.stringify({
       input: {
@@ -73,7 +74,7 @@ export const prepareSession = async (
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-      "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": sessionId,
+      "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": createSentrySessionHeader(sessionId),
     },
     body: JSON.stringify(requestBody),
   });
@@ -94,7 +95,7 @@ export const clearSessionAPI = async (sessionId) => {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-      "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": sessionId,
+      "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": createSentrySessionHeader(sessionId),
     },
     body: JSON.stringify({
       input: {
@@ -119,7 +120,7 @@ export const fetchSessionHistory = async (sessionId) => {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-      "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": sessionId,
+      "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": createSentrySessionHeader(sessionId),
     },
     body: JSON.stringify({
       input: {
@@ -167,7 +168,7 @@ export const sendMessageAPI = async (
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-      "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": sessionId,
+      "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": createSentrySessionHeader(sessionId),
     },
     body: JSON.stringify(requestBody),
   });
@@ -189,7 +190,7 @@ export const stopAPI = async (sessionId) => {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-      "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": sessionId,
+      "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": createSentrySessionHeader(sessionId),
     },
     body: JSON.stringify({
       input: {

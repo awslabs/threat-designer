@@ -31,6 +31,9 @@ resource "aws_bedrockagentcore_agent_runtime" "sentry" {
   network_configuration {
     network_mode = "PUBLIC"
   }
+  request_header_configuration {
+    request_header_allowlist = ["Authorization"]
+  }
   depends_on = [null_resource.docker_build_push]
 }
 

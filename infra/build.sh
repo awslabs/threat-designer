@@ -38,3 +38,9 @@ cp -r ../backend/authorizer/* "$authorizer_build_path/"
 cd "$ROOT"
 echo "Building backend lambda"
 cp -r ../backend/app/* "$backend_build_path/"
+
+# Install backend Python dependencies if requirements file exists
+if [[ -f ../backend/app/requirements.txt ]]; then
+    echo "Installing backend packages..."
+    pip3 install --platform manylinux2014_x86_64 --implementation cp --only-binary=:all: --python-version 3.12 -r ../backend/app/requirements.txt --target "$backend_build_path"
+fi

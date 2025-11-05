@@ -23,8 +23,6 @@ Lightning Mode provides:
 
 📖 **[Lightning Mode Quick Start Guide](https://github.com/awslabs/threat-designer/blob/lightning/main/README.md)**
 
-> **Note:** Lightning Mode is stateless (browser session storage only). For production use with full features like Sentry assistant and Threat Catalog, [deploy the complete stack](#getting-started).
-
 ---
 
 ## Quick Links

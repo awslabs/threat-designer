@@ -24,9 +24,16 @@
         "dynamodb:UpdateItem",
         "dynamodb:DeleteItem",
         "dynamodb:Query",
-        "dynamodb:Scan"
+        "dynamodb:Scan",
+        "dynamodb:BatchWriteItem"
       ],
-      "Resource": ["${state_table_arn}", "${status_table_arn}", "${trail_table_arn}"]
+      "Resource": [
+        "${state_table_arn}",
+        "${status_table_arn}",
+        "${trail_table_arn}",
+        "${sharing_table_arn}",
+        "${locks_table_arn}"
+      ]
     },
     {
       "Effect": "Allow",
@@ -36,13 +43,25 @@
         "dynamodb:UpdateItem",
         "dynamodb:DeleteItem",
         "dynamodb:Query",
-        "dynamodb:Scan"
+        "dynamodb:Scan",
+        "dynamodb:BatchWriteItem"
       ],
-      "Resource": ["${state_table_arn}/*", "${status_table_arn}/*", "${trail_table_arn}/*"]
+      "Resource": [
+        "${state_table_arn}/*",
+        "${status_table_arn}/*",
+        "${trail_table_arn}/*",
+        "${sharing_table_arn}/*",
+        "${locks_table_arn}/*"
+      ]
     },
     {
       "Effect": "Allow",
-      "Action": ["bedrock-agentcore:InvokeAgentRuntime"],
+      "Action": ["cognito-idp:ListUsers", "cognito-idp:AdminGetUser"],
+      "Resource": ["${cognito_user_pool_arn}"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["bedrock-agentcore:InvokeAgentRuntime", "bedrock-agentcore:StopRuntimeSession"],
       "Resource": ["${threat_modeling_agent}/*", "${threat_modeling_agent}"]
     },
     {

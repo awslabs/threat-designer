@@ -7,7 +7,7 @@ locals {
   api_gw_stage          = var.api_gw_stage
   aws_region            = var.region
   environment           = var.env
-  powertools_layer_arn  = "arn:aws:lambda:${var.region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-${var.python_layer}-x86_64:7"
+  powertools_layer_arn  = "arn:aws:lambda:${var.region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-${var.python_layer}-x86_64:25"
   python_version        = "python${var.python_runtime}"
   allowed_origins = [
     "http://localhost:3000",

@@ -55,3 +55,22 @@ class UnauthorizedError(ForbiddenError):
 
 class InternalError(ViewError):
     STATUS = HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+class ConflictError(ViewError):
+    STATUS = HTTPStatus.CONFLICT
+
+    def __init__(self, message, details=None):
+        if isinstance(message, dict):
+            # If message is a dict, extract the message and store details
+            self.details = message
+            super().__init__(message.get("message", "Conflict detected"))
+        else:
+            super().__init__(message)
+            self.details = details
+
+    def to_dict(self, request_id: Optional[str] = None) -> Dict:
+        error_dict = super().to_dict(request_id)
+        if self.details:
+            error_dict.update(self.details)
+        return error_dict

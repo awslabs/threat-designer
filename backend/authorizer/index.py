@@ -54,14 +54,25 @@ def lambda_handler(event: dict, context: LambdaContext):
                 claims["sub"], "Deny", event["methodArn"], {"error": "Token expired"}
             )
 
-        logger.info("Token validated successfully", extra={"user": claims["sub"]})
+        # Extract user information
+        # sub is the unique UUID for the user (use this as user_id)
+        user_id = claims["sub"]
+        # cognito:username is the human-readable username (use for display)
+        username = claims.get("cognito:username", claims.get("username", user_id))
+        email = claims.get("email", "")
+
+        logger.info(
+            "Token validated successfully",
+            extra={"user_id": user_id, "username": username},
+        )
         return generate_policy(
-            claims["sub"],
+            user_id,  # Use sub as principal ID
             "Allow",
             event["methodArn"],
             {
-                "username": claims["sub"],
-                "email": claims.get("email", ""),
+                "user_id": user_id,  # UUID for backend operations
+                "username": username,  # Human-readable name for display
+                "email": email,
             },
         )
 

@@ -1,5 +1,6 @@
 import datetime
 import decimal
+import hashlib
 import json
 import os
 import uuid
@@ -7,7 +8,12 @@ import boto3
 from aws_lambda_powertools import Logger, Tracer
 from botocore.config import Config
 from botocore.exceptions import ClientError
-from exceptions.exceptions import InternalError, NotFoundError, UnauthorizedError
+from exceptions.exceptions import (
+    InternalError,
+    NotFoundError,
+    UnauthorizedError,
+    ConflictError,
+)
 from utils.utils import create_dynamodb_item
 
 STATE = os.environ.get("JOB_STATUS_TABLE")
@@ -52,6 +58,35 @@ def convert_decimals(obj):
 
 def generate_random_uuid():
     return str(uuid.uuid4())
+
+
+def calculate_content_hash(data):
+    """
+    Calculate a hash of the threat model content to detect actual changes.
+
+    This excludes metadata fields like timestamps, lock info, etc. and only
+    hashes the actual threat model content (threats, assets, flows, etc.)
+
+    Parameters:
+    data (dict): The threat model data
+
+    Returns:
+    str: SHA256 hash of the content
+    """
+    # Extract only the content fields that matter for change detection
+    content_fields = {
+        "description": data.get("description"),
+        "assumptions": data.get("assumptions"),
+        "threat_list": data.get("threat_list"),
+        "assets": data.get("assets"),
+        "system_architecture": data.get("system_architecture"),
+    }
+
+    # Convert to JSON string with sorted keys for consistent hashing
+    content_json = json.dumps(content_fields, sort_keys=True, default=str)
+
+    # Calculate SHA256 hash
+    return hashlib.sha256(content_json.encode("utf-8")).hexdigest()
 
 
 def delete_s3_object(object_key, bucket_name=ARCHITECTURE_BUCKET):
@@ -250,7 +285,14 @@ def invoke_lambda(owner, payload):
         }
         if not payload.get("replay", False):
             create_dynamodb_item(agent_state, AGENT_TABLE)
-        item = {"id": id, "state": "START", "owner": owner}
+        # Store execution_owner to track who initiated this execution
+        item = {
+            "id": id,
+            "state": "START",
+            "owner": owner,
+            "session_id": session_id,
+            "execution_owner": owner,
+        }
         table.put_item(Item=item)
         return {"id": id}
     except Exception as e:
@@ -269,13 +311,24 @@ def check_status(job_id):
             item = response["Item"]
             status = item.get("state", "Unknown")
             retry = item.get("retry", 0)
-            detail = item.get("detail")  # Get detail field if present
+            detail = item.get("detail")
+            session_id = item.get("session_id")
+            execution_owner = item.get("execution_owner")
 
-            result = {"id": job_id, "state": status, "retry": int(retry)}
+            result = {
+                "id": job_id,
+                "state": status,
+                "retry": int(retry),
+                "session_id": session_id,
+            }
 
             # Only include detail if it exists
             if detail is not None:
                 result["detail"] = detail
+
+            # Include execution_owner if it exists
+            if execution_owner is not None:
+                result["execution_owner"] = execution_owner
 
             return result
         else:
@@ -315,36 +368,145 @@ def check_trail(job_id):
 
 
 @tracer.capture_method
-def fetch_results(job_id):
-    table = dynamodb.Table(AGENT_TABLE)  # Replace with your actual table name
+def fetch_results(job_id, user_id=None):
+    table = dynamodb.Table(AGENT_TABLE)
 
     try:
         response = table.get_item(Key={"job_id": job_id})
 
         if "Item" in response:
+            item = convert_decimals(response["Item"])
+
+            # Add access information if user_id is provided
+            if user_id and user_id != "MCP":
+                from services.collaboration_service import check_access
+                from exceptions.exceptions import UnauthorizedError
+
+                access_info = check_access(job_id, user_id)
+
+                # Check if user has access
+                if not access_info["has_access"]:
+                    LOG.warning(
+                        f"User {user_id} does not have access to threat model {job_id}"
+                    )
+                    raise UnauthorizedError(
+                        "You do not have access to this threat model"
+                    )
+
+                # Add access information to response
+                item["is_owner"] = access_info["is_owner"]
+                item["access_level"] = access_info["access_level"]
+
+            # Ensure last_modified_at exists for version tracking
+            if "last_modified_at" not in item:
+                # Set initial timestamp if not present
+                current_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                item["last_modified_at"] = current_time
+
             return {
                 "job_id": job_id,
                 "state": "Found",
-                "item": convert_decimals(
-                    response["Item"]
-                ),  # Convert Decimals before returning
+                "item": item,
             }
         else:
             return {"job_id": job_id, "state": "Not Found", "item": None}
 
+    except UnauthorizedError:
+        raise
     except Exception as e:
-        Logger.error(e)
+        LOG.error(e)
         raise InternalError(e)
 
 
 @tracer.capture_method
-def update_results(job_id, payload, owner):
+def update_results(job_id, payload, owner, lock_token=None):
     table = dynamodb.Table(AGENT_TABLE)
 
     try:
+        # For non-MCP users, check access and verify lock
+        if owner != "MCP":
+            from utils.authorization import require_access
+            from services.lock_service import get_lock_status
+
+            # Check if user has edit access (will raise UnauthorizedError if not)
+            require_access(job_id, owner, required_level="EDIT")
+
+            # Verify user holds valid lock (everyone including owner must have lock)
+            lock_status = get_lock_status(job_id)
+
+            if not lock_status.get("locked"):
+                LOG.warning(f"No active lock for threat model {job_id}")
+                raise UnauthorizedError("You must acquire a lock before editing")
+
+            if lock_status.get("user_id") != owner:
+                LOG.warning(
+                    f"Lock for {job_id} held by {lock_status.get('user_id')}, not {owner}"
+                )
+                raise UnauthorizedError("Lock is held by another user")
+
+            # Validate lock token if provided
+            if lock_token and lock_status.get("lock_token") != lock_token:
+                LOG.warning(f"Invalid lock token for threat model {job_id}")
+                raise UnauthorizedError("Invalid lock token")
+
+            # Get current server state for conflict detection and hash comparison
+            current_item_response = table.get_item(Key={"job_id": job_id})
+            current_item = None
+            if "Item" in current_item_response:
+                current_item = current_item_response["Item"]
+
+            # Check for version conflict
+            client_timestamp = payload.get("client_last_modified_at")
+            if client_timestamp and current_item:
+                server_timestamp = current_item.get("last_modified_at")
+
+                # Compare timestamps - if server is newer, there's a conflict
+                if server_timestamp and server_timestamp > client_timestamp:
+                    LOG.warning(
+                        f"Version conflict for {job_id}: server={server_timestamp}, client={client_timestamp}"
+                    )
+                    raise ConflictError(
+                        {
+                            "message": "The threat model has been modified by another user",
+                            "server_timestamp": server_timestamp,
+                            "client_timestamp": client_timestamp,
+                            "server_state": convert_decimals(current_item),
+                        }
+                    )
+
+            # Calculate content hash to detect actual changes
+            new_content_hash = calculate_content_hash(payload)
+
+            # Get previous content hash
+            previous_content_hash = (
+                current_item.get("content_hash") if current_item else None
+            )
+
+            # Only update timestamp and last_modified_by if content actually changed
+            if new_content_hash != previous_content_hash:
+                current_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                payload["last_modified_by"] = owner
+                payload["last_modified_at"] = current_time
+                payload["content_hash"] = new_content_hash
+                LOG.info(f"Content changed for {job_id}, updating timestamp")
+            else:
+                # Content hasn't changed, preserve existing timestamp
+                if current_item:
+                    payload["last_modified_at"] = current_item.get("last_modified_at")
+                    payload["last_modified_by"] = current_item.get(
+                        "last_modified_by", owner
+                    )
+                payload["content_hash"] = new_content_hash
+                LOG.info(f"No content changes for {job_id}, preserving timestamp")
+
+            # Remove client_last_modified_at from payload before saving
+            payload.pop("client_last_modified_at", None)
+
         key = {"job_id": job_id}
         return update_dynamodb_item(table, key, payload, owner)
 
+    except (UnauthorizedError, ConflictError):
+        raise
     except Exception as e:
         LOG.error(e)
         raise
@@ -364,9 +526,13 @@ def restore(job_id, owner):
 
         item = response["Item"]
 
-        if item.get("owner") != owner:
-            LOG.warning(f"Authorization failed: {owner} does not own job {job_id}")
-            raise NotFoundError
+        # Check if user has access (owner or EDIT permission)
+        if owner != "MCP":
+            from utils.authorization import require_access
+
+            # This will raise UnauthorizedError if user doesn't have access
+            # For restore, we need at least EDIT access
+            require_access(job_id, owner, required_level="EDIT")
 
         if "backup" not in item:
             LOG.warning(f"No backup found for job {job_id}")
@@ -383,10 +549,13 @@ def restore(job_id, owner):
         else:
             retry = 0
 
+        # Use the actual owner from the item, not the requester
+        actual_owner = item.get("owner")
+
         state_table.put_item(
             Item={
                 "id": job_id,
-                "owner": owner,
+                "owner": actual_owner,
                 "retry": retry,
                 "state": "COMPLETE",
                 "updated_at": current_time,
@@ -402,28 +571,222 @@ def restore(job_id, owner):
 @tracer.capture_method
 def fetch_all(owner):
     table = dynamodb.Table(AGENT_TABLE)
+    sharing_table = dynamodb.Table(os.environ.get("SHARING_TABLE"))
     LOG.info(f"Fetching all items for owner: {owner} and table: {table}")
     try:
-        items = get_all_by_owner(table, owner)
-        return {"catalogs": convert_decimals(items)}
+        # Get threat models owned by user
+        owned_items = get_all_by_owner(table, owner)
+
+        # Add access information to owned items
+        for item in owned_items:
+            item["is_owner"] = True
+            item["access_level"] = "OWNER"
+
+        # Get threat models shared with user
+        shared_items = []
+        if owner != "MCP":  # Skip sharing lookup for MCP user
+            try:
+                sharing_response = sharing_table.query(
+                    IndexName="user-index",
+                    KeyConditionExpression="#user_id = :user_id",
+                    ExpressionAttributeNames={"#user_id": "user_id"},
+                    ExpressionAttributeValues={":user_id": owner},
+                )
+
+                # Fetch full threat model details for shared items
+                for sharing_record in sharing_response.get("Items", []):
+                    threat_model_id = sharing_record["threat_model_id"]
+                    tm_response = table.get_item(Key={"job_id": threat_model_id})
+
+                    if "Item" in tm_response:
+                        item = tm_response["Item"]
+                        # Add access information
+                        item["is_owner"] = False
+                        item["access_level"] = sharing_record["access_level"]
+                        item["shared_by"] = sharing_record.get("shared_by")
+                        shared_items.append(item)
+            except Exception as e:
+                LOG.warning(f"Error fetching shared items: {e}")
+                # Continue without shared items if there's an error
+
+        # Combine owned and shared items
+        all_items = owned_items + shared_items
+
+        return {"catalogs": convert_decimals(all_items)}
     except Exception as e:
         LOG.error(e)
         raise
 
 
 @tracer.capture_method
-def delete_tm(job_id, owner):
+def delete_tm(job_id, owner, force_release=False):
     table = dynamodb.Table(AGENT_TABLE)
+    sharing_table = dynamodb.Table(os.environ.get("SHARING_TABLE"))
 
     try:
+        # For non-MCP users, check if user is owner
+        if owner != "MCP":
+            from utils.authorization import require_owner
+            from services.lock_service import (
+                get_lock_status,
+                force_release_lock as force_lock_release,
+            )
+
+            # Verify user is owner
+            require_owner(job_id, owner)
+
+            # Check for active locks
+            lock_status = get_lock_status(job_id)
+
+            if lock_status.get("locked"):
+                lock_holder = lock_status.get("user_id")
+
+                # If lock is held by someone else and force_release is not requested
+                if lock_holder != owner and not force_release:
+                    LOG.warning(f"Cannot delete {job_id} - locked by {lock_holder}")
+                    raise ConflictError(
+                        f"Cannot delete threat model while it is locked by {lock_holder}. "
+                        "Use force_release=true to override."
+                    )
+
+                # Force release the lock if requested
+                if lock_holder != owner:
+                    LOG.info(f"Force releasing lock for {job_id} before deletion")
+                    force_lock_release(job_id, owner)
+
+        # Check if there's an active execution and stop it
+        status = check_status(job_id)
+        if status.get("state") not in ["COMPLETE", "FAILED", "Not Found"]:
+            # There's an active execution, try to stop it
+            session_id = status.get("session_id")
+            if session_id:
+                try:
+                    LOG.info(f"Stopping active execution for {job_id} before deletion")
+                    # Use override_execution_owner=True to allow owner to stop executions started by others
+                    delete_session(
+                        job_id, session_id, owner, override_execution_owner=True
+                    )
+                except Exception as e:
+                    LOG.warning(f"Failed to stop execution for {job_id}: {e}")
+                    # Continue with deletion even if stop fails
+
         key = {"job_id": job_id}
         object_key = fetch_results(job_id).get("item").get("s3_location")
         if not object_key:
             LOG.info(f"Object key not found for job_id: {job_id}")
             raise InternalError()
+
+        # Delete from DynamoDB
         delete_dynamodb_item(table, key, owner)
+
+        # Delete S3 object
         delete_s3_object(object_key)
+
+        # Clean up sharing records if any exist
+        if owner != "MCP":
+            try:
+                # Query all sharing records for this threat model
+                sharing_response = sharing_table.query(
+                    KeyConditionExpression="threat_model_id = :tm_id",
+                    ExpressionAttributeValues={":tm_id": job_id},
+                )
+
+                # Delete all sharing records
+                with sharing_table.batch_writer() as batch:
+                    for item in sharing_response.get("Items", []):
+                        batch.delete_item(
+                            Key={
+                                "threat_model_id": item["threat_model_id"],
+                                "user_id": item["user_id"],
+                            }
+                        )
+
+                LOG.info(
+                    f"Deleted {len(sharing_response.get('Items', []))} sharing records for {job_id}"
+                )
+            except Exception as e:
+                LOG.warning(f"Error cleaning up sharing records: {e}")
+                # Continue with deletion even if sharing cleanup fails
+
         return {"job_id": job_id, "state": "Deleted"}
+    except UnauthorizedError:
+        raise
+    except Exception as e:
+        LOG.error(e)
+        raise
+
+
+@tracer.capture_method
+def delete_session(job_id, session_id, owner, override_execution_owner=False):
+    agent_table = dynamodb.Table(AGENT_TABLE)
+    state_table = dynamodb.Table(STATE)
+
+    try:
+        # Security validation: query STATE table and verify ownership
+        state_response = state_table.get_item(Key={"id": job_id})
+
+        if "Item" not in state_response:
+            LOG.warning(f"Job {job_id} not found")
+            raise NotFoundError
+
+        state_item = state_response["Item"]
+
+        # Verify session_id and id (job_id) match
+        if state_item.get("session_id") != session_id or state_item.get("id") != job_id:
+            LOG.warning(f"Session validation failed for job {job_id}")
+            raise NotFoundError
+
+        # When override_execution_owner is True (called from delete_tm), verify threat model ownership instead
+        if override_execution_owner:
+            # Verify the caller is the threat model owner
+            tm_owner = state_item.get("owner")
+            if tm_owner != owner:
+                LOG.warning(
+                    f"Authorization failed: {owner} is not the owner of threat model {job_id}"
+                )
+                raise UnauthorizedError(
+                    "You do not have permission to stop this threat modeling session. Only the threat model owner can stop it during deletion."
+                )
+            LOG.info(
+                f"Override enabled: {owner} (threat model owner) stopping execution started by {state_item.get('execution_owner')}"
+            )
+        else:
+            # Normal flow: verify execution_owner matches (only the user who started the execution can stop it)
+            execution_owner = state_item.get("execution_owner", state_item.get("owner"))
+            if execution_owner != owner:
+                LOG.warning(
+                    f"Authorization failed: {owner} did not initiate execution of job {job_id}, {execution_owner} did"
+                )
+                raise UnauthorizedError(
+                    "You do not have permission to stop this threat modeling session. Only the user who started the execution can stop it."
+                )
+
+        try:
+            response = agent_core_client.stop_runtime_session(
+                runtimeSessionId=session_id, agentRuntimeArn=AGENT_CORE_RUNTIME
+            )
+            LOG.info(
+                f"Session {session_id} stopped successfully with response code: {response['statusCode']}"
+            )
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ResourceNotFoundException":
+                LOG.warning(f"Session {session_id} not found, proceeding with cleanup")
+            else:
+                raise
+
+        key = {"job_id": job_id}
+        item = fetch_results(job_id).get("item")
+        object_key = item.get("s3_location")
+        backup = item.get("backup")
+        if not backup:
+            if not object_key:
+                LOG.info(f"Object key not found for job_id: {job_id}")
+                raise InternalError()
+            delete_dynamodb_item(agent_table, key, owner)
+            delete_s3_object(object_key)
+            return {"job_id": job_id, "state": "Deleted"}
+        restore(job_id, owner)
+        return {"job_id": job_id, "state": "Restored"}
     except Exception as e:
         LOG.error(e)
         raise

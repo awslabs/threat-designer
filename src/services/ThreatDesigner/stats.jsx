@@ -24,6 +24,11 @@ async function deleteTm(id) {
   return instance.delete(statsPath);
 }
 
+async function stopTm(id, sessionId) {
+  const statsPath = `/${id}/session/${sessionId}`;
+  return instance.delete(statsPath);
+}
+
 async function startThreatModeling(
   key = null,
   iteration = null,
@@ -50,9 +55,16 @@ async function startThreatModeling(
   return instance.post(statsPath, postData);
 }
 
-async function updateTm(id, payload) {
+async function updateTm(id, payload, clientTimestamp = null) {
   const statsPath = `/${id}`;
-  return instance.put(statsPath, payload);
+  const requestPayload = { ...payload };
+
+  // Add client timestamp for conflict detection
+  if (clientTimestamp) {
+    requestPayload.client_last_modified_at = clientTimestamp;
+  }
+
+  return instance.put(statsPath, requestPayload);
 }
 
 async function restoreTm(id) {
@@ -118,4 +130,5 @@ export {
   getThreatModelingAllResults,
   getThreatModelingTrail,
   restoreTm,
+  stopTm,
 };

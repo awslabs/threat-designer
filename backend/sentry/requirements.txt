@@ -8,3 +8,4 @@ uv==0.9.6
 uvicorn[standard]==0.37.0
 fastapi==0.116.1
 httpx==0.28.1
+PyJWT==2.10.1

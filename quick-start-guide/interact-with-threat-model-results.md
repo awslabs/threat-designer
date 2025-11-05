@@ -124,4 +124,6 @@ Export your threat model in multiple formats for sharing and documentation:
 
 ## Next Steps
 
-Want to refine your threat model further? Check out the [Replay Threat Model](./replay-threat-model.md) guide to learn how to iteratively improve your analysis with AI assistance.
+**Collaborate with your team**: Share your threat model with colleagues for review and collective input. See the [Collaboration Guide](./collaborate-on-threat-models.md) to learn how to manage access and work together effectively.
+
+**Refine with AI assistance**: Check out the [Replay Threat Model](./replay-threat-model.md) guide to learn how to iteratively improve your analysis with updated parameters and instructions.

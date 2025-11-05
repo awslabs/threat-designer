@@ -125,9 +125,53 @@ async def invoke(request: InvocationRequest, http_request: Request):
     if not session_header:
         raise MissingHeader
 
-    # Get or create session ID for this session header
-    session_id = session_manager.get_or_create_session_id(session_header)
-    logger.info(f"Session id: {session_header}")
+    # Parse session header format: threat_model_id/session_seed
+    # Extract threat_model_id and discard the seed (seed is only for UI session management)
+    if "/" in session_header:
+        threat_model_id, session_seed = session_header.rsplit("/", 1)
+        logger.info(
+            f"Parsed session header - Threat Model ID: {threat_model_id}, Seed: {session_seed} (seed ignored)"
+        )
+    else:
+        # Backward compatibility: if no seed, use the whole header as threat_model_id
+        threat_model_id = session_header
+        logger.info(
+            f"Legacy session header format - Threat Model ID: {threat_model_id}"
+        )
+
+    # Extract user sub from JWT token for multi-tenancy
+    auth_header = http_request.headers.get("Authorization")
+    user_sub = None
+
+    if auth_header:
+        import jwt
+
+        # Remove "Bearer " prefix if present
+        token = (
+            auth_header.replace("Bearer ", "")
+            if auth_header.startswith("Bearer ")
+            else auth_header
+        )
+
+        try:
+            # Skip signature validation as agent runtime has already validated the token
+            claims = jwt.decode(token, options={"verify_signature": False})
+            user_sub = claims.get("sub")
+            logger.info(f"Extracted user sub from JWT: {user_sub}")
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Invalid JWT token: {e}")
+            # Continue without user_sub - will use threat_model_id only
+
+    # Create composite session key: sub/threat_model_id
+    # Note: We ignore the session seed - it's only used by the UI for session management
+    # The backend session is tied to user + threat model, not browser tab
+    composite_session_key = (
+        f"{user_sub}/{threat_model_id}" if user_sub else threat_model_id
+    )
+
+    # Get or create session ID for this composite session key
+    session_id = session_manager.get_or_create_session_id(composite_session_key)
+    logger.info(f"Session key: {composite_session_key}, Session ID: {session_id}")
 
     request_type = request.input.get("type")
 
@@ -153,7 +197,7 @@ async def invoke(request: InvocationRequest, http_request: Request):
     if request_type == "delete_history":
         await cancel_stream_async(session_id)
         set_active_invocation()
-        return handlers.handle_delete_history(session_header, session_id)
+        return handlers.handle_delete_history(composite_session_key, session_id)
 
     if request_type == "prepare":
         set_active_invocation()

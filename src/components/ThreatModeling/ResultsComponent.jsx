@@ -24,6 +24,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
   assets,
   updateTM,
   refreshTrail,
+  isReadOnly = false,
 }) {
   const [openModal, setOpenModal] = useState(false);
   const { id = null } = useParams();
@@ -62,7 +63,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
           )}
         </section>
 
-        <DescriptionSection description={description} updateTM={updateTM} />
+        <DescriptionSection description={description} updateTM={updateTM} isReadOnly={isReadOnly} />
 
         <div style={{ height: "25px" }}></div>
         <ThreatTableComponent
@@ -72,6 +73,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
           updateData={updateTM}
           type={"assumptions"}
           emptyMsg="No assumptions"
+          isReadOnly={isReadOnly}
         />
         <ThreatTableComponent
           headers={["Type", "Name", "Description"]}
@@ -79,6 +81,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
           title="Assets"
           updateData={updateTM}
           type={"assets"}
+          isReadOnly={isReadOnly}
         />
         <ThreatTableComponent
           headers={["Flow_description", "Source_entity", "Target_entity"]}
@@ -86,6 +89,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
           title="Flows"
           type={"data_flows"}
           updateData={updateTM}
+          isReadOnly={isReadOnly}
         />
         <ThreatTableComponent
           headers={["Purpose", "Source_entity", "Target_entity"]}
@@ -93,6 +97,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
           title="Trust Boundary"
           type={"trust_boundaries"}
           updateData={updateTM}
+          isReadOnly={isReadOnly}
         />
         <ThreatTableComponent
           headers={["Category", "Description", "Example"]}
@@ -100,6 +105,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
           title="Threat Source"
           type={"threat_sources"}
           updateData={updateTM}
+          isReadOnly={isReadOnly}
         />
         <div style={{ height: "25px" }}></div>
         <SpaceBetween size="m">
@@ -128,6 +134,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
                 "prerequisites",
                 "mitigations",
               ]}
+              isReadOnly={isReadOnly}
             />
           ))}
         </SpaceBetween>

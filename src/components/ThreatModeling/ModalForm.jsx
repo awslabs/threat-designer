@@ -23,15 +23,22 @@ export const ModalComponent = ({
   hasColumn = false,
   columnConfig = null, // { left: ['field1', 'field2'], right: ['field3', 'field4'] }
 }) => {
+  // Only threats have mitigations and prerequisites
+  const shouldHaveMitigations = type === "threats";
+
   const [formData, setFormData] = React.useState({
     ...data,
-    mitigations: data.mitigations || [],
-    prerequisites: data.prerequisites || [],
+    ...(shouldHaveMitigations && {
+      mitigations: data.mitigations || [],
+      prerequisites: data.prerequisites || [],
+    }),
   });
   const [tempFormData, setTempFormData] = React.useState({
     ...data,
-    mitigations: data.mitigations || [],
-    prerequisites: data.prerequisites || [],
+    ...(shouldHaveMitigations && {
+      mitigations: data.mitigations || [],
+      prerequisites: data.prerequisites || [],
+    }),
   });
   const [newMitigation, setNewMitigation] = React.useState("");
   const [newPrerequisite, setNewPrerequisite] = React.useState("");
@@ -76,8 +83,10 @@ export const ModalComponent = ({
   const handleSave = () => {
     const updatedData = {
       ...tempFormData,
-      mitigations: tempFormData.mitigations || [],
-      prerequisites: tempFormData.prerequisites || [],
+      ...(shouldHaveMitigations && {
+        mitigations: tempFormData.mitigations || [],
+        prerequisites: tempFormData.prerequisites || [],
+      }),
     };
     setFormData(updatedData);
     if (action === "edit") {
@@ -135,13 +144,17 @@ export const ModalComponent = ({
   useEffect(() => {
     setFormData({
       ...data,
-      mitigations: data.mitigations || [],
-      prerequisites: data.prerequisites || [],
+      ...(shouldHaveMitigations && {
+        mitigations: data.mitigations || [],
+        prerequisites: data.prerequisites || [],
+      }),
     });
     setTempFormData({
       ...data,
-      mitigations: data.mitigations || [],
-      prerequisites: data.prerequisites || [],
+      ...(shouldHaveMitigations && {
+        mitigations: data.mitigations || [],
+        prerequisites: data.prerequisites || [],
+      }),
     });
   }, [data]);
 

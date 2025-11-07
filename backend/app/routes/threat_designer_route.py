@@ -37,11 +37,32 @@ LOG = logger = Logger(serialize_stacktrace=False)
 @router.get("/threat-designer/mcp/status/<id>")
 @router.get("/threat-designer/status/<id>")
 def _tm_status(id):
-    return check_status(id)
+    path = router.current_event.path
+    if "/mcp" in path:
+        # MCP endpoints bypass authorization
+        return check_status(id)
+    else:
+        # Extract user_id from request context
+        user_id = router.current_event.request_context.authorizer.get("user_id")
+
+        # Verify user has at least READ_ONLY access
+        from utils.authorization import require_access
+        require_access(id, user_id, required_level="READ_ONLY")
+
+        # Return status if authorized
+        return check_status(id)
 
 
 @router.get("/threat-designer/trail/<id>")
 def _tm_trail(id):
+    # Extract user_id from request context
+    user_id = router.current_event.request_context.authorizer.get("user_id")
+
+    # Verify user has at least READ_ONLY access
+    from utils.authorization import require_access
+    require_access(id, user_id, required_level="READ_ONLY")
+
+    # Return trail if authorized
     return check_trail(id)
 
 

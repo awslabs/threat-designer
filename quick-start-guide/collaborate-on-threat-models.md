@@ -21,10 +21,10 @@ Threat Designer supports real-time collaboration, allowing multiple team members
 **Adding Users to Your Threat Designer Instance**  
 Before you can share threat models, users must have accounts in your Cognito User Pool. To add new users:
 
-1. Navigate to the [AWS Cognito Console](https://console.aws.amazon.com/cognito/)
+1. Navigate to the [Amazon Cognito Console](https://console.aws.amazon.com/cognito/)
 2. Select your Threat Designer User Pool
 3. Go to **Users** → **Create user**
-4. Follow the [AWS Cognito documentation for creating users](https://docs.aws.amazon.com/cognito/latest/developerguide/how-to-create-user-accounts.html)
+4. Follow the [Amazon Cognito documentation for creating users](https://docs.aws.amazon.com/cognito/latest/developerguide/how-to-create-user-accounts.html)
 
 Once users are added to the User Pool, they'll appear in the sharing search and can be granted access to threat models.
 

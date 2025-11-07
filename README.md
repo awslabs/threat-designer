@@ -109,6 +109,7 @@ The following tools must be installed on your local machine:
 - [jq](https://jqlang.org/download/)
 - [Python](https://www.python.org/downloads/) (v3.12 or later) and pip
 - [Terraform CLI](https://developer.hashicorp.com/terraform/install)
+- [Docker](https://docs.docker.com/engine/install/) running
 - [AWS CLI](https://docs.aws.amazon.com/cli/v1/userguide/cli-chap-install.html) configured with [appropriate credentials](https://docs.aws.amazon.com/cli/v1/userguide/cli-chap-configure.html)
 
 **AI Model Provider:**

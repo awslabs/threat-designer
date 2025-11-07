@@ -68,13 +68,21 @@ paths:
       description: Fetch Threat modeling status
       tags:
         - Security
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/StatusResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -126,18 +134,28 @@ paths:
   "/threat-designer/mcp/status/{id}":
     get:
       summary: Fetch Threat modeling statuses (MCP)
-      description: Fetch Threat modeling status (MCP)
+      description: |
+        Fetch Threat modeling status using MCP API key authentication.
+        This endpoint provides the same functionality as the JWT version.
       tags:
         - Security
       security:
         - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/StatusResponse"
         "400":
           $ref: "#/components/responses/400"
         "500":
@@ -157,13 +175,21 @@ paths:
       description: Restore previous threat model
       tags:
         - Security
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/ThreatModelResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -215,18 +241,29 @@ paths:
   "/threat-designer/mcp/restore/{id}":
     put:
       summary: Restore previous threat model (MCP)
-      description: Restore previous threat model (MCP)
+      description: |
+        Restore previous threat model using MCP API key authentication.
+        This endpoint provides the same functionality as the JWT version.
+        Note: Response does not include is_owner and access_level fields (JWT-only fields).
       tags:
         - Security
       security:
         - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/ThreatModelResponse"
         "400":
           $ref: "#/components/responses/400"
         "500":
@@ -246,13 +283,21 @@ paths:
       description: Fetch Threat modeling reasoning trail
       tags:
         - Security
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/TrailResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -304,18 +349,28 @@ paths:
   "/threat-designer/mcp/trail/{id}":
     get:
       summary: Fetch Threat modeling reasoning trail (MCP)
-      description: Fetch Threat modeling reasoning trail (MCP)
+      description: |
+        Fetch Threat modeling reasoning trail using MCP API key authentication.
+        This endpoint provides the same functionality as the JWT version.
       tags:
         - Security
       security:
         - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/TrailResponse"
         "400":
           $ref: "#/components/responses/400"
         "500":
@@ -341,7 +396,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/CatalogResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -393,7 +448,10 @@ paths:
   "/threat-designer/mcp/all":
     get:
       summary: Fetch all threat models for a given user (MCP)
-      description: Fetch all threat models for a given user (MCP)
+      description: |
+        Fetch all threat models for a given user using MCP API key authentication.
+        This endpoint provides the same functionality as the JWT version.
+        Note: Response items do not include is_owner and access_level fields (JWT-only fields).
       tags:
         - Security
       security:
@@ -404,7 +462,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/CatalogResponse"
         "400":
           $ref: "#/components/responses/400"
         "500":
@@ -424,13 +482,19 @@ paths:
       description: Submit Threat modeling
       tags:
         - Security
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateThreatModelRequest'
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/CreateThreatModelResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -482,18 +546,26 @@ paths:
   "/threat-designer/mcp":
     post:
       summary: Submit Threat modeling (MCP)
-      description: Submit Threat modeling (MCP)
+      description: |
+        Submit Threat modeling using MCP API key authentication.
+        This endpoint provides the same functionality as the JWT version.
       tags:
         - Security
       security:
         - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateThreatModelRequest'
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/CreateThreatModelResponse"
         "400":
           $ref: "#/components/responses/400"
         "500":
@@ -513,13 +585,19 @@ paths:
       description: Generates download presigned-url
       tags:
         - Security
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DownloadRequest'
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/PresignedUrlResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -571,18 +649,26 @@ paths:
   "/threat-designer/mcp/download":
     post:
       summary: Generates download presigned-url (MCP)
-      description: Generates download presigned-url (MCP)
+      description: |
+        Generates download presigned-url using MCP API key authentication.
+        This endpoint provides the same functionality as the JWT version.
       tags:
         - Security
       security:
         - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DownloadRequest'
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/PresignedUrlResponse"
         "400":
           $ref: "#/components/responses/400"
         "500":
@@ -602,13 +688,19 @@ paths:
       description: Generates presigned-url
       tags:
         - Security
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadRequest'
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/PresignedUrlResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -660,18 +752,26 @@ paths:
   "/threat-designer/mcp/upload":
     post:
       summary: Generates presigned-url (MCP)
-      description: Generates presigned-url (MCP)
+      description: |
+        Generates presigned-url using MCP API key authentication.
+        This endpoint provides the same functionality as the JWT version.
       tags:
         - Security
       security:
         - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadRequest'
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/PresignedUrlResponse"
         "400":
           $ref: "#/components/responses/400"
         "500":
@@ -691,13 +791,21 @@ paths:
       description: Fetch Threat modeling details
       tags:
         - Security
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/ThreatModelResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -705,8 +813,10 @@ paths:
             Access-Control-Allow-Origin:
               schema:
                 type: string
-        "400":
-          $ref: "#/components/responses/400"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
         "500":
           $ref: "#/components/responses/500"
       x-amazon-apigateway-integration:
@@ -722,13 +832,27 @@ paths:
       description: Update Threat modeling
       tags:
         - Security
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateThreatModelRequest'
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/ThreatModelItem"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -738,6 +862,12 @@ paths:
                 type: string
         "400":
           $ref: "#/components/responses/400"
+        "403":
+          $ref: "#/components/responses/403"
+        "409":
+          $ref: "#/components/responses/409"
+        "410":
+          $ref: "#/components/responses/410"
         "500":
           $ref: "#/components/responses/500"
       x-amazon-apigateway-integration:
@@ -753,13 +883,28 @@ paths:
       description: Delete Threat model
       tags:
         - Security
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
+        - name: force_release
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: If true, forcefully releases any active lock before deletion
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/DeleteResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -767,8 +912,12 @@ paths:
             Access-Control-Allow-Origin:
               schema:
                 type: string
-        "400":
-          $ref: "#/components/responses/400"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
         "500":
           $ref: "#/components/responses/500"
       x-amazon-apigateway-integration:
@@ -814,13 +963,28 @@ paths:
       description: Stop threat model execution
       tags:
         - Security
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Agent execution session identifier
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/DeleteResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -872,20 +1036,33 @@ paths:
   "/threat-designer/mcp/{id}":
     get:
       summary: Fetch Threat modeling details (MCP)
-      description: Fetch Threat modeling details (MCP)
+      description: |
+        Fetch Threat modeling details using MCP API key authentication.
+        This endpoint provides the same functionality as the JWT version.
+        Note: Response does not include is_owner and access_level fields (JWT-only fields).
       tags:
         - Security
       security:
         - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
-        "400":
-          $ref: "#/components/responses/400"
+                $ref: "#/components/schemas/ThreatModelResponse"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
         "500":
           $ref: "#/components/responses/500"
       x-amazon-apigateway-integration:
@@ -898,20 +1075,44 @@ paths:
         passthroughBehavior: NEVER
     put:
       summary: Update Threat modeling (MCP)
-      description: Update Threat modeling (MCP)
+      description: |
+        Update Threat modeling using MCP API key authentication.
+        This endpoint provides the same functionality as the JWT version.
+        Note: lock_token is not required for MCP users as they bypass lock mechanisms.
+        Note: Response does not include is_owner and access_level fields (JWT-only fields).
       tags:
         - Security
       security:
         - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateThreatModelRequest'
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/ThreatModelItem"
         "400":
           $ref: "#/components/responses/400"
+        "403":
+          $ref: "#/components/responses/403"
+        "409":
+          $ref: "#/components/responses/409"
+        "410":
+          $ref: "#/components/responses/410"
         "500":
           $ref: "#/components/responses/500"
       x-amazon-apigateway-integration:
@@ -924,20 +1125,41 @@ paths:
         passthroughBehavior: NEVER
     delete:
       summary: Delete Threat model (MCP)
-      description: Delete Threat model (MCP)
+      description: |
+        Delete Threat model using MCP API key authentication.
+        This endpoint provides the same functionality as the JWT version.
       tags:
         - Security
       security:
         - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
+        - name: force_release
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: If true, forcefully releases any active lock before deletion
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
-        "400":
-          $ref: "#/components/responses/400"
+                $ref: "#/components/schemas/DeleteResponse"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
         "500":
           $ref: "#/components/responses/500"
       x-amazon-apigateway-integration:
@@ -950,19 +1172,36 @@ paths:
         passthroughBehavior: NEVER
   "/threat-designer/mcp/{id}/session/{session_id}":
     delete:
-      summary: Stop threat model execution
-      description: Stop threat model execution
+      summary: Stop threat model execution (MCP)
+      description: |
+        Stop threat model execution using MCP API key authentication.
+        This endpoint provides the same functionality as the JWT version.
       tags:
         - Security
       security:
         - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Agent execution session identifier
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/DeleteResponse"
         "400":
           $ref: "#/components/responses/400"
         "500":
@@ -982,30 +1221,27 @@ paths:
       description: Share a threat model with specific users and access levels
       tags:
         - Collaboration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                collaborators:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      user_id:
-                        type: string
-                      access_level:
-                        type: string
-                        enum: [READ_ONLY, EDIT]
+              $ref: '#/components/schemas/ShareThreatModelRequest'
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/ShareOperationResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -1017,6 +1253,8 @@ paths:
           $ref: "#/components/responses/400"
         "403":
           $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
         "500":
           $ref: "#/components/responses/500"
       x-amazon-apigateway-integration:
@@ -1062,15 +1300,21 @@ paths:
       description: Retrieve list of users who have access to this threat model
       tags:
         - Collaboration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
+                $ref: "#/components/schemas/CollaboratorsResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -1082,6 +1326,8 @@ paths:
           $ref: "#/components/responses/400"
         "403":
           $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
         "500":
           $ref: "#/components/responses/500"
       x-amazon-apigateway-integration:
@@ -1127,13 +1373,28 @@ paths:
       description: Remove a user's access to the threat model
       tags:
         - Collaboration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Cognito user identifier (sub)
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/ShareOperationResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -1145,6 +1406,8 @@ paths:
           $ref: "#/components/responses/400"
         "403":
           $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
         "500":
           $ref: "#/components/responses/500"
       x-amazon-apigateway-integration:
@@ -1160,23 +1423,34 @@ paths:
       description: Change a collaborator's access level
       tags:
         - Collaboration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Cognito user identifier (sub)
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                access_level:
-                  type: string
-                  enum: [READ_ONLY, EDIT]
+              $ref: '#/components/schemas/UpdateCollaboratorAccessRequest'
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/ShareOperationResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -1188,6 +1462,8 @@ paths:
           $ref: "#/components/responses/400"
         "403":
           $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
         "500":
           $ref: "#/components/responses/500"
       x-amazon-apigateway-integration:
@@ -1233,15 +1509,27 @@ paths:
       description: Get list of Cognito users for sharing
       tags:
         - Collaboration
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter users by email prefix
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+          description: Maximum number of users to return
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
+                $ref: "#/components/schemas/UsersResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -1296,18 +1584,21 @@ paths:
       description: Acquire an exclusive lock for editing a threat model
       tags:
         - Lock Management
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
       responses:
         "200":
-          description: Lock acquired successfully
+          description: Lock acquired successfully or lock already held by another user
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  lock_token:
-                    type: string
+                $ref: "#/components/schemas/LockAcquireResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -1315,8 +1606,10 @@ paths:
             Access-Control-Allow-Origin:
               schema:
                 type: string
-        "400":
-          $ref: "#/components/responses/400"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
         "409":
           $ref: "#/components/responses/409"
         "500":
@@ -1334,22 +1627,27 @@ paths:
       description: Gracefully release an edit lock
       tags:
         - Lock Management
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                lock_token:
-                  type: string
+              $ref: '#/components/schemas/LockTokenRequest'
       responses:
         "200":
-          description: OK
+          description: Lock released successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/LockOperationResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -1406,22 +1704,27 @@ paths:
       description: Update lock timestamp to maintain active lock
       tags:
         - Lock Management
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                lock_token:
-                  type: string
+              $ref: '#/components/schemas/LockTokenRequest'
       responses:
         "200":
-          description: OK
+          description: Lock refreshed successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/LockOperationResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -1478,13 +1781,21 @@ paths:
       description: Check current lock status for a threat model
       tags:
         - Lock Management
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
       responses:
         "200":
-          description: OK
+          description: Lock status retrieved successfully
           content:
             application/json:
               schema:
-                type: object
+                $ref: "#/components/schemas/LockStatusResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -1492,8 +1803,8 @@ paths:
             Access-Control-Allow-Origin:
               schema:
                 type: string
-        "400":
-          $ref: "#/components/responses/400"
+        "404":
+          $ref: "#/components/responses/404"
         "500":
           $ref: "#/components/responses/500"
       x-amazon-apigateway-integration:
@@ -1539,13 +1850,21 @@ paths:
       description: Owner can force release any lock on their threat model
       tags:
         - Lock Management
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
       responses:
         "200":
-          description: OK
+          description: Lock forcefully released
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SecurityMetrics"
+                $ref: "#/components/schemas/LockOperationResponse"
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -1553,10 +1872,10 @@ paths:
             Access-Control-Allow-Origin:
               schema:
                 type: string
-        "400":
-          $ref: "#/components/responses/400"
         "403":
           $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
         "500":
           $ref: "#/components/responses/500"
       x-amazon-apigateway-integration:
@@ -1598,9 +1917,7 @@ paths:
 
 components:
   schemas:
-    SecurityMetrics:
-      type: object
-      additionalProperties: {}
+    # Error Response Schemas
     Error:
       type: object
       properties:
@@ -1609,12 +1926,738 @@ components:
         message:
           type: string
           description: Error message friendly enough to be presented on user interfaces
+    
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Error code identifier
+        message:
+          type: string
+          description: Human-readable error message
+    
+    ConflictErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - type: object
+          properties:
+            server_timestamp:
+              type: string
+              format: date-time
+              description: Server's last modification timestamp (for version conflicts)
+            client_timestamp:
+              type: string
+              format: date-time
+              description: Client's last known timestamp (for version conflicts)
+            server_state:
+              $ref: '#/components/schemas/ThreatModelItem'
+              description: Current server state (for version conflicts)
+    
+    LockLostErrorResponse:
+      type: object
+      required:
+        - success
+        - message
+        - status_code
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+          description: Always false for error responses
+        message:
+          type: string
+          description: Human-readable error message
+        status_code:
+          type: integer
+          enum: [410]
+          description: HTTP status code
+        held_by:
+          type: string
+          format: uuid
+          description: User ID now holding the lock (optional)
+    
+    # Nested Object Schemas
+    Asset:
+      type: object
+      required:
+        - type
+        - name
+        - description
+      properties:
+        type:
+          type: string
+          description: Type of asset (e.g., Database, API, Service)
+        name:
+          type: string
+          description: Name of the asset
+        description:
+          type: string
+          description: Description of the asset
+    
+    Assets:
+      type: object
+      properties:
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Asset'
+          description: List of system assets
+    
+    Threat:
+      type: object
+      required:
+        - name
+        - stride_category
+        - description
+        - target
+        - impact
+        - likelihood
+      properties:
+        name:
+          type: string
+          description: Name of the threat
+        stride_category:
+          type: string
+          description: STRIDE category (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege)
+        description:
+          type: string
+          description: Detailed description of the threat
+        target:
+          type: string
+          description: Asset or component being threatened
+        impact:
+          type: string
+          description: Potential impact of the threat
+        likelihood:
+          type: string
+          description: Likelihood of the threat occurring
+        mitigations:
+          type: array
+          items:
+            type: string
+          description: List of mitigation strategies
+        source:
+          type: string
+          description: Threat actor or source
+        prerequisites:
+          type: array
+          items:
+            type: string
+          description: Prerequisites for the threat to occur
+        vector:
+          type: string
+          description: Attack vector
+        starred:
+          type: boolean
+          description: Whether this threat is marked as important
+    
+    ThreatList:
+      type: object
+      properties:
+        threats:
+          type: array
+          items:
+            $ref: '#/components/schemas/Threat'
+          description: List of identified threats
+    
+    SystemArchitecture:
+      type: object
+      properties:
+        data_flows:
+          type: array
+          items:
+            type: object
+          description: Data flow definitions
+        trust_boundaries:
+          type: array
+          items:
+            type: object
+          description: Trust boundary definitions
+        threat_sources:
+          type: array
+          items:
+            type: object
+          description: Threat source definitions
+    
+    # User and Collaborator Schemas
+    CollaboratorInput:
+      type: object
+      required:
+        - user_id
+        - access_level
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Cognito user identifier (sub)
+        access_level:
+          type: string
+          enum: [READ_ONLY, EDIT]
+          description: Access level to grant
+    
+    Collaborator:
+      type: object
+      required:
+        - user_id
+        - username
+        - access_level
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Cognito user identifier (sub)
+        username:
+          type: string
+          description: Username of the collaborator
+        email:
+          type: string
+          format: email
+          description: Email address of the collaborator
+        name:
+          type: string
+          description: Full name of the collaborator
+        access_level:
+          type: string
+          enum: [READ_ONLY, EDIT]
+          description: Access level granted to the collaborator
+        shared_at:
+          type: string
+          format: date-time
+          description: When access was granted
+        shared_by:
+          type: string
+          format: uuid
+          description: User ID who granted access
+    
+    CognitoUser:
+      type: object
+      required:
+        - user_id
+        - username
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Cognito sub (UUID)
+        username:
+          type: string
+          description: Username
+        email:
+          type: string
+          format: email
+          description: Email address
+        name:
+          type: string
+          description: Full name
+        enabled:
+          type: boolean
+          description: Whether the user account is enabled
+        status:
+          type: string
+          description: User account status
+        email_verified:
+          type: boolean
+          description: Whether the email is verified
+    
+    # Response Schemas for Collaboration Operations
+    CollaboratorsResponse:
+      type: object
+      required:
+        - collaborators
+      properties:
+        collaborators:
+          type: array
+          items:
+            $ref: '#/components/schemas/Collaborator'
+          description: List of users who have access to the threat model
+    
+    UsersResponse:
+      type: object
+      required:
+        - users
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/CognitoUser'
+          description: List of available Cognito users
+    
+    ShareOperationResponse:
+      type: object
+      required:
+        - success
+        - threat_model_id
+      properties:
+        success:
+          type: boolean
+          description: Whether the operation was successful
+        threat_model_id:
+          type: string
+          format: uuid
+          description: The threat model identifier
+        shared_count:
+          type: integer
+          description: Number of collaborators added (for share operation)
+        removed_user:
+          type: string
+          format: uuid
+          description: User ID that was removed (for remove operation)
+        user_id:
+          type: string
+          format: uuid
+          description: User ID that was updated (for update operation)
+        new_access_level:
+          type: string
+          enum: [READ_ONLY, EDIT]
+          description: New access level (for update operation)
+    
+    # Threat Model Schemas
+    ThreatModelItem:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          description: The threat model identifier
+        title:
+          type: string
+          description: Title of the threat model
+        state:
+          type: string
+          enum: [START, PENDING, PROCESSING, COMPLETE, FAILED]
+          description: Current state of the threat model
+        summary:
+          type: string
+          description: Summary of the threat model
+        description:
+          type: string
+          description: Description of the system being modeled
+        assumptions:
+          type: array
+          items:
+            type: string
+          description: List of assumptions about the system
+        assets:
+          $ref: '#/components/schemas/Assets'
+        system_architecture:
+          $ref: '#/components/schemas/SystemArchitecture'
+        threat_list:
+          $ref: '#/components/schemas/ThreatList'
+        owner:
+          type: string
+          format: uuid
+          description: User ID of the threat model owner
+        created_at:
+          type: string
+          format: date-time
+          description: When the threat model was created
+        last_modified_at:
+          type: string
+          format: date-time
+          description: When the threat model was last modified
+        last_modified_by:
+          type: string
+          format: uuid
+          description: User ID who last modified the threat model
+        is_owner:
+          type: boolean
+          description: True if requesting user is the owner (JWT users only)
+        access_level:
+          type: string
+          enum: [OWNER, EDIT, READ_ONLY]
+          description: User's access level (JWT users only)
+        s3_location:
+          type: string
+          description: S3 path to the architecture diagram
+        retry:
+          type: integer
+          description: Reasoning boost level used
+    
+    CatalogItem:
+      type: object
+      required:
+        - job_id
+        - title
+        - state
+        - created_at
+        - owner
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          description: The threat model identifier
+        title:
+          type: string
+          description: Title of the threat model
+        state:
+          type: string
+          enum: [START, PENDING, PROCESSING, COMPLETE, FAILED]
+          description: Current state of the threat model
+        created_at:
+          type: string
+          format: date-time
+          description: When the threat model was created
+        owner:
+          type: string
+          format: uuid
+          description: User ID of the threat model owner
+        is_owner:
+          type: boolean
+          description: True if requesting user is the owner (JWT users only)
+        access_level:
+          type: string
+          enum: [OWNER, EDIT, READ_ONLY]
+          description: User's access level (JWT users only)
+        shared_by:
+          type: string
+          format: uuid
+          description: User ID who shared this threat model (only for shared items)
+    
+    # Request Body Schemas
+    CreateThreatModelRequest:
+      type: object
+      required:
+        - s3_location
+        - iteration
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Optional UUID for the threat model. Generated if not provided or replay is false
+        title:
+          type: string
+          description: Title of the threat model
+        description:
+          type: string
+          description: Description of the system being modeled
+        assumptions:
+          type: array
+          items:
+            type: string
+          description: List of assumptions about the system
+        s3_location:
+          type: string
+          description: S3 path to the architecture diagram
+        iteration:
+          type: integer
+          description: Iteration number for the threat model generation
+        reasoning:
+          type: integer
+          minimum: 0
+          maximum: 3
+          default: 0
+          description: Reasoning boost level (0-3)
+        instructions:
+          type: string
+          description: Custom instructions for the agent
+        replay:
+          type: boolean
+          default: false
+          description: If true, replays an existing threat model with the provided id
+    
+    UpdateThreatModelRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Title of the threat model
+        assets:
+          $ref: '#/components/schemas/Assets'
+        system_architecture:
+          $ref: '#/components/schemas/SystemArchitecture'
+        threat_list:
+          $ref: '#/components/schemas/ThreatList'
+        client_last_modified_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of client's last known modification time
+        lock_token:
+          type: string
+          format: uuid
+          description: Lock token obtained from acquiring a lock (required for JWT users)
+    
+    ShareThreatModelRequest:
+      type: object
+      required:
+        - collaborators
+      properties:
+        collaborators:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollaboratorInput'
+          description: List of users to share with and their access levels
+    
+    UpdateCollaboratorAccessRequest:
+      type: object
+      required:
+        - access_level
+      properties:
+        access_level:
+          type: string
+          enum: [READ_ONLY, EDIT]
+          description: New access level for the collaborator
+    
+    LockTokenRequest:
+      type: object
+      required:
+        - lock_token
+      properties:
+        lock_token:
+          type: string
+          format: uuid
+          description: Lock token to validate
+    
+    UploadRequest:
+      type: object
+      required:
+        - file_type
+      properties:
+        file_type:
+          type: string
+          default: image/png
+          description: MIME type of the file to upload
+    
+    DownloadRequest:
+      type: object
+      required:
+        - s3_location
+      properties:
+        s3_location:
+          type: string
+          description: S3 path to the object to download
+    
+    # Response Schemas for Upload/Download Operations
+    PresignedUrlResponse:
+      type: object
+      required:
+        - presigned
+        - name
+      properties:
+        presigned:
+          type: string
+          format: uri
+          description: Presigned URL for upload/download
+        name:
+          type: string
+          description: S3 object key
+    
+    # Response Schemas for Threat Model Operations
+    CreateThreatModelResponse:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The threat model identifier
+    
+    ThreatModelResponse:
+      type: object
+      required:
+        - job_id
+        - state
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          description: The threat model identifier
+        state:
+          type: string
+          enum: [Found, Not Found]
+          description: Whether the threat model was found
+        item:
+          $ref: '#/components/schemas/ThreatModelItem'
+          description: Threat model data (null when state is Not Found)
+    
+    StatusResponse:
+      type: object
+      required:
+        - id
+        - state
+        - retry
+        - session_id
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The threat model identifier
+        state:
+          type: string
+          enum: [START, PENDING, PROCESSING, COMPLETE, FAILED, Not Found]
+          description: Current execution state
+        retry:
+          type: integer
+          description: Reasoning boost level used for this execution
+        session_id:
+          type: string
+          format: uuid
+          description: Unique identifier for the agent execution session
+        execution_owner:
+          type: string
+          format: uuid
+          description: User ID who started this execution (optional)
+        detail:
+          type: string
+          description: Additional detail message about the state (optional)
+    
+    CatalogResponse:
+      type: object
+      required:
+        - catalogs
+      properties:
+        catalogs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogItem'
+          description: List of threat models accessible to the user
+    
+    DeleteResponse:
+      type: object
+      required:
+        - job_id
+        - state
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          description: The threat model identifier
+        state:
+          type: string
+          enum: [Deleted, Restored]
+          description: Result of the delete or restore operation
+    
+    TrailResponse:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The threat model identifier
+        assets:
+          type: string
+          description: Asset analysis reasoning trail
+        flows:
+          type: string
+          description: Data flow analysis reasoning trail
+        gaps:
+          type: array
+          items:
+            type: string
+          description: Gap analysis results
+        threats:
+          type: array
+          items:
+            type: string
+          description: Threat generation reasoning trail
+    
+    # Response Schemas for Lock Operations
+    LockAcquireResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          description: Whether the lock was successfully acquired
+        message:
+          type: string
+          description: Human-readable message about the lock operation
+        lock_token:
+          type: string
+          format: uuid
+          description: Lock token (present when success is true)
+        acquired_at:
+          type: string
+          format: date-time
+          description: When the lock was acquired (present when success is true)
+        expires_at:
+          type: integer
+          description: Unix timestamp when lock expires (present when success is true)
+        held_by:
+          type: string
+          format: uuid
+          description: User ID holding the lock (present when success is false)
+        username:
+          type: string
+          description: Username of lock holder (present when success is false)
+        since:
+          type: string
+          format: date-time
+          description: When the lock was acquired by other user (present when success is false)
+        lock_timestamp:
+          type: integer
+          description: Unix timestamp of lock acquisition (present when success is false)
+    
+    LockStatusResponse:
+      type: object
+      required:
+        - locked
+        - message
+      properties:
+        locked:
+          type: boolean
+          description: Whether the threat model is currently locked
+        message:
+          type: string
+          description: Human-readable message about the lock status
+        user_id:
+          type: string
+          format: uuid
+          description: User ID holding the lock (present when locked is true)
+        username:
+          type: string
+          description: Username of lock holder (present when locked is true)
+        lock_token:
+          type: string
+          format: uuid
+          description: Current lock token (present when locked is true)
+        since:
+          type: string
+          format: date-time
+          description: When the lock was acquired (present when locked is true)
+        lock_timestamp:
+          type: integer
+          description: Unix timestamp of lock acquisition (present when locked is true)
+        expires_at:
+          type: integer
+          description: Unix timestamp when lock expires (present when locked is true)
+        stale:
+          type: boolean
+          description: True if lock is stale (optional)
+    
+    LockOperationResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          description: Whether the lock operation was successful
+        message:
+          type: string
+          description: Human-readable message about the lock operation
+        expires_at:
+          type: integer
+          description: Unix timestamp when lock expires (for refresh operations)
+        previous_holder:
+          type: string
+          format: uuid
+          description: User ID who previously held the lock (for force release)
   responses:
     "400":
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: "#/components/schemas/ErrorResponse"
       description: Client Errors
       headers:
         Access-Control-Allow-Headers:
@@ -1627,8 +2670,21 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: "#/components/schemas/ErrorResponse"
       description: Forbidden - Insufficient permissions
+      headers:
+        Access-Control-Allow-Headers:
+          schema:
+            type: string
+        Access-Control-Allow-Origin:
+          schema:
+            type: string
+    "404":
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+      description: Not Found - Resource does not exist
       headers:
         Access-Control-Allow-Headers:
           schema:
@@ -1640,7 +2696,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: "#/components/schemas/ConflictErrorResponse"
       description: Conflict - Resource is locked or version conflict
       headers:
         Access-Control-Allow-Headers:
@@ -1653,7 +2709,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: "#/components/schemas/LockLostErrorResponse"
       description: Gone - Lock has been lost
       headers:
         Access-Control-Allow-Headers:
@@ -1666,7 +2722,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: "#/components/schemas/ErrorResponse"
       description: Locked - Resource is currently locked by another user
       headers:
         Access-Control-Allow-Headers:
@@ -1679,7 +2735,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: "#/components/schemas/ErrorResponse"
       description: Server Errors
       headers:
         Access-Control-Allow-Headers:

@@ -120,7 +120,7 @@ def _load_model_configs() -> ModelConfigurations:
             )
             raise ValueError(
                 f"Missing required model configurations: {', '.join(missing_configs)}. "
-                f"Please ensure {ENV_MAIN_MODEL}, {ENV_MODEL_STRUCT}, and {ENV_MODEL_SUMMARY} "
+                f"Please ensure {ENV_MAIN_MODEL}, {ENV_MODEL_STRUCT}, {ENV_MODEL_SUMMARY}"
                 "environment variables are properly set."
             )
 

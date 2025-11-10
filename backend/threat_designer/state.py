@@ -183,21 +183,18 @@ class Threat(BaseModel):
     source: Annotated[
         str,
         Field(
-            default=None,
-            description="The threat actor or agent who could execute this threat",
+            description="The threat actor or agent who could execute this threat. Must match with the category field in threat_source ",
         ),
     ]
     prerequisites: Annotated[
         List[str],
         Field(
-            default=[],
             description="Required conditions, access levels, knowledge, or system states that must exist for this threat to be viable",
         ),
     ]
     vector: Annotated[
         str,
         Field(
-            default=None,
             description="The attack vector or pathway through which the threat could be delivered or executed",
         ),
     ]
@@ -253,6 +250,7 @@ class AgentState(TypedDict):
     gap: Annotated[List[str], operator.add] = []
     replay: Optional[bool] = False
     instructions: Optional[str] = None
+    traditional_acceptance_rates: Annotated[List[float], operator.add] = []
 
 
 class ThreatState(MessagesState):
@@ -261,6 +259,9 @@ class ThreatState(MessagesState):
     threat_list: Annotated[ThreatsList, operator.add]
     tool_use: int = 0
     gap_tool_use: int = 0
+    gap_called_since_reset: bool = (
+        False  # Tracks if gap_analysis has been called since last counter reset
+    )
     assets: Optional[AssetsList] = None
     image_data: Optional[str] = None
     system_architecture: Optional[FlowsList] = None

@@ -13,25 +13,25 @@ graph TB
         AMPLIFY[Amplify SDK]
         AUTH_SERVICE[Auth Service<br/>auth.js]
     end
-    
+
     subgraph "Amazon Cognito"
         USER_POOL[Cognito User Pool]
         HOSTED_UI[Hosted UI Domain]
         USER_DB[(User Database)]
     end
-    
+
     subgraph "Application State"
         APP[App.jsx]
         LOGIN[LoginForm.jsx]
         PROTECTED[Protected Routes]
     end
-    
+
     UI --> AMPLIFY
     AMPLIFY --> AUTH_SERVICE
     AUTH_SERVICE --> USER_POOL
     USER_POOL --> USER_DB
     USER_POOL --> HOSTED_UI
-    
+
     APP --> AUTH_SERVICE
     LOGIN --> AMPLIFY
     AUTH_SERVICE --> APP
@@ -45,6 +45,7 @@ graph TB
 The Cognito User Pool is configured with the following security policies:
 
 **Password Policy**:
+
 - Minimum length: 8 characters
 - Requires lowercase letters
 - Requires uppercase letters
@@ -52,15 +53,18 @@ The Cognito User Pool is configured with the following security policies:
 - Requires special characters
 
 **Account Settings**:
+
 - Admin-only user creation: Enabled (prevents self-service sign-up)
 - Auto-verified attributes: Email
 - MFA: Disabled (can be enabled as needed)
 
 **Account Recovery**:
+
 - Recovery mechanism: Verified email
 - Priority: 1
 
 **Token Validity**:
+
 - Access token: 8 hours
 - ID token: 8 hours
 - Refresh token: 30 days
@@ -68,22 +72,27 @@ The Cognito User Pool is configured with the following security policies:
 ### OAuth Configuration
 
 **Supported Flows**:
+
 - Authorization code flow
 - Implicit flow
 
 **Identity Providers**:
+
 - Cognito User Pool (username/password)
 
 **OAuth Scopes**:
+
 - `email`
 - `openid`
 - `profile`
 
 **Callback URLs**:
+
 - Production: `https://{branch}.{amplify-domain}`
 - Development: `http://localhost:5173`
 
 **Logout URLs**:
+
 - Production: `https://{branch}.{amplify-domain}`
 - Development: `http://localhost:5173`
 
@@ -102,7 +111,7 @@ The Cognito infrastructure is defined in Terraform (`infra/cognito.tf`):
 ```terraform
 resource "aws_cognito_user_pool" "user_pool" {
   name = "${local.prefix}-user-pool"
-  
+
   password_policy {
     minimum_length    = 8
     require_lowercase = true
@@ -110,7 +119,7 @@ resource "aws_cognito_user_pool" "user_pool" {
     require_symbols   = true
     require_uppercase = true
   }
-  
+
   admin_create_user_config {
     allow_admin_create_user_only = true
   }
@@ -119,11 +128,11 @@ resource "aws_cognito_user_pool" "user_pool" {
 resource "aws_cognito_user_pool_client" "client" {
   name         = "${local.prefix}-app-client"
   user_pool_id = aws_cognito_user_pool.user_pool.id
-  
+
   access_token_validity  = 8
   id_token_validity      = 8
   refresh_token_validity = 30
-  
+
   token_validity_units {
     access_token  = "hours"
     id_token      = "hours"
@@ -146,14 +155,8 @@ const amplifyConfig = {
         oauth: {
           domain: import.meta.env.VITE_COGNITO_DOMAIN,
           scopes: ["email", "openid", "profile"],
-          redirectSignIn: [
-            "http://localhost:5173",
-            import.meta.env.VITE_REDIRECT_SIGN_IN
-          ],
-          redirectSignOut: [
-            "http://localhost:5173",
-            import.meta.env.VITE_REDIRECT_SIGN_OUT
-          ],
+          redirectSignIn: ["http://localhost:5173", import.meta.env.VITE_REDIRECT_SIGN_IN],
+          redirectSignOut: ["http://localhost:5173", import.meta.env.VITE_REDIRECT_SIGN_OUT],
           responseType: "code",
         },
       },
@@ -166,6 +169,7 @@ const amplifyConfig = {
 ```
 
 **Environment Variables**:
+
 - `VITE_COGNITO_DOMAIN`: Cognito hosted UI domain
 - `VITE_COGNITO_REGION`: AWS region for Cognito
 - `VITE_USER_POOL_ID`: Cognito User Pool ID
@@ -193,6 +197,7 @@ The authentication service (`src/services/Auth/auth.js`) provides a clean abstra
 ### Core Functions
 
 **Sign In**:
+
 ```javascript
 export const signIn = () => {
   return signInWithRedirect({ provider: "Cognito" });
@@ -200,6 +205,7 @@ export const signIn = () => {
 ```
 
 **Get Current User**:
+
 ```javascript
 export const getUser = async () => {
   try {
@@ -224,6 +230,7 @@ export const getUser = async () => {
 ```
 
 **Get Session**:
+
 ```javascript
 export const getSession = () => {
   return fetchAuthSession();
@@ -231,6 +238,7 @@ export const getSession = () => {
 ```
 
 **Sign Out**:
+
 ```javascript
 export const logOut = () => {
   return signOut().then(() => {
@@ -266,7 +274,7 @@ sequenceDiagram
     participant Login as LoginForm.jsx
     participant Amplify as Amplify SDK
     participant Cognito as Cognito User Pool
-    
+
     User->>App: Access application
     App->>App: checkAuthState()
     App->>Amplify: getUser()
@@ -274,14 +282,14 @@ sequenceDiagram
     Cognito-->>Amplify: No valid session
     Amplify-->>App: null
     App->>Login: Render LoginForm
-    
+
     User->>Login: Enter username & password
     Login->>Amplify: signIn({username, password})
     Amplify->>Cognito: Authenticate user
-    
+
     alt Valid credentials
         Cognito-->>Amplify: Success + nextStep
-        
+
         alt New password required
             Amplify-->>Login: nextStep: CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED
             Login->>Login: Show new password form
@@ -294,7 +302,7 @@ sequenceDiagram
             Cognito-->>Amplify: Success + tokens
             Amplify-->>Login: isSignedIn: true
         end
-        
+
         Login->>App: onSignInSuccess()
         App->>App: checkAuthState()
         App->>Amplify: getUser()
@@ -302,7 +310,7 @@ sequenceDiagram
         Cognito-->>Amplify: User data + ID token
         Amplify-->>App: User object
         App->>App: Render protected routes
-        
+
     else Invalid credentials
         Cognito-->>Amplify: Error
         Amplify-->>Login: Error message
@@ -319,7 +327,7 @@ sequenceDiagram
     participant Amplify as Amplify SDK
     participant Cognito as Cognito User Pool
     participant Email as Email Service
-    
+
     User->>Login: Click "Forgot Password"
     Login->>Login: Show forgot password form
     User->>Login: Enter username
@@ -330,11 +338,11 @@ sequenceDiagram
     Cognito-->>Amplify: Success
     Amplify-->>Login: Success
     Login->>Login: Show reset password form
-    
+
     User->>Login: Enter code & new password
     Login->>Amplify: confirmResetPassword({<br/>username, confirmationCode, newPassword})
     Amplify->>Cognito: Verify code & update password
-    
+
     alt Valid code
         Cognito-->>Amplify: Success
         Amplify-->>Login: Success
@@ -355,12 +363,12 @@ sequenceDiagram
     participant Amplify as Amplify SDK
     participant Cognito as Cognito User Pool
     participant Storage as Local Storage
-    
+
     Note over App: Application loads
     App->>App: checkAuthState()
     App->>Amplify: getUser()
     Amplify->>Storage: Check for tokens
-    
+
     alt Tokens exist and valid
         Storage-->>Amplify: Access + ID tokens
         Amplify->>Cognito: Validate tokens
@@ -368,11 +376,11 @@ sequenceDiagram
         Amplify->>Amplify: fetchAuthSession()
         Amplify-->>App: User object
         App->>App: Render protected routes
-        
+
     else Tokens expired
         Storage-->>Amplify: Expired tokens
         Amplify->>Cognito: Refresh using refresh token
-        
+
         alt Refresh token valid
             Cognito-->>Amplify: New access + ID tokens
             Amplify->>Storage: Store new tokens
@@ -383,7 +391,7 @@ sequenceDiagram
             Amplify-->>App: null
             App->>App: Render LoginForm
         end
-        
+
     else No tokens
         Storage-->>Amplify: No tokens
         Amplify-->>App: null
@@ -402,7 +410,7 @@ sequenceDiagram
     participant Cognito as Cognito User Pool
     participant Storage as Local Storage
     participant App as App.jsx
-    
+
     User->>Nav: Click sign out
     Nav->>Auth: logOut()
     Auth->>Amplify: signOut()
@@ -561,6 +569,7 @@ Once authenticated, the user object is passed down through the component tree:
 ```
 
 This allows components to:
+
 - Display user information (name, email)
 - Make authenticated API calls
 - Implement user-specific features
@@ -626,17 +635,17 @@ This returns:
 When making API calls to the backend, the application must include the JWT token in the Authorization header. The `fetchAuthSession()` function provides the ID token:
 
 ```javascript
-import { getSession } from './services/Auth/auth';
+import { getSession } from "./services/Auth/auth";
 
 const makeAuthenticatedRequest = async (url, options = {}) => {
   const session = await getSession();
   const token = session.tokens.idToken.toString();
-  
+
   return fetch(url, {
     ...options,
     headers: {
       ...options.headers,
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
     },
   });
 };
@@ -727,50 +736,55 @@ Users can reset their own passwords:
 ### Common Issues
 
 **Issue**: User cannot sign in after password reset
+
 - **Cause**: New password doesn't meet policy requirements
 - **Solution**: Ensure password has 8+ characters, mixed case, numbers, and symbols
 
 **Issue**: Session expires unexpectedly
+
 - **Cause**: Access token expired and refresh token also expired
 - **Solution**: User must sign in again (30-day refresh token validity)
 
 **Issue**: "User does not exist" error
+
 - **Cause**: Username incorrect or user not created in Cognito
 - **Solution**: Verify username and check Cognito User Pool
 
 **Issue**: Redirect loop after sign-in
+
 - **Cause**: Callback URL mismatch between Cognito and Amplify config
 - **Solution**: Verify `VITE_REDIRECT_SIGN_IN` matches Cognito callback URL
 
 ### Debugging
 
 **Check Authentication State**:
+
 ```javascript
-import { getUser, getSession } from './services/Auth/auth';
+import { getUser, getSession } from "./services/Auth/auth";
 
 const debugAuth = async () => {
   const user = await getUser();
   const session = await getSession();
-  console.log('User:', user);
-  console.log('Session:', session);
+  console.log("User:", user);
+  console.log("Session:", session);
 };
 ```
 
 **Check Token Expiration**:
+
 ```javascript
 const session = await getSession();
 const idToken = session.tokens.idToken;
 const expiresAt = new Date(idToken.payload.exp * 1000);
-console.log('Token expires at:', expiresAt);
+console.log("Token expires at:", expiresAt);
 ```
 
 **Monitor Amplify Events**:
-```javascript
-import { Hub } from 'aws-amplify/utils';
 
-Hub.listen('auth', (data) => {
-  console.log('Auth event:', data);
+```javascript
+import { Hub } from "aws-amplify/utils";
+
+Hub.listen("auth", (data) => {
+  console.log("Auth event:", data);
 });
 ```
-
-

@@ -121,19 +121,19 @@ export const useThreatModelPolling = (threatModelId, onStatusChange) => {
             });
           }
         } else if (currentStatus === "FAILED") {
-        /**
-         * TERMINAL STATE: FAILED
-         *
-         * The threat model generation failed with an error.
-         * Actions:
-         * 1. Stop polling
-         * 2. Set status to null (triggers error UI)
-         * 3. Set loading to false
-         * 4. Call onStatusChange callback to handle error
-         *
-         * Note: Status is set to null instead of "FAILED" to trigger
-         * the error alert display in the parent component.
-         */
+          /**
+           * TERMINAL STATE: FAILED
+           *
+           * The threat model generation failed with an error.
+           * Actions:
+           * 1. Stop polling
+           * 2. Set status to null (triggers error UI)
+           * 3. Set loading to false
+           * 4. Call onStatusChange callback to handle error
+           *
+           * Note: Status is set to null instead of "FAILED" to trigger
+           * the error alert display in the parent component.
+           */
           clearInterval(intervalId);
           setTmStatus(null);
           setLoading(false);
@@ -148,27 +148,27 @@ export const useThreatModelPolling = (threatModelId, onStatusChange) => {
             });
           }
         } else if (currentStatus === "FINALIZE") {
-        /**
-         * INTERMEDIATE STATE: FINALIZE
-         *
-         * The agent is finalizing the threat model (last step before COMPLETE).
-         * Actions:
-         * 1. Continue polling (not terminal yet)
-         * 2. Update status to FINALIZE
-         * 3. Set loading to false (show processing UI, not loading spinner)
-         */
+          /**
+           * INTERMEDIATE STATE: FINALIZE
+           *
+           * The agent is finalizing the threat model (last step before COMPLETE).
+           * Actions:
+           * 1. Continue polling (not terminal yet)
+           * 2. Update status to FINALIZE
+           * 3. Set loading to false (show processing UI, not loading spinner)
+           */
           setTmStatus(currentStatus);
           setLoading(false);
         } else {
-        /**
-         * INTERMEDIATE STATES: START or PROCESSING
-         *
-         * The threat model is being generated.
-         * Actions:
-         * 1. Continue polling
-         * 2. Update status
-         * 3. Set loading to false (show processing UI)
-         */
+          /**
+           * INTERMEDIATE STATES: START or PROCESSING
+           *
+           * The threat model is being generated.
+           * Actions:
+           * 1. Continue polling
+           * 2. Update status
+           * 3. Set loading to false (show processing UI)
+           */
           setTmStatus(currentStatus);
           setLoading(false);
         }

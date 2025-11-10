@@ -34,6 +34,9 @@ resource "aws_bedrockagentcore_agent_runtime" "threat_designer" {
   network_configuration {
     network_mode = "PUBLIC"
   }
+  lifecycle_configuration {
+    idle_runtime_session_timeout = 7200
+  }
   depends_on = [null_resource.docker_agent_build_push]
 }
 

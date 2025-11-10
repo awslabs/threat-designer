@@ -88,8 +88,28 @@ MITIGATION_MAX_ITEMS = 5
 SUMMARY_MAX_WORDS_DEFAULT = 40
 
 # Tool usage limits
-MAX_ADD_THREATS_USES = 7
-MAX_GAP_ANALYSIS_USES = 2
+# These limits work together to enforce iterative threat catalog refinement:
+#
+# MAX_ADD_THREATS_USES: Maximum number of times add_threats can be called before
+# requiring gap_analysis validation. When this limit is reached, the agent must
+# call gap_analysis to verify the threat catalog's completeness before continuing.
+# This counter is RESET to 0 each time gap_analysis is successfully invoked,
+# allowing the agent to add more threats after validation.
+#
+# MAX_GAP_ANALYSIS_USES: Maximum number of times gap_analysis can be called during
+# a threat modeling session. This limit prevents excessive gap analysis cycles and
+# ensures the agent makes progress toward completion. Unlike add_threats, this
+# counter is NOT reset and accumulates throughout the entire session.
+#
+# Relationship: These limits create a validation cycle where the agent must
+# periodically validate the threat catalog (via gap_analysis) before continuing
+# to add threats. The theoretical maximum threats that can be added is:
+# MAX_ADD_THREATS_USES * (MAX_GAP_ANALYSIS_USES + 1)
+# Example: 10 * (3 + 1) = 40 total add_threats calls possible
+#
+# When both limits are exhausted, the agent can only delete threats or finish.
+MAX_ADD_THREATS_USES = 3
+MAX_GAP_ANALYSIS_USES = 3
 
 
 # ============================================================================

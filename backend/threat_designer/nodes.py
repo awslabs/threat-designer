@@ -195,12 +195,13 @@ class ThreatDefinitionService:
             messages = self._prepare_threat_messages(state, retry_count)
             response = self._invoke_threat_model(messages, config)
 
+            # Perform similarity audit (for traditional workflow only)
+            threats_response = response["structured_response"]
+
             self._update_reasoning_trail(
                 response["reasoning"], config, job_id, retry_count
             )
-            return self._create_next_command(
-                response["structured_response"], retry_count, iteration
-            )
+            return self._create_next_command(threats_response, retry_count, iteration)
 
     def _should_finalize(
         self, retry_count: int, iteration: int, config: RunnableConfig
@@ -224,7 +225,6 @@ class ThreatDefinitionService:
 
     def _prepare_threat_messages(self, state: AgentState, retry_count: int) -> list:
         """Prepare messages for threat definition."""
-        gap = state.get("gap", [])
         threat_list = state.get("threat_list")
         if threat_list is not None:
             threats = threat_list.threats
@@ -286,15 +286,15 @@ class ThreatDefinitionService:
         """Create next command based on current state."""
         next_retry = retry_count + 1
 
+        update_dict = {"threat_list": response, "retry": next_retry}
+
         if iteration == 0:
             return Command(
                 goto="gap_analysis",
-                update={"threat_list": response, "retry": next_retry},
+                update=update_dict,
             )
 
-        return Command(
-            goto="threats", update={"threat_list": response, "retry": next_retry}
-        )
+        return Command(goto="threats", update=update_dict)
 
 
 class GapAnalysisService:
@@ -393,6 +393,23 @@ class WorkflowFinalizationService:
                 time.sleep(FINALIZATION_SLEEP_SECONDS)
                 self.state_service.update_job_state(job_id, JobState.COMPLETE.value)
                 return Command(goto=END)
+            except RuntimeError as e:
+                # Handle graceful shutdown scenarios (e.g., session cancelled by user)
+                error_msg = str(e)
+                if (
+                    "cannot schedule new futures after interpreter shutdown"
+                    in error_msg
+                ):
+                    logger.info(
+                        "Finalization stopped due to session cancellation",
+                        job_id=job_id,
+                        error=error_msg,
+                    )
+                    # Don't mark as FAILED - this is a user-initiated cancellation
+                else:
+                    # Other RuntimeErrors should be treated as failures
+                    self.state_service.update_job_state(job_id, JobState.FAILED.value)
+                raise e
             except Exception as e:
                 self.state_service.update_job_state(job_id, JobState.FAILED.value)
                 raise e
@@ -413,10 +430,11 @@ class ReplayService:
 
         with operation_context("replay_routing", job_id):
             try:
+                # Clear the trail for replay
                 self.state_service.update_trail(
                     job_id=job_id, threats=[], gaps=[], flush=FLUSH_MODE_REPLACE
                 )
-                self.state_service.update_with_backup(job_id)
+                # Note: Backup is now created in backend/app before agent starts
                 return "replay"
             except Exception as e:
                 error_str = str(e)

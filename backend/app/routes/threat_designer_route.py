@@ -47,6 +47,7 @@ def _tm_status(id):
 
         # Verify user has at least READ_ONLY access
         from utils.authorization import require_access
+
         require_access(id, user_id, required_level="READ_ONLY")
 
         # Return status if authorized
@@ -60,6 +61,7 @@ def _tm_trail(id):
 
     # Verify user has at least READ_ONLY access
     from utils.authorization import require_access
+
     require_access(id, user_id, required_level="READ_ONLY")
 
     # Return trail if authorized

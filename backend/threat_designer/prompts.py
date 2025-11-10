@@ -31,6 +31,26 @@ def _get_likelihood_levels_string() -> str:
     return " | ".join([level.value for level in LikelihoodLevel])
 
 
+def _format_asset_list(assets) -> str:
+    """Helper function to format asset names as a bulleted list."""
+    if not assets or not assets.assets:
+        return "No assets identified yet."
+
+    asset_names = [asset.name for asset in assets.assets]
+    return "\n".join([f"  - {name}" for name in asset_names])
+
+
+def _format_threat_sources(system_architecture) -> str:
+    """Helper function to format threat source categories as a bulleted list."""
+    if not system_architecture or not system_architecture.threat_sources:
+        return "No threat sources identified yet."
+
+    source_categories = [
+        source.category for source in system_architecture.threat_sources
+    ]
+    return "\n".join([f"  - {category}" for category in source_categories])
+
+
 def summary_prompt() -> str:
     main_prompt = """<instruction>
    Use the information provided by the user to generate a short headline summary of max {SUMMARY_MAX_WORDS_DEFAULT} words.
@@ -121,7 +141,15 @@ You are an expert in all security domains and threat modeling. Your goal is to s
 
 4. Threat Actor Analysis:
 
-   **Definition**: Threat actors are individuals, groups, or entities with the potential to compromise the system's security objectives.
+   **Definition**: Threat actors are individuals, groups, or entities with the potential to compromise the system's security objectives AND are within the customer's sphere of control or responsibility.
+
+   **Scoping principles**:
+   - Apply the shared responsibility model: Only include threat actors the organization can reasonably defend against
+   - EXCLUDE infrastructure/platform provider employees (e.g., AWS, Azure, GCP staff)
+   - EXCLUDE managed service provider personnel operating outside customer's control
+   - EXCLUDE threat actors that are the vendor's responsibility in SaaS/PaaS scenarios
+   - INCLUDE threat actors that interact with customer-controlled components, data, or configurations
+   - Focus on the customer's responsibility boundary, not the provider's
 
    **Output format**: Present threat actors in a concise table format:
 
@@ -130,25 +158,32 @@ You are an expert in all security domains and threat modeling. Your goal is to s
    | [Actor Category] | [One sentence describing their relevance to this architecture] | [Brief list of 1-2 specific actor types] |
 
    **Standard threat actor categories to consider**:
-   - Legitimate Users (unintentional threats)
-   - Malicious Internal Actors (intentional insider threats)
-   - External Threat Actors (external attackers)
-   - Untrusted Data Suppliers (third-party integrations)
-   - Unauthorized External Users (no legitimate access)
-   - Compromised System Components (if applicable)
+   - Legitimate Users (unintentional threats from authorized users)
+   - Malicious Internal Actors (employees, contractors with insider access)
+   - External Threat Actors (attackers targeting exposed services)
+   - Untrusted Data Suppliers (third-party data sources/integrations)
+   - Unauthorized External Users (attempting access without credentials)
+   - Compromised Accounts/Components (legitimate credentials used maliciously)
 
    **Selection criteria**:
    - Only include categories with clear relevance to the architecture
    - Maximum 5-7 threat actor categories
-   - Focus on actor types, not attack methods
+   - Focus on actor types within customer's responsibility scope
    - Keep descriptions to ONE concise sentence
    - Examples should be 2-5 words each
+
+   **Examples of exclusions** (do NOT include):
+   - Cloud provider employees (AWS/Azure/GCP administrators)
+   - SaaS platform internal staff (Salesforce, Workday employees)
+   - Managed service provider personnel (unless they have direct access to customer data)
+   - Infrastructure hosting provider staff
+   - Hardware manufacturers
 
    **Output constraints**:
    - No attack scenarios or narratives
    - No detailed technical descriptions
    - No step-by-step attack explanations
-   - Focus on WHO might attack, not HOW
+   - Focus on WHO might attack (within customer scope), not HOW
 
 5. Analysis guidelines:
 
@@ -168,6 +203,13 @@ You are an expert in all security domains and threat modeling. Your goal is to s
    - Prioritize high-criticality flows involving sensitive data
    - Focus on trust boundaries with significant security implications
    - Emphasize threat actors with realistic access to the described architecture
+
+   **Responsibility boundary awareness**:
+   - Consider the deployment model (IaaS, PaaS, SaaS, on-premises, hybrid)
+   - Respect the shared responsibility model for cloud/managed services
+   - Focus threat actors on customer-controlled layers only
+   - Exclude provider-side threats unless the customer has direct mitigation responsibility
+   - Document any assumptions about the trust placed in infrastructure providers
 
 6. Quality control checklist:
 
@@ -200,173 +242,106 @@ You are an expert in all security domains and threat modeling. Your goal is to s
     return [{"type": "text", "text": main_prompt}]
 
 
-def gap_prompt(instructions: str = None) -> str:
+def gap_prompt(instructions: str = None, threat_sources: str = None) -> str:
     main_prompt = """
-You are a Gap Analysis Agent reviewing threat modeling outputs for completeness, accuracy, and compliance. Your analysis determines whether the threat model is ready for use or requires revision.
-<gap_analysis_instructions>
+You are a Gap Analysis Agent. Your task is to review threat modeling outputs for quality, compliance, and completeness. Prioritize actual value and precision over mechanical checklists.
 
-<primary_mission>
-Systematically evaluate threat catalogs against:
-1. **Coverage** - Missing threat scenarios
-2. **Compliance** - Adherence to ground rules  
-3. **Accuracy** - Hallucinations and impossibilities
-4. **Chains** - Complete attack paths
-</primary_mission>
+<gap_analysis>
+Mission: Validate threat catalogs for compliance, high-value coverage, accuracy, and completeness. Track progress across iterations. Decision required: STOP or CONTINUE.
 
-<mandatory_compliance_checks>
-For EACH threat, verify:
+Previous Gap Resolution (if applicable): Assess prior issues:
 
-**1. Actor Validity**
-- Actor EXISTS in data_flow.threat_sources
-- Flag violations: "Invalid actor: [threat name] uses unlisted '[actor]'"
+    Fixed: [description] ✅
+    Persists: [description] ❌
+    New: [description] ⚠️
+    Overall: Improving/Degraded/Mixed
 
-**2. Assumption Compliance** (if assumptions provided)
-- No contradictions with stated assumptions
-- Flag violations: "Assumption violation: [threat name] contradicts '[assumption]'"
+Compliance Violations (non-negotiable):
 
-**3. Control Boundary**
-- Customer can implement suggested mitigations
-- Flag violations: "Boundary violation: [threat name] requires provider-only controls"
+    Threat actors not in data flow threat sources → "VIOLATION - Invalid Actor: [details]"
+    Threats contradicting assumptions → "VIOLATION - Assumption Breach: [details]"
+    Mitigations requiring provider-only controls → "VIOLATION - Boundary Breach: [details]"
+    Architecturally impossible threats → "VIOLATION - Impossible Threat: [details]"
+    Hallucinated components → "VIOLATION - Hallucination: [details]"
 
-**4. Architectural Feasibility**
-- Attack path is technically possible
-- Flag violations: "Impossible threat: [threat name] - [reason]"
+High-Value Coverage Gaps: Missing threats with BOTH high exploitation likelihood AND high impact:
 
-ANY violation = Request revision
-</mandatory_compliance_checks>
+    Internet-facing entry points lacking auth/authz bypass
+    Sensitive data stores missing exfiltration vectors
+    Privilege boundaries without escalation paths
+    External integrations lacking trust exploitation
+    Critical availability points missing DoS scenarios
 
-<coverage_gaps>
-**Check for missing:**
+Format: "POTENTIAL GAP: [Component] - [description]. Severity: CRITICAL/MAJOR/MINOR"
 
-**STRIDE Coverage per Component:**
-- Authentication points → Need Spoofing threats
-- Data modification points → Need Tampering threats  
-- Audit requirements → Need Repudiation threats
-- Sensitive data → Need Information Disclosure threats
-- Critical services → Need DoS threats
-- Authorization boundaries → Need Privilege Escalation threats
+Apply STRIDE contextually—only flag if exploitation is likely AND impact is significant. Respect assumptions.
 
-**Attack Surface Coverage:**
-- All entry points have threats
-- All trust boundaries addressed
-- All sensitive data flows covered
-- All external integrations considered
+Quality Issues:
 
-**Common Patterns:**
-- Credential attacks (where authentication exists)
-- Injection attacks (where input processing exists)
-- Configuration attacks (where configurable)
-- Insider threats (where internal access exists)
-</coverage_gaps>
+    Duplicates: Same component, STRIDE, method, impact → "DUPLICATE: [A] and [B]"
+    Excessive overlap: >10% redundancy → "EXCESSIVE OVERLAP: [%]"
+    Broken chains: Missing prerequisites or progression → "CHAIN GAP: [details]"
 
-<hallucination_detection>
-**Flag as hallucination:**
-- Non-existent components or features
-- Impossible attack paths
-- Actors not in threat_sources
-- Fantasy mitigations not available to customer
-- Technically impossible exploits
-- Contradictory threat descriptions
+Decision Logic:
 
-Format: "HALLUCINATION: [threat name] - [specific issue]"
-</hallucination_detection>
+STOP when:
 
-<attack_chain_validation>
-Verify chains are complete:
-- Entry points have initial access threats
-- Multi-step attacks have logical progression
-- Prerequisites are satisfiable
-- No missing links in critical paths:
-  - Initial Access → Persistence → Impact
-  - Credential Theft → Lateral Movement → Data Access
-  - Privilege Escalation → Objective Achievement
-</attack_chain_validation>
+    Zero compliance violations
+    High likelihood + high impact threats covered
+    Minimal duplication (<10%)
+    Critical chains complete
+    Assumptions respected
 
-<previous_gap_handling>
-**When <previous_gap> exists:**
-1. Check if previously identified gaps were addressed
-2. Verify fixes don't introduce new issues
-3. Note persistent gaps that remain unfixed
-4. Acknowledge improvements made
+CONTINUE when:
 
-**Track patterns:**
-- Recurring violations suggest systemic issues
-- Fixed gaps demonstrate progress
-- New gaps in previously clean areas need attention
-</previous_gap_handling>
+    Any compliance violation
+    Missing high-value vectors
+    Excessive duplication or broken chains
 
-<gap_prioritization>
-**CRITICAL** (Must fix - always continue):
-- Ground rule violations
-- Hallucinated threats
-- Missing high-risk vectors
-- Assumption contradictions
+Output Format:
 
-**MAJOR** (Should fix - continue if multiple):
-- Incomplete STRIDE coverage
-- Missing common patterns
-- Unclear descriptions
-- Unactionable mitigations
+=== GAP ANALYSIS REPORT ===
 
-**MINOR** (Note but don't block):
-- Formatting issues
-- Redundant coverage
-- Verbose descriptions
-</gap_prioritization>
+PREVIOUS GAP RESOLUTION: [Status if applicable]
 
-<decision_and_communication>
-**STOP (stop=true) when:**
-- No CRITICAL gaps
-- Minimal MAJOR gaps (<10%)
-- Comprehensive coverage achieved
-- All rules followed
+COMPLIANCE AUDIT: [Pass or list violations]
 
-**CONTINUE (stop=false) when:**
-- Any CRITICAL gap exists
-- Multiple MAJOR gaps (>10%)
-- Systematic coverage missing
-- Hallucinations detected
-</decision_and_communication>
+HIGH-VALUE COVERAGE: [Component analysis with POTENTIAL GAP flags]
 
-<review_process>
-1. **Compliance Check** - Verify all mandatory rules
-2. **Coverage Analysis** - Map threats to components/STRIDE
-3. **Chain Validation** - Trace attack paths
-4. **Previous Gap Check** - Compare with prior feedback (if exists)
-5. **Decision** - Compile findings and decide stop/continue
+QUALITY ASSESSMENT: [Duplicates, chains, overlap]
 
-Reference threats by their exact name/description for clarity.
-</review_process>
+DECISION: [STOP/CONTINUE] RATIONALE: [Explanation]
 
-<quality_standards>
-**Effective gap analysis:**
-- Catches all violations
-- Identifies real coverage gaps
-- Provides specific, actionable feedback
-- References threats by name
-- Tracks improvement from previous rounds
+[If CONTINUE] CRITICAL ISSUES: [List] REQUIRED ACTIONS: [Specific fixes]
 
-**Poor gap analysis:**
-- Misses obvious violations
-- Vague feedback
-- Unnecessary revision requests
-- Accepts hallucinations
-- Ignores previous feedback
-
-Remember: Be thorough but fair. Your rigor ensures trustworthy threat models.
-</quality_standards>
-
-</gap_analysis_instructions>
-      """
+Prioritization: Compliance violations and missing critical attack vectors = CRITICAL. Multiple gaps or quality issues = MAJOR. Edge cases = MINOR. 
+</gap_analysis>
+"""
 
     instructions_prompt = f"""\n<important_instructions>
          {instructions}
          </important_instructions>
       """
 
+    threat_sources_prompt = ""
+    if threat_sources:
+        threat_sources_prompt = f"""
+<valid_threat_source_categories>
+**IMPORTANT: When validating threat actors, these are the ONLY valid threat source categories:**
+
+{threat_sources}
+
+Any threat using an actor NOT in this list is INVALID and must be flagged.
+</valid_threat_source_categories>
+"""
+
+    final_prompt = main_prompt
+    if threat_sources:
+        final_prompt = threat_sources_prompt + main_prompt
     if instructions:
-        return [{"type": "text", "text": instructions_prompt + main_prompt}]
-    return [{"type": "text", "text": main_prompt}]
+        final_prompt = instructions_prompt + final_prompt
+
+    return [{"type": "text", "text": final_prompt}]
 
 
 def threats_improve_prompt(instructions: str = None) -> str:
@@ -784,7 +759,7 @@ You are an expert threat modeling agent tasked with generating a comprehensive t
 - **add_threats**: Add new threats to the catalog.
 - **delete_threats**: Remove threats by name.
 - **read_threat_catalog**: Inspect the current catalog.
-- **gap_analysis**: Analyze the catalog for gaps. This tool can be used up to {MAX_GAP_ANALYSIS_USES} times.
+- **gap_analysis**: Analyze the catalog for gaps.
 /<available_tools>
 
 
@@ -914,18 +889,17 @@ DO NOT force every category on every component.
 </stride_methodology>
 
 <threat_grammar_template>
-**EXACT Format Required:**
-"[Actor from data_flow] can [specific attack action] by [concrete method/technique], causing [measurable impact] to [identified asset/component]"
+**Required Format:**
+"[threat source] [prerequisites] can [threat action] which leads to [threat impact], negatively impacting [impacted assets]."
 
-**Good Example:**
-"External attacker can exfiltrate customer PII by exploiting misconfigured API Gateway rate limits, causing data breach impacting Customer Database"
+**Examples:**
 
-**Bad Example:**
-"Someone might attack the system somehow causing problems"
+"External attacker, having obtained valid API keys, can exfiltrate customer PII by exploiting unencrypted API responses which leads to data breach, negatively impacting Customer Database"
 
-**Chain Notation:**
-When threat B requires threat A to succeed first:
-"[Threat B description]. Prerequisites: Successful execution of Threat A (ID: xxx)"
+"Malicious insider, with database access permissions, can modify audit logs by directly accessing log storage which leads to repudiation and compliance violations, negatively impacting Audit System integrity"
+
+**Chain Dependencies:**
+"External attacker, after successful execution of Threat A (credential theft), can access internal APIs which leads to unauthorized data access, negatively impacting Customer Records"
 </threat_grammar_template>
 
 <mitigation_requirements>
@@ -1034,18 +1008,31 @@ When previous analyses provided:
 - Provides clear, actionable mitigations
 - Documents attack chain relationships
 - Focuses on quality over quantity
-
-Remember: 3 excellent threats > 10 poor ones
 </output_quality_standards>
 
 </threat_modeling_instructions>
 
 *When you believe the catalog is comprehensive, stop using tools and respond that you are done with the process*
+
+<context_information>
 You have access to:
 <descriptions>{state.get("description", "")}</descriptions>
 <assumptions>{state.get("assumptions", [])}</assumptions>
 <identified_assets_and_entities>{state["assets"]}</identified_assets_and_entities>
 <data_flows>{state["system_architecture"]}</data_flows>
+</context_information>
+
+<valid_values_for_threats>
+**IMPORTANT: When creating threats using the add_threats tool, you MUST use ONLY these values for the following fields:**
+
+**Valid Target Assets (for the 'target' field):**
+{_format_asset_list(state.get("assets"))}
+
+**Valid Threat Sources (for the 'source' field):**
+{_format_threat_sources(state.get("system_architecture"))}
+
+Using any other values will result in validation errors. These are the ONLY acceptable values extracted from the identified assets and threat sources above.
+</valid_values_for_threats>
 """
 
     if state.get("instructions"):

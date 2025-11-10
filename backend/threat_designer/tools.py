@@ -24,29 +24,40 @@ state_service = StateService(app_config.agent_state_table)
 )
 def add_threats(threats: ThreatsList, runtime: ToolRuntime):
     tool_use = runtime.state.get("tool_use", 0)
+    gap_tool_use = runtime.state.get("gap_tool_use", 0)
+    gap_called_since_reset = runtime.state.get("gap_called_since_reset", False)
     job_id = runtime.state.get("job_id", "unknown")
 
     # Check limit
     if tool_use >= MAX_ADD_THREATS_USES:
-        error_msg = f"Tool usage limit reached. Cannot add more threats. You have reached the maximum of {MAX_ADD_THREATS_USES} add_threats invocations."
+        # Check if gap_analysis is still available
+        if gap_tool_use < MAX_GAP_ANALYSIS_USES:
+            error_msg = "You must call gap_analysis to verify the current threat model first. Afterwards you can use the tool again to add other threats if needed."
+        else:
+            error_msg = (
+                "You have consumed all your tool calls. "
+                "You can only delete threats or proceed to finish."
+            )
         logger.warning(
-            "Tool usage limit exceeded",
+            "Tool usage limit exceeded - gap_analysis required",
             tool="add_threats",
             current_usage=tool_use,
             max_usage=MAX_ADD_THREATS_USES,
+            gap_called_since_reset=gap_called_since_reset,
+            gap_tool_use=gap_tool_use,
             job_id=job_id,
         )
         return error_msg
+
+    # Ensure all threats have starred=False (only users can star threats)
+    for threat in threats.threats:
+        threat.starred = False
 
     # Update status
     threat_count = len(threats.threats)
     state_service.update_job_state(
         job_id, JobState.THREAT.value, detail=f"{threat_count} threats added to catalog"
     )
-
-    # Ensure all threats have starred=False (only users can star threats)
-    for threat in threats.threats:
-        threat.starred = False
 
     new_tool_use = tool_use + 1
 
@@ -56,6 +67,7 @@ def add_threats(threats: ThreatsList, runtime: ToolRuntime):
         usage_count=new_tool_use,
         max_usage=MAX_ADD_THREATS_USES,
         threats_added=threat_count,
+        remaining_invocations=MAX_ADD_THREATS_USES - new_tool_use,
         job_id=job_id,
     )
     time.sleep(5)
@@ -64,10 +76,10 @@ def add_threats(threats: ThreatsList, runtime: ToolRuntime):
         update={
             "threat_list": threats,
             "tool_use": new_tool_use,
+            "gap_called_since_reset": True,
             "messages": [
                 ToolMessage(
-                    f"""Successfully added: {len(threats.threats)} threats. \n
-                    You have {MAX_ADD_THREATS_USES - new_tool_use} more add_threats invocations left""",
+                    f"""Successfully added: {len(threats.threats)} threats.""",
                     tool_call_id=runtime.tool_call_id,
                 )
             ],
@@ -87,7 +99,6 @@ def remove_threat(
 
     # Get current state
     current_threat_list = runtime.state.get("threat_list")
-    tool_use = runtime.state.get("tool_use", 0)
     job_id = runtime.state.get("job_id", "unknown")
 
     # Update status
@@ -103,14 +114,11 @@ def remove_threat(
     for threat_name in threats:
         updated_threat_list = updated_threat_list.remove(threat_name)
 
-    new_tool_use = tool_use + 1
-
     time.sleep(5)
 
     return Command(
         update={
             "threat_list": Overwrite(updated_threat_list),
-            "tool_use": new_tool_use,
             "messages": [
                 ToolMessage(
                     "Successfully removed threats", tool_call_id=runtime.tool_call_id
@@ -174,16 +182,22 @@ def gap_analysis(runtime: ToolRuntime) -> str:
 
     # Get current gap_tool_use counter
     gap_tool_use = runtime.state.get("gap_tool_use", 0)
+    tool_use = runtime.state.get("tool_use", 0)
     job_id = runtime.state.get("job_id", "unknown")
 
     # Check limit
     if gap_tool_use >= MAX_GAP_ANALYSIS_USES:
-        error_msg = f"Tool usage limit reached. Cannot perform more gap analyses. You have reached the maximum of {MAX_GAP_ANALYSIS_USES} gap_analysis invocations."
+        remaining_add_threats = MAX_ADD_THREATS_USES - tool_use
+        error_msg = (
+            "You have consumed all your tool calls. "
+            "You can only delete threats or proceed to finish."
+        )
         logger.warning(
             "Tool usage limit exceeded",
             tool="gap_analysis",
             current_usage=gap_tool_use,
             max_usage=MAX_GAP_ANALYSIS_USES,
+            remaining_add_threats=remaining_add_threats,
             job_id=job_id,
         )
         return error_msg
@@ -233,11 +247,24 @@ def gap_analysis(runtime: ToolRuntime) -> str:
         gap_str,
     )
 
+    # Get threat sources for validation
+    threat_sources_str = None
+    system_architecture = state.get("system_architecture")
+    if system_architecture and system_architecture.threat_sources:
+        source_categories = [
+            source.category for source in system_architecture.threat_sources
+        ]
+        threat_sources_str = "\n".join(
+            [f"  - {category}" for category in source_categories]
+        )
+
     # Create system prompt
     if state.get("instructions"):
-        system_prompt = SystemMessage(content=gap_prompt(state.get("instructions")))
+        system_prompt = SystemMessage(
+            content=gap_prompt(state.get("instructions"), threat_sources_str)
+        )
     else:
-        system_prompt = SystemMessage(content=gap_prompt())
+        system_prompt = SystemMessage(content=gap_prompt(None, threat_sources_str))
 
     messages = [system_prompt, human_message]
 
@@ -266,7 +293,11 @@ def gap_analysis(runtime: ToolRuntime) -> str:
         new_gap_tool_use = gap_tool_use + 1
 
         # Prepare update dictionary
-        update_dict = {"gap_tool_use": new_gap_tool_use}
+        update_dict = {
+            "gap_tool_use": new_gap_tool_use,
+            "tool_use": 0,
+            "gap_called_since_reset": False,
+        }
 
         # Update gap in state
         if not gap_result.stop and gap_result.gap:
@@ -281,11 +312,13 @@ def gap_analysis(runtime: ToolRuntime) -> str:
                 )
             ]
             logger.info(
-                "Gap analysis completed - catalog is comprehensive",
+                "Gap analysis completed - catalog is comprehensive, counter reset",
                 tool="gap_analysis",
                 usage_count=new_gap_tool_use,
+                tool_use_reset=True,
                 job_id=job_id,
             )
+            return Command(update=update_dict, goto="continue")
         else:
             update_dict["messages"] = [
                 ToolMessage(
@@ -296,28 +329,30 @@ def gap_analysis(runtime: ToolRuntime) -> str:
                 )
             ]
             logger.info(
-                "Gap analysis completed - gaps identified",
+                "Gap analysis completed - gaps identified, counter reset",
                 tool="gap_analysis",
                 usage_count=new_gap_tool_use,
                 gaps_found=True,
+                gaps=gap_result.gap,
+                tool_use_reset=True,
                 job_id=job_id,
             )
 
-        # Return Command with state updates and result message
-        return Command(
-            update=update_dict,
-        )
+            # Return Command with state updates and result message
+            return Command(
+                update=update_dict,
+            )
 
     except Exception as e:
-        # Log error with full context
+        # Log error with full context - counters not reset on failure
         logger.error(
-            "Gap analysis model invocation failed",
+            "Gap analysis model invocation failed - counters not reset",
             tool="gap_analysis",
             usage_count=gap_tool_use,
             error=str(e),
             job_id=job_id,
             exc_info=True,
         )
-        # Return user-friendly message as Command result
+        # Return user-friendly message as string (not Command, so state is not updated)
         error_msg = f"Gap analysis failed due to a model error. Please try again or proceed without gap analysis. Error: {str(e)}"
         return error_msg

@@ -5,6 +5,7 @@ This module defines the state sub-graph and orchestrates the threat generation l
 from config import config as app_config
 from constants import (
     JobState,
+    StrideCategory,
 )
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables.config import RunnableConfig
@@ -89,6 +90,7 @@ def agent_node(state: ThreatState, config: RunnableConfig) -> Command:
     job_id = state.get("job_id", "unknown")
     tool_use = state.get("tool_use", 0)
     gap_tool_use = state.get("gap_tool_use", 0)
+    gap_called_since_reset = state.get("gap_called_since_reset", False)
 
     # Initialize messages if empty
     if not state.get("messages"):
@@ -102,6 +104,7 @@ def agent_node(state: ThreatState, config: RunnableConfig) -> Command:
             job_state=JobState.THREAT.value,
             tool_use=tool_use,
             gap_tool_use=gap_tool_use,
+            gap_called_since_reset=gap_called_since_reset,
         )
 
         # Create initial system prompt
@@ -119,6 +122,7 @@ def agent_node(state: ThreatState, config: RunnableConfig) -> Command:
             message_count=len(state["messages"]),
             tool_use=tool_use,
             gap_tool_use=gap_tool_use,
+            gap_called_since_reset=gap_called_since_reset,
         )
         messages = state["messages"]
 
@@ -129,7 +133,6 @@ def agent_node(state: ThreatState, config: RunnableConfig) -> Command:
     model = config["configurable"].get("model_threats_agent")
 
     # Bind tools to model with "auto" tool choice
-    # This allows the agent to autonomously decide when to call tools
     model_service = ModelService()
     model_with_tools = model_service.get_model_with_tools(
         model=model, tools=tools, tool_choice="auto"
@@ -177,12 +180,13 @@ def should_continue(state: ThreatState):
         state: Current ThreatState with messages
 
     Returns:
-        str: "tools" if tool calls exist, "continue" otherwise
+        str: "tools" if tool calls exist, "continue" if agent is done
     """
     job_id = state.get("job_id", "unknown")
     messages = state["messages"]
     last_message = messages[-1]
 
+    # Check if agent wants to continue with tool calls
     if last_message.tool_calls:
         logger.info(
             "Routing to tools node",
@@ -192,8 +196,9 @@ def should_continue(state: ThreatState):
         )
         return "tools"
 
+    # No tool calls means the agent is done - route to continue for validation
     logger.info(
-        "Routing to continue node",
+        "Agent completed without tool calls - routing to continue node",
         node="should_continue",
         job_id=job_id,
         route="continue",
@@ -206,8 +211,9 @@ def continue_or_finish(state: ThreatState) -> Command:
 
     This function checks if the threat catalog is empty. If empty, it injects
     a human feedback message and routes back to the agent node to continue
-    threat generation. If the catalog has threats, it extracts reasoning trails
-    and routes to the parent graph's finalize node.
+    threat generation. It also checks if gap analysis was performed. If the catalog
+    has threats and gap analysis was done, it extracts reasoning trails and routes
+    to the parent graph's finalize node.
 
     Args:
         state: Current ThreatState containing the threat_list and messages
@@ -217,6 +223,7 @@ def continue_or_finish(state: ThreatState) -> Command:
     """
     job_id = state.get("job_id", "unknown")
     threat_list = state.get("threat_list")
+    gap_tool_use = state.get("gap_tool_use", 0)
 
     # Check if catalog is empty or has zero threats
     if not threat_list or len(threat_list.threats) == 0:
@@ -230,6 +237,55 @@ def continue_or_finish(state: ThreatState) -> Command:
         # Inject feedback message instructing agent to add threats
         feedback_message = HumanMessage(
             content="The threat catalog is empty. You must add threats to the catalog using the add_threats tool."
+        )
+        return Command(goto="agent", update={"messages": [feedback_message]})
+
+    # Check STRIDE coverage
+    all_stride_categories = {category.value for category in StrideCategory}
+    catalog_stride_categories = {
+        threat.stride_category for threat in threat_list.threats
+    }
+    missing_stride_categories = all_stride_categories - catalog_stride_categories
+
+    # Combine coverage feedback if gaps exist
+    if missing_stride_categories:
+        feedback_parts = ["Coverage gaps detected:"]
+
+        if missing_stride_categories:
+            feedback_parts.append(
+                f"- Missing STRIDE categories: {', '.join(sorted(missing_stride_categories))}"
+            )
+
+        feedback_parts.append("\nPlease add threats to address these gaps.")
+
+        feedback_content = "\n".join(feedback_parts)
+
+        logger.warning(
+            "Coverage gaps detected - routing back to agent",
+            node="continue",
+            job_id=job_id,
+            route="agent",
+            missing_stride_categories=list(missing_stride_categories)
+            if missing_stride_categories
+            else None,
+        )
+
+        # Inject feedback message requesting threats for missing coverage
+        feedback_message = HumanMessage(content=feedback_content)
+        return Command(goto="agent", update={"messages": [feedback_message]})
+
+    # Check if gap analysis was never performed
+    if gap_tool_use == 0:
+        logger.info(
+            "Gap analysis not performed - routing back to agent",
+            node="continue",
+            job_id=job_id,
+            route="agent",
+            gap_tool_use=gap_tool_use,
+        )
+        # Inject feedback message requesting gap analysis
+        feedback_message = HumanMessage(
+            content="You have not performed gap analysis yet. Please use the gap_analysis tool to validate the completeness of the threat catalog before finishing."
         )
         return Command(goto="agent", update={"messages": [feedback_message]})
 

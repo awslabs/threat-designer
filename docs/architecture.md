@@ -12,26 +12,26 @@ graph TB
         UI[Web UI<br/>React App]
         MCP[MCP Server<br/>External Tools]
     end
-    
+
     subgraph "API Gateway"
         APIGW[Amazon API Gateway<br/>REST API]
         AUTH[Lambda Authorizer<br/>JWT Validation]
         APIKEY[API Key Auth]
     end
-    
+
     subgraph "Lambda Functions"
         MAIN[Main Lambda<br/>threat_designer_route.py]
         AGENT[Threat Designer Agent<br/>AgentCore Runtime]
         SENTRY[Sentry Agent<br/>AgentCore Runtime]
     end
-    
+
     subgraph "Services"
         TDS[ThreatDesignerService]
         LOCKS[LockService]
         COLLAB[CollaborationService]
         AUTHZ[AuthorizationService]
     end
-    
+
     subgraph "Data Layer"
         DDB_STATE[DynamoDB<br/>Agent State]
         DDB_LOCKS[DynamoDB<br/>Locks]
@@ -39,30 +39,30 @@ graph TB
         S3[S3<br/>Architectures]
         COGNITO[Cognito<br/>User Pool]
     end
-    
+
     UI -->|JWT| APIGW
     MCP -->|API Key| APIGW
-    
+
     APIGW -->|Validate JWT| AUTH
     APIGW -->|Validate API Key| APIKEY
     AUTH -->|Check| COGNITO
-    
+
     APIGW --> MAIN
     MAIN --> AGENT
     MAIN --> SENTRY
-    
+
     MAIN --> TDS
     MAIN --> LOCKS
     MAIN --> COLLAB
     MAIN --> AUTHZ
-    
+
     TDS --> DDB_STATE
     TDS --> S3
     LOCKS --> DDB_LOCKS
     COLLAB --> DDB_COLLAB
     AUTHZ --> DDB_STATE
     AUTHZ --> DDB_COLLAB
-    
+
     AGENT --> DDB_STATE
     AGENT --> S3
 ```
@@ -76,12 +76,14 @@ This section covers foundational concepts that apply across all API endpoints. U
 The API supports two authentication methods: JWT tokens for web UI users and API keys for MCP server integration.
 
 **JWT Authentication (Web UI)**:
+
 - Users authenticate via Amazon Cognito User Pool
 - JWT tokens are included in the `Authorization: Bearer {token}` header
 - Lambda Authorizer validates tokens and extracts user identity
 - User identity is passed to route handlers via `request_context.authorizer`
 
 **API Key Authentication (MCP Server)**:
+
 - MCP endpoints use API key authentication via the `x-api-key` header
 - All MCP requests are assigned the special user identifier `"MCP"`
 - MCP users bypass certain access control checks (locks, ownership validation)
@@ -118,7 +120,6 @@ For detailed authentication flows and token management, see [Authentication Arch
   - Status endpoint response
   - Trail endpoint response
   - State table (DynamoDB primary key)
-  
 - **`job_id`**: Used in:
   - Get endpoint response (both root level and within item object)
   - List endpoint response (in catalog items)
@@ -130,6 +131,7 @@ For detailed authentication flows and token management, see [Authentication Arch
 **Important**: Both `id` and `job_id` refer to the same UUID value. The create endpoint returns `{"id": "uuid"}`, but when you fetch that same threat model, it returns `{"job_id": "uuid", ...}`. This inconsistency exists for historical reasons and backwards compatibility. When integrating with the API, treat these as equivalent identifiers.
 
 **DynamoDB Tables**: The system uses multiple DynamoDB tables:
+
 - **Agent Table**: Stores threat model data with `job_id` as the primary key
 - **State Table**: Tracks agent execution state with `id` as the primary key (same value as `job_id`)
 - **Locks Table**: Manages edit locks with `threat_model_id` as the primary key
@@ -141,6 +143,7 @@ For detailed authentication flows and token management, see [Authentication Arch
 The system implements a three-tier access control model for threat models:
 
 **Access Levels**:
+
 - **OWNER**: Full control - can view, edit, delete, share, and manage collaborators (user who created the threat model)
 - **EDIT**: Can view and modify threat model content, acquire locks, but cannot delete or share
 - **READ_ONLY**: View-only access, cannot modify, delete, or share
@@ -151,17 +154,17 @@ The system implements a three-tier access control model for threat models:
 
 **Operation-Level Access Requirements**:
 
-| Operation | Required Access Level | Notes |
-|-----------|----------------------|-------|
-| Create Threat Model | N/A | Any authenticated user |
-| Get Threat Model | READ_ONLY | Any access level |
-| Update Threat Model | EDIT | Also requires valid lock token (JWT users only) |
-| Delete Threat Model | OWNER | Only owner can delete |
-| Share Threat Model | OWNER | Only owner can share |
-| Manage Collaborators | OWNER | Only owner can add/remove/update collaborators |
-| Restore Threat Model | EDIT | Any user with edit access |
-| Acquire Lock | EDIT | Any user with edit access (including owner) |
-| Stop Execution | N/A | Only execution_owner (user who started the execution) |
+| Operation            | Required Access Level | Notes                                                 |
+| -------------------- | --------------------- | ----------------------------------------------------- |
+| Create Threat Model  | N/A                   | Any authenticated user                                |
+| Get Threat Model     | READ_ONLY             | Any access level                                      |
+| Update Threat Model  | EDIT                  | Also requires valid lock token (JWT users only)       |
+| Delete Threat Model  | OWNER                 | Only owner can delete                                 |
+| Share Threat Model   | OWNER                 | Only owner can share                                  |
+| Manage Collaborators | OWNER                 | Only owner can add/remove/update collaborators        |
+| Restore Threat Model | EDIT                  | Any user with edit access                             |
+| Acquire Lock         | EDIT                  | Any user with edit access (including owner)           |
+| Stop Execution       | N/A                   | Only execution_owner (user who started the execution) |
 
 For detailed information on sharing, collaboration workflows, and permission management, see [Collaboration System](./collaboration_system.md).
 
@@ -170,6 +173,7 @@ For detailed information on sharing, collaboration workflows, and permission man
 The edit lock mechanism prevents concurrent modifications by ensuring only one user can edit a threat model at a time. All users, including owners, must acquire a lock before editing.
 
 **Lock Behavior**:
+
 - **Lock Expiration**: Locks automatically expire after **180 seconds (3 minutes)** if not refreshed
 - **Lock Tokens**: UUIDs generated server-side, must be included in update and heartbeat requests
 - **Stale Lock Detection**: Locks older than 180 seconds are automatically released
@@ -177,10 +181,12 @@ The edit lock mechanism prevents concurrent modifications by ensuring only one u
 - **Access Requirement**: Users must have EDIT or OWNER access to acquire locks
 
 **Lock Requirements by User Type**:
+
 - **JWT Users**: Must acquire and maintain locks before updating threat models
 - **MCP Users**: Bypass lock requirements entirely, allowing automated updates without lock management
 
 **Lock Operations**:
+
 - **Acquire Lock**: `POST /threat-designer/{id}/lock` - Attempt to acquire an edit lock
 - **Refresh Lock**: `PUT /threat-designer/{id}/lock/heartbeat` - Extend lock expiration
 - **Release Lock**: `DELETE /threat-designer/{id}/lock` - Explicitly release a lock
@@ -189,6 +195,7 @@ The edit lock mechanism prevents concurrent modifications by ensuring only one u
 
 **Lock Lost Scenarios**:
 When a lock is lost (expired, stolen by another user, or invalid token), the API returns `410 Gone`. Clients should:
+
 1. Stop any pending save operations
 2. Notify the user that their lock was lost
 3. Offer to reload the latest version from the server
@@ -209,16 +216,13 @@ For detailed lock flows, conflict resolution, and implementation details, see [L
 **Authentication**: JWT (Web UI) or API Key (MCP)
 
 **Request Body**:
+
 ```json
 {
   "id": "uuid-v4",
   "title": "My Application Threat Model",
   "description": "E-commerce platform with payment processing",
-  "assumptions": [
-    "AWS cloud deployment",
-    "PCI-DSS compliance required",
-    "Multi-region setup"
-  ],
+  "assumptions": ["AWS cloud deployment", "PCI-DSS compliance required", "Multi-region setup"],
   "s3_location": "architectures/my-app.png",
   "iteration": 0,
   "reasoning": 2,
@@ -228,6 +232,7 @@ For detailed lock flows, conflict resolution, and implementation details, see [L
 ```
 
 **Request Fields**:
+
 - `id` (string, optional): UUID for the threat model. If not provided or `replay` is false, a new UUID is generated
 - `title` (string, optional): Title of the threat model. Defaults to " " if not provided
 - `description` (string, optional): Description of the system being modeled. Defaults to " " if not provided
@@ -239,6 +244,7 @@ For detailed lock flows, conflict resolution, and implementation details, see [L
 - `replay` (boolean, optional): If true, replays an existing threat model with the provided `id`. Defaults to false
 
 **Response**:
+
 ```json
 {
   "id": "uuid-v4"
@@ -246,11 +252,13 @@ For detailed lock flows, conflict resolution, and implementation details, see [L
 ```
 
 **Response Fields**:
+
 - `id` (string): The threat model identifier (see [Field Naming Conventions](#field-naming-conventions) for details on `id` vs `job_id`).
 
 **Note**: The response returns only the `id` field. A unique `session_id` is generated server-side to track the agent execution and is stored in the state table. For details on the agent execution workflow and state management, see [Threat Designer Agent](./threat_designer_agent.md).
 
 **Flow**:
+
 ```mermaid
 sequenceDiagram
     participant Client
@@ -269,7 +277,7 @@ sequenceDiagram
     Agent-->>Service: 200 OK (immediate)
     Service-->>Lambda: {id: job_id}
     Lambda-->>Client: 200 OK {id: "uuid-v4"}
-    
+
     Note over Agent: Background processing<br/>15-60 minutes
     Agent->>DDB: Update state to COMPLETE
 ```
@@ -285,6 +293,7 @@ sequenceDiagram
 **Authorization**: User must have any access level (OWNER, EDIT, or READ_ONLY)
 
 **Response**:
+
 ```json
 {
   "job_id": "uuid-v4",
@@ -335,6 +344,7 @@ sequenceDiagram
 ```
 
 **Response Fields**:
+
 - `job_id` (string): Primary key identifier for the threat model (used at both root and item level). See [Field Naming Conventions](#field-naming-conventions) for details on `id` vs `job_id`.
 - `state` (string): "Found" if the threat model exists, "Not Found" otherwise
 - `item` (object): The threat model data, or null if not found
@@ -357,6 +367,7 @@ sequenceDiagram
 **Authorization**: User must have EDIT or OWNER access
 
 **Request Body**:
+
 ```json
 {
   "title": "Updated Title",
@@ -369,27 +380,32 @@ sequenceDiagram
 ```
 
 **Request Fields**:
+
 - `client_last_modified_at` (string, optional): ISO 8601 timestamp of the client's last known modification time. Used for conflict detection. If the server's `last_modified_at` is newer, a 409 Conflict is returned
 - `lock_token` (string, required for JWT users): Lock token obtained from acquiring a lock. MCP users bypass this requirement
 - Other fields: Any threat model fields to update (title, assets, system_architecture, threat_list, etc.)
 
 **Lock Requirements**:
+
 - JWT users MUST acquire a lock before updating (including owners)
 - Lock token must be valid and match the current lock holder
 - MCP users bypass lock requirements entirely
 
 **Content Hash Mechanism**:
 The service calculates a content hash of the payload to detect actual changes. If the content hash matches the previous version:
+
 - The `last_modified_at` timestamp is NOT updated
 - The `last_modified_by` field is preserved
 - This prevents unnecessary timestamp updates when no actual content changes occur (e.g., when only updating lock tokens or metadata)
 
 If the content hash differs:
+
 - The `last_modified_at` timestamp is updated to the current server time
 - The `last_modified_by` field is set to the current user
 - The new content hash is stored
 
 **Conflict Detection**:
+
 ```mermaid
 sequenceDiagram
     participant Client
@@ -403,7 +419,7 @@ sequenceDiagram
     Service->>Service: Verify lock token and access
     Service->>DDB: Get current record (job_id=id)
     DDB-->>Service: Record with last_modified_at: T2
-    
+
     alt T1 >= T2 (No conflict)
         Service->>Service: Calculate content hash
         alt Content changed
@@ -421,6 +437,7 @@ sequenceDiagram
 ```
 
 **Error Responses**: See [Error Responses](#error-responses) section for details on:
+
 - 409 Conflict (version conflicts)
 - 403 Unauthorized (lock or access issues)
 
@@ -437,6 +454,7 @@ sequenceDiagram
 **Authorization**: User must be OWNER
 
 **Query Parameters**:
+
 - `force_release` (boolean, optional): If `true`, forcefully releases any active locks before deletion. Defaults to `false`. If a lock is held by another user and this is not set, the operation returns a 409 Conflict error.
 
 **Cascade Behavior**:
@@ -457,6 +475,7 @@ When a threat model is deleted, the following operations occur automatically:
 5. **DynamoDB Record Deletion**: The threat model record is removed from the agent table.
 
 **Response**:
+
 ```json
 {
   "job_id": "uuid-v4",
@@ -465,6 +484,7 @@ When a threat model is deleted, the following operations occur automatically:
 ```
 
 **Error Responses**: See [Error Responses](#error-responses) section for details on:
+
 - 409 Conflict (locked by another user)
 - 403 Unauthorized (not owner)
 
@@ -479,6 +499,7 @@ When a threat model is deleted, the following operations occur automatically:
 **Authentication**: JWT or API Key
 
 **Response**:
+
 ```json
 {
   "catalogs": [
@@ -530,11 +551,13 @@ The response includes both threat models owned by the user and threat models sha
    - `shared_by`: User ID of the person who shared the threat model
 
 **Access Levels**:
+
 - `OWNER`: Full control (user created the threat model) - can view, edit, delete, share, and manage collaborators
 - `EDIT`: Can view and modify but cannot delete or share
 - `READ_ONLY`: View only, cannot modify, delete, or share
 
 **MCP User Behavior**:
+
 - MCP users only see threat models they own
 - Sharing lookup is skipped for MCP users
 - All returned items have `is_owner: true` and `access_level: "OWNER"`
@@ -550,6 +573,7 @@ The response includes both threat models owned by the user and threat models sha
 **Authentication**: JWT or API Key
 
 **Response**:
+
 ```json
 {
   "id": "uuid-v4",
@@ -562,6 +586,7 @@ The response includes both threat models owned by the user and threat models sha
 ```
 
 **Response Fields**:
+
 - `id` (string): The threat model identifier
 - `state` (string): Current state of the threat model generation (see states below)
 - `retry` (integer): Reasoning boost level used for this execution (0-3)
@@ -570,6 +595,7 @@ The response includes both threat models owned by the user and threat models sha
 - `detail` (string, optional): Additional detail message about the state. Only included if available.
 
 **States**:
+
 - `START`: Execution has been initiated but agent hasn't begun processing
 - `PENDING`: Job created, waiting to start (legacy state)
 - `PROCESSING`: Agent actively working on threat model generation
@@ -592,6 +618,7 @@ For detailed information on agent execution states and workflow, see [Threat Des
 **Authorization**: User must be the `execution_owner` (the user who started the execution)
 
 **Response (Restored)**:
+
 ```json
 {
   "job_id": "uuid-v4",
@@ -600,6 +627,7 @@ For detailed information on agent execution states and workflow, see [Threat Des
 ```
 
 **Response (Deleted)**:
+
 ```json
 {
   "job_id": "uuid-v4",
@@ -616,12 +644,14 @@ For detailed information on agent execution states and workflow, see [Threat Des
 **Restore Behavior**:
 
 When a session is stopped:
+
 - If a `backup` exists in the threat model item, the system restores the threat model to the backup state and returns `"state": "Restored"`
 - If no `backup` exists, the system deletes the threat model and its S3 object, returning `"state": "Deleted"`
 
 The backup mechanism ensures that stopping an in-progress execution doesn't lose the previous working state of the threat model.
 
 **Error Responses**: See [Error Responses](#error-responses) section for details on:
+
 - 403 Unauthorized (not execution owner)
 - 404 Not Found (invalid session)
 
@@ -638,6 +668,7 @@ The backup mechanism ensures that stopping an in-progress execution doesn't lose
 **Authentication**: JWT or API Key
 
 **Request Body**:
+
 ```json
 {
   "id": "existing-uuid-v4",
@@ -650,6 +681,7 @@ The backup mechanism ensures that stopping an in-progress execution doesn't lose
 ```
 
 **Request Fields**:
+
 - `id` (string, required): UUID of the existing threat model to replay
 - `replay` (boolean, required): Must be set to `true` to trigger replay mode
 - `s3_location` (string, required): S3 path to the architecture diagram (typically the same as the original)
@@ -658,6 +690,7 @@ The backup mechanism ensures that stopping an in-progress execution doesn't lose
 - `instructions` (string, optional): Custom instructions to guide the replay. These instructions are used to customize threat generation, gap analysis, and threat improvement during the replay
 
 **Response**:
+
 ```json
 {
   "id": "existing-uuid-v4"
@@ -665,6 +698,7 @@ The backup mechanism ensures that stopping an in-progress execution doesn't lose
 ```
 
 **Response Fields**:
+
 - `id` (string): The threat model identifier (same as the input `id`). See [Field Naming Conventions](#field-naming-conventions) for details on `id` vs `job_id`.
 
 **Replay Behavior**:
@@ -712,17 +746,17 @@ sequenceDiagram
 
 **Key Differences from New Threat Model**:
 
-| Aspect | New Threat Model | Replay |
-|--------|------------------|--------|
-| Endpoint | `POST /threat-designer` | `POST /threat-designer` (same) |
-| ID | Generated or provided | Must be existing ID |
-| `replay` flag | `false` or omitted | `true` (required) |
-| Asset Definition | Analyzed from diagram | Reused from original |
-| Flow Definition | Analyzed from diagram | Reused from original |
-| Trust Boundaries | Analyzed from diagram | Reused from original |
-| Threat List | Generated from scratch | Starred threats preserved + new threats |
-| Backup Created | Yes (before completion) | Yes (before replay starts) |
-| Custom Instructions | Optional guidance | Optional guidance for replay focus |
+| Aspect              | New Threat Model        | Replay                                  |
+| ------------------- | ----------------------- | --------------------------------------- |
+| Endpoint            | `POST /threat-designer` | `POST /threat-designer` (same)          |
+| ID                  | Generated or provided   | Must be existing ID                     |
+| `replay` flag       | `false` or omitted      | `true` (required)                       |
+| Asset Definition    | Analyzed from diagram   | Reused from original                    |
+| Flow Definition     | Analyzed from diagram   | Reused from original                    |
+| Trust Boundaries    | Analyzed from diagram   | Reused from original                    |
+| Threat List         | Generated from scratch  | Starred threats preserved + new threats |
+| Backup Created      | Yes (before completion) | Yes (before replay starts)              |
+| Custom Instructions | Optional guidance       | Optional guidance for replay focus      |
 
 **Use Cases**:
 
@@ -764,6 +798,7 @@ Restores a threat model to its previous version using backup data. The backup is
 4. **Access Control**: Any user with EDIT or OWNER access can restore the threat model. MCP users bypass access control checks.
 
 **Response (Success)**:
+
 ```json
 {
   "message": "Threat model restored to previous version",
@@ -772,6 +807,7 @@ Restores a threat model to its previous version using backup data. The backup is
 ```
 
 **Error Responses**: See [Error Responses](#error-responses) section for details on:
+
 - 404 Not Found (no backup or threat model doesn't exist)
 - 403 Unauthorized (insufficient access)
 
@@ -803,6 +839,7 @@ Restores a threat model to its previous version using backup data. The backup is
 Generates a presigned S3 URL for uploading architecture diagrams. Both JWT-authenticated (web UI) and MCP-authenticated (API key) variants are available.
 
 **Request Body**:
+
 ```json
 {
   "file_type": "image/png"
@@ -810,9 +847,11 @@ Generates a presigned S3 URL for uploading architecture diagrams. Both JWT-authe
 ```
 
 **Request Fields**:
+
 - `file_type` (string, optional): MIME type of the file to upload. Defaults to `"image/png"` if not provided
 
 **Response**:
+
 ```json
 {
   "presigned": "https://s3.amazonaws.com/bucket/architectures/a1b2c3d4-e5f6-7890-abcd-ef1234567890?X-Amz-Algorithm=...",
@@ -821,6 +860,7 @@ Generates a presigned S3 URL for uploading architecture diagrams. Both JWT-authe
 ```
 
 **Response Fields**:
+
 - `presigned` (string): Presigned S3 URL for uploading the file via HTTP PUT request
 - `name` (string): UUID generated server-side that serves as the S3 object key. This UUID should be used as the `s3_location` when creating a threat model
 
@@ -830,12 +870,13 @@ Generates a presigned S3 URL for uploading architecture diagrams. Both JWT-authe
 
 2. **Default Expiration**: The presigned URL expires after **300 seconds (5 minutes)** by default. The upload must be completed within this time window.
 
-3. **Both Variants Available**: 
+3. **Both Variants Available**:
    - JWT users: Use `POST /threat-designer/upload`
    - MCP users: Use `POST /threat-designer/mcp/upload`
    - Both endpoints have identical behavior and response format
 
 **Upload Flow**:
+
 ```mermaid
 sequenceDiagram
     participant Client
@@ -850,10 +891,10 @@ sequenceDiagram
     S3-->>Service: Presigned URL
     Service-->>Lambda: {presigned: url, name: "uuid"}
     Lambda-->>Client: {presigned, name: "uuid"}
-    
+
     Client->>S3: PUT {presigned}<br/>Content-Type: image/png<br/>Binary data
     S3-->>Client: 200 OK
-    
+
     Client->>Lambda: POST /threat-designer<br/>{s3_location: "uuid", ...}
 ```
 
@@ -868,6 +909,7 @@ sequenceDiagram
 Generates a presigned S3 URL for downloading architecture diagrams or exported threat model files.
 
 **Request Body**:
+
 ```json
 {
   "s3_location": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
@@ -875,6 +917,7 @@ Generates a presigned S3 URL for downloading architecture diagrams or exported t
 ```
 
 **Request Fields**:
+
 - `s3_location` (string, required): The S3 object key (UUID) of the file to download. This is the same UUID returned from the upload endpoint or stored in the threat model's `s3_location` field
 
 **Response**:
@@ -886,6 +929,7 @@ The response is a presigned URL string (not a JSON object):
 ```
 
 **Response Format**:
+
 - The endpoint returns a plain string containing the presigned S3 URL
 - The URL can be used directly in a browser or HTTP GET request to download the file
 - The presigned URL expires after **300 seconds (5 minutes)** by default
@@ -901,6 +945,7 @@ The response is a presigned URL string (not a JSON object):
 4. **No MCP Variant**: There is no separate MCP endpoint for downloads. Only the JWT-authenticated endpoint exists at `POST /threat-designer/download`.
 
 **Download Flow**:
+
 ```mermaid
 sequenceDiagram
     participant Client
@@ -914,7 +959,7 @@ sequenceDiagram
     S3-->>Service: Presigned URL
     Service-->>Lambda: "https://s3.amazonaws.com/..."
     Lambda-->>Client: "https://s3.amazonaws.com/..."
-    
+
     Client->>S3: GET {presigned_url}
     S3-->>Client: File binary data
 ```
@@ -936,6 +981,7 @@ This section covers the API endpoints for sharing threat models and managing col
 Share a threat model with one or more collaborators, granting them either EDIT or READ_ONLY access. Only the owner of a threat model can share it with others.
 
 **Request Body**:
+
 ```json
 {
   "collaborators": [
@@ -952,11 +998,13 @@ Share a threat model with one or more collaborators, granting them either EDIT o
 ```
 
 **Request Fields**:
+
 - `collaborators` (array, required): List of collaborators to add
   - `user_id` (string, required): The Cognito user ID (sub) of the user to share with
   - `access_level` (string, optional): Access level to grant - "EDIT" or "READ_ONLY". Defaults to "READ_ONLY" if not specified or invalid. See [Access Control Model](./collaboration_system.md#access-control-model) for details on access levels.
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -966,6 +1014,7 @@ Share a threat model with one or more collaborators, granting them either EDIT o
 ```
 
 **Response Fields**:
+
 - `success` (boolean): Always `true` on successful sharing
 - `threat_model_id` (string): The ID of the threat model that was shared
 - `shared_count` (integer): Number of collaborators successfully added
@@ -981,6 +1030,7 @@ Share a threat model with one or more collaborators, granting them either EDIT o
 4. **Duplicate Handling**: If a user is already a collaborator, their record is updated with the new access level (PUT operation).
 
 **Error Responses**: See [Error Responses](#error-responses) section for details on:
+
 - 403 Unauthorized (not owner)
 - 404 Not Found (threat model doesn't exist)
 
@@ -1004,6 +1054,7 @@ Share a threat model with one or more collaborators, granting them either EDIT o
 Retrieves the list of users who have been granted access to a threat model. The requester must have at least READ_ONLY access to view the collaborators list.
 
 **Response**:
+
 ```json
 {
   "collaborators": [
@@ -1030,6 +1081,7 @@ Retrieves the list of users who have been granted access to a threat model. The 
 ```
 
 **Response Fields**:
+
 - `collaborators` (array): List of users with access to the threat model
   - `user_id` (string): Cognito user ID (sub) of the collaborator
   - `username` (string): Cognito username of the collaborator
@@ -1042,6 +1094,7 @@ Retrieves the list of users who have been granted access to a threat model. The 
 **Cognito User Attributes**:
 
 The endpoint enriches each collaborator record with user information from Cognito:
+
 - `username`: The Cognito username (always present)
 - `email`: Email address from Cognito attributes (may be null if not set)
 - `name`: Display name from Cognito attributes (may be null if not set)
@@ -1051,11 +1104,13 @@ If a user cannot be found in Cognito or lookup fails, the `user_id` is used as a
 **Requester Exclusion**:
 
 The requester is automatically excluded from the collaborators list. This means:
+
 - If you are the owner viewing collaborators, you won't see yourself in the list
 - If you are a collaborator viewing the list, you won't see your own entry
 - This prevents redundant information since the requester already knows their own access level
 
 **Error Responses**: See [Error Responses](#error-responses) section for details on:
+
 - 403 Unauthorized (no access)
 - 404 Not Found (threat model doesn't exist)
 
@@ -1079,10 +1134,12 @@ The requester is automatically excluded from the collaborators list. This means:
 Updates a collaborator's access level for a threat model. Only the owner can modify collaborator access levels. This is useful for upgrading or downgrading permissions without removing and re-adding the collaborator.
 
 **Path Parameters**:
+
 - `id` (string): The threat model ID
 - `user_id` (string): The Cognito user ID (sub) of the collaborator to update
 
 **Request Body**:
+
 ```json
 {
   "access_level": "READ_ONLY"
@@ -1090,9 +1147,11 @@ Updates a collaborator's access level for a threat model. Only the owner can mod
 ```
 
 **Request Fields**:
+
 - `access_level` (string, required): New access level - must be "EDIT" or "READ_ONLY"
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -1103,6 +1162,7 @@ Updates a collaborator's access level for a threat model. Only the owner can mod
 ```
 
 **Response Fields**:
+
 - `success` (boolean): Always `true` on successful update
 - `threat_model_id` (string): The ID of the threat model
 - `user_id` (string): The user ID whose access was updated
@@ -1139,6 +1199,7 @@ sequenceDiagram
 ```
 
 **Error Responses**: See [Error Responses](#error-responses) section for details on:
+
 - 403 Unauthorized (not owner)
 - 400 Bad Request (invalid access level)
 - 404 Not Found (threat model doesn't exist)
@@ -1165,10 +1226,12 @@ sequenceDiagram
 Removes a collaborator's access to a threat model. Only the owner can remove collaborators. This operation immediately revokes all access for the specified user.
 
 **Path Parameters**:
+
 - `id` (string): The threat model ID
 - `user_id` (string): The Cognito user ID (sub) of the collaborator to remove
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -1178,6 +1241,7 @@ Removes a collaborator's access to a threat model. Only the owner can remove col
 ```
 
 **Response Fields**:
+
 - `success` (boolean): Always `true` on successful removal
 - `threat_model_id` (string): The ID of the threat model
 - `removed_user` (string): The user ID that was removed
@@ -1221,6 +1285,7 @@ sequenceDiagram
 ```
 
 **Error Responses**: See [Error Responses](#error-responses) section for details on:
+
 - 403 Unauthorized (not owner)
 - 404 Not Found (threat model doesn't exist)
 
@@ -1242,10 +1307,12 @@ sequenceDiagram
 Lists users from the Cognito User Pool who can be added as collaborators. This endpoint supports optional search filtering and result limiting. The current user is automatically excluded from the results.
 
 **Query Parameters**:
+
 - `search` (string, optional): Search filter to match users by email prefix. For example, `search=john` will match emails starting with "john" (e.g., john@example.com, johnny@example.com)
 - `limit` (integer, optional): Maximum number of users to return. Defaults to 100. Maximum value is 100.
 
 **Response**:
+
 ```json
 {
   "users": [
@@ -1272,6 +1339,7 @@ Lists users from the Cognito User Pool who can be added as collaborators. This e
 ```
 
 **Response Fields**:
+
 - `users` (array): List of available users from Cognito
   - `user_id` (string): Cognito user ID (sub attribute) - use this when sharing
   - `username` (string): Cognito username
@@ -1284,6 +1352,7 @@ Lists users from the Cognito User Pool who can be added as collaborators. This e
 **Cognito User Attributes**:
 
 The endpoint extracts the following attributes from Cognito user records:
+
 - `sub`: Used as the `user_id` (required for sharing operations)
 - `email`: User's email address
 - `name`: User's display name
@@ -1296,6 +1365,7 @@ The current user (requester) is automatically excluded from the results. This pr
 **Search Behavior**:
 
 When the `search` parameter is provided:
+
 - Cognito filters users by email prefix match
 - The filter is case-insensitive
 - Only users whose email starts with the search string are returned
@@ -1316,6 +1386,7 @@ When the `search` parameter is provided:
 - **User Discovery**: Browse all users in the organization for collaboration
 
 **Error Responses**: See [Error Responses](#error-responses) section for details on:
+
 - 403 Unauthorized (invalid or missing JWT)
 - 500 Internal Server Error (Cognito error)
 
@@ -1334,6 +1405,7 @@ The edit lock mechanism prevents concurrent modifications by ensuring only one u
 For detailed information on lock flows, conflict resolution, heartbeat mechanisms, and the lock data model, see [Lock Mechanism](./lock_mechanism.md).
 
 **Lock Configuration**:
+
 - **Lock Expiration**: Locks automatically expire after **180 seconds (3 minutes)** if not refreshed via heartbeat
 - **Heartbeat Interval**: Clients should send heartbeat requests every **30 seconds** to maintain locks
 - **Lock Tokens**: UUIDs generated server-side, must be included in update and heartbeat requests
@@ -1357,6 +1429,7 @@ Attempts to acquire an edit lock on a threat model. All users, including owners,
 3. **Access Requirement**: Everyone, including owners, must acquire locks before editing
 
 **Response (Success - 200)**:
+
 ```json
 {
   "success": true,
@@ -1368,6 +1441,7 @@ Attempts to acquire an edit lock on a threat model. All users, including owners,
 ```
 
 **Response Fields (Success)**:
+
 - `success` (boolean): `true` indicating lock was acquired
 - `lock_token` (string): UUID generated server-side, must be included in update and heartbeat requests
 - `acquired_at` (string): ISO 8601 timestamp when lock was acquired
@@ -1375,6 +1449,7 @@ Attempts to acquire an edit lock on a threat model. All users, including owners,
 - `message` (string): Human-readable success message
 
 **Response (Locked by Another User - 200)**:
+
 ```json
 {
   "success": false,
@@ -1387,6 +1462,7 @@ Attempts to acquire an edit lock on a threat model. All users, including owners,
 ```
 
 **Response Fields (Locked)**:
+
 - `success` (boolean): `false` indicating lock is held by another user
 - `held_by` (string): User ID of the current lock holder
 - `username` (string): Username of the current lock holder (from Cognito)
@@ -1395,6 +1471,7 @@ Attempts to acquire an edit lock on a threat model. All users, including owners,
 - `message` (string): Human-readable message indicating who holds the lock
 
 **Status Codes**:
+
 - `200`: Lock acquired successfully OR lock is held by another user (check `success` field)
 - `403`: User lacks EDIT access
 - `404`: Threat model not found
@@ -1402,16 +1479,16 @@ Attempts to acquire an edit lock on a threat model. All users, including owners,
 
 **Important Notes**:
 
-1. **Service vs Route Handler Behavior**: 
+1. **Service vs Route Handler Behavior**:
    - The lock service returns `200` with `success: false` when a lock is held by another user
    - The route handler converts this to `409 Conflict` for backwards compatibility with existing clients
    - New clients should handle both response patterns
 
-2. **Stale Lock Auto-Release**: 
+2. **Stale Lock Auto-Release**:
    - Locks older than 180 seconds are automatically deleted when a new acquisition attempt is made
    - This prevents abandoned locks from blocking edits indefinitely
 
-3. **Owner Lock Requirement**: 
+3. **Owner Lock Requirement**:
    - Even threat model owners must acquire locks before editing
    - Ownership does not bypass the locking mechanism
    - This ensures consistent conflict prevention across all users
@@ -1427,6 +1504,7 @@ Attempts to acquire an edit lock on a threat model. All users, including owners,
 Refreshes a lock's timestamp to prevent expiration. Clients must send heartbeat requests every **30 seconds** to maintain their lock. If the lock token is invalid or the lock has been taken by another user, a 410 Gone response is returned.
 
 **Request Body**:
+
 ```json
 {
   "lock_token": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
@@ -1434,9 +1512,11 @@ Refreshes a lock's timestamp to prevent expiration. Clients must send heartbeat 
 ```
 
 **Request Fields**:
+
 - `lock_token` (string, required): The lock token received when the lock was acquired
 
 **Response (Success - 200)**:
+
 ```json
 {
   "success": true,
@@ -1446,11 +1526,13 @@ Refreshes a lock's timestamp to prevent expiration. Clients must send heartbeat 
 ```
 
 **Response Fields (Success)**:
+
 - `success` (boolean): `true` indicating lock was refreshed
 - `message` (string): Human-readable success message
 - `expires_at` (integer): Unix timestamp when lock will expire (180 seconds from refresh)
 
 **Response (Lock Lost - 410 Gone)**:
+
 ```json
 {
   "success": false,
@@ -1460,6 +1542,7 @@ Refreshes a lock's timestamp to prevent expiration. Clients must send heartbeat 
 ```
 
 **Response (Lock Held by Another User - 410 Gone)**:
+
 ```json
 {
   "success": false,
@@ -1470,6 +1553,7 @@ Refreshes a lock's timestamp to prevent expiration. Clients must send heartbeat 
 ```
 
 **Response (Invalid Token - 410 Gone)**:
+
 ```json
 {
   "success": false,
@@ -1479,12 +1563,14 @@ Refreshes a lock's timestamp to prevent expiration. Clients must send heartbeat 
 ```
 
 **Response Fields (Lost)**:
+
 - `success` (boolean): `false` indicating lock was lost
 - `message` (string): Human-readable error message explaining why the lock was lost
 - `status_code` (integer): Always `410` for lock lost scenarios
 - `held_by` (string, optional): User ID of the current lock holder (if lock is held by another user)
 
 **Status Codes**:
+
 - `200`: Lock refreshed successfully
 - `410 Gone`: Lock has been lost due to token mismatch, expiration, or another user acquiring the lock
 
@@ -1516,6 +1602,7 @@ Refreshes a lock's timestamp to prevent expiration. Clients must send heartbeat 
 Explicitly releases a lock held by the current user. This is a graceful release that should be called when the user finishes editing or navigates away from the edit view.
 
 **Request Body**:
+
 ```json
 {
   "lock_token": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
@@ -1523,9 +1610,11 @@ Explicitly releases a lock held by the current user. This is a graceful release 
 ```
 
 **Request Fields**:
+
 - `lock_token` (string, optional): The lock token to validate. Can be `null` or omitted for cleanup operations where token validation is not required.
 
 **Response (Success - 200)**:
+
 ```json
 {
   "success": true,
@@ -1534,6 +1623,7 @@ Explicitly releases a lock held by the current user. This is a graceful release 
 ```
 
 **Response (No Lock - 200)**:
+
 ```json
 {
   "success": true,
@@ -1542,15 +1632,18 @@ Explicitly releases a lock held by the current user. This is a graceful release 
 ```
 
 **Response Fields**:
+
 - `success` (boolean): `true` indicating the lock was released or no lock existed
 - `message` (string): Human-readable message about the operation result
 
 **Status Codes**:
+
 - `200`: Lock released successfully or no lock existed
 - `401 Unauthorized`: User does not hold the lock or invalid lock token
 - `500`: Internal server error
 
 **Error Responses**: See [Error Responses](#error-responses) section for details on:
+
 - 403 Unauthorized (not lock holder or invalid token)
 
 **Lock Token Validation**:
@@ -1584,6 +1677,7 @@ Explicitly releases a lock held by the current user. This is a graceful release 
 Retrieves the current lock status for a threat model. This endpoint can be used to check if a threat model is locked before attempting to acquire a lock, or to display lock information in the UI.
 
 **Response (Unlocked - 200)**:
+
 ```json
 {
   "locked": false,
@@ -1592,6 +1686,7 @@ Retrieves the current lock status for a threat model. This endpoint can be used 
 ```
 
 **Response (Stale Lock - 200)**:
+
 ```json
 {
   "locked": false,
@@ -1601,6 +1696,7 @@ Retrieves the current lock status for a threat model. This endpoint can be used 
 ```
 
 **Response (Locked - 200)**:
+
 ```json
 {
   "locked": true,
@@ -1615,11 +1711,13 @@ Retrieves the current lock status for a threat model. This endpoint can be used 
 ```
 
 **Response Fields (Unlocked)**:
+
 - `locked` (boolean): `false` indicating no active lock
 - `message` (string): Human-readable message
 - `stale` (boolean, optional): `true` if a stale lock was detected (older than 180 seconds)
 
 **Response Fields (Locked)**:
+
 - `locked` (boolean): `true` indicating an active lock exists
 - `user_id` (string): User ID of the lock holder
 - `username` (string): Username of the lock holder (from Cognito)
@@ -1630,12 +1728,14 @@ Retrieves the current lock status for a threat model. This endpoint can be used 
 - `message` (string): Human-readable message indicating who holds the lock
 
 **Status Codes**:
+
 - `200`: Status retrieved successfully (whether locked or unlocked)
 - `500`: Internal server error
 
 **Stale Lock Detection**:
 
 The service automatically detects stale locks when checking status:
+
 - Stale locks (older than 180 seconds) are reported as `locked: false` with `stale: true`
 - The stale lock is not automatically deleted by this endpoint; it will be deleted when someone attempts to acquire the lock
 
@@ -1667,6 +1767,7 @@ The service automatically detects stale locks when checking status:
 Forcefully releases a lock held by any user, including collaborators. This is an owner-only operation that allows breaking locks when a collaborator is unable to release their lock (e.g., browser crash, network issues, or unresponsive user).
 
 **Response (Success - 200)**:
+
 ```json
 {
   "success": true,
@@ -1676,6 +1777,7 @@ Forcefully releases a lock held by any user, including collaborators. This is an
 ```
 
 **Response (No Lock - 200)**:
+
 ```json
 {
   "success": true,
@@ -1684,16 +1786,19 @@ Forcefully releases a lock held by any user, including collaborators. This is an
 ```
 
 **Response Fields**:
+
 - `success` (boolean): `true` indicating the lock was forcefully released
 - `message` (string): Human-readable message about the operation result
 - `previous_holder` (string, optional): User ID of the user who previously held the lock (only included if a lock was released)
 
 **Status Codes**:
+
 - `200`: Lock forcefully released or no lock existed
 - `401 Unauthorized`: Requester is not the owner
 - `500`: Internal server error
 
 **Error Responses**: See [Error Responses](#error-responses) section for details on:
+
 - 403 Unauthorized (not owner)
 
 **Authorization Rules**:
@@ -1746,6 +1851,7 @@ Forcefully releases a lock held by any user, including collaborators. This is an
 Retrieves the reasoning trail data for a threat model, which includes the agent's analysis and reasoning during different stages of threat model generation. For detailed information on how the agent generates reasoning trail data during threat model creation, see [Threat Designer Agent](./threat_designer_agent.md).
 
 **Response**:
+
 ```json
 {
   "id": "uuid-v4",
@@ -1763,6 +1869,7 @@ Retrieves the reasoning trail data for a threat model, which includes the agent'
 ```
 
 **Response Fields**:
+
 - `id` (string): The threat model identifier
 - `assets` (string): Text-based reasoning about asset identification and analysis. Contains the agent's thought process during the asset definition stage
 - `flows` (string): Text-based reasoning about data flow and system architecture analysis. Contains the agent's thought process during the flow definition stage
@@ -1770,6 +1877,7 @@ Retrieves the reasoning trail data for a threat model, which includes the agent'
 - `threats` (array of strings): List of threat reasoning entries. Each item is a string containing the agent's reasoning about a specific threat or threat category
 
 **Response When No Trail Data**:
+
 ```json
 {
   "id": "uuid-v4"
@@ -1803,26 +1911,28 @@ Some errors include additional fields with context-specific information (see det
 
 ### HTTP Status Codes
 
-| Code | Meaning | When Returned |
-|------|---------|---------------|
-| 200 | Success | Request completed successfully |
-| 400 | Bad Request | Invalid input parameters or malformed request body |
-| 401 | Unauthorized | Missing or invalid JWT token (API Gateway level) |
-| 403 | Forbidden | User lacks required permissions for the operation |
-| 404 | Not Found | Threat model, backup, or session not found |
-| 409 | Conflict | Version conflict on update or resource locked during delete |
-| 410 | Gone | Lock has been lost (expired, stolen, or invalid token) |
-| 500 | Internal Server Error | Unexpected server error |
+| Code | Meaning               | When Returned                                               |
+| ---- | --------------------- | ----------------------------------------------------------- |
+| 200  | Success               | Request completed successfully                              |
+| 400  | Bad Request           | Invalid input parameters or malformed request body          |
+| 401  | Unauthorized          | Missing or invalid JWT token (API Gateway level)            |
+| 403  | Forbidden             | User lacks required permissions for the operation           |
+| 404  | Not Found             | Threat model, backup, or session not found                  |
+| 409  | Conflict              | Version conflict on update or resource locked during delete |
+| 410  | Gone                  | Lock has been lost (expired, stolen, or invalid token)      |
+| 500  | Internal Server Error | Unexpected server error                                     |
 
 ### Detailed Error Types
 
 #### ConflictError (409 Conflict)
 
 **When Returned**:
+
 - **Version Conflicts**: When updating a threat model and the server's `last_modified_at` timestamp is newer than the client's `client_last_modified_at` timestamp, indicating another user has modified the threat model
 - **Delete with Active Lock**: When attempting to delete a threat model that is locked by another user without the `force_release=true` query parameter
 
 **Version Conflict Response**:
+
 ```json
 {
   "code": "ConflictError",
@@ -1843,6 +1953,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Response Fields**:
+
 - `code` (string): Always "ConflictError"
 - `message` (string): Human-readable description of the conflict
 - `server_timestamp` (string): ISO 8601 timestamp of the server's last modification
@@ -1850,6 +1961,7 @@ Some errors include additional fields with context-specific information (see det
 - `server_state` (object): Complete current state of the threat model from the server, allowing the client to perform three-way merge or present conflict resolution UI
 
 **Delete Lock Conflict Response**:
+
 ```json
 {
   "code": "ConflictError",
@@ -1858,6 +1970,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Handling Strategy**:
+
 1. Present the conflict to the user with both versions
 2. Allow user to choose: keep server version, keep client version, or manually merge
 3. After resolution, update with the server's `last_modified_at` as the new `client_last_modified_at`
@@ -1866,12 +1979,14 @@ Some errors include additional fields with context-specific information (see det
 #### 410 Gone (Lock Lost)
 
 **When Returned**:
+
 - **Lock Refresh Failure**: When calling `PUT /threat-designer/{id}/lock/heartbeat` and the lock is no longer held by the requesting user
 - **Lock Expired**: The lock has exceeded the stale threshold (180 seconds without refresh)
 - **Lock Stolen**: Another user has acquired the lock
 - **Invalid Lock Token**: The provided lock token doesn't match the current lock
 
 **Response**:
+
 ```json
 {
   "success": false,
@@ -1881,6 +1996,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Alternative Messages**:
+
 ```json
 {
   "success": false,
@@ -1899,6 +2015,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Handling Strategy**:
+
 1. Immediately stop any pending save operations
 2. Notify the user that their lock has been lost
 3. Offer to reload the latest version from the server
@@ -1908,6 +2025,7 @@ Some errors include additional fields with context-specific information (see det
 #### UnauthorizedError (403 Forbidden)
 
 **When Returned**:
+
 - User attempts to access a threat model they don't own or haven't been granted access to
 - User with READ_ONLY access attempts to acquire a lock or edit
 - User attempts to share, delete, or manage collaborators without OWNER access
@@ -1919,6 +2037,7 @@ Some errors include additional fields with context-specific information (see det
 **Common Scenarios and Messages**:
 
 **No Access to Threat Model**:
+
 ```json
 {
   "code": "UnauthorizedError",
@@ -1927,6 +2046,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Insufficient Access Level**:
+
 ```json
 {
   "code": "UnauthorizedError",
@@ -1942,6 +2062,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Owner-Only Operations**:
+
 ```json
 {
   "code": "UnauthorizedError",
@@ -1978,6 +2099,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Lock-Related Authorization**:
+
 ```json
 {
   "code": "UnauthorizedError",
@@ -2007,6 +2129,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Session Management**:
+
 ```json
 {
   "code": "UnauthorizedError",
@@ -2022,6 +2145,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Handling Strategy**:
+
 1. Check the specific error message to determine the cause
 2. For access issues: Request access from the owner or verify you're accessing the correct threat model
 3. For lock issues: Ensure you've acquired a lock before editing and that your lock is still valid
@@ -2030,6 +2154,7 @@ Some errors include additional fields with context-specific information (see det
 #### NotFoundError (404 Not Found)
 
 **When Returned**:
+
 - Threat model with the specified ID doesn't exist
 - No backup data available when attempting to restore
 - Session ID doesn't match or session not found when attempting to stop execution
@@ -2038,6 +2163,7 @@ Some errors include additional fields with context-specific information (see det
 **Common Scenarios and Messages**:
 
 **Threat Model Not Found**:
+
 ```json
 {
   "code": "NotFoundError",
@@ -2046,6 +2172,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **No Backup Available**:
+
 ```json
 {
   "code": "NotFoundError",
@@ -2054,6 +2181,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Session Not Found**:
+
 ```json
 {
   "code": "NotFoundError",
@@ -2062,6 +2190,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Item Not Found (Generic)**:
+
 ```json
 {
   "code": "NotFoundError",
@@ -2070,6 +2199,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Handling Strategy**:
+
 1. Verify the ID is correct and hasn't been deleted
 2. For backup errors: The threat model has no previous version to restore
 3. For session errors: The execution may have already completed or been stopped
@@ -2077,21 +2207,22 @@ Some errors include additional fields with context-specific information (see det
 
 ### Error Code Summary
 
-| Code | HTTP Status | Common Causes | Resolution |
-|------|-------------|---------------|------------|
-| `BadRequestError` | 400 | Invalid input parameters or malformed JSON | Validate request format and parameters |
-| `ValidationError` | 400 | Input validation failed | Fix validation errors in request body |
-| `UnauthorizedError` | 403 | Insufficient permissions or access denied | Check access level and permissions |
-| `ForbiddenError` | 403 | User lacks required permissions | Request access from owner |
-| `NotFoundError` | 404 | Resource doesn't exist | Verify ID is correct and resource exists |
-| `ConflictError` | 409 | Version conflict or resource locked | Resolve conflicts or release locks |
-| `InternalError` | 500 | Unexpected server error | Retry request or contact support |
+| Code                | HTTP Status | Common Causes                              | Resolution                               |
+| ------------------- | ----------- | ------------------------------------------ | ---------------------------------------- |
+| `BadRequestError`   | 400         | Invalid input parameters or malformed JSON | Validate request format and parameters   |
+| `ValidationError`   | 400         | Input validation failed                    | Fix validation errors in request body    |
+| `UnauthorizedError` | 403         | Insufficient permissions or access denied  | Check access level and permissions       |
+| `ForbiddenError`    | 403         | User lacks required permissions            | Request access from owner                |
+| `NotFoundError`     | 404         | Resource doesn't exist                     | Verify ID is correct and resource exists |
+| `ConflictError`     | 409         | Version conflict or resource locked        | Resolve conflicts or release locks       |
+| `InternalError`     | 500         | Unexpected server error                    | Retry request or contact support         |
 
 ### Error Response Examples by Endpoint
 
 #### Update Threat Model Errors
 
 **Version Conflict** (409):
+
 ```json
 {
   "code": "ConflictError",
@@ -2103,6 +2234,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **No Lock Acquired** (403):
+
 ```json
 {
   "code": "UnauthorizedError",
@@ -2111,6 +2243,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Lock Held by Another User** (403):
+
 ```json
 {
   "code": "UnauthorizedError",
@@ -2119,6 +2252,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Invalid Lock Token** (403):
+
 ```json
 {
   "code": "UnauthorizedError",
@@ -2129,6 +2263,7 @@ Some errors include additional fields with context-specific information (see det
 #### Lock Heartbeat Errors
 
 **Lock Lost** (410):
+
 ```json
 {
   "success": false,
@@ -2138,6 +2273,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Lock Stolen** (410):
+
 ```json
 {
   "success": false,
@@ -2150,6 +2286,7 @@ Some errors include additional fields with context-specific information (see det
 #### Delete Threat Model Errors
 
 **Locked by Another User** (409):
+
 ```json
 {
   "code": "ConflictError",
@@ -2158,6 +2295,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Not Owner** (403):
+
 ```json
 {
   "code": "UnauthorizedError",
@@ -2168,6 +2306,7 @@ Some errors include additional fields with context-specific information (see det
 #### Restore Errors
 
 **No Backup** (404):
+
 ```json
 {
   "code": "NotFoundError",
@@ -2176,6 +2315,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Insufficient Access** (403):
+
 ```json
 {
   "code": "UnauthorizedError",
@@ -2186,6 +2326,7 @@ Some errors include additional fields with context-specific information (see det
 #### Stop Session Errors
 
 **Not Execution Owner** (403):
+
 ```json
 {
   "code": "UnauthorizedError",
@@ -2194,6 +2335,7 @@ Some errors include additional fields with context-specific information (see det
 ```
 
 **Session Not Found** (404):
+
 ```json
 {
   "code": "NotFoundError",
@@ -2208,6 +2350,7 @@ The API implements Cross-Origin Resource Sharing (CORS) to allow the web UI and 
 ### Implementation Details
 
 **Base Configuration:**
+
 ```python
 cors_config = CORSConfig(
     max_age=100,
@@ -2238,7 +2381,6 @@ Origins are configured via environment variables in the Lambda function:
 - **PORTAL_REDIRECT_URL**: Primary origin (Amplify app URL)
   - Format: `https://{branch_name}.{amplify_domain}`
   - Example: `https://develop.d1234567890.amplifyapp.com`
-  
 - **TRUSTED_ORIGINS**: Comma-separated list of allowed origins
   - Production: Amplify app URL
   - Development: `http://localhost:5173`
@@ -2312,7 +2454,6 @@ headers["X-Frame-Options"] = ["DENY"]
 2. **Refresh**: Use Cognito refresh tokens
 3. **Validation**: Signature verified by Lambda Authorizer
 4. **Claims**: Extract user_id for authorization from request_context.authorizer
-
 
 ### Authorization Checks
 
@@ -2406,7 +2547,7 @@ def check_access(threat_model_id: str, user_id: str) -> Dict[str, Any]:
     """
     # Get the threat model to check ownership
     response = agent_table.get_item(Key={"job_id": threat_model_id})
-    
+
     if "Item" not in response:
         raise NotFoundError(f"Threat model {threat_model_id} not found")
 
@@ -2435,17 +2576,17 @@ def check_access(threat_model_id: str, user_id: str) -> Dict[str, Any]:
 
 #### Operation-Level Access Requirements
 
-| Operation | Required Access Level | Notes |
-|-----------|----------------------|-------|
-| Create Threat Model | N/A | Any authenticated user |
-| Get Threat Model | READ_ONLY | Any access level |
-| Update Threat Model | EDIT | Also requires valid lock token (JWT users only) |
-| Delete Threat Model | OWNER | Only owner can delete |
-| Share Threat Model | OWNER | Only owner can share |
-| Manage Collaborators | OWNER | Only owner can add/remove/update collaborators |
-| Restore Threat Model | EDIT | Any user with edit access |
-| Acquire Lock | EDIT | Any user with edit access (including owner) |
-| Stop Execution | N/A | Only execution_owner (user who started the execution) |
+| Operation            | Required Access Level | Notes                                                 |
+| -------------------- | --------------------- | ----------------------------------------------------- |
+| Create Threat Model  | N/A                   | Any authenticated user                                |
+| Get Threat Model     | READ_ONLY             | Any access level                                      |
+| Update Threat Model  | EDIT                  | Also requires valid lock token (JWT users only)       |
+| Delete Threat Model  | OWNER                 | Only owner can delete                                 |
+| Share Threat Model   | OWNER                 | Only owner can share                                  |
+| Manage Collaborators | OWNER                 | Only owner can add/remove/update collaborators        |
+| Restore Threat Model | EDIT                  | Any user with edit access                             |
+| Acquire Lock         | EDIT                  | Any user with edit access (including owner)           |
+| Stop Execution       | N/A                   | Only execution_owner (user who started the execution) |
 
 **Important Notes**:
 
@@ -2477,6 +2618,7 @@ def check_access(threat_model_id: str, user_id: str) -> Dict[str, Any]:
 ### Tracing
 
 AWS X-Ray integration for distributed tracing:
+
 - API Gateway → Lambda → Agent
 - DynamoDB operations
 - S3 operations
@@ -2498,5 +2640,4 @@ This section provides links to related documentation that covers concepts refere
 
 ### Additional Documentation
 
-- **[Sentry Design](./sentry_design.md)** - Design documentation for the Sentry assistant agent that provides interactive threat modeling guidance and answers questions about threat models. 
-
+- **[Sentry Design](./sentry_design.md)** - Design documentation for the Sentry assistant agent that provides interactive threat modeling guidance and answers questions about threat models.

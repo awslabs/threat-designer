@@ -487,7 +487,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateThreatModelRequest'
+              $ref: "#/components/schemas/CreateThreatModelRequest"
       responses:
         "200":
           description: OK
@@ -558,7 +558,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateThreatModelRequest'
+              $ref: "#/components/schemas/CreateThreatModelRequest"
       responses:
         "200":
           description: OK
@@ -590,7 +590,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DownloadRequest'
+              $ref: "#/components/schemas/DownloadRequest"
       responses:
         "200":
           description: OK
@@ -661,7 +661,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DownloadRequest'
+              $ref: "#/components/schemas/DownloadRequest"
       responses:
         "200":
           description: OK
@@ -693,7 +693,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UploadRequest'
+              $ref: "#/components/schemas/UploadRequest"
       responses:
         "200":
           description: OK
@@ -764,7 +764,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UploadRequest'
+              $ref: "#/components/schemas/UploadRequest"
       responses:
         "200":
           description: OK
@@ -845,7 +845,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateThreatModelRequest'
+              $ref: "#/components/schemas/UpdateThreatModelRequest"
       responses:
         "200":
           description: OK
@@ -1097,7 +1097,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateThreatModelRequest'
+              $ref: "#/components/schemas/UpdateThreatModelRequest"
       responses:
         "200":
           description: OK
@@ -1234,7 +1234,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ShareThreatModelRequest'
+              $ref: "#/components/schemas/ShareThreatModelRequest"
       responses:
         "200":
           description: OK
@@ -1443,7 +1443,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateCollaboratorAccessRequest'
+              $ref: "#/components/schemas/UpdateCollaboratorAccessRequest"
       responses:
         "200":
           description: OK
@@ -1640,7 +1640,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LockTokenRequest'
+              $ref: "#/components/schemas/LockTokenRequest"
       responses:
         "200":
           description: Lock released successfully
@@ -1717,7 +1717,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LockTokenRequest'
+              $ref: "#/components/schemas/LockTokenRequest"
       responses:
         "200":
           description: Lock refreshed successfully
@@ -1926,7 +1926,7 @@ components:
         message:
           type: string
           description: Error message friendly enough to be presented on user interfaces
-    
+
     ErrorResponse:
       type: object
       required:
@@ -1939,10 +1939,10 @@ components:
         message:
           type: string
           description: Human-readable error message
-    
+
     ConflictErrorResponse:
       allOf:
-        - $ref: '#/components/schemas/ErrorResponse'
+        - $ref: "#/components/schemas/ErrorResponse"
         - type: object
           properties:
             server_timestamp:
@@ -1954,9 +1954,9 @@ components:
               format: date-time
               description: Client's last known timestamp (for version conflicts)
             server_state:
-              $ref: '#/components/schemas/ThreatModelItem'
+              $ref: "#/components/schemas/ThreatModelItem"
               description: Current server state (for version conflicts)
-    
+
     LockLostErrorResponse:
       type: object
       required:
@@ -1979,7 +1979,7 @@ components:
           type: string
           format: uuid
           description: User ID now holding the lock (optional)
-    
+
     # Nested Object Schemas
     Asset:
       type: object
@@ -1997,16 +1997,16 @@ components:
         description:
           type: string
           description: Description of the asset
-    
+
     Assets:
       type: object
       properties:
         assets:
           type: array
           items:
-            $ref: '#/components/schemas/Asset'
+            $ref: "#/components/schemas/Asset"
           description: List of system assets
-    
+
     Threat:
       type: object
       required:
@@ -2054,16 +2054,16 @@ components:
         starred:
           type: boolean
           description: Whether this threat is marked as important
-    
+
     ThreatList:
       type: object
       properties:
         threats:
           type: array
           items:
-            $ref: '#/components/schemas/Threat'
+            $ref: "#/components/schemas/Threat"
           description: List of identified threats
-    
+
     SystemArchitecture:
       type: object
       properties:
@@ -2082,7 +2082,7 @@ components:
           items:
             type: object
           description: Threat source definitions
-    
+
     # User and Collaborator Schemas
     CollaboratorInput:
       type: object
@@ -2098,7 +2098,7 @@ components:
           type: string
           enum: [READ_ONLY, EDIT]
           description: Access level to grant
-    
+
     Collaborator:
       type: object
       required:
@@ -2132,7 +2132,7 @@ components:
           type: string
           format: uuid
           description: User ID who granted access
-    
+
     CognitoUser:
       type: object
       required:
@@ -2162,7 +2162,7 @@ components:
         email_verified:
           type: boolean
           description: Whether the email is verified
-    
+
     # Response Schemas for Collaboration Operations
     CollaboratorsResponse:
       type: object
@@ -2172,9 +2172,9 @@ components:
         collaborators:
           type: array
           items:
-            $ref: '#/components/schemas/Collaborator'
+            $ref: "#/components/schemas/Collaborator"
           description: List of users who have access to the threat model
-    
+
     UsersResponse:
       type: object
       required:
@@ -2183,9 +2183,9 @@ components:
         users:
           type: array
           items:
-            $ref: '#/components/schemas/CognitoUser'
+            $ref: "#/components/schemas/CognitoUser"
           description: List of available Cognito users
-    
+
     ShareOperationResponse:
       type: object
       required:
@@ -2214,7 +2214,7 @@ components:
           type: string
           enum: [READ_ONLY, EDIT]
           description: New access level (for update operation)
-    
+
     # Threat Model Schemas
     ThreatModelItem:
       type: object
@@ -2242,11 +2242,11 @@ components:
             type: string
           description: List of assumptions about the system
         assets:
-          $ref: '#/components/schemas/Assets'
+          $ref: "#/components/schemas/Assets"
         system_architecture:
-          $ref: '#/components/schemas/SystemArchitecture'
+          $ref: "#/components/schemas/SystemArchitecture"
         threat_list:
-          $ref: '#/components/schemas/ThreatList'
+          $ref: "#/components/schemas/ThreatList"
         owner:
           type: string
           format: uuid
@@ -2276,7 +2276,7 @@ components:
         retry:
           type: integer
           description: Reasoning boost level used
-    
+
     CatalogItem:
       type: object
       required:
@@ -2316,7 +2316,7 @@ components:
           type: string
           format: uuid
           description: User ID who shared this threat model (only for shared items)
-    
+
     # Request Body Schemas
     CreateThreatModelRequest:
       type: object
@@ -2358,7 +2358,7 @@ components:
           type: boolean
           default: false
           description: If true, replays an existing threat model with the provided id
-    
+
     UpdateThreatModelRequest:
       type: object
       properties:
@@ -2366,11 +2366,11 @@ components:
           type: string
           description: Title of the threat model
         assets:
-          $ref: '#/components/schemas/Assets'
+          $ref: "#/components/schemas/Assets"
         system_architecture:
-          $ref: '#/components/schemas/SystemArchitecture'
+          $ref: "#/components/schemas/SystemArchitecture"
         threat_list:
-          $ref: '#/components/schemas/ThreatList'
+          $ref: "#/components/schemas/ThreatList"
         client_last_modified_at:
           type: string
           format: date-time
@@ -2379,7 +2379,7 @@ components:
           type: string
           format: uuid
           description: Lock token obtained from acquiring a lock (required for JWT users)
-    
+
     ShareThreatModelRequest:
       type: object
       required:
@@ -2388,9 +2388,9 @@ components:
         collaborators:
           type: array
           items:
-            $ref: '#/components/schemas/CollaboratorInput'
+            $ref: "#/components/schemas/CollaboratorInput"
           description: List of users to share with and their access levels
-    
+
     UpdateCollaboratorAccessRequest:
       type: object
       required:
@@ -2400,7 +2400,7 @@ components:
           type: string
           enum: [READ_ONLY, EDIT]
           description: New access level for the collaborator
-    
+
     LockTokenRequest:
       type: object
       required:
@@ -2410,7 +2410,7 @@ components:
           type: string
           format: uuid
           description: Lock token to validate
-    
+
     UploadRequest:
       type: object
       required:
@@ -2420,7 +2420,7 @@ components:
           type: string
           default: image/png
           description: MIME type of the file to upload
-    
+
     DownloadRequest:
       type: object
       required:
@@ -2429,7 +2429,7 @@ components:
         s3_location:
           type: string
           description: S3 path to the object to download
-    
+
     # Response Schemas for Upload/Download Operations
     PresignedUrlResponse:
       type: object
@@ -2444,7 +2444,7 @@ components:
         name:
           type: string
           description: S3 object key
-    
+
     # Response Schemas for Threat Model Operations
     CreateThreatModelResponse:
       type: object
@@ -2455,7 +2455,7 @@ components:
           type: string
           format: uuid
           description: The threat model identifier
-    
+
     ThreatModelResponse:
       type: object
       required:
@@ -2471,9 +2471,9 @@ components:
           enum: [Found, Not Found]
           description: Whether the threat model was found
         item:
-          $ref: '#/components/schemas/ThreatModelItem'
+          $ref: "#/components/schemas/ThreatModelItem"
           description: Threat model data (null when state is Not Found)
-    
+
     StatusResponse:
       type: object
       required:
@@ -2504,7 +2504,7 @@ components:
         detail:
           type: string
           description: Additional detail message about the state (optional)
-    
+
     CatalogResponse:
       type: object
       required:
@@ -2513,9 +2513,9 @@ components:
         catalogs:
           type: array
           items:
-            $ref: '#/components/schemas/CatalogItem'
+            $ref: "#/components/schemas/CatalogItem"
           description: List of threat models accessible to the user
-    
+
     DeleteResponse:
       type: object
       required:
@@ -2530,7 +2530,7 @@ components:
           type: string
           enum: [Deleted, Restored]
           description: Result of the delete or restore operation
-    
+
     TrailResponse:
       type: object
       required:
@@ -2556,7 +2556,7 @@ components:
           items:
             type: string
           description: Threat generation reasoning trail
-    
+
     # Response Schemas for Lock Operations
     LockAcquireResponse:
       type: object
@@ -2595,7 +2595,7 @@ components:
         lock_timestamp:
           type: integer
           description: Unix timestamp of lock acquisition (present when success is false)
-    
+
     LockStatusResponse:
       type: object
       required:
@@ -2632,7 +2632,7 @@ components:
         stale:
           type: boolean
           description: True if lock is stale (optional)
-    
+
     LockOperationResponse:
       type: object
       required:

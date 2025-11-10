@@ -83,6 +83,21 @@ def _run_agent_async(state: Dict, config: Dict, job_id: str, agent_config: Dict)
     except ThreatModelingError as e:
         _handle_error_response(e, job_id, HTTP_STATUS_UNPROCESSABLE_ENTITY)
 
+    except RuntimeError as e:
+        # Handle graceful shutdown scenarios (e.g., session cancelled by user)
+        error_msg = str(e)
+        if "cannot schedule new futures after interpreter shutdown" in error_msg:
+            logger.info(
+                "Agent execution stopped due to session cancellation",
+                job_id=job_id,
+                error=error_msg,
+            )
+            # Don't mark as FAILED - this is a user-initiated cancellation
+            # The status should remain as it was or be handled by the cancellation logic
+        else:
+            # Other RuntimeErrors should be treated as failures
+            _handle_error_response(e, job_id, HTTP_STATUS_INTERNAL_SERVER_ERROR)
+
     except Exception as e:
         _handle_error_response(e, job_id, HTTP_STATUS_INTERNAL_SERVER_ERROR)
     finally:

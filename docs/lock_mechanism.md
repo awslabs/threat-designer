@@ -16,12 +16,13 @@ erDiagram
         string acquired_at
         number ttl
     }
-    
+
     LOCKS_TABLE ||--|| THREAT_MODEL : "locks"
     LOCKS_TABLE ||--|| USER : "held_by"
 ```
 
 **Key Fields:**
+
 - `threat_model_id`: Primary key, identifies which threat model is locked
 - `user_id`: UUID of the user holding the lock
 - `lock_token`: UUID for validating lock ownership during operations
@@ -42,11 +43,11 @@ sequenceDiagram
     UI->>LM: Open Threat Model
     LM->>API: POST /threat-designer/{id}/lock
     API->>Auth: Check user has EDIT access
-    
+
     alt User has EDIT access
         Auth-->>API: Access granted
         API->>DB: Check existing lock
-        
+
         alt No lock exists
             DB-->>API: No lock found
             API->>DB: Create lock (user_id, lock_token, timestamp, TTL)
@@ -84,12 +85,12 @@ sequenceDiagram
     participant DB as DynamoDB
 
     Note over LM: User has active lock
-    
+
     loop Every 30 seconds
         LM->>API: PUT /threat-designer/{id}/lock/heartbeat
         Note right of LM: Includes lock_token
         API->>DB: Get current lock
-        
+
         alt Lock valid and token matches
             DB-->>API: Lock found
             API->>DB: Update lock_timestamp and TTL

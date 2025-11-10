@@ -27,7 +27,7 @@ graph TB
         GRAPH[LangGraph Workflow<br/>StateGraph]
         SUBGRAPH[Threats Subgraph<br/>workflow_threats.py]
     end
-    
+
     subgraph "Business Logic Services"
         SUMMARY[SummaryService]
         ASSETS[AssetDefinitionService]
@@ -36,12 +36,12 @@ graph TB
         FINALIZE[WorkflowFinalizationService]
         REPLAY[ReplayService]
     end
-    
+
     subgraph "Infrastructure Services"
         MODEL[ModelService<br/>LLM Integration]
         STATE[StateService<br/>DynamoDB Operations]
     end
-    
+
     FASTAPI --> ORCHESTRATOR
     ORCHESTRATOR --> GRAPH
     GRAPH --> SUMMARY
@@ -51,7 +51,7 @@ graph TB
     GRAPH --> SUBGRAPH
     GRAPH --> FINALIZE
     GRAPH --> REPLAY
-    
+
     SUMMARY --> MODEL
     ASSETS --> MODEL
     ASSETS --> STATE
@@ -64,7 +64,6 @@ graph TB
     FINALIZE --> STATE
     REPLAY --> STATE
 ```
-
 
 ## Core Concepts
 
@@ -87,6 +86,7 @@ class AgentState(TypedDict):
 ```
 
 **Example**:
+
 ```python
 # Initial state
 state["threat_list"] = ThreatsList(threats=[threat1, threat2])
@@ -99,6 +99,7 @@ state["threat_list"] = ThreatsList(threats=[threat1, threat2, threat3, threat4])
 ```
 
 **ThreatsList Custom Reducer**:
+
 ```python
 def __add__(self, other: "ThreatsList") -> "ThreatsList":
     """Combine two ThreatsList instances, avoiding duplicates based on name."""
@@ -125,16 +126,17 @@ return Command(
 ```
 
 **When to Use**:
+
 - Removing threats (need to replace, not accumulate)
 - Exiting subgraph with final state
 - Resetting state to specific value
-
 
 #### State Inheritance (Parent → Subgraph)
 
 When entering the agentic subgraph, state is inherited from the parent graph:
 
 **Parent State (AgentState)**:
+
 ```python
 {
     "job_id": "uuid",
@@ -151,6 +153,7 @@ When entering the agentic subgraph, state is inherited from the parent graph:
 ```
 
 **Subgraph State (ThreatState)**:
+
 ```python
 {
     # Inherited from parent
@@ -164,7 +167,7 @@ When entering the agentic subgraph, state is inherited from the parent graph:
     "iteration": 0,
     "replay": False,
     "instructions": "...",
-    
+
     # Subgraph-specific
     "messages": [],  # Conversation history
     "tool_use": 0,
@@ -174,6 +177,7 @@ When entering the agentic subgraph, state is inherited from the parent graph:
 ```
 
 **Key Points**:
+
 - Subgraph receives all parent state fields
 - Subgraph adds its own fields (messages, tool counters)
 - Updates to shared fields (threat_list) propagate back to parent
@@ -188,6 +192,7 @@ When entering the agentic subgraph, state is inherited from the parent graph:
 **Table**: State table (configured via `ENV_AGENT_STATE_TABLE`)
 
 **Operations**:
+
 ```python
 # Update job state
 state_service.update_job_state(
@@ -202,6 +207,7 @@ status = get_job_status(job_id)
 ```
 
 **State Transitions**:
+
 ```
 START → ASSETS → FLOW → THREAT → FINALIZE → COMPLETE
                            ↓
@@ -211,6 +217,7 @@ START → ASSETS → FLOW → THREAT → FINALIZE → COMPLETE
 ```
 
 **States**:
+
 - `START`: Execution initiated
 - `PENDING`: Job created, waiting to start
 - `ASSETS`: Analyzing assets
@@ -221,12 +228,12 @@ START → ASSETS → FLOW → THREAT → FINALIZE → COMPLETE
 - `COMPLETE`: Successfully finished
 - `FAILED`: Error occurred
 
-
 **Reasoning Trail Tracking**
 
 The agent captures reasoning trails from LLM responses and persists them to DynamoDB for debugging and analysis. Reasoning trails are extracted from message content during workflow execution and stored by workflow stage (assets, flows, threats, gaps).
 
 **Key Operations**:
+
 - `update_trail()`: Persist reasoning trails with append or replace mode
 - `get_reasoning_trail()`: Retrieve reasoning trails for a job
 
@@ -236,12 +243,12 @@ The agent captures reasoning trails from LLM responses and persists them to Dyna
 
 For detailed reasoning trail extraction logic and format examples, see the continue node description (Section 5.3).
 
-
 **Workflow Finalization**
 
 **Operation**: `state_service.finalize_workflow(state)`
 
 **Behavior**:
+
 1. Extracts all relevant fields from AgentState
 2. Converts Pydantic models to dictionaries
 3. Adds metadata (created_at, last_modified_at, owner)
@@ -249,6 +256,7 @@ For detailed reasoning trail extraction logic and format examples, see the conti
 5. Creates backup of current state
 
 **Persisted Fields**:
+
 - `job_id`: Primary key
 - `title`: Threat model title
 - `state`: "COMPLETE"
@@ -263,7 +271,6 @@ For detailed reasoning trail extraction logic and format examples, see the conti
 - `created_at`: Creation timestamp
 - `last_modified_at`: Last update timestamp
 - `backup`: Previous version (for restore)
-
 
 **Backup and Restore**
 
@@ -286,7 +293,7 @@ When execution is stopped, the system restores from backup:
 def stop_session(job_id, session_id):
     # Get threat model
     item = get_threat_model(job_id)
-    
+
     if item.get("backup"):
         # Restore from backup
         restore_from_backup(job_id, item["backup"])
@@ -296,7 +303,6 @@ def stop_session(job_id, session_id):
         delete_threat_model(job_id)
         return {"state": "Deleted"}
 ```
-
 
 ### Message Building Patterns
 
@@ -325,16 +331,16 @@ def base_msg(self, caching: bool = False, details: bool = True) -> List[Dict]:
         },
         {"type": "text", "text": "</architecture_diagram>"}
     ]
-    
+
     if details:
         base_message.extend([
             {"type": "text", "text": f"<description>{self.description}</description>"},
             {"type": "text", "text": f"<assumptions>{self.assumptions}</assumptions>"}
         ])
-    
+
     if caching:
         base_message.extend(self._add_cache_point_if_bedrock())
-    
+
     return base_message
 ```
 
@@ -350,11 +356,11 @@ def _add_cache_point_if_bedrock(self) -> List[Dict]:
 ```
 
 **Cache Strategy**:
+
 - Cache architecture diagram and base context
 - Reuse cached content across multiple LLM calls
 - Reduces token costs for repeated context
 - Only supported on Bedrock provider
-
 
 #### Message Types
 
@@ -429,7 +435,6 @@ gap_msg = [
 ```
 
 Uses `base_msg(caching=True)` to enable prompt caching. See `MessageBuilder.create_gap_analysis_message()` for complete implementation.
-
 
 ### Prompt Engineering Patterns
 
@@ -513,7 +518,6 @@ Every threat must be REALISTIC and PLAUSIBLE. Apply these filters:
 </threat_realism_guidance>
 ```
 
-
 **4. Step-by-Step Generation Process**
 
 ```xml
@@ -559,7 +563,7 @@ The gap analysis prompt implements comprehensive validation:
 <primary_mission>
 Systematically evaluate threat catalogs against:
 1. **Coverage** - Missing threat scenarios
-2. **Compliance** - Adherence to ground rules  
+2. **Compliance** - Adherence to ground rules
 3. **Accuracy** - Hallucinations and impossibilities
 4. **Chains** - Complete attack paths
 </primary_mission>
@@ -591,7 +595,6 @@ ANY violation = Request revision
 </mandatory_compliance_checks>
 ```
 
-
 **3. Coverage Analysis**
 
 ```xml
@@ -600,7 +603,7 @@ ANY violation = Request revision
 
 **STRIDE Coverage per Component:**
 - Authentication points → Need Spoofing threats
-- Data modification points → Need Tampering threats  
+- Data modification points → Need Tampering threats
 - Audit requirements → Need Repudiation threats
 - Sensitive data → Need Information Disclosure threats
 - Critical services → Need DoS threats
@@ -641,27 +644,27 @@ The main workflow is defined in `workflow.py` and orchestrates the complete thre
 ```mermaid
 graph TB
     START([Entry Point]) --> IMAGE[image_to_base64<br/>Generate Summary]
-    
+
     IMAGE --> ROUTE_REPLAY{Route Replay?}
-    
+
     ROUTE_REPLAY -->|replay| THREATS_ROUTER[threats<br/>Routing Node]
     ROUTE_REPLAY -->|full| ASSET[asset<br/>Define Assets]
-    
+
     ASSET --> FLOWS[flows<br/>Define Data Flows]
-    
+
     FLOWS --> ROUTE_ITER{Route by<br/>Iteration?}
-    
+
     ROUTE_ITER -->|iteration=0| AGENTIC[threats_agentic<br/>Agentic Subgraph]
     ROUTE_ITER -->|iteration>0| TRADITIONAL[threats_traditional<br/>Traditional Node]
-    
+
     THREATS_ROUTER --> ROUTE_ITER2{Route by<br/>Iteration?}
-    
+
     ROUTE_ITER2 -->|iteration=0| AGENTIC
     ROUTE_ITER2 -->|iteration>0| TRADITIONAL
-    
+
     AGENTIC --> FINALIZE[finalize<br/>Complete Workflow]
     TRADITIONAL --> FINALIZE
-    
+
     FINALIZE --> END([END])
 ```
 
@@ -674,21 +677,23 @@ graph TB
 **Service**: `SummaryService`
 
 **Inputs**:
+
 - Architecture diagram (base64 encoded)
 - User description
 - User assumptions
 
 **Outputs**:
+
 - `summary`: Short headline summary (max 40 words by default)
 - `image_data`: Base64 encoded image data
 
 **Behavior**:
+
 - If summary already exists in state, returns immediately
 - Otherwise, invokes LLM with summary prompt to generate architecture overview
 - Uses structured output to ensure consistent format
 
 **Model**: Configured via `model_summary` in ConfigSchema
-
 
 #### 2. asset (Define Assets)
 
@@ -697,14 +702,17 @@ graph TB
 **Service**: `AssetDefinitionService`
 
 **Inputs**:
+
 - Architecture diagram
 - User description
 - User assumptions
 
 **Outputs**:
+
 - `assets`: AssetsList containing identified assets and entities
 
 **Behavior**:
+
 - Updates job state to `ASSETS`
 - Constructs message with architecture context
 - Invokes LLM with structured output schema (AssetsList)
@@ -714,6 +722,7 @@ graph TB
 **Model**: Configured via `model_assets` in ConfigSchema
 
 **Asset Types**:
+
 - **Asset**: Components requiring protection (databases, APIs, data stores)
 - **Entity**: Actors interacting with the system (users, services, systems)
 
@@ -724,18 +733,21 @@ graph TB
 **Service**: `FlowDefinitionService`
 
 **Inputs**:
+
 - Architecture diagram
 - User description
 - User assumptions
 - Identified assets
 
 **Outputs**:
+
 - `system_architecture`: FlowsList containing:
   - `data_flows`: Movement of data between components
   - `trust_boundaries`: Security domain transitions
   - `threat_sources`: Relevant threat actor categories
 
 **Behavior**:
+
 - Updates job state to `FLOW`
 - Constructs message including asset context
 - Invokes LLM with structured output schema (FlowsList)
@@ -745,6 +757,7 @@ graph TB
 **Model**: Configured via `model_flows` in ConfigSchema
 
 **Data Flow Elements**:
+
 - Flow description
 - Source entity
 - Target entity
@@ -752,12 +765,12 @@ graph TB
 - Criticality level
 
 **Trust Boundary Types**:
+
 - Network boundaries
 - Process boundaries
 - Physical boundaries
 - Organizational boundaries
 - Administrative boundaries
-
 
 #### 4. threats (Routing Node)
 
@@ -766,11 +779,13 @@ graph TB
 **Service**: `ThreatModelingOrchestrator.threats_router`
 
 **Behavior**:
+
 - Returns empty dictionary (no state changes)
 - Exists solely for routing logic
 - Routes to either agentic subgraph or traditional node based on iteration parameter
 
 **Routing Logic**:
+
 ```python
 def route_threats_by_iteration(state: AgentState) -> str:
     iteration = state.get("iteration", 0)
@@ -786,6 +801,7 @@ def route_threats_by_iteration(state: AgentState) -> str:
 **Service**: `ThreatDefinitionService`
 
 **Inputs**:
+
 - Architecture diagram
 - User description
 - User assumptions
@@ -797,10 +813,12 @@ def route_threats_by_iteration(state: AgentState) -> str:
 - Iteration parameter
 
 **Outputs**:
+
 - `threat_list`: ThreatsList with identified threats
 - `retry`: Incremented retry counter
 
 **Behavior**:
+
 1. Checks if should finalize (max retries reached or iteration limit)
 2. Updates job state based on retry count
 3. Constructs appropriate prompt (initial or improvement)
@@ -809,6 +827,7 @@ def route_threats_by_iteration(state: AgentState) -> str:
 6. Returns Command to route to next node
 
 **Routing Decisions**:
+
 - If `iteration == 0`: Routes to `gap_analysis` node
 - If `iteration > 0`: Routes back to `threats` routing node
 - If max retries reached: Routes to `finalize`
@@ -816,9 +835,9 @@ def route_threats_by_iteration(state: AgentState) -> str:
 **Model**: Configured via `model_threats` in ConfigSchema
 
 **Prompt Selection**:
+
 - First iteration (`retry == 1`): Uses `threats_prompt()` for initial generation
 - Subsequent iterations: Uses `threats_improve_prompt()` for refinement
-
 
 #### 6. threats_agentic (Agentic Subgraph)
 
@@ -839,12 +858,15 @@ def route_threats_by_iteration(state: AgentState) -> str:
 **Service**: `WorkflowFinalizationService`
 
 **Inputs**:
+
 - Complete AgentState with all analysis results
 
 **Outputs**:
+
 - Command to END workflow
 
 **Behavior**:
+
 1. Updates job state to `FINALIZE`
 2. Calls `state_service.finalize_workflow(state)` to persist results
 3. Sleeps for 3 seconds (allows final state updates to propagate)
@@ -854,6 +876,7 @@ def route_threats_by_iteration(state: AgentState) -> str:
 For details on state persistence and finalization, see State Persistence (Section 3.1).
 
 **Error Handling**:
+
 - On exception, updates job state to `FAILED`
 - Re-raises exception for upstream handling
 
@@ -870,11 +893,12 @@ This section describes all routing logic used throughout the workflow. Other sec
 **Purpose**: Determines whether to execute full workflow or skip to threat generation
 
 **Logic**:
+
 ```python
 def route_replay(state: AgentState) -> str:
     if not state.get("replay", False):
         return "full"  # Normal flow: asset -> flows -> threats
-    
+
     # Replay mode: skip to threats
     state_service.update_trail(job_id, threats=[], gaps=[], flush=FLUSH_MODE_REPLACE)
     state_service.update_with_backup(job_id)
@@ -882,10 +906,12 @@ def route_replay(state: AgentState) -> str:
 ```
 
 **Routes**:
+
 - `"full"`: Normal execution → routes to `asset` node
 - `"replay"`: Replay mode → routes to `threats` routing node
 
 **Replay Behavior**:
+
 - Clears existing reasoning trails
 - Creates backup of current state (see State Persistence, Section 3.1)
 - Loads backup data (assets, flows, starred threats)
@@ -893,23 +919,25 @@ def route_replay(state: AgentState) -> str:
 - Routes directly to threat generation
 
 **State Preparation**:
+
 - Preserves existing assets and flows from previous execution
 - Filters threat list to only starred threats
 - Applies custom instructions if provided
 - Resets iteration counters
 
-
 #### Iteration Routing
 
 **Function**: `ThreatModelingOrchestrator.route_threats_by_iteration`
 
-**Decision Points**: 
+**Decision Points**:
+
 - After `flows` node (normal execution)
 - After `threats` routing node (replay mode)
 
 **Purpose**: Determines whether to use agentic or traditional threat generation
 
 **Logic**:
+
 ```python
 def route_threats_by_iteration(state: AgentState) -> str:
     iteration = state.get("iteration", 0)
@@ -919,16 +947,19 @@ def route_threats_by_iteration(state: AgentState) -> str:
 ```
 
 **Routes**:
+
 - `WORKFLOW_NODE_THREATS_AGENTIC`: Agentic subgraph with tool-calling and ReAct pattern
 - `WORKFLOW_NODE_THREATS_TRADITIONAL`: Traditional structured prompting
 
 **Iteration Modes**:
+
 - `iteration == 0`: Uses agentic subgraph with autonomous tool-calling
 - `iteration > 0`: Uses traditional structured prompting with fixed iterations
 
 **Mode Characteristics**:
 
 **Agentic Mode** (`iteration == 0`):
+
 - Agent autonomously decides when to add/remove threats
 - Performs gap analysis via tool calls
 - Continues until catalog is complete
@@ -936,12 +967,12 @@ def route_threats_by_iteration(state: AgentState) -> str:
 - Higher quality, longer execution time
 
 **Traditional Mode** (`iteration > 0`):
+
 - Fixed number of iterations
 - Each iteration improves previous threats
 - No tool-calling or autonomous decisions
 - Predictable execution time
 - Lower token usage
-
 
 #### Traditional Mode Routing
 
@@ -952,29 +983,32 @@ def route_threats_by_iteration(state: AgentState) -> str:
 **Purpose**: Determines next step after traditional threat generation
 
 **Logic**:
+
 ```python
 def route_after_traditional(state: AgentState) -> str:
     iteration = state.get("iteration", 0)
     retry = state.get("retry", 1)
-    
+
     # Check if max retries reached
     if retry > iteration:
         return "finalize"
-    
+
     # First iteration: perform gap analysis
     if iteration == 0:
         return "gap_analysis"
-    
+
     # Subsequent iterations: continue improving
     return "threats"
 ```
 
 **Routes**:
+
 - `"finalize"`: Max retries reached → complete workflow
 - `"gap_analysis"`: First iteration → analyze gaps
 - `"threats"`: Subsequent iterations → continue improving
 
 **Iteration Loop**:
+
 ```
 First iteration (retry=1, iteration=0):
   threats_traditional → gap_analysis → threats_traditional
@@ -995,33 +1029,33 @@ The agentic subgraph (`workflow_threats.py`) implements a ReAct (Reasoning + Act
 **State Type**: `ThreatState` (extends `MessagesState`)
 
 **Key State Features**:
+
 - Inherits `messages` list from `MessagesState` for conversation history
 - Uses `operator.add` reducer for `threat_list` to accumulate threats (see State Management Patterns, Section 3.1)
 - Tracks tool usage to enforce limits
 - Maintains context from parent graph (assets, flows, etc.)
-
 
 ### Subgraph Workflow
 
 ```mermaid
 graph TB
     START([Subgraph Entry]) --> AGENT[agent<br/>ReAct Agent Node]
-    
+
     AGENT --> SHOULD_CONTINUE{should_continue<br/>Check Tool Calls}
-    
+
     SHOULD_CONTINUE -->|tool_calls exist| TOOLS[tools<br/>ToolNode]
     SHOULD_CONTINUE -->|no tool_calls| CONTINUE[continue<br/>Validate Catalog]
-    
+
     TOOLS --> AGENT
-    
+
     CONTINUE --> VALIDATE{Catalog<br/>Empty?}
-    
+
     VALIDATE -->|empty| FEEDBACK[Inject Feedback]
     VALIDATE -->|has threats| EXTRACT[Extract Reasoning]
-    
+
     FEEDBACK --> AGENT
     EXTRACT --> PARENT_FINALIZE[Route to Parent<br/>finalize Node]
-    
+
     PARENT_FINALIZE --> END([Subgraph Exit])
 ```
 
@@ -1032,9 +1066,11 @@ graph TB
 **Purpose**: Autonomous agent that reasons about threat modeling and calls tools
 
 **Inputs**:
+
 - ThreatState with messages, context, and tool usage counters
 
 **Outputs**:
+
 - Command with updated messages containing agent response
 
 **Behavior**:
@@ -1065,6 +1101,7 @@ graph TB
 **Model**: Configured via `model_threats_agent` in ConfigSchema
 
 **Tool Binding**:
+
 ```python
 model_with_tools = model_service.get_model_with_tools(
     model=model,
@@ -1075,7 +1112,6 @@ model_with_tools = model_service.get_model_with_tools(
 
 For detailed tool descriptions, see Agent Tools (Section 5.4).
 
-
 #### tools (ToolNode)
 
 **Purpose**: Execute tool calls made by the agent
@@ -1083,12 +1119,14 @@ For detailed tool descriptions, see Agent Tools (Section 5.4).
 **Implementation**: LangGraph's built-in `ToolNode`
 
 **Available Tools**:
+
 1. `add_threats`: Add new threats to catalog (see Section 5.4.1)
 2. `remove_threat`: Delete threats by name (see Section 5.4.2)
 3. `read_threat_catalog`: View current threats (see Section 5.4.3)
 4. `gap_analysis`: Analyze catalog completeness (see Section 5.4.4)
 
 **Behavior**:
+
 - Automatically executes all tool calls from agent's response
 - Returns tool results as ToolMessage objects
 - Routes back to agent node for next reasoning step
@@ -1100,14 +1138,17 @@ For detailed tool descriptions, parameters, and behavior, see Agent Tools (Secti
 **Purpose**: Validate catalog completeness and route to parent or agent
 
 **Inputs**:
+
 - ThreatState with threat_list and messages
 
 **Outputs**:
+
 - Command to route to agent (if empty) or parent finalize (if complete)
 
 **Behavior**:
 
 1. **Empty Catalog Check**:
+
    ```python
    if not threat_list or len(threat_list.threats) == 0:
        feedback_message = HumanMessage(
@@ -1126,6 +1167,7 @@ For detailed tool descriptions, parameters, and behavior, see Agent Tools (Secti
    - Persists trails to DynamoDB via `state_service.update_trail()` (see State Persistence, Section 3.1)
 
 3. **Route to Parent**:
+
    ```python
    return Command(
        goto="finalize",
@@ -1133,10 +1175,10 @@ For detailed tool descriptions, parameters, and behavior, see Agent Tools (Secti
        graph=Command.PARENT
    )
    ```
+
    - Uses `Overwrite` to bypass the `operator.add` reducer (see State Management Patterns, Section 3.1)
    - Routes to parent graph's `finalize` node
    - Exits subgraph
-
 
 ### Agent Tools
 
@@ -1147,9 +1189,11 @@ This section describes the tools available to the agent during threat catalog ge
 **Purpose**: Add new threats to the catalog
 
 **Parameters**:
+
 - `threats`: ThreatsList object with threat details
 
 **Behavior**:
+
 1. Checks tool usage limit (max 7 invocations)
 2. Updates job status with threat count
 3. Ensures all threats have `starred=False`
@@ -1159,6 +1203,7 @@ This section describes the tools available to the agent during threat catalog ge
 **Usage Limit**: 7 invocations per session
 
 **State Updates**:
+
 ```python
 return Command(
     update={
@@ -1172,6 +1217,7 @@ return Command(
 For details on accumulation reducers, see State Management Patterns (Section 3.1).
 
 **Threat Structure**:
+
 ```python
 class Threat(BaseModel):
     name: str  # Concise threat name
@@ -1187,15 +1233,16 @@ class Threat(BaseModel):
     starred: bool = False  # User prioritization flag
 ```
 
-
 #### 5.4.2 remove_threat
 
 **Purpose**: Delete threats from the catalog by name
 
 **Parameters**:
+
 - `threats`: List[str] - Threat names to remove
 
 **Behavior**:
+
 1. Gets current threat_list from state
 2. Applies remove method for each threat name
 3. Updates job status
@@ -1203,6 +1250,7 @@ class Threat(BaseModel):
 5. Returns updated threat list with Overwrite
 
 **State Updates**:
+
 ```python
 return Command(
     update={
@@ -1220,9 +1268,11 @@ return Command(
 **Purpose**: View current threats in the catalog
 
 **Parameters**:
+
 - `verbose`: bool - Include full threat details or just summary
 
 **Behavior**:
+
 1. Gets current threat_list from state
 2. Updates job status to "Reviewing catalog"
 3. Formats output based on verbose flag
@@ -1231,6 +1281,7 @@ return Command(
 **Output Formats**:
 
 **Summary** (`verbose=False`):
+
 ```
 Total threats: 5
 
@@ -1245,6 +1296,7 @@ Total threats: 5
 ```
 
 **Verbose** (`verbose=True`):
+
 ```json
 [
   {
@@ -1263,7 +1315,6 @@ Total threats: 5
 ]
 ```
 
-
 #### 5.4.4 gap_analysis
 
 **Purpose**: Analyze catalog for gaps and completeness
@@ -1271,6 +1322,7 @@ Total threats: 5
 **Parameters**: None (uses state context)
 
 **Behavior**:
+
 1. Checks tool usage limit (max 3 invocations)
 2. Updates job status to "Reviewing for gaps"
 3. Constructs gap analysis message with current catalog
@@ -1280,6 +1332,7 @@ Total threats: 5
 **Usage Limit**: 3 invocations per session
 
 **Model Invocation**:
+
 ```python
 response = model_service.invoke_structured_model(
     messages,
@@ -1291,6 +1344,7 @@ response = model_service.invoke_structured_model(
 ```
 
 **Output Schema**:
+
 ```python
 class ContinueThreatModeling(BaseModel):
     stop: bool  # True if catalog is complete
@@ -1300,6 +1354,7 @@ class ContinueThreatModeling(BaseModel):
 **State Updates**:
 
 **Gaps Found**:
+
 ```python
 return Command(
     update={
@@ -1313,6 +1368,7 @@ return Command(
 For details on accumulation reducers, see State Management Patterns (Section 3.1).
 
 **Catalog Complete**:
+
 ```python
 return Command(
     update={
@@ -1323,6 +1379,7 @@ return Command(
 ```
 
 **Gap Analysis Criteria**:
+
 - STRIDE coverage per component
 - Attack surface coverage
 - Common attack patterns
@@ -1338,20 +1395,21 @@ return Command(
 **Purpose**: Route based on presence of tool calls
 
 **Logic**:
+
 ```python
 def should_continue(state: ThreatState):
     messages = state["messages"]
     last_message = messages[-1]
-    
+
     if last_message.tool_calls:
         return "tools"  # Execute tool calls
     return "continue"  # Validate and potentially exit
 ```
 
 **Routes**:
+
 - `"tools"`: Agent made tool calls → execute them (see Agent Tools, Section 5.4)
 - `"continue"`: No tool calls → validate catalog and route to parent or feedback
-
 
 ## Execution Patterns
 
@@ -1364,17 +1422,17 @@ The agent uses a fire-and-forget pattern for long-running executions:
 @app.post("/invocations")
 async def handler(request: InvocationRequest):
     job_id = request.input["id"]
-    
+
     # Create agent configuration
     agent_config = _create_agent_config(request.input)
-    
+
     # Initialize state
     state = _initialize_state(request.input, job_id)
-    
+
     # Track active invocation
     with invocation_lock:
         active_invocations += 1
-    
+
     # Submit to background thread pool
     loop = asyncio.get_event_loop()
     loop.run_in_executor(
@@ -1385,7 +1443,7 @@ async def handler(request: InvocationRequest):
         job_id,
         agent_config
     )
-    
+
     # Return immediately
     return JSONResponse({
         "message": "Threat modeling process started",
@@ -1395,12 +1453,13 @@ async def handler(request: InvocationRequest):
 ```
 
 **Background Execution**:
+
 ```python
 def _run_agent_async(state, config, job_id, agent_config):
     try:
         # Execute workflow (15-60 minutes)
         agent.invoke(state, config=config)
-        
+
         logger.info("Threat modeling completed successfully")
     except Exception as e:
         _handle_error_response(e, job_id)
@@ -1416,12 +1475,14 @@ The agent supports multiple reasoning modes via the `reasoning` parameter:
 #### Reasoning Levels
 
 **0 - Disabled** (Default):
+
 - Standard LLM generation
 - No extended thinking
 - Fastest execution
 - Lower quality for complex scenarios
 
 **1-3 - Enabled**:
+
 - Extended thinking/reasoning enabled
 - Model performs internal reasoning before responding
 - Reasoning trails captured and persisted
@@ -1429,6 +1490,7 @@ The agent supports multiple reasoning modes via the `reasoning` parameter:
 - Longer execution time
 
 **Configuration**:
+
 ```python
 # Request
 {
@@ -1451,7 +1513,8 @@ config = {
 
 The agent extracts reasoning from multiple LLM provider formats (Anthropic/Bedrock, OpenAI) and persists them to DynamoDB for analysis and debugging.
 
-**See also**: 
+**See also**:
+
 - For detailed reasoning trail extraction logic and format examples, see continue node (Section 5.3)
 - For reasoning trail persistence operations, see State Persistence (Section 3.1)
 
@@ -1464,11 +1527,13 @@ The agent supports two execution modes controlled by the `iteration` parameter. 
 **Selection**: Automatically selected when `iteration == 0` via Iteration Routing (Section 4.3)
 
 **Workflow**:
+
 ```
 flows → threats_agentic (subgraph) → finalize
 ```
 
 **Characteristics**:
+
 - Uses agentic subgraph with tool-calling (see Agentic Subgraph Architecture, Section 5)
 - Agent autonomously decides when to add/remove threats
 - Performs gap analysis via tool calls
@@ -1476,6 +1541,7 @@ flows → threats_agentic (subgraph) → finalize
 - No fixed iteration limit
 
 **Trade-offs**:
+
 - **Advantages**: More thorough analysis, self-correcting through gap analysis, adapts to architecture complexity, higher quality results
 - **Disadvantages**: Longer execution time, higher token usage, less predictable completion time
 
@@ -1484,12 +1550,14 @@ flows → threats_agentic (subgraph) → finalize
 **Selection**: Automatically selected when `iteration > 0` via Iteration Routing (Section 4.3)
 
 **Workflow**:
+
 ```
 flows → threats_traditional → threats_traditional → ... → finalize
          (iteration 1)         (iteration 2)
 ```
 
 **Characteristics**:
+
 - Uses traditional structured prompting
 - Fixed number of iterations specified by `iteration` parameter
 - Each iteration improves previous threats
@@ -1497,11 +1565,11 @@ flows → threats_traditional → threats_traditional → ... → finalize
 - Routing handled by Traditional Mode Routing (Section 4.3)
 
 **Trade-offs**:
+
 - **Advantages**: Predictable execution time, lower token usage, simpler debugging
 - **Disadvantages**: May miss gaps, fixed improvement cycles, less adaptive
 
 **See also**: Conditional Routing (Section 4.3) for complete routing logic and decision trees.
-
 
 ### Replay Pattern
 
@@ -1535,6 +1603,7 @@ sequenceDiagram
 **Routing**: Handled by Replay Routing function (see Section 4.3)
 
 **State Preparation**:
+
 1. Fetches existing threat model from DynamoDB
 2. Preserves assets and flows from previous execution
 3. Filters threat list to only starred threats
@@ -1542,22 +1611,20 @@ sequenceDiagram
 5. Applies custom instructions if provided
 
 **Workflow Execution**:
+
 - Skips `asset` and `flows` nodes (uses preserved data)
 - Routes directly to threat generation via Replay Routing (Section 4.3)
 - Uses Iteration Routing (Section 4.3) to select agentic or traditional mode
 - Generates new threats with starred threats as context
 
 **Use Cases**:
+
 - Refine threat catalog with additional instructions
 - Regenerate threats after architecture changes
 - Focus on specific threat areas (via starred threats)
 - Experiment with different threat generation approaches
 
 **See also**: Conditional Routing (Section 4.3) for complete replay routing logic.
-
-
-
-
 
 ## Error Handling and Resilience
 
@@ -1579,6 +1646,7 @@ def _invoke_asset_model(self, messages, config, job_id):
 ```
 
 **Benefits**:
+
 - Automatic error logging with context
 - Structured log fields (job_id, node, operation)
 - Exception propagation with enriched context
@@ -1588,7 +1656,7 @@ def _invoke_asset_model(self, messages, config, job_id):
 ```python
 def finalize_workflow(self, state: AgentState) -> Command:
     job_id = state.get("job_id", "unknown")
-    
+
     try:
         self.state_service.update_job_state(job_id, JobState.FINALIZE.value)
         self.state_service.finalize_workflow(state)
@@ -1607,7 +1675,7 @@ The agentic mode uses feedback loops for self-correction:
 ```python
 def continue_or_finish(state: ThreatState) -> Command:
     threat_list = state.get("threat_list")
-    
+
     # Check if catalog is empty
     if not threat_list or len(threat_list.threats) == 0:
         # Inject feedback message
@@ -1615,19 +1683,19 @@ def continue_or_finish(state: ThreatState) -> Command:
             content="The threat catalog is empty. You must add threats..."
         )
         return Command(goto="agent", update={"messages": [feedback_message]})
-    
+
     # Catalog is complete, route to parent finalize
     return Command(goto="finalize", graph=Command.PARENT, ...)
 ```
 
 **Self-Correction Mechanisms**:
+
 1. Empty catalog detection → feedback to agent
 2. Gap analysis tool → identifies missing coverage
 3. Tool usage limits → prevents infinite loops
 4. Reasoning trails → enables debugging and improvement
 
 For details on backup and restore operations, see State Persistence (Section 3.1).
-
 
 ## Performance Optimization
 
@@ -1641,27 +1709,29 @@ def create_threat_improve_message(self, assets, flows, threat_list):
         {"type": "text", "text": f"<assets>{assets}</assets>"},
         {"type": "text", "text": f"<flows>{flows}</flows>"}
     ]
-    
+
     # Add cache point for Bedrock
     threat_msg.extend(self._add_cache_point_if_bedrock())
-    
+
     threat_msg.extend([
         {"type": "text", "text": f"<threats>{threat_list}</threats>"},
         {"type": "text", "text": "Identify missing threats..."}
     ])
-    
+
     base_message = self.base_msg(caching=True)
     base_message.extend(threat_msg)
     return HumanMessage(content=base_message)
 ```
 
 **Cache Strategy**:
+
 - Cache architecture diagram (largest token cost)
 - Cache assets and flows (reused across iterations)
 - Don't cache threat list (changes each iteration)
 - Cache base context (description, assumptions)
 
 **Token Savings**:
+
 - First call: Full token cost
 - Subsequent calls: Only uncached portions charged
 - Typical savings: 60-80% on repeated context
@@ -1680,19 +1750,19 @@ def invoke_structured_model(
     model_key: str
 ) -> Dict[str, Any]:
     """Invoke model with structured output."""
-    
+
     model = config["configurable"].get(model_key)
-    
+
     # Bind structured output schema
     model_with_structure = model.with_structured_output(
         schemas[0],
         method="json_schema",
         strict=True
     )
-    
+
     # Invoke model
     response = model_with_structure.invoke(messages, config)
-    
+
     return {
         "structured_response": response,
         "reasoning": extract_reasoning(response) if reasoning else None
@@ -1700,12 +1770,12 @@ def invoke_structured_model(
 ```
 
 **Benefits**:
+
 - Guaranteed valid JSON output
 - Type-safe Pydantic models
 - Automatic validation
 - No parsing errors
 - Reduced retry needs
-
 
 ### Asynchronous Execution
 
@@ -1728,12 +1798,13 @@ async def handler(request: InvocationRequest):
         job_id,
         agent_config
     )
-    
+
     # Return immediately
     return JSONResponse({"status": "processing"}, status_code=200)
 ```
 
 **Benefits**:
+
 - Non-blocking API responses
 - Supports concurrent executions
 - Efficient resource utilization
@@ -1747,19 +1818,19 @@ The agent implements a health check with busy status:
 @app.get("/ping")
 async def ping():
     global active_invocations, last_known_status, last_status_update_time
-    
+
     with invocation_lock:
         # Determine current status
         if active_invocations > 0:
             current_status = "HealthyBusy"
         else:
             current_status = "Healthy"
-        
+
         # Update timestamp only when status changes
         if last_known_status != current_status:
             last_known_status = current_status
             last_status_update_time = time.time()
-        
+
         return JSONResponse({
             "status": current_status,
             "time_of_last_update": int(last_status_update_time)
@@ -1767,5 +1838,6 @@ async def ping():
 ```
 
 **Status Values**:
+
 - `Healthy`: No active executions, ready for new work
 - `HealthyBusy`: Active executions in progress, can accept more

@@ -13,12 +13,10 @@ const SESSION_SEED_KEY = "threat_model_session_seed";
  * @returns {string} 8-character random seed
  */
 function generateSeed() {
-  return Array.from(
-    window.crypto.getRandomValues(new Uint8Array(4)),
-    byte => byte.toString(16).padStart(2, '0')
-  ).join('');
+  return Array.from(window.crypto.getRandomValues(new Uint8Array(4)), (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
 }
-
 
 /**
  * Get or create the session seed

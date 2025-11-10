@@ -91,8 +91,8 @@ variable "model_main" {
       id         = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
       max_tokens = 64000
       reasoning_budget = {
-        "1" = 16000
-        "2" = 32000
+        "1" = 24001
+        "2" = 48000
         "3" = 63999
       }
     }
@@ -100,9 +100,9 @@ variable "model_main" {
       id         = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
       max_tokens = 64000
       reasoning_budget = {
-        "1" = 8000
-        "2" = 16000
-        "3" = 24000
+        "1" = 24000
+        "2" = 48000
+        "3" = 63999
       }
     }
     threats = {
@@ -127,9 +127,9 @@ variable "model_main" {
       id         = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
       max_tokens = 64000
       reasoning_budget = {
-        "1" = 8000
-        "2" = 12000
-        "3" = 16000
+        "1" = 24000
+        "2" = 48000
+        "3" = 63999
       }
     }
   }
@@ -251,9 +251,9 @@ variable "openai_model_main" {
       max_tokens = 64000
       reasoning_effort = {
         "0" = "minimal"
-        "1" = "minimal"
+        "1" = "low"
         "2" = "low"
-        "3" = "low"
+        "3" = "medium"
       }
     }
     threats = {
@@ -281,9 +281,9 @@ variable "openai_model_main" {
       max_tokens = 64000
       reasoning_effort = {
         "0" = "minimal"
-        "1" = "minimal"
-        "2" = "low"
-        "3" = "medium"
+        "1" = "low"
+        "2" = "medium"
+        "3" = "high"
       }
     }
   }

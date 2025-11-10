@@ -1,3 +1,4 @@
+import copy
 import datetime
 import decimal
 import hashlib
@@ -246,16 +247,45 @@ def invoke_lambda(owner, payload):
     iteration = payload.get("iteration")
     reasoning = payload.get("reasoning", 0)
     instructions = payload.get("instructions", None)
-    if payload.get("replay", False):
+    is_replay = payload.get("replay", False)
+
+    if is_replay:
         id = payload.get("id")
     else:
         id = generate_random_uuid()
+
     description = payload.get("description", " ")
     assumptions = payload.get("assumptions", [])
     title = payload.get("title", " ")
     session_id = str(uuid.uuid4())
     LOG.info(f"Agent invoked with session: {session_id}")
+
     try:
+        # If this is a replay, create backup BEFORE starting the agent
+        if is_replay:
+            agent_table = dynamodb.Table(AGENT_TABLE)
+
+            # Get current item
+            response = agent_table.get_item(Key={"job_id": id})
+
+            if "Item" in response:
+                item = response["Item"]
+                backup_data = copy.deepcopy(item)
+
+                # Remove existing backup to avoid nested backups
+                if "backup" in backup_data:
+                    del backup_data["backup"]
+
+                # Set the backup
+                item["backup"] = backup_data
+
+                # Update the item with backup
+                agent_table.put_item(Item=item)
+
+                LOG.info(f"Backup created for job_id: {id} before replay")
+            else:
+                LOG.warning(f"Item not found for backup during replay: {id}")
+
         agent_core_client.invoke_agent_runtime(
             agentRuntimeArn=AGENT_CORE_RUNTIME,
             runtimeSessionId=session_id,
@@ -270,12 +300,13 @@ def invoke_lambda(owner, payload):
                         "assumptions": assumptions,
                         "owner": owner,
                         "title": title,
-                        "replay": payload.get("replay", False),
+                        "replay": is_replay,
                         "instructions": instructions,
                     }
                 }
             ),
         )
+
         agent_state = {
             "job_id": id,
             "s3_location": s3_location,
@@ -283,8 +314,10 @@ def invoke_lambda(owner, payload):
             "title": title,
             "retry": reasoning,
         }
-        if not payload.get("replay", False):
+
+        if not is_replay:
             create_dynamodb_item(agent_state, AGENT_TABLE)
+
         # Store execution_owner to track who initiated this execution
         item = {
             "id": id,
@@ -294,6 +327,7 @@ def invoke_lambda(owner, payload):
             "execution_owner": owner,
         }
         table.put_item(Item=item)
+
         return {"id": id}
     except Exception as e:
         LOG.error(e)

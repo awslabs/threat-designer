@@ -38,3 +38,4 @@ build.zip
 /infra/build
 /.vscode
 /.kiro
+__pycache__

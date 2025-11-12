@@ -49,29 +49,18 @@ def create_agent_human_message(state: ThreatState) -> HumanMessage:
     if threat_list and threat_list.threats:
         starred_threats = [t for t in threat_list.threats if t.starred]
 
-    # Add starred threats context if present
-    if starred_threats:
-        human_message = msg_builder.create_threat_agent_message()
-        # Get the content from the human message
-        content = human_message.content
+    # Get assets and system architecture from state
+    assets = state.get("assets")
+    system_architecture = state.get("system_architecture")
 
-        # Build starred threats context
-        starred_context = "\n\n<starred_threats>\nThe following threats have been marked as important by the user and must be preserved:\n"
-        for threat in starred_threats:
-            starred_context += f"- {threat.name}: {threat.description}\n"
-        starred_context += "</starred_threats>"
-
-        # Append to content
-        if isinstance(content, list):
-            content.append({"type": "text", "text": starred_context})
-        else:
-            content += starred_context
-
-        return HumanMessage(content=content)
-
-    else:
-        human_message = msg_builder.create_threat_agent_message(threats=False)
-        return human_message
+    # Delegate all enrichment to MessageBuilder
+    human_msg = msg_builder.create_threat_agent_message(
+        assets=assets,
+        system_architecture=system_architecture,
+        starred_threats=starred_threats if starred_threats else None,
+        threats=bool(threat_list and threat_list.threats)
+    )
+    return human_msg
 
 
 def agent_node(state: ThreatState, config: RunnableConfig) -> Command:
@@ -107,8 +96,9 @@ def agent_node(state: ThreatState, config: RunnableConfig) -> Command:
             gap_called_since_reset=gap_called_since_reset,
         )
 
-        # Create initial system prompt
-        system_prompt = create_agent_system_prompt(state)
+        # Create initial system prompt with optional instructions
+        instructions = state.get("instructions")
+        system_prompt = create_agent_system_prompt(instructions)
 
         # Create initial human message with context
         human_message = create_agent_human_message(state)

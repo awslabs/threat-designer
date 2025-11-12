@@ -230,7 +230,18 @@ def gap_analysis(runtime: ToolRuntime) -> str:
     gap = state.get("gap", [])
     gap_str = "\n".join(gap) if gap else ""
 
-    # Create gap analysis message
+    # Get threat sources for validation
+    threat_sources_str = None
+    system_architecture = state.get("system_architecture")
+    if system_architecture and system_architecture.threat_sources:
+        source_categories = [
+            source.category for source in system_architecture.threat_sources
+        ]
+        threat_sources_str = "\n".join(
+            [f"  - {category}" for category in source_categories]
+        )
+
+    # Create gap analysis message (with threat sources)
     human_message = msg_builder.create_gap_analysis_message(
         json.dumps(
             [asset.model_dump() for asset in state.get("assets").assets], indent=2
@@ -245,26 +256,16 @@ def gap_analysis(runtime: ToolRuntime) -> str:
         else "",
         threat_list_str,
         gap_str,
+        threat_sources_str,  # Pass threat sources to HumanMessage
     )
 
-    # Get threat sources for validation
-    threat_sources_str = None
-    system_architecture = state.get("system_architecture")
-    if system_architecture and system_architecture.threat_sources:
-        source_categories = [
-            source.category for source in system_architecture.threat_sources
-        ]
-        threat_sources_str = "\n".join(
-            [f"  - {category}" for category in source_categories]
-        )
-
-    # Create system prompt
+    # Create system prompt (without threat sources)
     if state.get("instructions"):
         system_prompt = SystemMessage(
-            content=gap_prompt(state.get("instructions"), threat_sources_str)
+            content=gap_prompt(state.get("instructions"))
         )
     else:
-        system_prompt = SystemMessage(content=gap_prompt(None, threat_sources_str))
+        system_prompt = SystemMessage(content=gap_prompt())
 
     messages = [system_prompt, human_message]
 

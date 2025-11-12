@@ -200,33 +200,69 @@ Using any other values will result in validation errors. These are the ONLY acce
         base_message.extend(threat_msg)
         return HumanMessage(content=base_message)
 
-    def create_threat_agent_message(self, threats=True) -> HumanMessage:
-        """Create threat agent message."""
+    def create_threat_agent_message(
+        self,
+        assets=None,
+        system_architecture=None,
+        starred_threats=None,
+        threats=True
+    ) -> HumanMessage:
+        """Create threat agent message with full context enrichment.
 
-        threat_msg = []
+        Args:
+            assets: Assets object containing identified assets
+            system_architecture: SystemArchitecture object with data flows and threat sources
+            starred_threats: List of starred threats to preserve
+            threats: Whether threats exist in catalog
 
-        if not threats:
-            threat_msg.append(
-                {
-                    "type": "text",
-                    "text": "Currently the threat catalog is empty, No threats have been cataloged yet",
-                }
-            )
+        Returns:
+            HumanMessage with architecture diagram, context information, valid values, and user request
+        """
+        # Start with base message (architecture diagram, description, assumptions) with caching
+        base_message = self.base_msg(caching=True, details=True)
 
-        threat_msg.append(
-            {
-                "type": "text",
-                "text": "Create the comprehensive threat catalog while honoring the ground rules.",
-            }
-        )
+        # Add assets as separate text object
+        if assets:
+            base_message.append({"type": "text", "text": f"<identified_assets_and_entities>{str(assets)}</identified_assets_and_entities>"})
 
-        threat_msg.extend(self._add_cache_point_if_bedrock())
-        base_message = self.base_msg(caching=True, details=False)
-        base_message.extend(threat_msg)
+        # Add flows as separate text object
+        if system_architecture:
+            base_message.append({"type": "text", "text": f"<data_flows>{str(system_architecture)}</data_flows>"})
+
+        # Build valid_values_for_threats section
+        valid_values = "\n\n<valid_values_for_threats>\n"
+        valid_values += "**IMPORTANT: When creating threats using the add_threats tool, you MUST use ONLY these values for the following fields:**\n\n"
+        valid_values += "**Valid Target Assets (for the 'target' field):**\n"
+        valid_values += self._format_asset_list(assets) + "\n\n"
+        valid_values += "**Valid Threat Sources (for the 'source' field):**\n"
+        valid_values += self._format_threat_sources(system_architecture) + "\n\n"
+        valid_values += "Using any other values will result in validation errors. These are the ONLY acceptable values extracted from the identified assets and threat sources above.\n"
+        valid_values += "</valid_values_for_threats>"
+
+        base_message.append({"type": "text", "text": valid_values})
+
+        # Add starred threats as separate text object if present
+        if starred_threats:
+            starred_context = "\n\n<starred_threats>\nThe following threats have been marked as important by the user and must be preserved:\n"
+            for threat in starred_threats:
+                starred_context += f"- {threat.name}: {threat.description}\n"
+            starred_context += "</starred_threats>"
+            base_message.append({"type": "text", "text": starred_context})
+
+        # Add user message requesting threat modeling (this should be last before checkpoint)
+
+        base_message.append({
+            "type": "text",
+            "text": "Perform a comprehensive threat modeling analysis. ",
+        })
+
+        # Add cache point at the end for better optimization
+        base_message.extend(self._add_cache_point_if_bedrock())
+
         return HumanMessage(content=base_message)
 
     def create_gap_analysis_message(
-        self, assets: str, flows: str, threat_list: str, gap: str
+        self, assets: str, flows: str, threat_list: str, gap: str, threat_sources: str = None
     ) -> HumanMessage:
         """Create threat improvement analysis message."""
 
@@ -245,11 +281,25 @@ Using any other values will result in validation errors. These are the ONLY acce
             [
                 {"type": "text", "text": f"<threats>{threat_list}</threats>"},
                 {"type": "text", "text": f"<previous_gap>{gap}</previous_gap>\n"},
-                {
-                    "type": "text",
-                    "text": "Proceed with gap analysis",
-                },
             ]
+        )
+
+        # Add threat sources validation section if provided
+        if threat_sources:
+            threat_sources_text = f"""<valid_threat_source_categories>
+**IMPORTANT: When validating threat actors, these are the ONLY valid threat source categories:**
+
+{threat_sources}
+
+Any threat using an actor NOT in this list is INVALID and must be flagged.
+</valid_threat_source_categories>"""
+            gap_msg.append({"type": "text", "text": threat_sources_text})
+
+        gap_msg.append(
+            {
+                "type": "text",
+                "text": "Perform the gap analysis for the threat model",
+            }
         )
 
         base_message = self.base_msg(caching=True)

@@ -22,6 +22,7 @@ invocation_lock = Lock()
 active_invocation = False
 last_known_status = None
 last_status_update_time = time.time()
+user_sub_cache = {}
 
 
 async def reset_invocation_status():
@@ -124,6 +125,11 @@ async def invoke(request: InvocationRequest, http_request: Request):
     )
     if not session_header:
         raise MissingHeader
+    
+    if not http_request.headers.get("Authorization"):
+        raise MissingHeader
+    
+    global user_sub_cache
 
     # Parse session header format: threat_model_id/session_seed
     # Extract threat_model_id and discard the seed (seed is only for UI session management)
@@ -141,12 +147,10 @@ async def invoke(request: InvocationRequest, http_request: Request):
 
     # Extract user sub from JWT token for multi-tenancy
     auth_header = http_request.headers.get("Authorization")
-    user_sub = None
 
-    if auth_header:
+    if not user_sub_cache.get(auth_header, None):
         import jwt
 
-        # Remove "Bearer " prefix if present
         token = (
             auth_header.replace("Bearer ", "")
             if auth_header.startswith("Bearer ")
@@ -156,22 +160,20 @@ async def invoke(request: InvocationRequest, http_request: Request):
         try:
             # Skip signature validation as agent runtime has already validated the token
             claims = jwt.decode(token, options={"verify_signature": False})
-            user_sub = claims.get("sub")
-            logger.info(f"Extracted user sub from JWT: {user_sub}")
+            user_sub_cache[auth_header] = claims.get("sub")
         except jwt.InvalidTokenError as e:
-            logger.warning(f"Invalid JWT token: {e}")
-            # Continue without user_sub - will use threat_model_id only
+            logger.error(f"Invalid JWT token: {e}")
+            raise MissingHeader
 
     # Create composite session key: sub/threat_model_id
     # Note: We ignore the session seed - it's only used by the UI for session management
     # The backend session is tied to user + threat model, not browser tab
     composite_session_key = (
-        f"{user_sub}/{threat_model_id}" if user_sub else threat_model_id
+        f"{user_sub_cache.get(auth_header)}/{threat_model_id}" if user_sub_cache.get(auth_header) else threat_model_id
     )
 
     # Get or create session ID for this composite session key
     session_id = session_manager.get_or_create_session_id(composite_session_key)
-    logger.info(f"Session key: {composite_session_key}, Session ID: {session_id}")
 
     request_type = request.input.get("type")
 

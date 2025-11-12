@@ -32,8 +32,8 @@ class Threat(BaseModel):
     description: Annotated[
         str,
         Field(
-            description="""A comprehensive description of the threat scenario, including how it could be executed and its potential consequences. 
-            Must be between 35 and 50 words. Follow threat grammar: [Threat Actor] + [Action] + [Asset/Target] + [Negative Outcome]"""
+            description="Threat description which must follow threat grammar template format:"
+            f"[threat source] [prerequisites] can [threat action] which leads to [threat impact], negatively impacting [impacted assets]."
         ),
     ]
     target: Annotated[

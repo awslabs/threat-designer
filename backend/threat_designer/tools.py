@@ -636,6 +636,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
                 tool="gap_analysis",
                 usage_count=new_gap_tool_use,
                 tool_use_reset=True,
+                rating=gap_result.rating,
                 job_id=job_id,
             )
             return Command(update=update_dict, goto="continue")
@@ -654,6 +655,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
                 usage_count=new_gap_tool_use,
                 gaps_found=True,
                 gaps=gap_result.gap,
+                rating=gap_result.rating,
                 tool_use_reset=True,
                 job_id=job_id,
             )

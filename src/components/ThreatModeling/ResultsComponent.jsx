@@ -62,10 +62,8 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
             </div>
           )}
         </section>
-
-        <DescriptionSection description={description} updateTM={updateTM} isReadOnly={isReadOnly} />
-
         <div style={{ height: "25px" }}></div>
+        <DescriptionSection description={description} updateTM={updateTM} isReadOnly={isReadOnly} />
         <ThreatTableComponent
           headers={["Assumption"]}
           data={arrayToObjects("assumption", assumptions)}

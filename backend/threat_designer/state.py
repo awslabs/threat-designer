@@ -95,7 +95,7 @@ class ContinueThreatModeling(BaseModel):
     stop: Annotated[
         bool,
         Field(
-            description="Should continue evaluation further threats or the catalog is comprehensive and complete."
+            description="Should continue evaluation further threats or the catalog is comprehensive and complete. The aim is to have a threat catalog with a rating of 9 at least"
         ),
     ]
     gap: Annotated[
@@ -106,8 +106,14 @@ class ContinueThreatModeling(BaseModel):
             "Format as a bulleted list with each gap on a new line. "
             "Gaps should be actionable and specific. "
             "Required only when 'stop' is False"
-        ),
+        )
     ] = ""
+    rating: Annotated[
+        int,
+        Field(
+            description="Rating of the gap analysis, 1-10, 10 being the most comprehensive and complete."
+        )
+    ]
 
 
 class ThreatSource(BaseModel):

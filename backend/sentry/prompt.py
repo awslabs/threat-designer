@@ -182,25 +182,6 @@ For each threat provide:
 
 **Format:** "Implement [specific control] to [prevent/detect/correct] this threat. Configuration: [key settings]"
 </mitigation_requirements>
-
-<attack_chains>
-**Document attack progression:**
-1. Initial access (entry points)
-2. Lateral movement (propagation)
-3. Privilege escalation (elevation)
-4. Impact (final objectives)
-
-**Chain Documentation:**
-- Prerequisites: "Requires: [previous threat ID]"
-- Enablers: "Enables: [subsequent threat IDs]"
-- Gaps: "Missing: [uncovered link]"
-
-**Critical Chains:**
-- Credential theft → Lateral movement → Data access
-- Configuration change → Privilege escalation → System compromise
-- Service compromise → API abuse → Data exfiltration
-</attack_chains>
-
 <gap_analysis>
 **Gaps exist when:**
 
@@ -226,13 +207,6 @@ For each threat provide:
 - Architecturally unsupported
 - Low likelihood AND low impact
 - Adequately covered by existing threats
-
-**Attack Chain Gaps:**
-Flag if missing:
-- Entry point coverage
-- Required prerequisites
-- Logical progression steps
-- Impact realization
 
 **Severity Classification:**
 - CRITICAL: Compliance violations, missing high-likelihood + high-impact vectors
@@ -267,7 +241,6 @@ If ANY check fails → EXCLUDE
 - Perfect constraint compliance
 - Genuine exploitable risks
 - Clear actionable mitigations
-- Documented attack chains
 - Quality over quantity
 </output_standards>
 

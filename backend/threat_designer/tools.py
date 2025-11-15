@@ -3,7 +3,7 @@ from langchain_core.messages import ToolMessage
 from langchain_core.messages import SystemMessage
 from state import ThreatsList, ContinueThreatModeling
 from langgraph.types import Command, Overwrite
-from typing import List, Annotated
+from typing import List, Annotated, Dict, Any
 from message_builder import MessageBuilder, list_to_string
 from model_service import ModelService
 from prompts import gap_prompt
@@ -13,9 +13,207 @@ from config import config as app_config
 from state_tracking_service import StateService
 import json
 import time
+from collections import Counter
 
 # Initialize state service for status updates
 state_service = StateService(app_config.agent_state_table)
+
+
+# ============================================================================
+# KPI Calculation Helper Functions
+# ============================================================================
+
+
+def _calculate_threat_kpis(threat_list: ThreatsList) -> Dict[str, Any]:
+    """
+    Calculate Key Performance Indicators (KPIs) from the threat catalog.
+
+    Args:
+        threat_list: ThreatsList object containing all current threats
+
+    Returns:
+        Dictionary containing:
+        - total_threats: Total number of threats
+        - threats_by_likelihood: Count of threats by likelihood level
+        - threats_by_stride: Count and percentage by STRIDE category
+        - threats_by_source: Count by threat source category
+        - threats_by_asset: Count by target asset
+
+    Example:
+        >>> kpis = _calculate_threat_kpis(threat_list)
+        >>> print(kpis['total_threats'])
+        45
+    """
+    # Handle empty catalog
+    if not threat_list or not threat_list.threats:
+        return {
+            "total_threats": 0,
+            "threats_by_likelihood": {"Low": 0, "Medium": 0, "High": 0},
+            "threats_by_stride": {
+                "Spoofing": {"count": 0, "percentage": 0.0},
+                "Tampering": {"count": 0, "percentage": 0.0},
+                "Repudiation": {"count": 0, "percentage": 0.0},
+                "Information Disclosure": {"count": 0, "percentage": 0.0},
+                "Denial of Service": {"count": 0, "percentage": 0.0},
+                "Elevation of Privilege": {"count": 0, "percentage": 0.0},
+            },
+            "threats_by_source": {},
+            "threats_by_asset": {},
+        }
+
+    threats = threat_list.threats
+    total_threats = len(threats)
+
+    # Count threats by likelihood
+    likelihood_counter = Counter()
+    for threat in threats:
+        if hasattr(threat, "likelihood") and threat.likelihood:
+            likelihood_counter[threat.likelihood] += 1
+        else:
+            logger.warning(
+                "Threat missing likelihood attribute",
+                threat_name=getattr(threat, "name", "unknown"),
+            )
+
+    threats_by_likelihood = {
+        "Low": likelihood_counter.get("Low", 0),
+        "Medium": likelihood_counter.get("Medium", 0),
+        "High": likelihood_counter.get("High", 0),
+    }
+
+    # Count threats by STRIDE category
+    stride_counter = Counter()
+    for threat in threats:
+        if hasattr(threat, "stride_category") and threat.stride_category:
+            stride_counter[threat.stride_category] += 1
+        else:
+            logger.warning(
+                "Threat missing stride_category attribute",
+                threat_name=getattr(threat, "name", "unknown"),
+            )
+
+    # Calculate percentages for STRIDE (avoid division by zero)
+    threats_by_stride = {}
+    stride_categories = [
+        "Spoofing",
+        "Tampering",
+        "Repudiation",
+        "Information Disclosure",
+        "Denial of Service",
+        "Elevation of Privilege",
+    ]
+
+    for category in stride_categories:
+        count = stride_counter.get(category, 0)
+        percentage = (
+            round((count / total_threats * 100), 1) if total_threats > 0 else 0.0
+        )
+        threats_by_stride[category] = {
+            "count": count,
+            "percentage": percentage,
+        }
+
+    # Count threats by source
+    source_counter = Counter()
+    for threat in threats:
+        if hasattr(threat, "source") and threat.source:
+            source_counter[threat.source] += 1
+        else:
+            logger.warning(
+                "Threat missing source attribute",
+                threat_name=getattr(threat, "name", "unknown"),
+            )
+
+    # Sort by count descending
+    threats_by_source = dict(
+        sorted(source_counter.items(), key=lambda x: x[1], reverse=True)
+    )
+
+    # Count threats by asset (target)
+    asset_counter = Counter()
+    for threat in threats:
+        if hasattr(threat, "target") and threat.target:
+            asset_counter[threat.target] += 1
+        else:
+            logger.warning(
+                "Threat missing target attribute",
+                threat_name=getattr(threat, "name", "unknown"),
+            )
+
+    # Sort by count descending
+    threats_by_asset = dict(
+        sorted(asset_counter.items(), key=lambda x: x[1], reverse=True)
+    )
+
+    return {
+        "total_threats": total_threats,
+        "threats_by_likelihood": threats_by_likelihood,
+        "threats_by_stride": threats_by_stride,
+        "threats_by_source": threats_by_source,
+        "threats_by_asset": threats_by_asset,
+    }
+
+
+def _format_kpis_for_prompt(kpis: Dict[str, Any]) -> str:
+    """
+    Convert KPI dictionary into human-readable formatted string for LLM prompt.
+
+    Args:
+        kpis: Dictionary containing KPI metrics from _calculate_threat_kpis()
+
+    Returns:
+        Formatted string with KPI sections ready for inclusion in prompt
+
+    Example:
+        >>> kpis = _calculate_threat_kpis(threat_list)
+        >>> formatted = _format_kpis_for_prompt(kpis)
+        >>> print(formatted)
+        <threat_catalog_kpis>
+        **Total Threats**: 45
+        ...
+        </threat_catalog_kpis>
+    """
+    # Handle empty catalog
+    if kpis["total_threats"] == 0:
+        return """<threat_catalog_kpis>
+**Total Threats**: 0
+
+No threats in catalog yet.
+</threat_catalog_kpis>"""
+
+    # Build formatted output
+    output = ["<threat_catalog_kpis>"]
+    output.append(f"**Total Threats**: {kpis['total_threats']}")
+    output.append("")
+
+    # Threats by Likelihood
+    output.append("**Threats by Likelihood**:")
+    likelihood_order = ["High", "Medium", "Low"]
+    total = kpis["total_threats"]
+    for level in likelihood_order:
+        count = kpis["threats_by_likelihood"][level]
+        percentage = round((count / total * 100), 1) if total > 0 else 0.0
+        output.append(f"- {level}: {count} ({percentage}%)")
+    output.append("")
+
+    # Threats by STRIDE Category
+    output.append("**Threats by STRIDE Category**:")
+    for category, data in kpis["threats_by_stride"].items():
+        count = data["count"]
+        percentage = data["percentage"]
+        output.append(f"- {category}: {count} ({percentage}%)")
+    output.append("")
+
+    # Threats by Source
+    if kpis["threats_by_source"]:
+        output.append("**Threats by Source**:")
+        for source, count in kpis["threats_by_source"].items():
+            output.append(f"- {source}: {count}")
+        output.append("")
+
+    output.append("</threat_catalog_kpis>")
+
+    return "\n".join(output)
 
 
 @tool(
@@ -49,37 +247,119 @@ def add_threats(threats: ThreatsList, runtime: ToolRuntime):
         )
         return error_msg
 
-    # Ensure all threats have starred=False (only users can star threats)
+    # Get valid assets and threat sources from state
+    assets = runtime.state.get("assets")
+    system_architecture = runtime.state.get("system_architecture")
+
+    # Build sets of valid asset names and threat source categories
+    valid_asset_names = set()
+    if assets and assets.assets:
+        valid_asset_names = {asset.name for asset in assets.assets}
+
+    valid_threat_sources = set()
+    if system_architecture and system_architecture.threat_sources:
+        valid_threat_sources = {
+            source.category for source in system_architecture.threat_sources
+        }
+
+    # Validate threats and separate valid from invalid
+    valid_threats = []
+    invalid_threats = []
+
     for threat in threats.threats:
-        threat.starred = False
+        violations = []
+
+        # Check if target is a valid asset
+        if threat.target not in valid_asset_names:
+            violations.append(f"Invalid target '{threat.target}' - not in asset list")
+
+        # Check if source is a valid threat source
+        if threat.source not in valid_threat_sources:
+            violations.append(
+                f"Invalid source '{threat.source}' - not in threat sources"
+            )
+
+        if violations:
+            invalid_threats.append({"name": threat.name, "violations": violations})
+            logger.warning(
+                "Threat validation failed",
+                tool="add_threats",
+                threat_name=threat.name,
+                violations=violations,
+                job_id=job_id,
+            )
+        else:
+            # Ensure starred=False (only users can star threats)
+            threat.starred = False
+            valid_threats.append(threat)
+
+    # Create ThreatsList with only valid threats
+    valid_threats_list = ThreatsList(threats=valid_threats)
 
     # Update status
-    threat_count = len(threats.threats)
-    state_service.update_job_state(
-        job_id, JobState.THREAT.value, detail=f"{threat_count} threats added to catalog"
-    )
+    valid_count = len(valid_threats)
+    invalid_count = len(invalid_threats)
 
-    new_tool_use = tool_use + 1
+    if valid_count > 0:
+        state_service.update_job_state(
+            job_id,
+            JobState.THREAT.value,
+            detail=f"{valid_count} threats added to catalog",
+        )
 
-    logger.info(
-        "Tool invoked successfully",
-        tool="add_threats",
-        usage_count=new_tool_use,
-        max_usage=MAX_ADD_THREATS_USES,
-        threats_added=threat_count,
-        remaining_invocations=MAX_ADD_THREATS_USES - new_tool_use,
-        job_id=job_id,
-    )
+    # Build response message
+    if invalid_count == 0:
+        new_tool_use = tool_use + 1
+        response_msg = f"Successfully added: {valid_count} threats."
+        logger.info(
+            "Tool invoked successfully - all threats valid",
+            tool="add_threats",
+            usage_count=new_tool_use,
+            max_usage=MAX_ADD_THREATS_USES,
+            threats_added=valid_count,
+            remaining_invocations=MAX_ADD_THREATS_USES - new_tool_use,
+            job_id=job_id,
+        )
+    else:
+        # Format invalid threats for response
+        new_tool_use = tool_use
+        invalid_details = []
+        for invalid in invalid_threats:
+            violations_str = "; ".join(invalid["violations"])
+            invalid_details.append(f"  - {invalid['name']}: {violations_str}")
+
+        invalid_summary = "\n".join(invalid_details)
+
+        response_msg = f"""Successfully added: {valid_count} threats. \n
+
+{invalid_count} threats were NOT added due to validation failures: \n
+{invalid_summary} \n
+
+Please ensure:
+- Threat 'target' matches an asset name from the asset list: {valid_asset_names} \n
+- Threat 'source' matches a threat source category from the data flow threat sources" {valid_threat_sources}"""
+
+        logger.warning(
+            "Tool invoked with validation failures",
+            tool="add_threats",
+            usage_count=new_tool_use,
+            max_usage=MAX_ADD_THREATS_USES,
+            threats_added=valid_count,
+            threats_rejected=invalid_count,
+            remaining_invocations=MAX_ADD_THREATS_USES - new_tool_use,
+            job_id=job_id,
+        )
+
     time.sleep(5)
 
     return Command(
         update={
-            "threat_list": threats,
+            "threat_list": valid_threats_list,
             "tool_use": new_tool_use,
             "gap_called_since_reset": True,
             "messages": [
                 ToolMessage(
-                    f"""Successfully added: {len(threats.threats)} threats.""",
+                    response_msg,
                     tool_call_id=runtime.tool_call_id,
                 )
             ],
@@ -175,7 +455,7 @@ def read_threat_catalog(
 
 @tool(
     name_or_callable="gap_analysis",
-    description="Analyze the current threat catalog for gaps and completeness. Maximum 3 invocations allowed. Returns identified gaps or confirmation of completeness.",
+    description="Analyze the current threat catalog for gaps and completeness. Returns identified gaps or confirmation of completeness.",
 )
 def gap_analysis(runtime: ToolRuntime) -> str:
     """Perform gap analysis on the current threat catalog."""
@@ -226,6 +506,46 @@ def gap_analysis(runtime: ToolRuntime) -> str:
             indent=2,
         )
 
+    # Calculate KPIs from threat catalog
+    kpis_str = None
+    try:
+        kpi_start_time = time.time()
+        logger.info(
+            "Starting KPI calculation",
+            tool="gap_analysis",
+            threat_count=len(threat_list.threats)
+            if threat_list and threat_list.threats
+            else 0,
+            job_id=job_id,
+        )
+
+        kpis = _calculate_threat_kpis(threat_list)
+        kpis_str = _format_kpis_for_prompt(kpis)
+
+        kpi_duration = time.time() - kpi_start_time
+        logger.info(
+            "KPI calculation completed",
+            tool="gap_analysis",
+            duration_ms=round(kpi_duration * 1000, 2),
+            total_threats=kpis["total_threats"],
+            high_likelihood=kpis["threats_by_likelihood"]["High"],
+            medium_likelihood=kpis["threats_by_likelihood"]["Medium"],
+            low_likelihood=kpis["threats_by_likelihood"]["Low"],
+            unique_sources=len(kpis["threats_by_source"]),
+            unique_assets=len(kpis["threats_by_asset"]),
+            job_id=job_id,
+        )
+    except Exception as e:
+        # Log error but continue without KPIs to maintain backward compatibility
+        logger.error(
+            "KPI calculation failed - continuing without KPIs",
+            tool="gap_analysis",
+            error=str(e),
+            job_id=job_id,
+            exc_info=True,
+        )
+        kpis_str = None
+
     # Get previous gap analysis results
     gap = state.get("gap", [])
     gap_str = "\n".join(gap) if gap else ""
@@ -241,7 +561,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
             [f"  - {category}" for category in source_categories]
         )
 
-    # Create gap analysis message (with threat sources)
+    # Create gap analysis message (with threat sources and KPIs)
     human_message = msg_builder.create_gap_analysis_message(
         json.dumps(
             [asset.model_dump() for asset in state.get("assets").assets], indent=2
@@ -257,13 +577,12 @@ def gap_analysis(runtime: ToolRuntime) -> str:
         threat_list_str,
         gap_str,
         threat_sources_str,  # Pass threat sources to HumanMessage
+        kpis_str,  # Pass formatted KPIs to HumanMessage
     )
 
     # Create system prompt (without threat sources)
     if state.get("instructions"):
-        system_prompt = SystemMessage(
-            content=gap_prompt(state.get("instructions"))
-        )
+        system_prompt = SystemMessage(content=gap_prompt(state.get("instructions")))
     else:
         system_prompt = SystemMessage(content=gap_prompt())
 

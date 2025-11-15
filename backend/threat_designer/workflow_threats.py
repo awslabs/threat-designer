@@ -58,7 +58,7 @@ def create_agent_human_message(state: ThreatState) -> HumanMessage:
         assets=assets,
         system_architecture=system_architecture,
         starred_threats=starred_threats if starred_threats else None,
-        threats=bool(threat_list and threat_list.threats)
+        threats=bool(threat_list and threat_list.threats),
     )
     return human_msg
 

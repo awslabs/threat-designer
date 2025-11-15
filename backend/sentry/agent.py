@@ -125,10 +125,10 @@ async def invoke(request: InvocationRequest, http_request: Request):
     )
     if not session_header:
         raise MissingHeader
-    
+
     if not http_request.headers.get("Authorization"):
         raise MissingHeader
-    
+
     global user_sub_cache
 
     # Parse session header format: threat_model_id/session_seed
@@ -169,7 +169,9 @@ async def invoke(request: InvocationRequest, http_request: Request):
     # Note: We ignore the session seed - it's only used by the UI for session management
     # The backend session is tied to user + threat model, not browser tab
     composite_session_key = (
-        f"{user_sub_cache.get(auth_header)}/{threat_model_id}" if user_sub_cache.get(auth_header) else threat_model_id
+        f"{user_sub_cache.get(auth_header)}/{threat_model_id}"
+        if user_sub_cache.get(auth_header)
+        else threat_model_id
     )
 
     # Get or create session ID for this composite session key

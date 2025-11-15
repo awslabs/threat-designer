@@ -4,6 +4,7 @@ import os
 from typing import Any, Dict, List
 
 from langchain_core.messages.human import HumanMessage
+from monitoring import logger
 
 from constants import ENV_MODEL_PROVIDER, MODEL_PROVIDER_BEDROCK
 
@@ -201,11 +202,7 @@ Using any other values will result in validation errors. These are the ONLY acce
         return HumanMessage(content=base_message)
 
     def create_threat_agent_message(
-        self,
-        assets=None,
-        system_architecture=None,
-        starred_threats=None,
-        threats=True
+        self, assets=None, system_architecture=None, starred_threats=None, threats=True
     ) -> HumanMessage:
         """Create threat agent message with full context enrichment.
 
@@ -223,11 +220,21 @@ Using any other values will result in validation errors. These are the ONLY acce
 
         # Add assets as separate text object
         if assets:
-            base_message.append({"type": "text", "text": f"<identified_assets_and_entities>{str(assets)}</identified_assets_and_entities>"})
+            base_message.append(
+                {
+                    "type": "text",
+                    "text": f"<identified_assets_and_entities>{str(assets)}</identified_assets_and_entities>",
+                }
+            )
 
         # Add flows as separate text object
         if system_architecture:
-            base_message.append({"type": "text", "text": f"<data_flows>{str(system_architecture)}</data_flows>"})
+            base_message.append(
+                {
+                    "type": "text",
+                    "text": f"<data_flows>{str(system_architecture)}</data_flows>",
+                }
+            )
 
         # Build valid_values_for_threats section
         valid_values = "\n\n<valid_values_for_threats>\n"
@@ -251,10 +258,12 @@ Using any other values will result in validation errors. These are the ONLY acce
 
         # Add user message requesting threat modeling (this should be last before checkpoint)
 
-        base_message.append({
-            "type": "text",
-            "text": "Perform a comprehensive threat modeling analysis. ",
-        })
+        base_message.append(
+            {
+                "type": "text",
+                "text": "Perform a comprehensive threat modeling and fill the threat catalog. Make sure to honor your grounding rules.",
+            }
+        )
 
         # Add cache point at the end for better optimization
         base_message.extend(self._add_cache_point_if_bedrock())
@@ -262,9 +271,27 @@ Using any other values will result in validation errors. These are the ONLY acce
         return HumanMessage(content=base_message)
 
     def create_gap_analysis_message(
-        self, assets: str, flows: str, threat_list: str, gap: str, threat_sources: str = None
+        self,
+        assets: str,
+        flows: str,
+        threat_list: str,
+        gap: str,
+        threat_sources: str = None,
+        kpis: str = None,
     ) -> HumanMessage:
-        """Create threat improvement analysis message."""
+        """Create threat improvement analysis message with optional KPI metrics.
+
+        Args:
+            assets: JSON string of identified assets
+            flows: JSON string of data flows
+            threat_list: JSON string of current threats
+            gap: String of previous gap analysis results
+            threat_sources: Optional string of valid threat source categories
+            kpis: Optional formatted KPI metrics string
+
+        Returns:
+            HumanMessage with gap analysis context
+        """
 
         gap_msg = [
             {
@@ -276,6 +303,10 @@ Using any other values will result in validation errors. These are the ONLY acce
 
         # Add cache point only for Bedrock
         gap_msg.extend(self._add_cache_point_if_bedrock())
+
+        # Add KPI section after cache point and before threats (if provided)
+        if kpis:
+            gap_msg.append({"type": "text", "text": kpis})
 
         gap_msg.extend(
             [
@@ -298,7 +329,12 @@ Any threat using an actor NOT in this list is INVALID and must be flagged.
         gap_msg.append(
             {
                 "type": "text",
-                "text": "Perform the gap analysis for the threat model",
+                "text": """Perform the gap analysis for the threat model given the information at hand. Beyond missing threats pay attention as well on: \n
+                - Are all the grounding rules honored? \n
+                - Are there duplicate threats that could be merged? \n
+                - If applicable, have previous gaps been addressed? \n
+                - Does the current threats respect the shared responsibility model? \n
+                - Does all current threats honor assumptions?""",
             }
         )
 

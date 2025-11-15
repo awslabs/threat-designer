@@ -67,6 +67,11 @@ Lightning Mode provides:
   <img alt="sentry" src="./assets/sentry.png">
 </picture>
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/insights_dark.png">
+  <img alt="sentry" src="./assets/insights.png">
+</picture>
+
 ---
 
 ## Architecture
@@ -132,7 +137,7 @@ To enable Claude models, follow the instructions [here](https://docs.aws.amazon.
 You'll need:
 
 - A valid OpenAI API key
-- Access to GPT-5 or GPT-5 Mini models
+- Access to GPT-5.1 or GPT-5 Mini models
 
 You'll be prompted to enter your API key during deployment.
 
@@ -198,7 +203,7 @@ Threat Designer supports two AI providers that can be selected during deployment
 ```
 Select AI model provider:
 1) Amazon Bedrock (Claude) (default)
-2) OpenAI (GPT-5)
+2) OpenAI (GPT-5.1)
 ```
 
 #### Amazon Bedrock Configuration (default model)
@@ -218,7 +223,7 @@ Select AI model provider:
 **Used Models:**
 
 - **GPT-5 Mini** (default) - Faster and more cost-effective
-- **GPT-5** - Maximum reasoning capability
+- **GPT-5.1** - Maximum reasoning capability
 
 **Key Characteristics:**
 

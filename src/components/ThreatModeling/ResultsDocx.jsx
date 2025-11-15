@@ -28,7 +28,50 @@ import {
   formatArrayCellContent,
 } from "./documentHelpers";
 
-// DOCX-specific rendering functions
+/**
+ * Extract mime type + raw base64 from a data URL or raw base64 string.
+ * - "data:image/png;base64,AAAA..."  -> { mimeType: "image/png", base64: "AAAA..." }
+ * - "AAAA..."                        -> { mimeType: null,        base64: "AAAA..." }
+ */
+const normalizeBase64Image = (raw) => {
+  if (!raw) return { mimeType: null, base64: "" };
+
+  const trimmed = raw.trim();
+  const match = trimmed.match(
+    /^data:(image\/[a-zA-Z0-9+.\-]+);base64,(.*)$/s
+  );
+  if (match) {
+    return { mimeType: match[1], base64: match[2] };
+  }
+  return { mimeType: null, base64: trimmed };
+};
+
+/**
+ * Ensure we have a data URL for fetch() in the browser.
+ */
+const ensureDataUrl = (rawBase64, mimeType = "image/png") => {
+  if (!rawBase64) return null;
+  const trimmed = rawBase64.trim();
+  if (trimmed.startsWith("data:")) return trimmed;
+  return `data:${mimeType};base64,${trimmed}`;
+};
+
+/**
+ * Convert a plain base64 string to Uint8Array in the browser.
+ */
+const base64ToUint8Array = (base64) => {
+  if (!base64) return new Uint8Array();
+  const binary = window.atob(base64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+};
+
+// ---------- Text / markdown helpers ----------
+
 const createTextRuns = (tokens, baseSize = null) => {
   if (!tokens || tokens.length === 0) {
     return [new TextRun(" ")];
@@ -110,7 +153,9 @@ const createTableCellChildren = (content, isHeader = false) => {
         const runs = createTextRuns(parsed.tokens, baseSize);
         const children = [];
 
-        children.push(new TextRun({ text: "• ", bold: isHeader, size: baseSize }));
+        children.push(
+          new TextRun({ text: "• ", bold: isHeader, size: baseSize })
+        );
 
         runs.forEach((run) => {
           if (run.isHyperlink) {
@@ -126,7 +171,7 @@ const createTableCellChildren = (content, isHeader = false) => {
         });
 
         return new Paragraph({
-          children: children,
+          children,
         });
       }
 
@@ -193,7 +238,7 @@ const parseMarkdownToDocx = (markdown) => {
     tokens.forEach((token) => {
       try {
         switch (token.type) {
-          case "heading":
+          case "heading": {
             const headingLevels = {
               1: HeadingLevel.HEADING_2,
               2: HeadingLevel.HEADING_3,
@@ -220,6 +265,7 @@ const parseMarkdownToDocx = (markdown) => {
               );
             }
             break;
+          }
 
           case "paragraph":
             if (token.tokens && token.tokens.length > 0) {
@@ -313,7 +359,7 @@ const parseMarkdownToDocx = (markdown) => {
             }
             break;
 
-          case "table":
+          case "table": {
             const tableData = parseMarkdownTable(token);
             if (tableData) {
               children.push(
@@ -322,9 +368,15 @@ const parseMarkdownToDocx = (markdown) => {
                   tableData.rows.map((r) => r.map((c) => c.text))
                 )
               );
-              children.push(new Paragraph({ text: "", spacing: { before: 100, after: 100 } }));
+              children.push(
+                new Paragraph({
+                  text: "",
+                  spacing: { before: 100, after: 100 },
+                })
+              );
             }
             break;
+          }
 
           case "space":
             children.push(
@@ -424,63 +476,58 @@ const createMarkdownTable = (headers, rows) => {
   });
 };
 
-const addArchitectureDiagram = async (base64Data, children) => {
-  if (!base64Data) return;
+// ---------- Image section (React/browser) ----------
+
+const addArchitectureDiagram = async (architectureDiagramBase64, children) => {
+  if (!architectureDiagramBase64) return;
+
+  children.push(
+    new Paragraph({
+      text: SECTION_TITLES.ARCHITECTURE_DIAGRAM,
+      heading: HeadingLevel.HEADING_1,
+      spacing: { before: 200, after: 100 },
+    })
+  );
 
   try {
+    const processed = processImageData
+      ? processImageData(architectureDiagramBase64)
+      : architectureDiagramBase64;
+
+    const { mimeType, base64 } = normalizeBase64Image(processed);
+    
+    // Extract format from MIME type (e.g., "image/png" -> "png")
+    let format = 'png';
+    if (mimeType) {
+      const formatMatch = mimeType.match(/image\/(.+)/);
+      if (formatMatch) {
+        format = formatMatch[1].toLowerCase();
+        // Normalize jpeg to jpg
+        if (format === 'jpeg') format = 'jpg';
+      }
+    }
+
+    // Use Uint8Array directly; docx supports it and it avoids ArrayBuffer quirks.
+    const bytes = base64ToUint8Array(base64);
+
     children.push(
       new Paragraph({
-        text: SECTION_TITLES.ARCHITECTURE_DIAGRAM,
-        heading: HeadingLevel.HEADING_1,
-        spacing: { before: 200, after: 100 },
+        children: [
+          new ImageRun({
+            data: bytes,
+            transformation: {
+              width: 400,
+              height: 300,
+            },
+            // Provide filename with extension so docx library can register the correct content type
+            type: format,
+          }),
+        ],
+        spacing: { before: 100, after: 200 },
       })
     );
-
-    const imageData = processImageData(base64Data);
-    if (!imageData) {
-      throw new Error("Invalid image data");
-    }
-
-    try {
-      let buffer;
-
-      if (typeof Buffer !== "undefined") {
-        buffer = Buffer.from(imageData, "base64");
-      } else {
-        const binaryString = atob(imageData);
-        buffer = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          buffer[i] = binaryString.charCodeAt(i);
-        }
-      }
-
-      children.push(
-        new Paragraph({
-          children: [
-            new ImageRun({
-              data: buffer,
-              transformation: {
-                width: 400,
-                height: 300,
-              },
-              altText: "Architecture Diagram",
-              description: "System Architecture Diagram",
-            }),
-          ],
-          spacing: { before: 100, after: 200 },
-        })
-      );
-    } catch (error) {
-      console.error("Image conversion error:", error);
-      children.push(
-        new Paragraph({
-          text: "[Image could not be processed]",
-          spacing: { before: 100, after: 200 },
-        })
-      );
-    }
-  } catch (error) {
-    console.error("Error adding diagram:", error);
+  } catch (err) {
+    console.error("Error adding architecture diagram:", err);
     children.push(
       new Paragraph({
         text: "[Architecture diagram could not be displayed]",
@@ -489,6 +536,8 @@ const addArchitectureDiagram = async (base64Data, children) => {
     );
   }
 };
+
+// ---------- Tables / sections ----------
 
 const createTableRow = (cells, isHeader = false) => {
   return new TableRow({
@@ -525,6 +574,8 @@ const createTable = (columns, data) => {
   });
 };
 
+// ---------- Main document factory ----------
+
 const createThreatModelingDocument = async (
   title,
   description,
@@ -554,7 +605,6 @@ const createThreatModelingDocument = async (
       await addArchitectureDiagram(architectureDiagramBase64, mainChildren);
     }
 
-    // Get all sections using shared helper
     const sections = getDocumentSections({
       description,
       assumptions,
@@ -565,11 +615,9 @@ const createThreatModelingDocument = async (
       threatCatalogData,
     });
 
-    // Separate main sections from landscape sections
     const mainSections = sections.filter((s) => !s.landscape);
     const landscapeSections = sections.filter((s) => s.landscape);
 
-    // Add main sections
     mainSections.forEach((section) => {
       if (section.type === "text") {
         mainChildren.push(
@@ -606,7 +654,6 @@ const createThreatModelingDocument = async (
       },
     ];
 
-    // Add landscape sections
     landscapeSections.forEach((section) => {
       documentSections.push({
         properties: {

@@ -222,3 +222,63 @@
     font-size: 3vw;
   }
 }
+
+/* Login footer styles */
+.login-footer {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 85%;
+}
+
+.footer-links {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+}
+
+.github-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s ease;
+  text-decoration: none;
+}
+
+.github-link:hover {
+  opacity: 0.7;
+}
+
+/* Light theme footer styles */
+.light-theme .github-link {
+  color: #333333;
+}
+
+/* Dark theme footer styles */
+.dark-theme .github-link {
+  color: #ffffff;
+}
+
+/* Mobile responsive footer */
+@media (max-width: 768px) {
+  .login-footer {
+    bottom: 20px;
+    gap: 12px;
+  }
+
+  .footer-links {
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .github-link svg {
+    width: 20px;
+    height: 20px;
+  }
+}

@@ -82,18 +82,6 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
     }
   });
 
-  const [filterMode, setFilterMode] = useState(() => {
-    try {
-      const savedFilterMode = localStorage.getItem("threatCatalogFilterMode");
-      return savedFilterMode && ["all", "owned", "shared"].includes(savedFilterMode)
-        ? savedFilterMode
-        : "all";
-    } catch (error) {
-      console.error("Error reading from localStorage:", error);
-      return "all";
-    }
-  });
-
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -103,14 +91,6 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
       console.error("Error saving to localStorage:", error);
     }
   }, [viewMode]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("threatCatalogFilterMode", filterMode);
-    } catch (error) {
-      console.error("Error saving to localStorage:", error);
-    }
-  }, [filterMode]);
 
   const removeItem = (idToRemove) => {
     setResults(results.filter((item) => item.job_id !== idToRemove));
@@ -152,12 +132,9 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
     }
   };
 
-  // Show all results without filtering
-  const filteredResults = results;
-
   const createGridDefinition = () => {
     const gridDefinition = [];
-    filteredResults.forEach(() => {
+    results.forEach(() => {
       gridDefinition.push({
         colspan: { default: 12, xxs: 12, xs: 12, s: 12, m: 6, l: 6, xl: 6 },
       });
@@ -167,7 +144,7 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
 
   const renderCardView = () => (
     <Grid gridDefinition={createGridDefinition()}>
-      {filteredResults.map((item) => (
+      {results.map((item) => (
         <div key={item.job_id} style={{ height: 250 }}>
           {deletingId === item.job_id ? (
             <Container fitHeight>
@@ -201,26 +178,23 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
                           handleDelete(item.job_id);
                         }
                       }}
-                      items={[{ id: "delete", text: "Delete", disabled: item.is_owner === false }]}
+                      items={[{ id: "delete", text: "Delete", disabled: false }]}
                       variant="icon"
                     />
                   }
                   style={{ width: "100%", overflow: "hidden" }}
                 >
-                  <SpaceBetween direction="horizontal" size="xs">
-                    <Link
-                      variant="primary"
-                      href={`/${item.job_id}`}
-                      fontSize="heading-m"
-                      onFollow={(event) => {
-                        event.preventDefault();
-                        navigate(`/${item.job_id}`);
-                      }}
-                    >
-                      {item?.title || "Untitled"}
-                    </Link>
-                    {item.is_owner === false && <Badge color="blue">Shared</Badge>}
-                  </SpaceBetween>
+                  <Link
+                    variant="primary"
+                    href={`/${item.job_id}`}
+                    fontSize="heading-m"
+                    onFollow={(event) => {
+                      event.preventDefault();
+                      navigate(`/${item.job_id}`);
+                    }}
+                  >
+                    {item?.title || "Untitled"}
+                  </Link>
                 </Header>
               }
             >
@@ -318,45 +292,22 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
           </SpaceBetween>
         ) : results.length > 0 ? (
           <SpaceBetween size="l">
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-start",
-                alignItems: "center",
-                gap: "16px",
+            <SegmentedControl
+              selectedId={viewMode}
+              onChange={({ detail }) => {
+                setViewMode(detail.selectedId);
               }}
-            >
-              <SegmentedControl
-                selectedId={viewMode}
-                onChange={({ detail }) => {
-                  setViewMode(detail.selectedId);
-                }}
-                label="View mode"
-                options={[
-                  { text: "Card view", id: "card", iconName: "view-full" },
-                  { text: "Table view", id: "table", iconName: "menu" },
-                ]}
-              />
-            </div>
+              label="View mode"
+              options={[
+                { text: "Card view", id: "card", iconName: "view-full" },
+                { text: "Table view", id: "table", iconName: "menu" },
+              ]}
+            />
 
             {viewMode === "card" ? (
-              filteredResults.length > 0 ? (
-                renderCardView()
-              ) : (
-                <Box margin={{ vertical: "xs" }} textAlign="center" color="inherit">
-                  <SpaceBetween size="m">
-                    <b>No threat models match the selected filter</b>
-                  </SpaceBetween>
-                </Box>
-              )
+              renderCardView()
             ) : (
-              <ThreatCatalogTable
-                results={results}
-                onItemsChange={setResults}
-                loading={loading}
-                filterMode={filterMode}
-                onFilterChange={setFilterMode}
-              />
+              <ThreatCatalogTable results={results} onItemsChange={setResults} loading={loading} />
             )}
           </SpaceBetween>
         ) : (

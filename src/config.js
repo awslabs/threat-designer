@@ -1,9 +1,20 @@
 import "@aws-amplify/ui-react/styles.css";
 
+// Backend mode configuration (build-time decision)
+export const BACKEND_MODE = import.meta.env.VITE_BACKEND_MODE || "remote";
+
+// Base path configuration for GitHub Pages deployment
+export const BASE_PATH = import.meta.env.VITE_MODE === "production" ? "/threat-designer" : "";
+
+// Feature flags - exported for direct use
+export const SENTRY_ENABLED = import.meta.env.VITE_SENTRY_ENABLED === "true";
+export const THREAT_CATALOG_ENABLED = import.meta.env.VITE_THREAT_CATALOG_ENABLED !== "false";
+
 let config = {
   controlPlaneAPI: import.meta.env.VITE_APP_ENDPOINT,
-  sentryEnabled: import.meta.env.VITE_SENTRY_ENABLED === "true",
+  sentryEnabled: SENTRY_ENABLED,
   sentryArn: import.meta.env.VITE_APP_SENTRY || "",
+  threatCatalogEnabled: THREAT_CATALOG_ENABLED,
 };
 
 const amplifyConfig = {
@@ -25,5 +36,6 @@ const amplifyConfig = {
   },
 };
 export const isSentryEnabled = () => config.sentryEnabled;
+export const isThreatCatalogEnabled = () => config.threatCatalogEnabled;
 
 export { config, amplifyConfig };

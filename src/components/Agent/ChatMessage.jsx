@@ -39,6 +39,7 @@ const ChatMessage = React.memo(({ message, streaming, isLast, scroll, isParentFi
       }
 
       if (item.type === "tool") {
+        console.log(item);
         // Mark previous non-tool block as complete when transitioning to tool
         if (currentBlock && currentBlock.type !== "tool") {
           currentBlock.isComplete = true;

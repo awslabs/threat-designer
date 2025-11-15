@@ -1,319 +1,299 @@
-<p align="center">
-  <img src="assets/logo.png" alt="Threat Designer Logo" width="200"/>
-</p>
+# Lightning Mode Quick Start Guide
 
-# Threat Designer: AI-powered threat modeling for secure system design
+## Table of Contents
 
-**Threat Designer** is an AI-driven agent that automates and streamlines the threat modeling process for secure system design. Harnessing the power of large language models (LLMs), it analyzes system architectures, identifies potential security threats, and generates detailed threat models—empowering developers and security professionals to incorporate security from the earliest stages of development.
-
----
-
-## 🚀 Try It Now - Lightning Mode
-
-**Experience Threat Designer instantly in your browser - no deployment required!**
-
-**[Launch Lightning Mode →](https://awslabs.github.io/threat-designer/)**
-
-Lightning Mode provides:
-
-- ✅ Core AI-powered threat modeling
-- ✅ Instant access - runs entirely in your browser
-- ✅ Perfect for evaluation and quick threat assessments
-- ✅ No AWS account or infrastructure needed
-
-📖 **[Lightning Mode Quick Start Guide](https://github.com/awslabs/threat-designer/blob/lightning/main/README.md)**
-
----
-
-## Quick Links
-
-- 📖 [Read the AWS Blog Post](https://aws.amazon.com/blogs/machine-learning/accelerate-threat-modeling-with-generative-ai/)
-- ⭐ [Star this repo](https://github.com/awslabs/threat-designer) to support the project
-- 📚 [Getting started Guide](./quick-start-guide/quick-start.md)
+- [What is Lightning Mode?](#what-is-lightning-mode)
+  - [How Lightning Mode Works](#how-lightning-mode-works)
+  - [Lightning Mode vs Full Deployment](#lightning-mode-vs-full-deployment)
+  - [Feature Limitations](#feature-limitations)
+  - [Data Persistence Model](#data-persistence-model)
+- [Prerequisites](#prerequisites)
+  - [AI Provider Access](#1-ai-provider-access)
+  - [Enable Model Access](#2-enable-model-access)
+  - [Credentials](#3-credentials)
+  - [Modern Web Browser](#4-modern-web-browser)
+- [Getting Started](#getting-started)
+  - [Step 1: Access Lightning Mode](#step-1-access-lightning-mode)
+  - [Step 2: Configure AI Provider Credentials](#step-2-configure-ai-provider-credentials)
+  - [Step 3: Submit Your First Threat Model](#step-3-submit-your-first-threat-model)
+  - [Step 4: Review Results](#step-4-review-results)
+- [Security Considerations](#security-considerations)
+  - [Amazon Bedrock Credentials](#aws-bedrock-credentials)
+  - [OpenAI API Key Security](#openai-api-key-security)
+  - [Best Practices Checklist](#best-practices-checklist)
 
 ---
 
-## Features
+## What is Lightning Mode?
 
-- **Architecture Analysis** - Submit architecture diagrams and analyze for threats
-- **Interactive Editing** - Update threat modeling results via the user interface
-- **Iterative Refinement** - Replay threat modeling based on your edits and additional input
-- **Multiple Export Formats** - Export results in PDF, DOCX, or JSON format
-- **AI Assistant (Sentry)** - Interact with a built-in assistant to dive deep into threat models
-- **Threat Catalog** - Explore and manage past threat models
+Lightning mode is a lightweight, browser-based version of Threat Designer that provides instant access to core AI-powered threat modeling capabilities without requiring any backend infrastructure deployment. It's designed for quick evaluations, demonstrations, and situations where you need immediate threat modeling capabilities.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./assets/sign_in_dark.png">
-  <img alt="sign in" src="./assets/sign_in.png" style="margin-bottom: 20px;">
-</picture>
+### How Lightning Mode Works
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./assets/wizard_dark.png">
-  <img alt="wizard" src="./assets/wizard.png" style="margin-bottom: 20px;">
-</picture>
+Lightning mode runs entirely in your web browser using either Amazon Bedrock or OpenAI's GPT models. All data is stored temporarily in your browser's session storage, making it a stateless solution that requires no server infrastructure, databases, or persistent storage.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./assets/processing_dark.png">
-  <img alt="processing" src="./assets/processing.png" style="margin-bottom: 20px;">
-</picture>
+### Lightning Mode vs Full Deployment
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./assets/threat_catalog_dark.png">
-  <img alt="threat catalog" src="./assets/threat_catalog.png" style="margin-bottom: 20px;">
-</picture>
+| Feature                     | Lightning Mode                                   | Full Deployment                                 |
+| --------------------------- | ------------------------------------------------ | ----------------------------------------------- |
+| **Infrastructure Required** | None - runs in browser                           | AWS infrastructure (Lambda, DynamoDB, S3, etc.) |
+| **Setup Time**              | Instant - just AWS credentials or OpenAI API key | 15-30 minutes deployment                        |
+| **Data Persistence**        | Session only (lost when tab closes)              | Permanent storage in DynamoDB and S3            |
+| **Sentry AI Assistant**     | ❌ Not available                                 | ✅ Available                                    |
+| **Threat Catalog**          | ❌ Not available                                 | ✅ Available                                    |
+| **Core Threat Modeling**    | ✅ Available                                     | ✅ Available                                    |
+| **Architecture Analysis**   | ✅ Available                                     | ✅ Available                                    |
+| **Export (PDF/DOCX/JSON)**  | ✅ Available                                     | ✅ Available                                    |
+| **AI Provider Options**     | Amazon Bedrock or OpenAI                         | Amazon Bedrock or OpenAI                        |
+| **Best For**                | Evaluation, demos, quick assessments             | Production use, team collaboration              |
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./assets/sentry_dark.png">
-  <img alt="sentry" src="./assets/sentry.png">
-</picture>
+### Feature Limitations
 
----
+Lightning mode focuses on core threat modeling functionality. The following features are **not available** in Lightning mode:
 
-## Architecture
+- **Sentry AI Assistant**: The conversational AI assistant for exploring threat models is not included
+- **Threat Catalog**: Historical threat model storage and browsing is not available
+- **Persistent Storage**: Threat models are not saved permanently and will be lost when you close the browser tab
 
-### Solution Architecture
+### Data Persistence Model
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./assets/threat_designer_arch_dark.png">
-  <img alt="solutions_diagram" src="./assets/threat_designer_arch.png">
-</picture>
+Lightning mode uses your browser's **sessionStorage** for temporary data storage:
 
-**AWS Services Used:**
+- **Temporary**: Data exists only for the current browser tab session
+- **Automatic Cleanup**: All data is automatically cleared when you close the browser tab
+- **No Server Storage**: Nothing is stored on any server (except your credentials are used to call your chosen AI provider)
+- **Export Before Closing**: Always export your threat model (PDF, DOCX, or JSON) before closing the tab if you want to keep it
 
-- AWS Amplify
-- Amazon API Gateway
-- Amazon Cognito
-- AWS Lambda
-- Amazon Bedrock AgentCore Runtime
-- Amazon DynamoDB
-- Amazon S3
+## Prerequisites
 
-### Agent Logic Flow
+Before using Lightning mode, ensure you have one of the following AI provider setups:
 
-<p align="center">
-  <img src="assets/agent-flow.png" alt="Threat Designer Agent Flow" width="300"/>
-</p>
+### 1. AI Provider Access
 
----
+You need access to **either** Amazon Bedrock **or** OpenAI's API (not both simultaneously):
+
+#### Option A: Amazon Bedrock
+
+- AWS account with access to Amazon Bedrock in a supported region
+- Lightning mode uses the following models:
+  - **Claude 4.5 Haiku** - Used for asset identification and threat analysis
+  - **Claude 4.5 Sonnet** - Used for flow analysis and gap identification
+
+#### Option B: OpenAI API
+
+- OpenAI API account with access to GPT models
+- Lightning mode uses the following models:
+  - **GPT-5** - Used for flow analysis and gap identification
+  - **GPT-5 Mini** - Used for asset identification and threat analysis
+
+### 2. Enable Model Access
+
+#### For Amazon Bedrock:
+
+Ensure you have enabled access to Claude models in your Amazon Bedrock console for your chosen region.
+
+#### For OpenAI:
+
+Ensure your OpenAI API account has sufficient credits and access to GPT-5 models.
+
+### 3. Credentials
+
+#### For Amazon Bedrock:
+
+AWS credentials with permissions to invoke Bedrock models. See the [Amazon Bedrock Credentials](#aws-bedrock-credentials) section for recommended credential types and IAM policies.
+
+#### For OpenAI:
+
+A valid OpenAI API key with access to GPT models. See the [OpenAI API Key Security](#openai-api-key-security) section for security considerations.
+
+### 4. Modern Web Browser
+
+Lightning mode works with modern web browsers that support:
+
+- ES6+ JavaScript
+- sessionStorage API
+- Fetch API
+
+Recommended browsers:
+
+- Chrome/Edge (version 90+)
+- Firefox (version 88+)
+- Safari (version 14+)
 
 ## Getting Started
 
-### Prerequisites
+### Step 1: Access Lightning Mode
 
-**Required Tools:**
+Navigate to the Lightning mode application URL in your web browser.
 
-The following tools must be installed on your local machine:
+### Step 2: Configure AI Provider Credentials
 
-- [Node.js](https://nodejs.org/en/download) (v18 or later) and npm
-- [curl](https://curl.se/)
-- [jq](https://jqlang.org/download/)
-- [Python](https://www.python.org/downloads/) (v3.12 or later) and pip
-- [Terraform CLI](https://developer.hashicorp.com/terraform/install)
-- [Docker](https://docs.docker.com/engine/install/) running
-- [AWS CLI](https://docs.aws.amazon.com/cli/v1/userguide/cli-chap-install.html) configured with [appropriate credentials](https://docs.aws.amazon.com/cli/v1/userguide/cli-chap-configure.html)
+On the login page, you'll see options to choose your AI provider:
 
-**AI Model Provider:**
+#### Option A: Amazon Bedrock Configuration
 
-Threat Designer supports two AI providers. Choose one based on your preference:
+Select "Amazon Bedrock" and provide:
 
-#### Option 1: Amazon Bedrock (Default)
+1. **AWS Access Key ID** (required)
+2. **AWS Secret Access Key** (required)
+3. **AWS Session Token** (optional - required only for temporary credentials)
+4. **AWS Region** (required - select the region where you have Bedrock access)
 
-You must enable access to the following models in your AWS region:
+#### Option B: OpenAI Configuration
 
-- **Claude 4.5 Sonnet**
-- **Claude 4.5 Haiku**
+Select "OpenAI" and provide:
 
-To enable Claude models, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
+1. **OpenAI API Key** (required)
 
-> **Note:** If deploying in a non-US region, verify the inference profile ID for your region. See [Supported Regions and models for inference profiles](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html).
+**Important**: Your credentials are stored only in your browser's memory and are never sent to any other server except your chosen AI provider.
 
-#### Option 2: OpenAI
+### Step 3: Submit Your First Threat Model
 
-You'll need:
+Once authenticated with your chosen AI provider:
 
-- A valid OpenAI API key
-- Access to GPT-5 or GPT-5 Mini models
+1. Click **"Start New Threat Model"** or navigate to the threat modeling wizard
+2. **Upload Architecture Diagram**: Provide a diagram of your system architecture (PNG, JPG, or PDF)
+3. **Enter Project Details**:
+   - Project name
+   - Description (optional but recommended)
+4. **Configure Analysis Settings**:
+   - **Iteration Count**: Choose 1-3 iterations (more iterations = more thorough analysis but longer processing time)
+   - **Reasoning Boost**: Select reasoning level (1-3) for deeper AI analysis
+5. Click **"Submit"** to start the analysis
 
-You'll be prompted to enter your API key during deployment.
+### Step 4: Review Results
 
-### Installation and Deployment
+After processing completes (typically 15-30 minutes depending on settings):
 
-1. **Clone the Repository**
+1. Review the generated threat model organized by STRIDE categories
+2. Examine identified **Assets**, **Flows**, **Trust Boundaries**, and **Threats**
+3. Edit, add, or remove entries as needed
+4. **Export your results** before closing the browser tab:
+   - PDF format for reports
+   - DOCX format for editing
+   - JSON format for programmatic use
 
-```bash
-git clone https://github.com/awslabs/threat-designer.git
-cd threat-designer
-```
+## Security Considerations
 
-2. **Make the deployment script executable:**
+Security is paramount when working with AI provider credentials. Follow these best practices based on your chosen provider.
 
-```bash
-chmod +x deployment.sh
-```
+### Amazon Bedrock Credentials
 
-3. **Export AWS credentials**
+#### Use Short-Lived Credentials (Strongly Recommended)
 
-```bash
-# Option I: Export AWS temporary credentials
-export AWS_ACCESS_KEY_ID="your_temp_access_key"
-export AWS_SECRET_ACCESS_KEY="your_temp_secret_key"
-export AWS_SESSION_TOKEN="your_temp_session_token"
-export AWS_DEFAULT_REGION="your_region"
+**Always prefer temporary credentials over long-term IAM user credentials.** Short-lived credentials automatically expire, reducing the risk of credential compromise.
 
-# Option II: Export AWS Profile
-export AWS_PROFILE="your_profile_name"
-```
+##### Recommended Credential Types (in order of preference):
 
-4. **Run the deployment:**
+1. **AWS IAM Identity Center (SSO) Credentials**
+   - Automatically expire after a few hours
+   - Centrally managed
+   - Best for enterprise environments
 
-```bash
-./deployment.sh
-```
+2. **AWS STS Temporary Credentials**
+   - Generated using `aws sts assume-role` or `aws sts get-session-token`
+   - Configurable expiration (15 minutes to 12 hours)
+   - Ideal for individual use
 
-During deployment, you'll be prompted to:
+3. **IAM User Credentials** (Not Recommended)
+   - Long-lived credentials that don't expire
+   - Higher security risk if compromised
+   - Only use if temporary credentials are not available
 
-- Select your AI model provider (Amazon Bedrock or OpenAI)
-- Enter your OpenAI API key (if using OpenAI)
-- Provide a valid email address for user credentials
-- Choose whether to enable Sentry AI Assistant
+##### How to Generate Temporary Credentials
 
-> **Note:** A user will be created in Amazon Cognito User Pool and temporary credentials will be sent to the configured email address.
-
-### Accessing the Application
-
-After successful deployment, you can find the Login URL in the output:
-
-```sh
-Application Login page: https://dev.xxxxxxxxxxxxxxxx.amplifyapp.com
-```
-
----
-
-## Configuration Options
-
-### AI Model Provider Selection
-
-Threat Designer supports two AI providers that can be selected during deployment:
-
-```
-Select AI model provider:
-1) Amazon Bedrock (Claude) (default)
-2) OpenAI (GPT-5)
-```
-
-#### Amazon Bedrock Configuration (default model)
-
-**Used Models:**
-
-- **Claude 4.5 Sonnet** - For complex reasoning tasks
-- **Claude 4.5 Haiku** - For faster, lighter tasks
-
-**Key Characteristics:**
-
-- **Reasoning**: Hybrid model
-- **Reasoning Levels**: None, Low, Medium, High (maps to different reasoning token budget)
-
-#### OpenAI Configuration
-
-**Used Models:**
-
-- **GPT-5 Mini** (default) - Faster and more cost-effective
-- **GPT-5** - Maximum reasoning capability
-
-**Key Characteristics:**
-
-- **Reasoning**: Always enabled (built-in capability that cannot be disabled)
-- **Reasoning Levels**: Low, Medium, High (maps to OpenAI's reasoning effort)
-
-**To use OpenAI:**
-
-1. Select option `2` when prompted for model provider during deployment
-2. Enter your OpenAI API key when prompted
-3. The system will configure both Threat Designer and Sentry to use OpenAI
-
-#### Switching Between Providers
-
-To switch between Amazon Bedrock and OpenAI:
-
-1. Redeploy the solution using `./deployment.sh`
-2. Select a different provider when prompted
-
-> **Important:** Existing conversation sessions from one provider cannot be continued with a different provider. You'll need to start new threat modeling sessions after switching.
-
-### Sentry AI Assistant (Optional Feature)
-
-Sentry is an AI-powered assistant that helps you analyze and explore threat models through conversational interaction. This feature is **optional** and can be enabled or disabled during deployment.
-
-#### Enabling/Disabling Sentry During Deployment
-
-When you run `./deployment.sh`, you will be prompted:
-
-```
-Enable Sentry AI Assistant? (y/n, default: y)
-```
-
-- **Enable (y)**: Deploys the full Sentry infrastructure including Amazon Bedrock AgentCore Runtime, DynamoDB session table, and ECR repository. The Assistant drawer will be available in the UI.
-- **Disable (n)**: Skips Sentry infrastructure deployment. The Assistant drawer will be hidden from the UI, and core threat modeling features will continue to work normally.
-
-#### Toggling Sentry in Existing Deployments
-
-**To disable Sentry:**
-
-1. Update the `.deployment.config` file in the project root:
+Using AWS CLI to generate temporary credentials:
 
 ```bash
-ENABLE_SENTRY=false
+# Generate temporary credentials (valid for 1 hour)
+aws sts get-session-token --duration-seconds 3600
+
+# Output will include:
+# - AccessKeyId
+# - SecretAccessKey
+# - SessionToken (required for temporary credentials)
+# - Expiration timestamp
 ```
 
-2. Redeploy the solution
+#### IAM Policy Scoping
 
-**To enable Sentry:**
+Create a dedicated IAM policy with minimal permissions for Lightning mode. The policy should grant access **only** to Amazon Bedrock model invocation.
 
-1. Update the `.deployment.config` file in the project root:
+##### Minimal IAM Policy Example
 
-```bash
-ENABLE_SENTRY=true
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "BedrockModelInvokeOnly",
+      "Effect": "Allow",
+      "Action": ["bedrock:InvokeModel"],
+      "Resource": [
+        "arn:aws:bedrock:*::foundation-model/anthropic.claude-*",
+        "arn:aws:bedrock:*:*:inference-profile/global.anthropic.claude-*"
+      ]
+    }
+  ]
+}
 ```
 
-2. Redeploy the solution
+This policy:
 
----
+- ✅ Allows invoking Claude models in any region
+- ✅ Follows principle of least privilege
+- ❌ Does not grant access to other AWS services
+- ❌ Does not grant write permissions
+- ❌ Does not grant access to non-Claude models
 
-## Clean Up
+### OpenAI API Key Security
 
-1. **Empty the Architecture Bucket**, following instructions [here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/empty-bucket.html)
+#### API Key Management
 
-2. **Make the destroy script executable:**
+- **Dedicated Keys**: Create a dedicated API key specifically for Lightning mode usage
+- **Usage Monitoring**: Regularly monitor your OpenAI usage and billing to detect any anomalies
+- **Rate Limits**: Be aware of your API rate limits to avoid service interruptions
+- **Key Rotation**: Regularly rotate your API keys as a security best practice
+- **Usage Limits**: Set appropriate usage limits on your API keys to prevent unexpected charges
 
-```bash
-chmod +x destroy.sh
-```
+### Best Practices Checklist
 
-3. **Export AWS credentials**
+#### For Amazon Bedrock:
 
-```bash
-# Option I: Export AWS temporary credentials
-export AWS_ACCESS_KEY_ID="your_temp_access_key"
-export AWS_SECRET_ACCESS_KEY="your_temp_secret_key"
-export AWS_SESSION_TOKEN="your_temp_session_token"
-export AWS_DEFAULT_REGION="your_region"
+- ✅ Use temporary credentials with short expiration times (1-4 hours)
+- ✅ Create a dedicated IAM policy with minimal Bedrock permissions
+- ✅ Use a dedicated IAM user or role for Lightning mode (don't reuse admin credentials)
+- ✅ Regularly rotate IAM user access keys if using long-term credentials
 
-# Option II: Export AWS Profile
-export AWS_PROFILE="your_profile_name"
-```
+#### For OpenAI:
 
-4. **Execute the script:**
+- ✅ Use dedicated API keys for Lightning mode
+- ✅ Monitor API usage and billing regularly
+- ✅ Set appropriate usage limits on your API keys
+- ✅ Rotate API keys regularly as a security best practice
 
-```bash
-./destroy.sh
-```
+#### Universal Best Practices:
 
----
+- ✅ Clear credentials when finished using the application
+- ✅ Close the browser tab when done to ensure credentials are cleared from memory
+- ✅ Export your threat model before closing the browser tab
+- ❌ Never share your credentials with others
+- ❌ Avoid using root/admin account credentials
 
-## Contributing
+### Credential Expiration and Management
 
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
+#### Amazon Bedrock:
 
-## License
+If you're using temporary credentials:
 
-This library is licensed under the Apache License. See the [LICENSE](LICENSE) file.
+- Lightning mode will return an error when credentials expire
+- You'll need to generate new temporary credentials and re-enter them
+- Export your threat model before credentials expire to avoid losing work
+
+#### OpenAI:
+
+- API keys don't expire automatically but can be deactivated
+- Monitor your usage limits to avoid service interruptions
+- Keep track of your organization's billing limits
+
+The application stores credentials only in your browser's memory and automatically clears them when you close the tab or refresh the page, ensuring your credentials remain secure.

@@ -1,107 +1,71 @@
 import React from "react";
-import ButtonDropdown from "@cloudscape-design/components/button-dropdown";
 import SpaceBetween from "@cloudscape-design/components/space-between";
+import ButtonDropdown from "@cloudscape-design/components/button-dropdown";
 
-/**
- * ThreatModelActions Component
- *
- * A presentational component that renders the actions dropdown menu for threat models.
- * Provides actions like Save, Share, Delete, Replay, Trail, Stop, and Download options.
- *
- * @param {Object} props - Component props
- * @param {boolean} props.showResults - Whether results are currently displayed
- * @param {boolean} props.showProcessing - Whether processing is in progress
- * @param {boolean} props.isReadOnly - Whether the threat model is in read-only mode
- * @param {boolean} props.isOwner - Whether the current user is the owner
- * @param {Function} props.onActionClick - Callback function when an action is clicked
- * @returns {JSX.Element|null} The actions dropdown or null if status is FAILED
- */
-const ThreatModelActions = React.memo(
-  ({ showResults, showProcessing, isReadOnly, isOwner, onActionClick, tmStatus }) => {
-    // Don't show actions if status is FAILED
-    if (tmStatus === "FAILED") {
-      return null;
+export const ThreatModelActions = ({
+  onSave,
+  onDelete,
+  onReplay,
+  onTrail,
+  onDownload,
+  isLightningMode,
+}) => {
+  const handleItemClick = (itemClickDetails) => {
+    const itemId = itemClickDetails.detail.id;
+
+    switch (itemId) {
+      case "sv":
+        onSave();
+        break;
+      case "rm":
+        onDelete();
+        break;
+      case "re":
+        onReplay();
+        break;
+      case "tr":
+        onTrail();
+        break;
+      case "cp-doc":
+        onDownload("docx");
+        break;
+      case "cp-pdf":
+        onDownload("pdf");
+        break;
+      case "cp-json":
+        onDownload("json");
+        break;
+      default:
+        break;
     }
+  };
 
-    // Build action items array based on state
-    const actionItems = [
-      {
-        text: "Save",
-        id: "sv",
-        disabled: !showResults || isReadOnly,
-      },
-      // Only show Share and Delete for owners
-      ...(isOwner
-        ? [
-            {
-              text: "Share",
-              id: "sh",
-              disabled: !showResults,
-            },
-            {
-              text: "Delete",
-              id: "rm",
-              disabled: !showResults,
-            },
-          ]
-        : []),
-      {
-        text: "Replay",
-        id: "re",
-        disabled: !showResults || isReadOnly,
-      },
-      {
-        text: "Trail",
-        id: "tr",
-        disabled: !showResults,
-      },
-      {
-        text: "Stop",
-        id: "st",
-        disabled: !showProcessing,
-      },
-      {
-        text: "Download",
-        id: "download",
-        disabled: !showResults,
-        items: [
+  return (
+    <SpaceBetween direction="horizontal" size="xs">
+      <ButtonDropdown
+        variant="primary"
+        expandableGroups
+        fullWidth
+        onItemClick={handleItemClick}
+        items={[
+          { text: "Save", id: "sv", disabled: false },
+          { text: "Delete", id: "rm", disabled: false },
+          { text: "Replay", id: "re", disabled: false },
+          // Hide Trail button in Lightning Mode (reasoning trail not supported)
+          ...(!isLightningMode ? [{ text: "Trail", id: "tr", disabled: false }] : []),
           {
-            text: "PDF",
-            id: "cp-pdf",
-            disabled: !showResults,
+            text: "Download",
+            id: "download",
+            items: [
+              { text: "PDF", id: "cp-pdf", disabled: false },
+              { text: "DOCX", id: "cp-doc", disabled: false },
+              { text: "JSON", id: "cp-json", disabled: false },
+            ],
           },
-          {
-            text: "DOCX",
-            id: "cp-doc",
-            disabled: !showResults,
-          },
-          {
-            text: "JSON",
-            id: "cp-json",
-            disabled: !showResults,
-          },
-        ],
-      },
-    ];
-
-    return (
-      <SpaceBetween direction="horizontal" size="xs">
-        <ButtonDropdown
-          variant="primary"
-          expandableGroups
-          fullWidth
-          onItemClick={(itemClickDetails) => {
-            onActionClick(itemClickDetails.detail.id);
-          }}
-          items={actionItems}
-        >
-          Actions
-        </ButtonDropdown>
-      </SpaceBetween>
-    );
-  }
-);
-
-ThreatModelActions.displayName = "ThreatModelActions";
-
-export default ThreatModelActions;
+        ]}
+      >
+        Actions
+      </ButtonDropdown>
+    </SpaceBetween>
+  );
+};

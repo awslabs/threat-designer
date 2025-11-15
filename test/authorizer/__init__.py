@@ -1,1 +1,0 @@
-# Authorizer test package initialization

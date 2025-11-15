@@ -53,11 +53,22 @@ const Threats = () => {
   return <Content data={trail.threats || []} />;
 };
 
+const Gaps = () => {
+  const splitPanelContext = useSplitPanel() || {};
+  const trail = splitPanelContext.trail || {};
+  return <Content data={trail.gaps || []} />;
+};
+
 const ThreatsInfoTabs = [
   {
     label: "Threats",
     id: "Threats",
     content: <Threats />,
+  },
+  {
+    label: "Gaps",
+    id: "Gaps",
+    content: <Gaps />,
   },
 ];
 

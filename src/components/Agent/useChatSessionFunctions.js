@@ -441,171 +441,34 @@ export const useChatSessionFunctions = (props) => {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
 
-        if (interrupt) {
-          // Use buffering for interrupt messages (which can have large JSON)
-          let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
 
-            const chunk = decoder.decode(value);
-            buffer += chunk;
-
-            // Only process complete lines (ending with \n)
-            let newlineIndex;
-            while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-              const line = buffer.slice(0, newlineIndex);
-              buffer = buffer.slice(newlineIndex + 1);
-
-              if (line.startsWith("data: ")) {
-                try {
-                  const jsonStr = line.slice(6).trim();
-                  if (jsonStr) {
-                    const data = JSON.parse(jsonStr);
-
-                    if (data.type === "interrupt") {
-                      console.log(`Interrupt received for session ${sessionId}:`, data.content);
-                      emitInterruptEvent(sessionId, data, "sse", eventBus);
-                      return;
-                    }
-
-                    if (data.end) {
-                      addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
-                      cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
-                      return;
-                    }
-
-                    addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
-                  }
-                } catch (err) {
-                  console.error("Error parsing interrupt streaming response:", err);
-                  console.error("Failed line length:", line.length);
-                  console.error("Line starts with:", line.substring(0, 100));
-                  console.error("Line ends with:", line.substring(line.length - 100));
-                }
-              }
-            }
-          }
-
-          // Handle any remaining data in buffer after stream ends
-          if (buffer.trim()) {
-            if (buffer.startsWith("data: ")) {
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
               try {
-                const jsonStr = buffer.slice(6).trim();
-                if (jsonStr) {
-                  const data = JSON.parse(jsonStr);
-                  if (data.type === "interrupt") {
-                    console.log(`Interrupt received for session ${sessionId}:`, data.content);
-                    emitInterruptEvent(sessionId, data, "sse", eventBus);
-                  } else {
-                    addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
-                  }
+                const data = JSON.parse(line.slice(6));
+
+                if (data.type === "interrupt") {
+                  console.log(`Interrupt received for session ${sessionId}:`, data.content);
+                  emitInterruptEvent(sessionId, data, "sse", eventBus);
+                  return;
                 }
-              } catch (err) {
-                console.error("Error parsing remaining interrupt buffer:", err);
-              }
-            }
-          }
-        } else {
-          // Regular messages - immediate streaming with selective buffering for tool updates
-          let buffer = "";
-          let processingToolUpdate = false;
 
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value);
-
-            // If we're in tool update mode, use buffering
-            if (processingToolUpdate) {
-              buffer += chunk;
-
-              let newlineIndex;
-              while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-                const line = buffer.slice(0, newlineIndex);
-                buffer = buffer.slice(newlineIndex + 1);
-
-                if (line.startsWith("data: ")) {
-                  try {
-                    const jsonStr = line.slice(6).trim();
-                    if (jsonStr) {
-                      const data = JSON.parse(jsonStr);
-
-                      // Check if still in tool update
-                      if (data.type === "tool" && data.tool_update) {
-                        addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
-                      } else {
-                        // Exit tool update mode
-                        processingToolUpdate = false;
-
-                        if (data.type === "interrupt") {
-                          emitInterruptEvent(sessionId, data, "sse", eventBus);
-                          return;
-                        }
-
-                        if (data.end) {
-                          addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
-                          cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
-                          return;
-                        }
-
-                        addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
-                      }
-                    }
-                  } catch (err) {
-                    console.error("Error parsing tool update:", err);
-                  }
-                }
-              }
-              continue;
-            }
-
-            // Normal immediate streaming for non-tool messages
-            const lines = chunk.split("\n");
-
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                try {
-                  const data = JSON.parse(line.slice(6));
-
-                  // Detect tool start - switch to buffering mode for subsequent updates
-                  if (data.type === "tool" && data.tool_start) {
-                    addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
-                    processingToolUpdate = true;
-                    continue;
-                  }
-
-                  if (data.type === "interrupt") {
-                    emitInterruptEvent(sessionId, data, "sse", eventBus);
-                    return;
-                  }
-
-                  if (data.end) {
-                    addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
-                    cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
-                    return;
-                  }
-
+                if (data.end) {
                   addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
-                } catch (err) {
-                  console.error("Error parsing streaming response:", err);
+                  cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
+                  return;
                 }
-              }
-            }
-          }
 
-          // Handle any remaining buffered data
-          if (buffer.trim() && buffer.startsWith("data: ")) {
-            try {
-              const jsonStr = buffer.slice(6).trim();
-              if (jsonStr) {
-                const data = JSON.parse(jsonStr);
                 addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
+              } catch (err) {
+                console.error("Error parsing streaming response:", err);
               }
-            } catch (err) {
-              console.error("Error parsing remaining buffer:", err);
             }
           }
         }

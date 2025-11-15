@@ -6,7 +6,8 @@
 testuser.json
 
 # dependencies
-/node_modules
+node_modules/
+/embedded-backend/node_modules/
 /dist
 /.pnp
 .pnp.js
@@ -38,4 +39,3 @@ build.zip
 /infra/build
 /.vscode
 /.kiro
-__pycache__

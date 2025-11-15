@@ -34,7 +34,7 @@ const TableStatusComponent = ({ id }) => {
   return <StatusIndicatorComponent status={status} />;
 };
 
-export const ThreatCatalogTable = ({ results, onItemsChange, filterMode, onFilterChange }) => {
+export const ThreatCatalogTable = ({ results, onItemsChange }) => {
   const [selectedItems, setSelectedItems] = useState([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(1);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -82,15 +82,6 @@ export const ThreatCatalogTable = ({ results, onItemsChange, filterMode, onFilte
     }
   };
 
-  const getFilteredResults = () => {
-    if (filterMode === "owned") {
-      return results.filter((item) => item.is_owner === true);
-    } else if (filterMode === "shared") {
-      return results.filter((item) => item.is_owner === false);
-    }
-    return results;
-  };
-
   const sortItems = (items, column, isDescending) => {
     return [...items].sort((a, b) => {
       let aValue, bValue;
@@ -124,20 +115,6 @@ export const ThreatCatalogTable = ({ results, onItemsChange, filterMode, onFilte
           <Box>{item?.title || "Untitled"}</Box>
         </Link>
       ),
-    },
-    {
-      id: "shared",
-      header: "Shared",
-      cell: (item) => (
-        <Box textAlign="center">
-          {item.is_owner === false ? (
-            <Badge color="blue">Shared</Badge>
-          ) : (
-            <Box color="text-body-secondary">-</Box>
-          )}
-        </Box>
-      ),
-      width: 100,
     },
     {
       id: "status",
@@ -223,8 +200,7 @@ export const ThreatCatalogTable = ({ results, onItemsChange, filterMode, onFilte
     },
   ];
 
-  const filteredResults = getFilteredResults();
-  const sortedItems = sortItems(filteredResults, sortingColumn, sortingDescending);
+  const sortedItems = sortItems(results, sortingColumn, sortingDescending);
   const paginatedItems = sortedItems.slice(
     (currentPageIndex - 1) * pageSize,
     currentPageIndex * pageSize
@@ -260,16 +236,13 @@ export const ThreatCatalogTable = ({ results, onItemsChange, filterMode, onFilte
           <Header
             counter={
               selectedItems.length
-                ? `(${selectedItems.length}/${filteredResults.length})`
-                : `(${filteredResults.length})`
+                ? `(${selectedItems.length}/${results.length})`
+                : `(${results.length})`
             }
             actions={
               <SpaceBetween direction="horizontal" size="xs">
                 <Button
-                  disabled={
-                    selectedItems.length === 0 ||
-                    selectedItems.some((item) => item.is_owner === false)
-                  }
+                  disabled={selectedItems.length === 0}
                   onClick={() => setShowDeleteModal(true)}
                 >
                   Delete
@@ -284,7 +257,7 @@ export const ThreatCatalogTable = ({ results, onItemsChange, filterMode, onFilte
           <Pagination
             currentPageIndex={currentPageIndex}
             onChange={({ detail }) => setCurrentPageIndex(detail.currentPageIndex)}
-            pagesCount={Math.ceil(filteredResults.length / pageSize)}
+            pagesCount={Math.ceil(results.length / pageSize)}
             ariaLabels={{
               nextPageLabel: "Next page",
               previousPageLabel: "Previous page",

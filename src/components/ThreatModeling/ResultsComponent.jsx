@@ -8,6 +8,8 @@ import { ModalComponent } from "./ModalForm";
 import { Button } from "@cloudscape-design/components";
 import { useParams } from "react-router";
 import DescriptionSection from "./DescriptionSection";
+import ThreatModelDashboard from "./ThreatModelDashboard";
+import Tabs from "../HelpPanel/HelpTabComponent";
 
 const arrayToObjects = (key, stringArray) => {
   return stringArray.map((value) => ({ [key]: value }));
@@ -24,7 +26,6 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
   assets,
   updateTM,
   refreshTrail,
-  isReadOnly = false,
 }) {
   const [openModal, setOpenModal] = useState(false);
   const { id = null } = useParams();
@@ -39,7 +40,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
 
   return (
     <div style={{ maxWidth: "100%", height: "auto", paddingLeft: 0 }}>
-      <SpaceBetween size="xl">
+      <SpaceBetween size="xxl">
         <section>
           {architectureDiagramBase64 && (
             <div
@@ -62,10 +63,10 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
             </div>
           )}
         </section>
-
-        <DescriptionSection description={description} updateTM={updateTM} isReadOnly={isReadOnly} />
-
         <div style={{ height: "25px" }}></div>
+
+        <DescriptionSection description={description} updateTM={updateTM} />
+
         <ThreatTableComponent
           headers={["Assumption"]}
           data={arrayToObjects("assumption", assumptions)}
@@ -73,7 +74,6 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
           updateData={updateTM}
           type={"assumptions"}
           emptyMsg="No assumptions"
-          isReadOnly={isReadOnly}
         />
         <ThreatTableComponent
           headers={["Type", "Name", "Description"]}
@@ -81,7 +81,6 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
           title="Assets"
           updateData={updateTM}
           type={"assets"}
-          isReadOnly={isReadOnly}
         />
         <ThreatTableComponent
           headers={["Flow_description", "Source_entity", "Target_entity"]}
@@ -89,7 +88,6 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
           title="Flows"
           type={"data_flows"}
           updateData={updateTM}
-          isReadOnly={isReadOnly}
         />
         <ThreatTableComponent
           headers={["Purpose", "Source_entity", "Target_entity"]}
@@ -97,7 +95,6 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
           title="Trust Boundary"
           type={"trust_boundaries"}
           updateData={updateTM}
-          isReadOnly={isReadOnly}
         />
         <ThreatTableComponent
           headers={["Category", "Description", "Example"]}
@@ -105,7 +102,6 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
           title="Threat Source"
           type={"threat_sources"}
           updateData={updateTM}
-          isReadOnly={isReadOnly}
         />
         <div style={{ height: "25px" }}></div>
         <SpaceBetween size="m">
@@ -134,7 +130,6 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
                 "prerequisites",
                 "mitigations",
               ]}
-              isReadOnly={isReadOnly}
             />
           ))}
         </SpaceBetween>

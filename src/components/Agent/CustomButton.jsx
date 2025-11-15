@@ -48,26 +48,15 @@ export const CustomDropdownButton = ({
   isactive = false,
   disabled = false,
 }) => {
-  // Check if using OpenAI provider
-  const isOpenAI = import.meta.env.VITE_MODEL_PROVIDER === "openai";
-
-  // For OpenAI, exclude "None" option
-  const ALL_PRIORITY_OPTIONS = [
+  const PRIORITY_OPTIONS = [
     { value: 0, label: "None" },
     { value: 1, label: "Low" },
     { value: 2, label: "Medium" },
     { value: 3, label: "High" },
   ];
 
-  const PRIORITY_OPTIONS = isOpenAI
-    ? ALL_PRIORITY_OPTIONS.filter((opt) => opt.value !== 0)
-    : ALL_PRIORITY_OPTIONS;
-
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedOption, setSelectedOption] = useState(() => {
-    // For OpenAI, default to "Low" (value 1)
-    return isOpenAI ? PRIORITY_OPTIONS[0] : ALL_PRIORITY_OPTIONS[0];
-  });
+  const [selectedOption, setSelectedOption] = useState(PRIORITY_OPTIONS[0]);
   const [showAbove, setShowAbove] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const dropdownRef = useRef(null);

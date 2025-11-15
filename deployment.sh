@@ -91,54 +91,6 @@ get_sentry_option() {
     done
 }
 
-# Function to get model provider
-get_model_provider() {
-    while true; do
-        echo -e "${BLUE}Select AI model provider:${NC}"
-        echo -e "1) Amazon Bedrock (Claude) ${GREEN}(default)${NC}"
-        echo "2) OpenAI (GPT-5)"
-        read -r choice
-        if [ -z "$choice" ]; then
-            MODEL_PROVIDER="bedrock"
-            break
-        fi
-        case $choice in
-            1) MODEL_PROVIDER="bedrock"; break;;
-            2) MODEL_PROVIDER="openai"; break;;
-            *) echo -e "${RED}Invalid choice. Please select 1 or 2${NC}";;
-        esac
-    done
-}
-
-# Function to get OpenAI API key
-get_openai_api_key() {
-    while true; do
-        echo -e "${BLUE}Enter your OpenAI API key:${NC}"
-        echo -e "${BLUE}(The key will be passed to AgentCore Runtime but NOT stored locally)${NC}"
-        read -rs OPENAI_API_KEY  # -s flag hides input
-        echo ""  # New line after hidden input
-        if [ -z "$OPENAI_API_KEY" ]; then
-            echo -e "${RED}API key cannot be empty. Please try again.${NC}"
-        else
-            # Basic validation - OpenAI keys start with 'sk-'
-            if [[ ! $OPENAI_API_KEY =~ ^sk- ]]; then
-                echo -e "${RED}Warning: OpenAI API keys typically start with 'sk-'${NC}"
-                while true; do
-                    echo -e "${BLUE}Continue anyway? (y/n)${NC}"
-                    read -r confirm
-                    case $confirm in
-                        [Yy]* ) break 2;;
-                        [Nn]* ) break;;
-                        * ) echo -e "${RED}Please answer y or n${NC}";;
-                    esac
-                done
-            else
-                break
-            fi
-        fi
-    done
-}
-
 # Function to get deployment type
 get_deployment_type() {
     while true; do
@@ -210,14 +162,6 @@ if [ "$USE_EXISTING" = false ]; then
             # Get Sentry option
             get_sentry_option
             
-            # Get model provider
-            get_model_provider
-            
-            # Get OpenAI API key if provider is OpenAI
-            if [ "$MODEL_PROVIDER" = "openai" ]; then
-                get_openai_api_key
-            fi
-            
             # Get user inputs
             get_input "Enter username:" USERNAME
             # Email validation
@@ -238,10 +182,6 @@ if [ "$USE_EXISTING" = false ]; then
         echo -e "Deployment Type: ${BLUE}$DEPLOY_TYPE${NC}"
         echo -e "Region: ${BLUE}$REGION${NC}"
         if [ "$DEPLOY_TYPE" != "frontend" ]; then
-            echo -e "Model Provider: ${BLUE}$MODEL_PROVIDER${NC}"
-            if [ "$MODEL_PROVIDER" = "openai" ]; then
-                echo -e "OpenAI API Key: ${BLUE}****** (hidden)${NC}"
-            fi
             echo -e "Sentry Enabled: ${BLUE}$ENABLE_SENTRY${NC}"
             echo -e "Username: ${BLUE}$USERNAME${NC}"
             echo -e "Given Name: ${BLUE}$GIVEN_NAME${NC}"
@@ -268,16 +208,6 @@ else
     if [ -z "$ENABLE_SENTRY" ]; then
         ENABLE_SENTRY="true"
     fi
-    
-    # Always prompt for model provider when deploying backend
-    if [ "$DEPLOY_TYPE" != "frontend" ]; then
-        get_model_provider
-        
-        # Get OpenAI API key if provider is OpenAI
-        if [ "$MODEL_PROVIDER" = "openai" ]; then
-            get_openai_api_key
-        fi
-    fi
 fi
 
 ZIP_FILE="build.zip"
@@ -299,30 +229,17 @@ deploy_backend() {
         fi
     fi
 
-    # Build terraform command with variables
-    TF_VARS="-var=username=$USERNAME"
-    TF_VARS="$TF_VARS -var=given_name=$GIVEN_NAME"
-    TF_VARS="$TF_VARS -var=family_name=$FAMILY_NAME"
-    TF_VARS="$TF_VARS -var=email=$EMAIL"
-    TF_VARS="$TF_VARS -var=region=$REGION"
-    TF_VARS="$TF_VARS -var=enable_sentry=$ENABLE_SENTRY"
-    TF_VARS="$TF_VARS -var=model_provider=$MODEL_PROVIDER"
-    
-    # Add OpenAI API key if provider is OpenAI
-    if [ "$MODEL_PROVIDER" = "openai" ]; then
-        TF_VARS="$TF_VARS -var=openai_api_key=$OPENAI_API_KEY"
-    fi
-    
     # Run terraform apply with variables and capture the exit status
-    if ! terraform apply -auto-approve $TF_VARS; then
+    if ! terraform apply -auto-approve \
+        -var="username=$USERNAME" \
+        -var="given_name=$GIVEN_NAME" \
+        -var="family_name=$FAMILY_NAME" \
+        -var="email=$EMAIL" \
+        -var="region=$REGION" \
+        -var="enable_sentry=$ENABLE_SENTRY"; then
         echo -e "${RED}Terraform apply failed. Exiting...${NC}"
-        # Clear sensitive data
-        unset OPENAI_API_KEY
         exit 1
     fi
-    
-    # Clear sensitive data from memory after terraform apply
-    unset OPENAI_API_KEY
 
     # Extract values from terraform output
     if ! APP_ID=$(terraform output -raw amplify_app_id) || \
@@ -367,7 +284,6 @@ VITE_COGNITO_DOMAIN=$VITE_COGNITO_DOMAIN
 VITE_REDIRECT_SIGN_IN=$VITE_REDIRECT_SIGN_IN
 VITE_REDIRECT_SIGN_OUT=$VITE_REDIRECT_SIGN_OUT
 VITE_REASONING_ENABLED=$VITE_REASONING_ENABLED
-VITE_MODEL_PROVIDER=$MODEL_PROVIDER
 EOF
 
     # Create .deployment.config file

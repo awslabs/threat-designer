@@ -5,6 +5,8 @@ import Shield from "../ThreatModeling/images/shield.png";
 import { useTheme } from "../ThemeContext";
 import styled from "@emotion/styled";
 import "./LoginForm.css";
+import CredentialsForm from "./CredentialsForm";
+import { setCredentials } from "../../../embedded-backend/src/config/credentials";
 
 const Title = styled.h1`
   font-size: 26px;
@@ -32,6 +34,9 @@ const LoginForm = ({ onSignInSuccess }) => {
       hasSpecialChar: false,
     },
   });
+
+  // Check if Lightning Mode is enabled
+  const isLightningMode = import.meta.env.VITE_BACKEND_MODE === "lightning";
 
   const validatePassword = (password) => {
     const requirements = {
@@ -106,6 +111,21 @@ const LoginForm = ({ onSignInSuccess }) => {
       setLoading(false);
     }
   };
+
+  const handleCredentialsSubmit = async (credentials) => {
+    // Store credentials in sessionStorage
+    setCredentials(credentials);
+
+    // Navigate to main app
+    if (onSignInSuccess) {
+      onSignInSuccess();
+    }
+  };
+
+  // If Lightning Mode, render CredentialsForm instead
+  if (isLightningMode) {
+    return <CredentialsForm onCredentialsSubmit={handleCredentialsSubmit} />;
+  }
 
   return (
     <div className={`login-container ${isDark ? "dark-theme" : "light-theme"}`}>

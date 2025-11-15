@@ -139,6 +139,21 @@ export const Complete = ({ color = "#ffffff" }) => (
   </svg>
 );
 
+export const AnimatedSubtitle = styled.div`
+  @keyframes fadeSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  animation: fadeSlideIn 0.4s ease-out forwards;
+`;
+
 const Container = styled.div`
   display: flex;
   flex-direction: column;
@@ -229,36 +244,6 @@ const useWindowSize = () => {
 
   return windowSize;
 };
-
-const AnimatedSubtitle = styled.div`
-  @keyframes fadeSlideIn {
-    from {
-      opacity: 0;
-      transform: translateY(-8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @keyframes fadeSlideOut {
-    from {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    to {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-  }
-
-  animation: fadeSlideIn 0.4s ease-out forwards;
-
-  &.exiting {
-    animation: fadeSlideOut 0.3s ease-in forwards;
-  }
-`;
 
 export const Stepper = ({ steps, currentStep = 0, onViewportChange }) => {
   const { width } = useWindowSize();

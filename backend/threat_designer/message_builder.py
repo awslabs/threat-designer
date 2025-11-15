@@ -329,7 +329,8 @@ Any threat using an actor NOT in this list is INVALID and must be flagged.
         gap_msg.append(
             {
                 "type": "text",
-                "text": """Perform the gap analysis for the threat model given the information at hand. Beyond missing threats pay attention as well on: \n
+                "text": """Perform the gap analysis for the threat model given the information at hand. Rate the model (1-10). If not already, what would it take it to make it a 9/10? \n
+                Beyond missing threats pay attention as well on: \n
                 - Are all the grounding rules honored? \n
                 - Are there duplicate threats that could be merged? \n
                 - If applicable, have previous gaps been addressed? \n

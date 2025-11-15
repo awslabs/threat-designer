@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 
 # Add backend to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'backend'))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "backend"))
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
@@ -26,79 +26,87 @@ from authorizer.index import generate_policy, lambda_handler
 
 class TestGeneratePolicy:
     """Tests for the generate_policy function"""
-    
+
     def test_generate_policy_with_allow_effect(self):
         """Test that generate_policy creates correct policy structure with Allow effect"""
         # Arrange
         principal_id = "user-123"
         effect = "Allow"
-        resource = "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
-        
+        resource = (
+            "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+        )
+
         # Act
         policy = generate_policy(principal_id, effect, resource)
-        
+
         # Assert - Verify principalId
         assert policy["principalId"] == principal_id
-        
+
         # Assert - Verify policyDocument structure and version
         assert "policyDocument" in policy
         assert policy["policyDocument"]["Version"] == "2012-10-17"
-        
+
         # Assert - Verify Statement fields
         assert "Statement" in policy["policyDocument"]
         assert len(policy["policyDocument"]["Statement"]) == 1
-        
+
         statement = policy["policyDocument"]["Statement"][0]
         assert statement["Action"] == "execute-api:Invoke"
         assert statement["Effect"] == "Allow"
         assert statement["Resource"] == resource
-    
+
     def test_generate_policy_with_deny_effect(self):
         """Test that generate_policy creates correct policy with Deny effect"""
         # Arrange
         principal_id = "unauthorized"
         effect = "Deny"
-        resource = "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
-        
+        resource = (
+            "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+        )
+
         # Act
         policy = generate_policy(principal_id, effect, resource)
-        
+
         # Assert - Verify Effect field is "Deny"
         statement = policy["policyDocument"]["Statement"][0]
         assert statement["Effect"] == "Deny"
-    
+
     def test_generate_policy_with_context(self):
         """Test that generate_policy includes context field when provided"""
         # Arrange
         principal_id = "user-123"
         effect = "Allow"
-        resource = "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+        resource = (
+            "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+        )
         context = {
             "user_id": "user-uuid-123",
             "username": "testuser",
-            "email": "test@example.com"
+            "email": "test@example.com",
         }
-        
+
         # Act
         policy = generate_policy(principal_id, effect, resource, context)
-        
+
         # Assert - Verify context field is present with correct data
         assert "context" in policy
         assert policy["context"] == context
         assert policy["context"]["user_id"] == "user-uuid-123"
         assert policy["context"]["username"] == "testuser"
         assert policy["context"]["email"] == "test@example.com"
-    
+
     def test_generate_policy_without_context(self):
         """Test that generate_policy does not include context field when not provided"""
         # Arrange
         principal_id = "user-123"
         effect = "Allow"
-        resource = "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
-        
+        resource = (
+            "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+        )
+
         # Act
         policy = generate_policy(principal_id, effect, resource)
-        
+
         # Assert - Verify context field is not present
         assert "context" not in policy
 
@@ -106,15 +114,20 @@ class TestGeneratePolicy:
 class TestLambdaHandlerValidToken:
     """Tests for lambda_handler with valid tokens"""
 
-    @patch.dict(os.environ, {
-        'COGNITO_REGION': 'us-east-1',
-        'COGNITO_USER_POOL_ID': 'us-east-1_TestPool',
-        'COGNITO_APP_CLIENT_ID': 'test-client-id'
-    })
-    @patch('authorizer.index.PyJWKClient')
-    @patch('authorizer.index.jwt.decode')
-    @patch('authorizer.index.time.time')
-    def test_valid_token_with_all_claims(self, mock_time, mock_decode, mock_jwks_client_class):
+    @patch.dict(
+        os.environ,
+        {
+            "COGNITO_REGION": "us-east-1",
+            "COGNITO_USER_POOL_ID": "us-east-1_TestPool",
+            "COGNITO_APP_CLIENT_ID": "test-client-id",
+        },
+    )
+    @patch("authorizer.index.PyJWKClient")
+    @patch("authorizer.index.jwt.decode")
+    @patch("authorizer.index.time.time")
+    def test_valid_token_with_all_claims(
+        self, mock_time, mock_decode, mock_jwks_client_class
+    ):
         """Test that valid token with all claims returns Allow policy"""
         # Arrange
         current_time = 1609459200  # 2021-01-01 00:00:00
@@ -135,12 +148,12 @@ class TestLambdaHandlerValidToken:
             "cognito:username": "testuser",
             "email": "test@example.com",
             "exp": future_time,
-            "aud": "test-client-id"
+            "aud": "test-client-id",
         }
 
         event = {
             "authorizationToken": "Bearer test-jwt-token",
-            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource",
         }
         context = Mock()
 
@@ -159,15 +172,20 @@ class TestLambdaHandlerValidToken:
         assert policy["context"]["username"] == "testuser"
         assert policy["context"]["email"] == "test@example.com"
 
-    @patch.dict(os.environ, {
-        'COGNITO_REGION': 'us-east-1',
-        'COGNITO_USER_POOL_ID': 'us-east-1_TestPool',
-        'COGNITO_APP_CLIENT_ID': 'test-client-id'
-    })
-    @patch('authorizer.index.PyJWKClient')
-    @patch('authorizer.index.jwt.decode')
-    @patch('authorizer.index.time.time')
-    def test_valid_token_without_email_claim(self, mock_time, mock_decode, mock_jwks_client_class):
+    @patch.dict(
+        os.environ,
+        {
+            "COGNITO_REGION": "us-east-1",
+            "COGNITO_USER_POOL_ID": "us-east-1_TestPool",
+            "COGNITO_APP_CLIENT_ID": "test-client-id",
+        },
+    )
+    @patch("authorizer.index.PyJWKClient")
+    @patch("authorizer.index.jwt.decode")
+    @patch("authorizer.index.time.time")
+    def test_valid_token_without_email_claim(
+        self, mock_time, mock_decode, mock_jwks_client_class
+    ):
         """Test that valid token without email claim returns empty string for email"""
         # Arrange
         current_time = 1609459200
@@ -187,12 +205,12 @@ class TestLambdaHandlerValidToken:
             "sub": "user-uuid-456",
             "cognito:username": "testuser2",
             "exp": future_time,
-            "aud": "test-client-id"
+            "aud": "test-client-id",
         }
 
         event = {
             "authorizationToken": "Bearer test-jwt-token",
-            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource",
         }
         context = Mock()
 
@@ -202,15 +220,20 @@ class TestLambdaHandlerValidToken:
         # Assert - Verify email field is empty string
         assert policy["context"]["email"] == ""
 
-    @patch.dict(os.environ, {
-        'COGNITO_REGION': 'us-east-1',
-        'COGNITO_USER_POOL_ID': 'us-east-1_TestPool',
-        'COGNITO_APP_CLIENT_ID': 'test-client-id'
-    })
-    @patch('authorizer.index.PyJWKClient')
-    @patch('authorizer.index.jwt.decode')
-    @patch('authorizer.index.time.time')
-    def test_valid_token_with_username_fallback(self, mock_time, mock_decode, mock_jwks_client_class):
+    @patch.dict(
+        os.environ,
+        {
+            "COGNITO_REGION": "us-east-1",
+            "COGNITO_USER_POOL_ID": "us-east-1_TestPool",
+            "COGNITO_APP_CLIENT_ID": "test-client-id",
+        },
+    )
+    @patch("authorizer.index.PyJWKClient")
+    @patch("authorizer.index.jwt.decode")
+    @patch("authorizer.index.time.time")
+    def test_valid_token_with_username_fallback(
+        self, mock_time, mock_decode, mock_jwks_client_class
+    ):
         """Test that valid token uses username claim when cognito:username is not present"""
         # Arrange
         current_time = 1609459200
@@ -231,12 +254,12 @@ class TestLambdaHandlerValidToken:
             "username": "fallbackuser",
             "email": "fallback@example.com",
             "exp": future_time,
-            "aud": "test-client-id"
+            "aud": "test-client-id",
         }
 
         event = {
             "authorizationToken": "Bearer test-jwt-token",
-            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource",
         }
         context = Mock()
 
@@ -246,15 +269,20 @@ class TestLambdaHandlerValidToken:
         # Assert - Verify username field uses the username claim value
         assert policy["context"]["username"] == "fallbackuser"
 
-    @patch.dict(os.environ, {
-        'COGNITO_REGION': 'us-east-1',
-        'COGNITO_USER_POOL_ID': 'us-east-1_TestPool',
-        'COGNITO_APP_CLIENT_ID': 'test-client-id'
-    })
-    @patch('authorizer.index.PyJWKClient')
-    @patch('authorizer.index.jwt.decode')
-    @patch('authorizer.index.time.time')
-    def test_bearer_token_extraction(self, mock_time, mock_decode, mock_jwks_client_class):
+    @patch.dict(
+        os.environ,
+        {
+            "COGNITO_REGION": "us-east-1",
+            "COGNITO_USER_POOL_ID": "us-east-1_TestPool",
+            "COGNITO_APP_CLIENT_ID": "test-client-id",
+        },
+    )
+    @patch("authorizer.index.PyJWKClient")
+    @patch("authorizer.index.jwt.decode")
+    @patch("authorizer.index.time.time")
+    def test_bearer_token_extraction(
+        self, mock_time, mock_decode, mock_jwks_client_class
+    ):
         """Test that Bearer token is correctly extracted without Bearer prefix"""
         # Arrange
         current_time = 1609459200
@@ -275,14 +303,14 @@ class TestLambdaHandlerValidToken:
             "cognito:username": "bearertest",
             "email": "bearer@example.com",
             "exp": future_time,
-            "aud": "test-client-id"
+            "aud": "test-client-id",
         }
 
         # Create event with "Bearer <token>" format
         test_token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.test.signature"
         event = {
             "authorizationToken": f"Bearer {test_token}",
-            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource",
         }
         context = Mock()
 
@@ -297,21 +325,28 @@ class TestLambdaHandlerValidToken:
         assert mock_decode.call_args[0][0] == test_token
 
         # Assert - Verify policy includes correct resource ARN from methodArn
-        assert policy["policyDocument"]["Statement"][0]["Resource"] == event["methodArn"]
+        assert (
+            policy["policyDocument"]["Statement"][0]["Resource"] == event["methodArn"]
+        )
 
 
 class TestLambdaHandlerExpiredToken:
     """Tests for lambda_handler with expired tokens"""
 
-    @patch.dict(os.environ, {
-        'COGNITO_REGION': 'us-east-1',
-        'COGNITO_USER_POOL_ID': 'us-east-1_TestPool',
-        'COGNITO_APP_CLIENT_ID': 'test-client-id'
-    })
-    @patch('authorizer.index.PyJWKClient')
-    @patch('authorizer.index.jwt.decode')
-    @patch('authorizer.index.time.time')
-    def test_expired_token_returns_deny_policy(self, mock_time, mock_decode, mock_jwks_client_class):
+    @patch.dict(
+        os.environ,
+        {
+            "COGNITO_REGION": "us-east-1",
+            "COGNITO_USER_POOL_ID": "us-east-1_TestPool",
+            "COGNITO_APP_CLIENT_ID": "test-client-id",
+        },
+    )
+    @patch("authorizer.index.PyJWKClient")
+    @patch("authorizer.index.jwt.decode")
+    @patch("authorizer.index.time.time")
+    def test_expired_token_returns_deny_policy(
+        self, mock_time, mock_decode, mock_jwks_client_class
+    ):
         """Test that expired token returns Deny policy"""
         # Arrange
         current_time = 1609459200  # 2021-01-01 00:00:00
@@ -332,12 +367,12 @@ class TestLambdaHandlerExpiredToken:
             "cognito:username": "expireduser",
             "email": "expired@example.com",
             "exp": past_time,
-            "aud": "test-client-id"
+            "aud": "test-client-id",
         }
 
         event = {
             "authorizationToken": "Bearer expired-jwt-token",
-            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource",
         }
         context = Mock()
 
@@ -350,15 +385,20 @@ class TestLambdaHandlerExpiredToken:
         # Assert - Verify principalId matches token sub claim
         assert policy["principalId"] == "user-uuid-expired"
 
-    @patch.dict(os.environ, {
-        'COGNITO_REGION': 'us-east-1',
-        'COGNITO_USER_POOL_ID': 'us-east-1_TestPool',
-        'COGNITO_APP_CLIENT_ID': 'test-client-id'
-    })
-    @patch('authorizer.index.PyJWKClient')
-    @patch('authorizer.index.jwt.decode')
-    @patch('authorizer.index.time.time')
-    def test_expired_token_error_context(self, mock_time, mock_decode, mock_jwks_client_class):
+    @patch.dict(
+        os.environ,
+        {
+            "COGNITO_REGION": "us-east-1",
+            "COGNITO_USER_POOL_ID": "us-east-1_TestPool",
+            "COGNITO_APP_CLIENT_ID": "test-client-id",
+        },
+    )
+    @patch("authorizer.index.PyJWKClient")
+    @patch("authorizer.index.jwt.decode")
+    @patch("authorizer.index.time.time")
+    def test_expired_token_error_context(
+        self, mock_time, mock_decode, mock_jwks_client_class
+    ):
         """Test that expired token includes error message in context"""
         # Arrange
         current_time = 1609459200
@@ -378,12 +418,12 @@ class TestLambdaHandlerExpiredToken:
             "sub": "user-uuid-expired2",
             "cognito:username": "expireduser2",
             "exp": past_time,
-            "aud": "test-client-id"
+            "aud": "test-client-id",
         }
 
         event = {
             "authorizationToken": "Bearer expired-jwt-token",
-            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource",
         }
         context = Mock()
 
@@ -395,16 +435,21 @@ class TestLambdaHandlerExpiredToken:
         assert "error" in policy["context"]
         assert policy["context"]["error"] == "Token expired"
 
-    @patch.dict(os.environ, {
-        'COGNITO_REGION': 'us-east-1',
-        'COGNITO_USER_POOL_ID': 'us-east-1_TestPool',
-        'COGNITO_APP_CLIENT_ID': 'test-client-id'
-    })
-    @patch('authorizer.index.PyJWKClient')
-    @patch('authorizer.index.jwt.decode')
-    @patch('authorizer.index.time.time')
-    @patch('authorizer.index.logger')
-    def test_expired_token_logging(self, mock_logger, mock_time, mock_decode, mock_jwks_client_class):
+    @patch.dict(
+        os.environ,
+        {
+            "COGNITO_REGION": "us-east-1",
+            "COGNITO_USER_POOL_ID": "us-east-1_TestPool",
+            "COGNITO_APP_CLIENT_ID": "test-client-id",
+        },
+    )
+    @patch("authorizer.index.PyJWKClient")
+    @patch("authorizer.index.jwt.decode")
+    @patch("authorizer.index.time.time")
+    @patch("authorizer.index.logger")
+    def test_expired_token_logging(
+        self, mock_logger, mock_time, mock_decode, mock_jwks_client_class
+    ):
         """Test that expired token triggers warning log"""
         # Arrange
         current_time = 1609459200
@@ -424,12 +469,12 @@ class TestLambdaHandlerExpiredToken:
             "sub": "user-uuid-expired3",
             "cognito:username": "expireduser3",
             "exp": past_time,
-            "aud": "test-client-id"
+            "aud": "test-client-id",
         }
 
         event = {
             "authorizationToken": "Bearer expired-jwt-token",
-            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource",
         }
         context = Mock()
 
@@ -445,15 +490,20 @@ class TestLambdaHandlerExpiredToken:
 class TestLambdaHandlerInvalidToken:
     """Tests for lambda_handler with invalid tokens"""
 
-    @patch.dict(os.environ, {
-        'COGNITO_REGION': 'us-east-1',
-        'COGNITO_USER_POOL_ID': 'us-east-1_TestPool',
-        'COGNITO_APP_CLIENT_ID': 'test-client-id'
-    })
-    @patch('authorizer.index.PyJWKClient')
-    @patch('authorizer.index.jwt.decode')
-    @patch('authorizer.index.logger')
-    def test_invalid_signature_returns_deny_policy(self, mock_logger, mock_decode, mock_jwks_client_class):
+    @patch.dict(
+        os.environ,
+        {
+            "COGNITO_REGION": "us-east-1",
+            "COGNITO_USER_POOL_ID": "us-east-1_TestPool",
+            "COGNITO_APP_CLIENT_ID": "test-client-id",
+        },
+    )
+    @patch("authorizer.index.PyJWKClient")
+    @patch("authorizer.index.jwt.decode")
+    @patch("authorizer.index.logger")
+    def test_invalid_signature_returns_deny_policy(
+        self, mock_logger, mock_decode, mock_jwks_client_class
+    ):
         """Test that token with invalid signature returns Deny policy"""
         # Arrange
         # Mock JWKS client
@@ -464,11 +514,13 @@ class TestLambdaHandlerInvalidToken:
         mock_jwks_client_class.return_value = mock_client
 
         # Mock jwt.decode to raise InvalidSignatureError
-        mock_decode.side_effect = jwt.InvalidSignatureError("Signature verification failed")
+        mock_decode.side_effect = jwt.InvalidSignatureError(
+            "Signature verification failed"
+        )
 
         event = {
             "authorizationToken": "Bearer invalid-signature-token",
-            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource",
         }
         context = Mock()
 
@@ -491,15 +543,20 @@ class TestLambdaHandlerInvalidToken:
         call_args = mock_logger.error.call_args
         assert "Token validation failed" in call_args[0][0]
 
-    @patch.dict(os.environ, {
-        'COGNITO_REGION': 'us-east-1',
-        'COGNITO_USER_POOL_ID': 'us-east-1_TestPool',
-        'COGNITO_APP_CLIENT_ID': 'test-client-id'
-    })
-    @patch('authorizer.index.PyJWKClient')
-    @patch('authorizer.index.jwt.decode')
-    @patch('authorizer.index.logger')
-    def test_malformed_token_returns_deny_policy(self, mock_logger, mock_decode, mock_jwks_client_class):
+    @patch.dict(
+        os.environ,
+        {
+            "COGNITO_REGION": "us-east-1",
+            "COGNITO_USER_POOL_ID": "us-east-1_TestPool",
+            "COGNITO_APP_CLIENT_ID": "test-client-id",
+        },
+    )
+    @patch("authorizer.index.PyJWKClient")
+    @patch("authorizer.index.jwt.decode")
+    @patch("authorizer.index.logger")
+    def test_malformed_token_returns_deny_policy(
+        self, mock_logger, mock_decode, mock_jwks_client_class
+    ):
         """Test that malformed token returns Deny policy"""
         # Arrange
         # Mock JWKS client
@@ -514,7 +571,7 @@ class TestLambdaHandlerInvalidToken:
 
         event = {
             "authorizationToken": "Bearer malformed-token",
-            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource",
         }
         context = Mock()
 
@@ -537,15 +594,20 @@ class TestLambdaHandlerInvalidToken:
         call_args = mock_logger.error.call_args
         assert "Token validation failed" in call_args[0][0]
 
-    @patch.dict(os.environ, {
-        'COGNITO_REGION': 'us-east-1',
-        'COGNITO_USER_POOL_ID': 'us-east-1_TestPool',
-        'COGNITO_APP_CLIENT_ID': 'test-client-id'
-    })
-    @patch('authorizer.index.PyJWKClient')
-    @patch('authorizer.index.jwt.decode')
-    @patch('authorizer.index.logger')
-    def test_wrong_audience_returns_deny_policy(self, mock_logger, mock_decode, mock_jwks_client_class):
+    @patch.dict(
+        os.environ,
+        {
+            "COGNITO_REGION": "us-east-1",
+            "COGNITO_USER_POOL_ID": "us-east-1_TestPool",
+            "COGNITO_APP_CLIENT_ID": "test-client-id",
+        },
+    )
+    @patch("authorizer.index.PyJWKClient")
+    @patch("authorizer.index.jwt.decode")
+    @patch("authorizer.index.logger")
+    def test_wrong_audience_returns_deny_policy(
+        self, mock_logger, mock_decode, mock_jwks_client_class
+    ):
         """Test that token with wrong audience returns Deny policy"""
         # Arrange
         # Mock JWKS client
@@ -560,7 +622,7 @@ class TestLambdaHandlerInvalidToken:
 
         event = {
             "authorizationToken": "Bearer wrong-audience-token",
-            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource",
         }
         context = Mock()
 
@@ -580,15 +642,20 @@ class TestLambdaHandlerInvalidToken:
         call_args = mock_logger.error.call_args
         assert "Token validation failed" in call_args[0][0]
 
-    @patch.dict(os.environ, {
-        'COGNITO_REGION': 'us-east-1',
-        'COGNITO_USER_POOL_ID': 'us-east-1_TestPool',
-        'COGNITO_APP_CLIENT_ID': 'test-client-id'
-    })
-    @patch('authorizer.index.PyJWKClient')
-    @patch('authorizer.index.jwt.decode')
-    @patch('authorizer.index.logger')
-    def test_invalid_token_logging_contains_exception_details(self, mock_logger, mock_decode, mock_jwks_client_class):
+    @patch.dict(
+        os.environ,
+        {
+            "COGNITO_REGION": "us-east-1",
+            "COGNITO_USER_POOL_ID": "us-east-1_TestPool",
+            "COGNITO_APP_CLIENT_ID": "test-client-id",
+        },
+    )
+    @patch("authorizer.index.PyJWKClient")
+    @patch("authorizer.index.jwt.decode")
+    @patch("authorizer.index.logger")
+    def test_invalid_token_logging_contains_exception_details(
+        self, mock_logger, mock_decode, mock_jwks_client_class
+    ):
         """Test that invalid token logging includes exception details"""
         # Arrange
         # Mock JWKS client
@@ -604,7 +671,7 @@ class TestLambdaHandlerInvalidToken:
 
         event = {
             "authorizationToken": "Bearer test-token",
-            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource"
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource",
         }
         context = Mock()
 
@@ -619,23 +686,28 @@ class TestLambdaHandlerInvalidToken:
         assert "Token validation failed" in call_args[0][0]
 
         # Verify the extra parameter contains the error details
-        extra_param = call_args[1].get('extra', {})
-        assert 'error' in extra_param
-        assert exception_message in extra_param['error']
+        extra_param = call_args[1].get("extra", {})
+        assert "error" in extra_param
+        assert exception_message in extra_param["error"]
 
 
 class TestEnvironmentConfiguration:
     """Tests for environment configuration"""
 
-    @patch.dict(os.environ, {
-        'COGNITO_REGION': 'us-west-2',
-        'COGNITO_USER_POOL_ID': 'us-west-2_TestPool123',
-        'COGNITO_APP_CLIENT_ID': 'test-app-client-id-456'
-    })
-    @patch('authorizer.index.PyJWKClient')
-    @patch('authorizer.index.jwt.decode')
-    @patch('authorizer.index.time.time')
-    def test_jwks_url_construction(self, mock_time, mock_decode, mock_jwks_client_class):
+    @patch.dict(
+        os.environ,
+        {
+            "COGNITO_REGION": "us-west-2",
+            "COGNITO_USER_POOL_ID": "us-west-2_TestPool123",
+            "COGNITO_APP_CLIENT_ID": "test-app-client-id-456",
+        },
+    )
+    @patch("authorizer.index.PyJWKClient")
+    @patch("authorizer.index.jwt.decode")
+    @patch("authorizer.index.time.time")
+    def test_jwks_url_construction(
+        self, mock_time, mock_decode, mock_jwks_client_class
+    ):
         """Test that JWKS URL is correctly constructed with region and pool ID"""
         # Arrange
         current_time = 1609459200
@@ -656,12 +728,12 @@ class TestEnvironmentConfiguration:
             "cognito:username": "configuser",
             "email": "config@example.com",
             "exp": future_time,
-            "aud": "test-app-client-id-456"
+            "aud": "test-app-client-id-456",
         }
 
         event = {
             "authorizationToken": "Bearer test-jwt-token",
-            "methodArn": "arn:aws:execute-api:us-west-2:123456789012:api-id/stage/GET/resource"
+            "methodArn": "arn:aws:execute-api:us-west-2:123456789012:api-id/stage/GET/resource",
         }
         context = Mock()
 
@@ -672,14 +744,17 @@ class TestEnvironmentConfiguration:
         expected_jwks_url = "https://cognito-idp.us-west-2.amazonaws.com/us-west-2_TestPool123/.well-known/jwks.json"
         mock_jwks_client_class.assert_called_once_with(expected_jwks_url)
 
-    @patch.dict(os.environ, {
-        'COGNITO_REGION': 'eu-central-1',
-        'COGNITO_USER_POOL_ID': 'eu-central-1_AnotherPool',
-        'COGNITO_APP_CLIENT_ID': 'another-client-id'
-    })
-    @patch('authorizer.index.PyJWKClient')
-    @patch('authorizer.index.jwt.decode')
-    @patch('authorizer.index.time.time')
+    @patch.dict(
+        os.environ,
+        {
+            "COGNITO_REGION": "eu-central-1",
+            "COGNITO_USER_POOL_ID": "eu-central-1_AnotherPool",
+            "COGNITO_APP_CLIENT_ID": "another-client-id",
+        },
+    )
+    @patch("authorizer.index.PyJWKClient")
+    @patch("authorizer.index.jwt.decode")
+    @patch("authorizer.index.time.time")
     def test_methodarn_in_policy(self, mock_time, mock_decode, mock_jwks_client_class):
         """Test that generated policy Resource field matches methodArn"""
         # Arrange
@@ -701,14 +776,14 @@ class TestEnvironmentConfiguration:
             "cognito:username": "methodarnuser",
             "email": "methodarn@example.com",
             "exp": future_time,
-            "aud": "another-client-id"
+            "aud": "another-client-id",
         }
 
         # Create event with specific methodArn
         specific_method_arn = "arn:aws:execute-api:eu-central-1:987654321098:api-xyz/prod/POST/users/*/profile"
         event = {
             "authorizationToken": "Bearer test-jwt-token",
-            "methodArn": specific_method_arn
+            "methodArn": specific_method_arn,
         }
         context = Mock()
 
@@ -716,4 +791,6 @@ class TestEnvironmentConfiguration:
         policy = lambda_handler(event, context)
 
         # Assert - Verify generated policy Resource field matches methodArn
-        assert policy["policyDocument"]["Statement"][0]["Resource"] == specific_method_arn
+        assert (
+            policy["policyDocument"]["Statement"][0]["Resource"] == specific_method_arn
+        )

@@ -101,7 +101,11 @@ class ContinueThreatModeling(BaseModel):
     gap: Annotated[
         Optional[str],
         Field(
-            description="List all identified gaps to improve the threat model. Required only when 'stop' is False"
+            description="Concise list of identified gaps to improve the threat model. "
+            "Each gap must be maximum 40 words. "
+            "Format as a bulleted list with each gap on a new line. "
+            "Gaps should be actionable and specific. "
+            "Required only when 'stop' is False"
         ),
     ] = ""
 
@@ -156,7 +160,7 @@ class Threat(BaseModel):
     target: Annotated[
         str,
         Field(
-            description="The specific asset, component, system, or data element that could be compromised by this threat"
+            description="The specific asset, component, system, or data element that could be compromised by this threat. It must be only one entity, multiple ones will result in rejecting the threat"
         ),
     ]
     impact: Annotated[

@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import Spinner from "@cloudscape-design/components/spinner";
 import Alert from "@cloudscape-design/components/alert";
 import Button from "@cloudscape-design/components/button";
 import ThreatModelingOutput from "../ResultsComponent";
+import ThreatModelDashboard from "../ThreatModelDashboard";
 import Processing from "../ProcessingComponent";
 import { ReplayModalComponent } from "../ReplayModal";
 import DeleteModal from "../DeleteModal";
@@ -75,7 +76,51 @@ const ThreatModelContent = React.memo(
     onDelete,
     sharingModalVisible,
     onSharingModalChange,
+    showDashboard,
+    isTransitioning,
   }) => {
+    // Extract threat catalog data from response with memoization
+    // This ensures the array reference only changes when the actual threat data changes
+    const threatCatalogData = useMemo(() => {
+      return response?.item?.threat_list?.threats || [];
+    }, [response?.item?.threat_list?.threats]);
+
+    // Memoize the dashboard component to prevent re-rendering when switching views
+    const dashboardComponent = useMemo(() => {
+      if (!showDashboard || !results) return null;
+      return <ThreatModelDashboard threatCatalogData={threatCatalogData} />;
+    }, [showDashboard, results, threatCatalogData]);
+
+    // Memoize the threat list component to prevent re-rendering when switching views
+    const threatListComponent = useMemo(() => {
+      if (showDashboard || !results) return null;
+      return (
+        <ThreatModelingOutput
+          title={response?.item?.title}
+          architectureDiagramBase64={base64Content}
+          description={response?.item?.description}
+          assumptions={response?.item?.assumptions}
+          dataFlowData={response?.item?.system_architecture?.data_flows}
+          trustBoundaryData={response?.item?.system_architecture?.trust_boundaries}
+          threatSourceData={response?.item?.system_architecture?.threat_sources}
+          threatCatalogData={threatCatalogData}
+          assets={response?.item?.assets?.assets}
+          updateTM={updateThreatModeling}
+          refreshTrail={refreshTrail}
+          isReadOnly={isReadOnly}
+        />
+      );
+    }, [
+      showDashboard,
+      results,
+      response,
+      base64Content,
+      threatCatalogData,
+      updateThreatModeling,
+      refreshTrail,
+      isReadOnly,
+    ]);
+
     return (
       <>
         {/* Loading spinner */}
@@ -107,22 +152,26 @@ const ThreatModelContent = React.memo(
                 </div>
               )}
 
-              {/* Results component */}
-              {results && (
-                <ThreatModelingOutput
-                  title={response?.item?.title}
-                  architectureDiagramBase64={base64Content}
-                  description={response?.item?.description}
-                  assumptions={response?.item?.assumptions}
-                  dataFlowData={response?.item?.system_architecture?.data_flows}
-                  trustBoundaryData={response?.item?.system_architecture?.trust_boundaries}
-                  threatSourceData={response?.item?.system_architecture?.threat_sources}
-                  threatCatalogData={response?.item?.threat_list?.threats}
-                  assets={response?.item?.assets?.assets}
-                  updateTM={updateThreatModeling}
-                  refreshTrail={refreshTrail}
-                  isReadOnly={isReadOnly}
-                />
+              {/* Show spinner during view transition */}
+              {results && isTransitioning && (
+                <div
+                  style={{
+                    width: "100%",
+                    marginTop: "200px",
+                    display: "flex",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Spinner size="large" />
+                </div>
+              )}
+
+              {/* Results component - conditionally render based on showDashboard */}
+              {!isTransitioning && threatListComponent}
+
+              {/* Dashboard component - conditionally render based on showDashboard */}
+              {!isTransitioning && results && showDashboard && (
+                <div style={{ width: "100%", padding: "0 20px" }}>{dashboardComponent}</div>
               )}
 
               {/* Error alert */}
@@ -189,7 +238,9 @@ const ThreatModelContent = React.memo(
       prevProps.alert.visible === nextProps.alert.visible &&
       prevProps.alert.state === nextProps.alert.state &&
       prevProps.response === nextProps.response &&
-      prevProps.base64Content === nextProps.base64Content
+      prevProps.base64Content === nextProps.base64Content &&
+      prevProps.showDashboard === nextProps.showDashboard &&
+      prevProps.isTransitioning === nextProps.isTransitioning
     );
   }
 );

@@ -474,7 +474,7 @@ async def handler(request: InvocationRequest, http_request: Request) -> Dict[str
             )
 
             # Create full configuration for the agent
-            config = {"configurable": agent_config, "recursion_limit": 50}
+            config = {"configurable": agent_config, "recursion_limit": 100}
 
             # Submit the agent execution to run in background
             loop = asyncio.get_event_loop()

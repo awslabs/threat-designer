@@ -97,6 +97,20 @@ export const ThreatModel = () => {
     conflictModalVisible: false, // Controls conflict resolution modal visibility
   });
 
+  // Dashboard view state
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Handle dashboard toggle with transition delay
+  const handleToggleDashboard = useCallback((newValue) => {
+    setIsTransitioning(true);
+    // Small delay to show spinner and allow smooth transition
+    setTimeout(() => {
+      setShowDashboard(newValue);
+      setIsTransitioning(false);
+    }, 300);
+  }, []);
+
   // Conflict state for version conflict resolution
   const [conflictData, setConflictData] = useState(null);
 
@@ -400,7 +414,7 @@ export const ThreatModel = () => {
 
   return (
     <>
-      <SpaceBetween size="s">
+      <SpaceBetween size="xl">
         <ThreatModelHeader
           breadcrumbs={breadcrumbs}
           title={response?.item?.title}
@@ -411,6 +425,8 @@ export const ThreatModel = () => {
           isOwner={isOwner}
           onBreadcrumbClick={onBreadcrumbsClick}
           onActionClick={onActionClick}
+          showDashboard={showDashboard}
+          onToggleDashboard={handleToggleDashboard}
         />
         <ThreatModelAlerts
           alert={alert}
@@ -449,6 +465,8 @@ export const ThreatModel = () => {
           onDelete={handleDelete}
           sharingModalVisible={uiState.sharingModalVisible}
           onSharingModalChange={handleSharingModalChange}
+          showDashboard={showDashboard}
+          isTransitioning={isTransitioning}
         />
       </SpaceBetween>
 

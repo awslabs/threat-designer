@@ -72,6 +72,47 @@ When you make modifications, a **banner notification appears at the top of the p
 
 Always save your work before leaving the page to ensure your modifications are preserved.
 
+## Insights View
+
+The Insights view provides a visual analytics dashboard that helps you understand threat patterns and distributions across your threat model. To access the Insights view:
+
+1. **Toggle to Insights**: Click the **"Insights"** button (with grid icon) in the header next to the Actions dropdown
+2. **Interactive Charts**: View four key visualizations of your threat data
+3. **Customizable Layout**: Drag and rearrange charts to suit your preferences
+4. **Persistent Layout**: Your chart arrangement is saved and restored between sessions
+
+### Available Charts
+
+**Threats by STRIDE Category**
+
+- **Type**: Vertical stacked bar chart
+- **Purpose**: Shows distribution of threats across the six STRIDE categories
+- **Breakdown**: Each bar is segmented by likelihood level (High, Medium, Low)
+- **Value**: Identifies which STRIDE areas dominate and their risk distribution
+
+**Threats by Likelihood**
+
+- **Type**: Pie chart
+- **Purpose**: Shows overall risk distribution across likelihood levels
+- **Segments**: High (red), Medium (orange), Low (yellow)
+- **Value**: Provides at-a-glance view of your threat model's risk profile
+
+**Threats by Target Asset**
+
+- **Type**: Horizontal stacked bar chart
+- **Purpose**: Shows which assets or services are most frequently targeted
+- **Breakdown**: Each bar is segmented by likelihood level
+- **Scope**: Displays top 10 most targeted assets
+- **Value**: Helps prioritize security efforts on vulnerable components
+
+**Threat Sources**
+
+- **Type**: Donut chart
+- **Purpose**: Shows distribution of threat actors and sources
+- **Center**: Displays total threat count
+- **Legend**: Lists all threat sources with counts
+- **Value**: Identifies primary threat actors targeting your system
+
 ## Available Actions
 
 Access the **Actions** dropdown button in the top-right corner for additional capabilities:

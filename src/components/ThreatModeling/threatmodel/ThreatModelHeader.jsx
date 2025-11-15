@@ -20,6 +20,8 @@ import ThreatModelActions from "./ThreatModelActions";
  * @param {boolean} props.isOwner - Whether the current user is the owner
  * @param {Function} props.onBreadcrumbClick - Callback function when breadcrumb is clicked
  * @param {Function} props.onActionClick - Callback function when an action is clicked
+ * @param {boolean} props.showDashboard - Whether dashboard view is active
+ * @param {Function} props.onToggleDashboard - Callback function when dashboard toggle is clicked
  * @returns {JSX.Element} The header section with breadcrumbs, title, and actions
  */
 const ThreatModelHeader = React.memo(
@@ -33,9 +35,11 @@ const ThreatModelHeader = React.memo(
     isOwner,
     onBreadcrumbClick,
     onActionClick,
+    showDashboard,
+    onToggleDashboard,
   }) => {
     return (
-      <>
+      <SpaceBetween size="xxl">
         <BreadcrumbGroup items={breadcrumbs} ariaLabel="Breadcrumbs" onClick={onBreadcrumbClick} />
         <Header
           variant="h1"
@@ -47,6 +51,8 @@ const ThreatModelHeader = React.memo(
               isOwner={isOwner}
               onActionClick={onActionClick}
               tmStatus={tmStatus}
+              showDashboard={showDashboard}
+              onToggleDashboard={onToggleDashboard}
             />
           }
         >
@@ -54,7 +60,7 @@ const ThreatModelHeader = React.memo(
             <div>{title}</div>
           </SpaceBetween>
         </Header>
-      </>
+      </SpaceBetween>
     );
   }
 );

@@ -237,7 +237,7 @@ class StreamingHandler:
                     tmp_msg,
                     {
                         "configurable": {"thread_id": session_id},
-                        "recursion_limit": 50,
+                        "recursion_limit": 100,
                         "image_data": image_data,
                     },
                     stream_mode=["messages", "updates"],

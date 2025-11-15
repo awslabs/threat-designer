@@ -109,7 +109,7 @@ SUMMARY_MAX_WORDS_DEFAULT = 40
 #
 # When both limits are exhausted, the agent can only delete threats or finish.
 MAX_ADD_THREATS_USES = 3
-MAX_GAP_ANALYSIS_USES = 4
+MAX_GAP_ANALYSIS_USES = 5
 
 
 # ============================================================================

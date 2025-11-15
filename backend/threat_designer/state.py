@@ -101,11 +101,12 @@ class ContinueThreatModeling(BaseModel):
     gap: Annotated[
         Optional[str],
         Field(
-            description="Concise list of identified gaps to improve the threat model. "
-            "Each gap must be maximum 40 words. "
-            "Format as a bulleted list with each gap on a new line. "
-            "Gaps should be actionable and specific. "
-            "Required only when 'stop' is False"
+            description="""Concise list of identified gaps to improve the threat model. \n
+            Each gap must be maximum 40 words. \n
+            Format as a bulleted list with each gap on a new line. \n
+            Gaps should be actionable and specific. \n
+            Very important! When referencing threats, do not use abreviations. Instead you need to reference the full name of the threat, which is their unique identifier. \n
+            "Required only when 'stop' is False \n"""
         )
     ] = ""
     rating: Annotated[

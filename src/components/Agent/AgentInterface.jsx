@@ -325,7 +325,7 @@ function ChatInterface({ user, inTools }) {
             onSendMessage={handleSendMessage}
             onStopStreaming={handleStopStreaming}
             actionButtons={actionButtons}
-            placeholder="Ask Sentry..."
+            placeholder="Ask Sentry a question. Use @ to focus on a threat"
             maxHeight={200}
             autoFocus={true}
             isStreaming={isStreaming}

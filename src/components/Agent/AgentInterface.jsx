@@ -178,8 +178,8 @@ function ChatInterface({ user, inTools }) {
 
   // Handle sending messages through the session
   const handleSendMessage = useCallback(
-    async ({ message, sessionId }) => {
-      await functions.sendMessage(sessionId, message);
+    async ({ message, sessionId, context }) => {
+      await functions.sendMessage(sessionId, message, context);
     },
     [functions, sessionId, thinkingEnabled, budget, toolItems]
   );
@@ -325,7 +325,7 @@ function ChatInterface({ user, inTools }) {
             onSendMessage={handleSendMessage}
             onStopStreaming={handleStopStreaming}
             actionButtons={actionButtons}
-            placeholder="Ask Sentry..."
+            placeholder="Ask Sentry a question. Use @ to focus on a threat"
             maxHeight={200}
             autoFocus={true}
             isStreaming={isStreaming}

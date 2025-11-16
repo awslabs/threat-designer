@@ -342,6 +342,7 @@ export const useChatSessionFunctions = (props) => {
     const sendMessage = async (
       sessionId,
       userMessage,
+      context = null,
       interrupt = false,
       interruptResponse = null,
       retryAttempt = 0
@@ -380,6 +381,7 @@ export const useChatSessionFunctions = (props) => {
           return sendMessage(
             sessionId,
             userMessage,
+            context,
             interrupt,
             interruptResponse,
             retryAttempt + 1
@@ -436,7 +438,7 @@ export const useChatSessionFunctions = (props) => {
       }
 
       try {
-        const response = await sendMessageAPI(sessionId, userMessage, interrupt, interruptResponse);
+        const response = await sendMessageAPI(sessionId, userMessage, interrupt, interruptResponse, context);
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();

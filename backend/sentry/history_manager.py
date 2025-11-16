@@ -59,11 +59,26 @@ def format_chat_for_frontend(backend_messages, interrupt=None):
                 current_turn["aiMessage"].append({"end": True})
                 chat_turns.append(current_turn)
 
+            # Extract user message from the last element (user prompt is always last)
+            user_message = ""
+            if message.content:
+                if isinstance(message.content, str):
+                    # Simple string content
+                    user_message = message.content
+                elif isinstance(message.content, list) and len(message.content) > 0:
+                    # List format - get the last item (user prompt is always last)
+                    last_item = message.content[-1]
+                    if isinstance(last_item, dict):
+                        user_message = last_item.get("text", "")
+                    elif isinstance(last_item, str):
+                        user_message = last_item
+                elif isinstance(message.content, dict):
+                    # Dict format - extract text field
+                    user_message = message.content.get("text", "")
+            
             current_turn = {
                 "id": generate_turn_id(),
-                "userMessage": message.content[0].get("text", "")
-                if message.content
-                else "",
+                "userMessage": user_message,
                 "aiMessage": [],
             }
 
@@ -184,16 +199,36 @@ def format_chat_for_frontend(backend_messages, interrupt=None):
 
 def delete_bedrock_session(session_header, session_id):
     """Delete a Bedrock agent session."""
+    from botocore.exceptions import ClientError
+    
     try:
         terminate_session = bedrock_agent.end_session(sessionIdentifier=session_id)
         if terminate_session["sessionStatus"] in ["EXPIRED", "ENDED"]:
             session_manager.delete_session(session_header)
             bedrock_agent.delete_session(sessionIdentifier=session_id)
+            logger.info(f"Successfully deleted session {session_id}")
             return True
         else:
             logger.info(
                 f"Unable to terminate session because is still active. Status: {terminate_session['sessionStatus']}"
             )
+            return False
+    except ClientError as e:
+        error_code = e.response.get('Error', {}).get('Code', '')
+        
+        # If session not found, it's already deleted - continue with cleanup
+        if error_code == 'ResourceNotFoundException':
+            logger.info(
+                f"Session {session_id} not found in AWS (already deleted), proceeding with local cleanup"
+            )
+            # Clean up local cache and DynamoDB mapping
+            session_manager.delete_session(session_header)
+            logger.info(f"Completed cleanup for session {session_id}")
+            return True
+        else:
+            # Other AWS errors should be logged and raised
+            logger.error(f"AWS error deleting session {session_id}: {e}")
+            raise e
     except Exception as e:
-        logger.error(f"Error deleting session {session_id}: {e}")
+        logger.error(f"Unexpected error deleting session {session_id}: {e}")
         raise e

@@ -859,6 +859,11 @@ You are an expert threat modeling agent tasked with generating a comprehensive t
 - **gap_analysis**: Analyze the catalog for gaps.
 </available_tools>
 
+<tool_usage_guidance>
+- you can add as many threats as you deem reasonable within one tool call.
+- If you have to modify a threat, you first have to delete it and then re add it.
+- If you need to merge multiple threats into one, first delete the threats to be replaced and then add the new merged threat.
+</tool_usage_guidance>
 <core_validation_rules>
 Every threat must pass these checks (violation = exclude):
 

@@ -112,10 +112,14 @@ export const useThreatModelData = (
 
       // Only update session context if Sentry is enabled
       if (sentryEnabled) {
-        updateSessionContext(threatModelId, sessionContext).catch((error) => {
+        try {
+          await updateSessionContext(threatModelId, sessionContext);
+          setIsVisible(true);
+        } catch (error) {
           console.error(`Failed to initialize session ${threatModelId}:`, error);
-        });
-        setIsVisible(true);
+          // Still show Sentry even if context update fails
+          setIsVisible(true);
+        }
       } else {
         console.log("Sentry disabled - session context not sent to backend");
       }

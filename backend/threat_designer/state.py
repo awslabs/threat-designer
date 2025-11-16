@@ -95,19 +95,26 @@ class ContinueThreatModeling(BaseModel):
     stop: Annotated[
         bool,
         Field(
-            description="Should continue evaluation further threats or the catalog is comprehensive and complete."
+            description="Should continue evaluation further threats or the catalog is comprehensive and complete. The aim is to have a threat catalog with a rating of 9 at least"
         ),
     ]
     gap: Annotated[
         Optional[str],
         Field(
-            description="Concise list of identified gaps to improve the threat model. "
-            "Each gap must be maximum 40 words. "
-            "Format as a bulleted list with each gap on a new line. "
-            "Gaps should be actionable and specific. "
-            "Required only when 'stop' is False"
-        ),
+            description="""Concise list of identified gaps to improve the threat model. \n
+            Each gap must be maximum 40 words. \n
+            Format as a bulleted list with each gap on a new line. \n
+            Gaps should be actionable and specific. \n
+            Very important! When referencing threats, do not use abreviations. Instead you need to reference the full name of the threat, which is their unique identifier. \n
+            "Required only when 'stop' is False \n"""
+        )
     ] = ""
+    rating: Annotated[
+        int,
+        Field(
+            description="Rating of the gap analysis, 1-10, 10 being the most comprehensive and complete."
+        )
+    ]
 
 
 class ThreatSource(BaseModel):

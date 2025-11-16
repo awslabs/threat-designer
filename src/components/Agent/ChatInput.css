@@ -291,6 +291,7 @@
 
 .chat-input-container.dark .chat-textarea::placeholder {
   color: #6b6b6b;
+  font-size: 12px;
 }
 
 .chat-input-container.dark .action-button {
@@ -394,6 +395,7 @@
 
 .chat-input-container.light .chat-textarea::placeholder {
   color: #999999;
+  font-size: 12px;
 }
 
 .chat-input-container.light .action-button {

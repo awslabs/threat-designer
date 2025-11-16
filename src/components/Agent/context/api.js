@@ -62,9 +62,13 @@ export const prepareSession = async (
   if (toolPreferences) {
     requestBody.input.tool_preferences = toolPreferences;
   }
+  
+  // Include context in the request body if provided
+  // Context may include: threatModel, diagram, selectedThreat
   if (context) {
     requestBody.input.context = context;
   }
+  
   if (diagramPath) {
     requestBody.input.diagram = diagramPath;
   }
@@ -141,7 +145,8 @@ export const sendMessageAPI = async (
   sessionId,
   userMessage,
   interrupt = false,
-  interruptResponse = null
+  interruptResponse = null,
+  context = null
 ) => {
   checkSentryEnabled();
   let requestBody;
@@ -159,6 +164,11 @@ export const sendMessageAPI = async (
         prompt: userMessage,
       },
     };
+    
+    // Add context if provided
+    if (context) {
+      requestBody.input.context = context;
+    }
   }
 
   const token = await getAuthToken();

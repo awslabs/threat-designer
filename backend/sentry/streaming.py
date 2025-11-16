@@ -171,11 +171,15 @@ class StreamingHandler:
         async with self.request_semaphore:
             response_buffer = []
             cancelled = False
+            content = []
 
             try:
                 # Check if this is a resume_interrupt request
                 request_type = request.input.get("type")
                 is_resume_interrupt = request_type == "resume_interrupt"
+
+                # Fetch context if provided
+                context = request.input.get("context")
 
                 # Your existing setup code
                 # IMPORTANT: Don't recreate agent when resuming interrupt to preserve tool registry
@@ -222,14 +226,26 @@ class StreamingHandler:
                 if is_resume_interrupt:
                     tmp_msg = Command(resume={"type": request.input.get("prompt")})
                 else:
-                    content = [
+                    if context:
+                        if context.get("threat_in_focus"):
+                            content.append(
+                                {
+                                    "type": "text",
+                                    "text": f"""
+                                    <threat_in_focus>
+                                    {context.get("threat_in_focus")}
+                                    </threat_in_focus>
+                                    """,
+                                }
+                            )
+                    content.append(
                         {
                             "type": "text",
                             "text": request.input.get(
                                 "prompt", "No prompt found in input"
                             ),
                         }
-                    ]
+                    )
                     tmp_msg = {"messages": [{"role": "user", "content": content}]}
 
                 # Process the async stream directly

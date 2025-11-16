@@ -1,0 +1,545 @@
+/* Threat Context Row - displays selected threat token above input */
+.threat-context-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  gap: 8px;
+  animation: slideIn 0.2s ease-out;
+  width: 100%;
+  will-change: opacity, transform;
+  contain: layout style;
+}
+
+.threat-context-row.hidden {
+  display: none;
+}
+
+/* Threat Context Token - the removable token showing selected threat */
+.threat-context-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  max-width: 100%;
+}
+
+.threat-context-token-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.threat-context-token-dismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  min-height: 20px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 4px;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.threat-context-token-dismiss:hover {
+  opacity: 1;
+}
+
+.threat-context-token-dismiss svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Threat Selector Dropdown - the searchable list of threats */
+.threat-selector-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  width: 60%;
+  margin-bottom: 8px;
+  z-index: 1000;
+  animation: slideUp 0.2s ease-out;
+  pointer-events: auto;
+  border-radius: 12px;
+  overflow: hidden;
+  max-height: 300px;
+  display: flex;
+  flex-direction: column;
+  will-change: opacity, margin-bottom;
+  contain: layout style paint;
+}
+
+/* Full width on smaller containers */
+@container (max-width: 500px) {
+  .threat-selector-dropdown {
+    width: 100%;
+  }
+}
+
+/* Fallback for browsers without container queries */
+@media (max-width: 500px) {
+  .threat-selector-dropdown {
+    width: 100%;
+  }
+}
+
+.threat-selector-dropdown.closing {
+  animation: slideDown 0.2s ease-in forwards;
+  pointer-events: none;
+}
+
+/* Threat Options Container - scrollable list */
+.threat-options-container {
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: 300px;
+  overscroll-behavior: contain;
+  
+  /* Hide scrollbar - all browsers */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.threat-options-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+  width: 0;
+  height: 0;
+}
+
+/* Individual Threat Option */
+.threat-option {
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  contain: layout style paint;
+  border: none;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+  outline: none;
+}
+
+.threat-option:last-child {
+  border-bottom: none;
+}
+
+.threat-option:hover,
+.threat-option.focused {
+  outline: none;
+}
+
+.threat-option:focus-visible {
+  outline: 2px solid var(--focus-color, #0073bb);
+  outline-offset: -2px;
+}
+
+/* Threat Name */
+.threat-name {
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* Threat Metadata - likelihood badge and STRIDE category */
+.threat-metadata {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.threat-likelihood-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.threat-stride-category {
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* Empty State Messages */
+.threat-selector-empty,
+.threat-empty-message {
+  padding: 16px;
+  text-align: center;
+  font-size: 14px;
+}
+
+/* Animations */
+@keyframes slideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  0% {
+    opacity: 0;
+    margin-bottom: -2px;
+  }
+  100% {
+    opacity: 1;
+    margin-bottom: 8px;
+  }
+}
+
+@keyframes slideDown {
+  0% {
+    opacity: 1;
+    margin-bottom: 8px;
+  }
+  100% {
+    opacity: 0;
+    margin-bottom: -2px;
+  }
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Dark Theme Styles */
+.chat-input-wrapper.dark .threat-context-token {
+  background: #252e36;
+  color: #e0e0e0;
+  border: 1px solid #3a3a3a;
+}
+
+.chat-input-wrapper.dark .threat-context-token:hover {
+  background: #2a3540;
+  border-color: #4a4a4a;
+}
+
+.chat-input-wrapper.dark .threat-context-token-dismiss {
+  color: #a0a0a0;
+}
+
+.chat-input-wrapper.dark .threat-context-token-dismiss:hover {
+  color: #d0d0d0;
+}
+
+.chat-input-wrapper.dark .threat-selector-dropdown {
+  background: #18181b;
+  border: none;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+
+
+.chat-input-wrapper.dark .threat-option {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.chat-input-wrapper.dark .threat-option:hover,
+.chat-input-wrapper.dark .threat-option.focused {
+  background: #252e36;
+  outline: none;
+}
+
+.chat-input-wrapper.dark .threat-name {
+  color: #e0e0e0;
+}
+
+.chat-input-wrapper.dark .threat-stride-category {
+  color: #a0a0a0;
+}
+
+.chat-input-wrapper.dark .threat-likelihood-badge.high {
+  background: #4a1f1f;
+  color: #ff6b6b;
+  border: 1px solid #6b2a2a;
+}
+
+.chat-input-wrapper.dark .threat-likelihood-badge.medium {
+  background: #4a3a1f;
+  color: #ffa94d;
+  border: 1px solid #6b4f2a;
+}
+
+.chat-input-wrapper.dark .threat-likelihood-badge.low {
+  background: #1f3a2a;
+  color: #51cf66;
+  border: 1px solid #2a4f3a;
+}
+
+.chat-input-wrapper.dark .threat-selector-empty,
+.chat-input-wrapper.dark .threat-empty-message {
+  color: #a0a0a0;
+}
+
+/* Light Theme Styles */
+.chat-input-wrapper.light .threat-context-token {
+  background: #f1faff;
+  color: #006ce0;
+  border: 1px solid #b3d9f2;
+}
+
+.chat-input-wrapper.light .threat-context-token:hover {
+  background: #e1f3ff;
+  border-color: #99cceb;
+}
+
+.chat-input-wrapper.light .threat-context-token-dismiss {
+  color: #006ce0;
+}
+
+.chat-input-wrapper.light .threat-context-token-dismiss:hover {
+  color: #0052a3;
+}
+
+.chat-input-wrapper.light .threat-selector-dropdown {
+  background: #ffffff;
+  border: none;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+
+
+.chat-input-wrapper.light .threat-option {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+.chat-input-wrapper.light .threat-option:hover,
+.chat-input-wrapper.light .threat-option.focused {
+  background: #f5f5f5;
+  outline: none;
+}
+
+.chat-input-wrapper.light .threat-name {
+  color: #333333;
+}
+
+.chat-input-wrapper.light .threat-stride-category {
+  color: #666666;
+}
+
+.chat-input-wrapper.light .threat-likelihood-badge.high {
+  background: #ffe0e0;
+  color: #c92a2a;
+  border: 1px solid #ffc9c9;
+}
+
+.chat-input-wrapper.light .threat-likelihood-badge.medium {
+  background: #fff3e0;
+  color: #d9730d;
+  border: 1px solid #ffe0b3;
+}
+
+.chat-input-wrapper.light .threat-likelihood-badge.low {
+  background: #e0f7e9;
+  color: #2b8a3e;
+  border: 1px solid #b3e6c7;
+}
+
+.chat-input-wrapper.light .threat-selector-empty,
+.chat-input-wrapper.light .threat-empty-message {
+  color: #666666;
+}
+
+/* Responsive Styles for Mobile Devices */
+@media (max-width: 768px) {
+  .threat-context-row {
+    padding: 6px 0;
+  }
+
+  .threat-context-token {
+    font-size: 13px;
+    padding: 5px 10px;
+    min-height: 44px; /* Minimum touch target size */
+    display: flex;
+    align-items: center;
+  }
+
+  .threat-context-token-dismiss {
+    min-width: 44px; /* Minimum touch target size for mobile */
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .threat-selector-dropdown {
+    max-height: 250px;
+  }
+
+  .threat-options-container {
+    max-height: 250px;
+  }
+
+  .threat-option {
+    padding: 14px 16px; /* Larger touch targets */
+    min-height: 44px; /* Minimum touch target size */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .threat-name {
+    font-size: 13px;
+  }
+
+  .threat-metadata {
+    font-size: 11px;
+  }
+
+  .threat-likelihood-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .threat-stride-category {
+    font-size: 11px;
+  }
+}
+
+/* Accessibility - Keyboard Focus Indicators */
+.threat-option:focus-visible,
+.threat-option.focused {
+  outline: 2px solid var(--focus-color, #0073bb);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.threat-context-token-dismiss:focus-visible {
+  outline: 2px solid var(--focus-color, #0073bb);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(0, 115, 187, 0.2);
+}
+
+/* Remove default focus outline for textarea - container already has visual feedback */
+
+/* Dark theme focus colors */
+.chat-input-wrapper.dark .threat-option:focus-visible,
+.chat-input-wrapper.dark .threat-option.focused {
+  outline-color: #42b4ff;
+  background: #2a3540;
+}
+
+.chat-input-wrapper.dark .threat-context-token-dismiss:focus-visible {
+  outline-color: #42b4ff;
+  box-shadow: 0 0 0 4px rgba(66, 180, 255, 0.2);
+}
+
+/* Textarea focus handled by container */
+
+/* Light theme focus colors */
+.chat-input-wrapper.light .threat-option:focus-visible,
+.chat-input-wrapper.light .threat-option.focused {
+  outline-color: #006ce0;
+  background: #e8f4fd;
+}
+
+.chat-input-wrapper.light .threat-context-token-dismiss:focus-visible {
+  outline-color: #006ce0;
+  box-shadow: 0 0 0 4px rgba(0, 108, 224, 0.2);
+}
+
+/* Textarea focus handled by container */
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .threat-context-token {
+    border-width: 2px;
+  }
+
+  .threat-option:focus-visible {
+    outline-width: 3px;
+  }
+
+  .threat-likelihood-badge {
+    border-width: 2px;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .threat-context-row,
+  .threat-selector-dropdown,
+  .threat-option,
+  .threat-context-token,
+  .threat-context-token-dismiss {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* Screen Reader Only Content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Custom scrollbar for desktop (when visible) */
+@media (min-width: 768px) {
+  .threat-options-container {
+    scrollbar-width: thin;
+  }
+
+  .threat-options-container::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+  }
+
+  .threat-options-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .chat-input-wrapper.dark .threat-options-container::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 3px;
+  }
+
+  .chat-input-wrapper.dark .threat-options-container::-webkit-scrollbar-thumb:hover {
+    background: #666;
+  }
+
+  .chat-input-wrapper.light .threat-options-container::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 3px;
+  }
+
+  .chat-input-wrapper.light .threat-options-container::-webkit-scrollbar-thumb:hover {
+    background: #bbb;
+  }
+}

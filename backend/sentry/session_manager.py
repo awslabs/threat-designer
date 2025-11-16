@@ -16,6 +16,8 @@ class SessionManager:
         self,
     ):
         self.session_cache: Dict[str, str] = {}
+        self.cache_timestamps: Dict[str, float] = {}  # Track when each session was cached
+        self.cache_ttl = 300  # 5 minutes in seconds
         self.table_name = TABLE_NAME
         self.dynamodb = boto3.resource("dynamodb", region_name=REGION)
         self.table = self.dynamodb.Table(TABLE_NAME)
@@ -26,11 +28,14 @@ class SessionManager:
     def _load_cache_from_dynamodb(self):
         """Load existing session mappings from DynamoDB into local cache"""
         try:
+            import time
+            current_time = time.time()
             response = self.table.scan()
             for item in response["Items"]:
                 session_header = item["session_header"]
                 session_id = item["session_id"]
                 self.session_cache[session_header] = session_id
+                self.cache_timestamps[session_header] = current_time
 
             logger.info(
                 f"Loaded {len(self.session_cache)} session mappings from DynamoDB"
@@ -44,12 +49,14 @@ class SessionManager:
     def _get_session_from_dynamodb(self, session_header: str) -> Optional[str]:
         """Retrieve session ID from DynamoDB for the given header"""
         try:
+            import time
             response = self.table.get_item(Key={"session_header": session_header})
 
             if "Item" in response:
                 session_id = response["Item"]["session_id"]
-                # Update local cache
+                # Update local cache with timestamp
                 self.session_cache[session_header] = session_id
+                self.cache_timestamps[session_header] = time.time()
                 logger.info(
                     f"Retrieved session ID from DynamoDB for header: {session_header}"
                 )
@@ -82,20 +89,39 @@ class SessionManager:
         except Exception as e:
             logger.error(f"Unexpected error saving to DynamoDB: {e}")
 
+    def _is_cache_expired(self, session_header: str) -> bool:
+        """Check if the cached session has expired (older than 5 minutes)"""
+        import time
+        if session_header not in self.cache_timestamps:
+            return True
+        
+        age = time.time() - self.cache_timestamps[session_header]
+        return age > self.cache_ttl
+
     def get_or_create_session_id(self, session_header: str) -> str:
         """
         Get existing session ID for the given header or create a new one.
-        Checks local cache first, then DynamoDB, then creates new session.
+        Checks local cache first (with 5-minute TTL), then DynamoDB, then creates new session.
         Saves to both cache and DynamoDB.
         """
-        # Check local cache first (fastest)
+        import time
+        
+        # Check local cache first, but verify it hasn't expired
         if session_header in self.session_cache:
-            logger.info(
-                f"Found existing session ID in cache for header: {session_header}"
-            )
-            return self.session_cache[session_header]
+            if self._is_cache_expired(session_header):
+                logger.info(
+                    f"Cache expired for session header: {session_header}, refreshing from DynamoDB"
+                )
+                # Remove expired entry from cache
+                del self.session_cache[session_header]
+                del self.cache_timestamps[session_header]
+            else:
+                logger.info(
+                    f"Found existing session ID in cache for header: {session_header}"
+                )
+                return self.session_cache[session_header]
 
-        # Check DynamoDB if not in local cache
+        # Check DynamoDB if not in local cache or cache expired
         session_id = self._get_session_from_dynamodb(session_header)
         if session_id:
             return session_id
@@ -105,8 +131,9 @@ class SessionManager:
             new_session = sync_checkpointer.session_client.create_session()
             session_id = new_session.session_id
 
-            # Save to both local cache and DynamoDB
+            # Save to both local cache and DynamoDB with timestamp
             self.session_cache[session_header] = session_id
+            self.cache_timestamps[session_header] = time.time()
             self._save_session_to_dynamodb(session_header, session_id)
 
             logger.info(
@@ -121,7 +148,8 @@ class SessionManager:
     def clear_cache(self):
         """Clear the local session cache (DynamoDB data remains)"""
         self.session_cache.clear()
-        logger.info("Cleared local session cache")
+        self.cache_timestamps.clear()
+        logger.info("Cleared local session cache and timestamps")
 
     def delete_session(self, session_header: str):
         """Delete a specific session mapping from both cache and DynamoDB"""
@@ -135,8 +163,18 @@ class SessionManager:
             logger.info(f"Deleted session mapping for header: {session_header}")
 
         except ClientError as e:
-            logger.error(f"Error deleting session from DynamoDB: {e}")
+            error_code = e.response.get('Error', {}).get('Code', '')
+            
+            # If item doesn't exist, it's already deleted - this is fine
+            if error_code == 'ResourceNotFoundException':
+                logger.info(
+                    f"Session mapping for {session_header} not found in DynamoDB (already deleted)"
+                )
+            else:
+                # Log other DynamoDB errors but don't raise
+                logger.error(f"Error deleting session from DynamoDB: {e}")
         except Exception as e:
+            # Log unexpected errors but don't raise - cleanup should continue
             logger.error(f"Unexpected error deleting from DynamoDB: {e}")
 
 

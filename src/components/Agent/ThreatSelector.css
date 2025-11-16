@@ -233,12 +233,11 @@
 .chat-input-wrapper.dark .threat-context-token {
   background: #252e36;
   color: #e0e0e0;
-  border: 1px solid #3a3a3a;
+  border: none;
 }
 
 .chat-input-wrapper.dark .threat-context-token:hover {
   background: #2a3540;
-  border-color: #4a4a4a;
 }
 
 .chat-input-wrapper.dark .threat-context-token-dismiss {
@@ -265,8 +264,13 @@
 
 .chat-input-wrapper.dark .threat-option:hover,
 .chat-input-wrapper.dark .threat-option.focused {
-  background: #252e36;
+  background: #2a3540;
   outline: none;
+}
+
+.chat-input-wrapper.dark .threat-option:hover .threat-name,
+.chat-input-wrapper.dark .threat-option.focused .threat-name {
+  color: #42b4ff;
 }
 
 .chat-input-wrapper.dark .threat-name {
@@ -304,12 +308,11 @@
 .chat-input-wrapper.light .threat-context-token {
   background: #f1faff;
   color: #006ce0;
-  border: 1px solid #b3d9f2;
+  border: none;
 }
 
 .chat-input-wrapper.light .threat-context-token:hover {
   background: #e1f3ff;
-  border-color: #99cceb;
 }
 
 .chat-input-wrapper.light .threat-context-token-dismiss {
@@ -336,8 +339,13 @@
 
 .chat-input-wrapper.light .threat-option:hover,
 .chat-input-wrapper.light .threat-option.focused {
-  background: #f5f5f5;
+  background: #e1f3ff;
   outline: none;
+}
+
+.chat-input-wrapper.light .threat-option:hover .threat-name,
+.chat-input-wrapper.light .threat-option.focused .threat-name {
+  color: #006ce0;
 }
 
 .chat-input-wrapper.light .threat-name {

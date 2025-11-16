@@ -70,8 +70,10 @@ const ChatInput = ({
     }
   };
 
-  // Get available threats from session context - memoized to avoid recalculation
-  const availableThreats = useMemo(() => {
+  // Get available threats from session context
+  // Note: We don't use useMemo here because the context can change without dependencies changing
+  // (e.g., when navigating between threat models with the same sessionId)
+  const getAvailableThreats = useCallback(() => {
     try {
       const context = functions.getSessionContext(sessionId);
       
@@ -88,6 +90,9 @@ const ChatInput = ({
       return [];
     }
   }, [functions, sessionId]);
+
+  // Get threats on every render to ensure we have the latest context
+  const availableThreats = getAvailableThreats();
 
   // Filter threats based on search text with memoization
   const filteredThreats = useMemo(() => {

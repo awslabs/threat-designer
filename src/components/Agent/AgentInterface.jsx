@@ -179,7 +179,8 @@ function ChatInterface({ user, inTools }) {
   // Handle sending messages through the session
   const handleSendMessage = useCallback(
     async ({ message, sessionId, context }) => {
-      await functions.sendMessage(sessionId, message, context);
+      // sendMessage signature: (sessionId, userMessage, interrupt, interruptResponse, context)
+      await functions.sendMessage(sessionId, message, false, null, context);
     },
     [functions, sessionId, thinkingEnabled, budget, toolItems]
   );

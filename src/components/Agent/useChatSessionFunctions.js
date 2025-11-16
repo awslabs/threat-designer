@@ -342,9 +342,9 @@ export const useChatSessionFunctions = (props) => {
     const sendMessage = async (
       sessionId,
       userMessage,
-      context = null,
       interrupt = false,
       interruptResponse = null,
+      context = null,
       retryAttempt = 0
     ) => {
       // Handle Sentry disabled - no-op for message sending
@@ -381,9 +381,9 @@ export const useChatSessionFunctions = (props) => {
           return sendMessage(
             sessionId,
             userMessage,
-            context,
             interrupt,
             interruptResponse,
+            context,
             retryAttempt + 1
           );
         } else {

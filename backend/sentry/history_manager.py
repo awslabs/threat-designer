@@ -75,7 +75,7 @@ def format_chat_for_frontend(backend_messages, interrupt=None):
                 elif isinstance(message.content, dict):
                     # Dict format - extract text field
                     user_message = message.content.get("text", "")
-            
+
             current_turn = {
                 "id": generate_turn_id(),
                 "userMessage": user_message,
@@ -200,7 +200,7 @@ def format_chat_for_frontend(backend_messages, interrupt=None):
 def delete_bedrock_session(session_header, session_id):
     """Delete a Bedrock agent session."""
     from botocore.exceptions import ClientError
-    
+
     try:
         terminate_session = bedrock_agent.end_session(sessionIdentifier=session_id)
         if terminate_session["sessionStatus"] in ["EXPIRED", "ENDED"]:
@@ -214,10 +214,10 @@ def delete_bedrock_session(session_header, session_id):
             )
             return False
     except ClientError as e:
-        error_code = e.response.get('Error', {}).get('Code', '')
-        
+        error_code = e.response.get("Error", {}).get("Code", "")
+
         # If session not found, it's already deleted - continue with cleanup
-        if error_code == 'ResourceNotFoundException':
+        if error_code == "ResourceNotFoundException":
             logger.info(
                 f"Session {session_id} not found in AWS (already deleted), proceeding with local cleanup"
             )

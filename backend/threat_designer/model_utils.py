@@ -64,6 +64,7 @@ class ModelConfigurations:
     threats_model: ModelConfig
     threats_agent_model: ModelConfig
     gaps_model: ModelConfig
+    attack_tree_model: ModelConfig
     struct_model: ModelConfig
     summary_model: ModelConfig
     reasoning_models: list[str]
@@ -89,6 +90,7 @@ def _load_model_configs() -> ModelConfigurations:
         threats_model = model_main.get("threats")
         threats_agent_model = model_main.get("threats_agent")
         gaps_model = model_main.get("gaps")
+        attack_tree_model = model_main.get("attack_tree")
         struct_model = json.loads(os.environ.get(ENV_MODEL_STRUCT, "{}"))
         summary_model = json.loads(os.environ.get(ENV_MODEL_SUMMARY, "{}"))
         reasoning_models = json.loads(os.environ.get(ENV_REASONING_MODELS, "[]"))
@@ -105,6 +107,8 @@ def _load_model_configs() -> ModelConfigurations:
             missing_configs.append("threats_agent")
         if not gaps_model:
             missing_configs.append("gaps")
+        if not attack_tree_model:
+            missing_configs.append("attack_tree")
         if not struct_model:
             missing_configs.append("struct")
         if not summary_model:
@@ -133,6 +137,9 @@ def _load_model_configs() -> ModelConfigurations:
             if threats_agent_model
             else None,
             gaps_model_id=gaps_model.get("id") if gaps_model else None,
+            attack_tree_model_id=attack_tree_model.get("id")
+            if attack_tree_model
+            else None,
             struct_model_id=struct_model.get("id") if struct_model else None,
             summary_model_id=summary_model.get("id") if summary_model else None,
             reasoning_models_count=len(reasoning_models),
@@ -144,6 +151,7 @@ def _load_model_configs() -> ModelConfigurations:
             threats_model=threats_model,
             threats_agent_model=threats_agent_model,
             gaps_model=gaps_model,
+            attack_tree_model=attack_tree_model,
             struct_model=struct_model,
             summary_model=summary_model,
             reasoning_models=reasoning_models,
@@ -356,6 +364,16 @@ def _initialize_bedrock_models(
             region,
         )
 
+        attack_tree_config = _build_main_model_config(
+            configs.attack_tree_model,
+            configs.reasoning_models,
+            configs.attack_tree_model.get("reasoning_budget", {}).get(
+                str(reasoning), 0
+            ),
+            client,
+            region,
+        )
+
         struct_config = _build_standard_model_config(
             configs.struct_model, client, region
         )
@@ -372,6 +390,7 @@ def _initialize_bedrock_models(
             "threats_model": ChatBedrockConverse(**threats_config),
             "threats_agent_model": ChatBedrockConverse(**threats_agent_config),
             "gaps_model": ChatBedrockConverse(**gaps_config),
+            "attack_tree_agent_model": ChatBedrockConverse(**attack_tree_config),
             "struct_model": ChatBedrockConverse(**struct_config),
             "summary_model": ChatBedrockConverse(**summary_config),
         }
@@ -384,6 +403,7 @@ def _initialize_bedrock_models(
             threats_model_id=configs.threats_model["id"],
             threats_agent_model_id=configs.threats_agent_model["id"],
             gaps_model_id=configs.gaps_model["id"],
+            attack_tree_model_id=configs.attack_tree_model["id"],
             struct_model_id=configs.struct_model["id"],
             summary_model_id=configs.summary_model["id"],
         )
@@ -542,6 +562,9 @@ def _initialize_openai_models(
             "gaps_model": _create_openai_model(
                 configs.gaps_model, reasoning, configs.reasoning_models
             ),
+            "attack_tree_agent_model": _create_openai_model(
+                configs.attack_tree_model, reasoning, configs.reasoning_models
+            ),
             "struct_model": _create_openai_model(
                 configs.struct_model, 0, configs.reasoning_models
             ),
@@ -558,6 +581,7 @@ def _initialize_openai_models(
             threats_model_id=configs.threats_model["id"],
             threats_agent_model_id=configs.threats_agent_model["id"],
             gaps_model_id=configs.gaps_model["id"],
+            attack_tree_model_id=configs.attack_tree_model["id"],
             struct_model_id=configs.struct_model["id"],
             summary_model_id=configs.summary_model["id"],
         )
@@ -599,6 +623,7 @@ def initialize_models(
             - 'threats_model': Model instance for threat analysis
             - 'threats_agent_model': Model instance for agentic threat analysis
             - 'gaps_model':    Model instance for gap analysis
+            - 'attack_tree_agent_model': Model instance for attack tree generation
             - 'struct_model':  Model instance for structured outputs
             - 'summary_model': Model instance for summarization
 

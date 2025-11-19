@@ -37,9 +37,7 @@ const normalizeBase64Image = (raw) => {
   if (!raw) return { mimeType: null, base64: "" };
 
   const trimmed = raw.trim();
-  const match = trimmed.match(
-    /^data:(image\/[a-zA-Z0-9+.\-]+);base64,(.*)$/s
-  );
+  const match = trimmed.match(/^data:(image\/[a-zA-Z0-9+.\-]+);base64,(.*)$/s);
   if (match) {
     return { mimeType: match[1], base64: match[2] };
   }
@@ -153,9 +151,7 @@ const createTableCellChildren = (content, isHeader = false) => {
         const runs = createTextRuns(parsed.tokens, baseSize);
         const children = [];
 
-        children.push(
-          new TextRun({ text: "• ", bold: isHeader, size: baseSize })
-        );
+        children.push(new TextRun({ text: "• ", bold: isHeader, size: baseSize }));
 
         runs.forEach((run) => {
           if (run.isHyperlink) {
@@ -495,15 +491,15 @@ const addArchitectureDiagram = async (architectureDiagramBase64, children) => {
       : architectureDiagramBase64;
 
     const { mimeType, base64 } = normalizeBase64Image(processed);
-    
+
     // Extract format from MIME type (e.g., "image/png" -> "png")
-    let format = 'png';
+    let format = "png";
     if (mimeType) {
       const formatMatch = mimeType.match(/image\/(.+)/);
       if (formatMatch) {
         format = formatMatch[1].toLowerCase();
         // Normalize jpeg to jpg
-        if (format === 'jpeg') format = 'jpg';
+        if (format === "jpeg") format = "jpg";
       }
     }
 

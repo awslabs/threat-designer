@@ -26,6 +26,7 @@ import { useSessionInitializer } from "../Agent/useSessionInit";
 import { useSplitPanel } from "../../SplitPanelContext";
 import { ChatSessionFunctionsContext } from "../Agent/ChatContext";
 import { SENTRY_ENABLED } from "../Agent/context/constants";
+import { clearThreatModelCache } from "../../services/ThreatDesigner/attackTreeCache";
 
 // Styles
 import "./ThreatModeling.css";
@@ -411,6 +412,17 @@ export const ThreatModel = () => {
       checkChanges();
     }
   }, [response, checkChanges]);
+
+  // Clear attack tree cache when threat model page unmounts
+  // This ensures fresh data is loaded from backend on next visit
+  useEffect(() => {
+    return () => {
+      if (id) {
+        console.log(`Clearing attack tree cache for threat model: ${id}`);
+        clearThreatModelCache(id);
+      }
+    };
+  }, [id]);
 
   return (
     <>

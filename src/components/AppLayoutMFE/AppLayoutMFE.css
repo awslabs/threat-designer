@@ -1,0 +1,32 @@
+/* Smooth animations for split panel drawer */
+
+/* Add smooth transition to the split panel */
+.awsui-app-layout__split-panel {
+  transition:
+    width 0.3s ease-in-out,
+    transform 0.3s ease-in-out !important;
+}
+
+/* Smooth transition for split panel content */
+.awsui-app-layout__split-panel-content {
+  transition: opacity 0.2s ease-in-out !important;
+}
+
+/* Fade in content when drawer opens */
+.awsui-app-layout__split-panel[data-open="true"] .awsui-app-layout__split-panel-content {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Smooth resize handle interaction */
+.awsui-app-layout__split-panel-resize-handle {
+  transition: background-color 0.2s ease-in-out !important;
+}

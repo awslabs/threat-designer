@@ -113,3 +113,28 @@ resource "aws_dynamodb_table" "threat_designer_locks" {
     enabled        = true
   }
 }
+
+resource "aws_dynamodb_table" "attack_tree_data" {
+  #checkov:skip=CKV_AWS_119
+  #checkov:skip=CKV_AWS_28
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "attack_tree_id"
+  name                        = "${local.prefix}-attack-tree-data"
+  deletion_protection_enabled = var.deletion_protection_enabled
+
+  attribute {
+    name = "attack_tree_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "threat_model_id"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "threat_model_id-index"
+    hash_key        = "threat_model_id"
+    projection_type = "ALL"
+  }
+}

@@ -45,6 +45,17 @@ Re-run AI analysis on existing threat models to incorporate changes and generate
 
 **Start here if**: You've made manual edits to your threat model or want to refine the analysis with different parameters.
 
+### [How to Use Attack Trees](./using-attack-trees.md)
+
+Visualize and analyze attack paths with interactive attack tree diagrams. This guide covers:
+
+- Understanding attack tree structure (goals, gates, leaf attacks, countermeasures)
+- Generating attack trees for specific threats
+- Using focus mode to analyze complex attack branches
+- Interpreting AND/OR logic gates to identify defensive opportunities
+
+**Start here if**: You want to understand how specific threats could be executed and identify the most effective defensive measures.
+
 ### [How to Use Sentry](./using-sentry.md)
 
 Interact with Sentry, Threat Designer's built-in AI assistant, for conversational threat analysis. This guide covers:
@@ -74,10 +85,11 @@ For the best experience with Threat Designer, we recommend this workflow:
 
 1. **Submit** → Create your initial threat model with an architecture diagram ([Submission Guide](./submit-threat-model.md))
 2. **Review** → Examine the AI-generated results and make manual refinements ([Interaction Guide](./interact-with-threat-model-results.md))
-3. **Collaborate** → Share with team members for review and collective input ([Collaboration Guide](./collaborate-on-threat-models.md))
-4. **Enhance** → Use Sentry to explore gaps, improve descriptions, and add missing threats ([Sentry Guide](./using-sentry.md))
-5. **Refine** → Replay with updated parameters or instructions to expand your analysis ([Replay Guide](./replay-threat-model.md))
-6. **Iterate** → Repeat steps 2-5 as your architecture evolves or your understanding deepens
+3. **Visualize** → Generate attack trees for critical threats to understand attack paths ([Attack Tree Guide](./using-attack-trees.md))
+4. **Collaborate** → Share with team members for review and collective input ([Collaboration Guide](./collaborate-on-threat-models.md))
+5. **Enhance** → Use Sentry to explore gaps, improve descriptions, and add missing threats ([Sentry Guide](./using-sentry.md))
+6. **Refine** → Replay with updated parameters or instructions to expand your analysis ([Replay Guide](./replay-threat-model.md))
+7. **Iterate** → Repeat steps 2-6 as your architecture evolves or your understanding deepens
 
 ---
 
@@ -87,6 +99,7 @@ For the best experience with Threat Designer, we recommend this workflow:
 | ------------------------------ | --------------------------------------------------- | ---------------------------------- |
 | Create first threat model      | [Submit](./submit-threat-model.md)                  | 5 min setup + 15-30 min processing |
 | Review and edit results        | [Interact](./interact-with-threat-model-results.md) | 10-30 min                          |
+| Visualize attack paths         | [Attack Trees](./using-attack-trees.md)             | 30 sec per threat                  |
 | Share with team members        | [Collaborate](./collaborate-on-threat-models.md)    | 2-5 min                            |
 | Ask AI questions about threats | [Sentry](./using-sentry.md)                         | Ongoing                            |
 | Update with new parameters     | [Replay](./replay-threat-model.md)                  | 5 min setup + 5-20 min processing  |

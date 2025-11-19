@@ -1,3 +1,4 @@
+import base64
 import copy
 import datetime
 import decimal
@@ -602,51 +603,284 @@ def restore(job_id, owner):
         raise InternalError
 
 
+def validate_pagination_params(limit, filter_mode):
+    """
+    Validate pagination parameters.
+
+    Args:
+        limit: Page size
+        filter_mode: Filter mode
+
+    Raises:
+        ValueError: If parameters are invalid
+    """
+    # Validate page size
+    valid_page_sizes = [10, 20, 50, 100]
+    if limit not in valid_page_sizes:
+        raise ValueError(f"Page size must be one of {valid_page_sizes}")
+
+    # Validate filter mode
+    valid_filters = ["owned", "shared", "all"]
+    if filter_mode not in valid_filters:
+        raise ValueError(f"Filter mode must be one of {valid_filters}")
+
+
+def decode_cursor(cursor_str):
+    """
+    Decode and validate pagination cursor.
+
+    Args:
+        cursor_str: Base64-encoded JSON cursor string
+
+    Returns:
+        dict: Decoded cursor with 'owned', 'shared', and 'filter' keys
+
+    Raises:
+        ValueError: If cursor is invalid or malformed
+    """
+    if not cursor_str:
+        return None
+
+    try:
+        # Decode base64
+        decoded_bytes = base64.b64decode(cursor_str)
+        cursor_data = json.loads(decoded_bytes.decode("utf-8"))
+
+        # Validate cursor structure
+        if not isinstance(cursor_data, dict):
+            raise ValueError("Cursor must be a JSON object")
+
+        # Extract keys (they may be None if that query is exhausted)
+        owned_key = cursor_data.get("owned")
+        shared_key = cursor_data.get("shared")
+        filter_mode = cursor_data.get("filter", "all")
+
+        return {"owned": owned_key, "shared": shared_key, "filter": filter_mode}
+    except (base64.binascii.Error, json.JSONDecodeError, UnicodeDecodeError) as e:
+        LOG.warning(f"Invalid cursor format: {e}")
+        raise ValueError("Invalid pagination cursor")
+
+
+def encode_cursor(owned_key, shared_key, filter_mode):
+    """
+    Encode pagination state into a cursor string.
+
+    Args:
+        owned_key: DynamoDB LastEvaluatedKey for owned query (or None)
+        shared_key: DynamoDB LastEvaluatedKey for shared query (or None)
+        filter_mode: Current filter mode ('owned', 'shared', or 'all')
+
+    Returns:
+        str: Base64-encoded cursor, or None if both keys are None
+    """
+    # If both keys are None, there's no next page
+    if owned_key is None and shared_key is None:
+        return None
+
+    cursor_data = {"owned": owned_key, "shared": shared_key, "filter": filter_mode}
+
+    # Encode to JSON then base64
+    cursor_json = json.dumps(cursor_data, default=str)
+    cursor_bytes = cursor_json.encode("utf-8")
+    cursor_b64 = base64.b64encode(cursor_bytes).decode("utf-8")
+
+    return cursor_b64
+
+
+def query_owned_paginated(table, owner, limit, exclusive_start_key=None):
+    """
+    Query owned threat models with pagination.
+
+    Args:
+        table: DynamoDB table resource
+        owner: User ID
+        limit: Maximum number of items to return
+        exclusive_start_key: DynamoDB key to start from (for pagination)
+
+    Returns:
+        dict: {
+            'items': List of threat model items,
+            'last_evaluated_key': DynamoDB key for next page (or None)
+        }
+    """
+    try:
+        query_params = {
+            "IndexName": "owner-job-index",
+            "KeyConditionExpression": "#owner = :owner_value",
+            "ExpressionAttributeNames": {"#owner": "owner"},
+            "ExpressionAttributeValues": {":owner_value": owner},
+            "Limit": limit,
+        }
+
+        if exclusive_start_key:
+            query_params["ExclusiveStartKey"] = exclusive_start_key
+
+        response = table.query(**query_params)
+
+        return {
+            "items": response.get("Items", []),
+            "last_evaluated_key": response.get("LastEvaluatedKey"),
+        }
+    except Exception as e:
+        LOG.error(f"Error querying owned threat models: {e}")
+        raise InternalError(e)
+
+
+def query_shared_paginated(
+    sharing_table, table, owner, limit, exclusive_start_key=None
+):
+    """
+    Query shared threat models with pagination.
+
+    Args:
+        sharing_table: DynamoDB sharing table resource
+        table: DynamoDB agent table resource
+        owner: User ID
+        limit: Maximum number of items to return
+        exclusive_start_key: DynamoDB key to start from (for pagination)
+
+    Returns:
+        dict: {
+            'items': List of threat model items with sharing info,
+            'last_evaluated_key': DynamoDB key for next page (or None)
+        }
+    """
+    try:
+        query_params = {
+            "IndexName": "user-index",
+            "KeyConditionExpression": "#user_id = :user_id",
+            "ExpressionAttributeNames": {"#user_id": "user_id"},
+            "ExpressionAttributeValues": {":user_id": owner},
+            "Limit": limit,
+        }
+
+        if exclusive_start_key:
+            query_params["ExclusiveStartKey"] = exclusive_start_key
+
+        sharing_response = sharing_table.query(**query_params)
+
+        # Fetch full threat model details for each shared record
+        shared_items = []
+        for sharing_record in sharing_response.get("Items", []):
+            threat_model_id = sharing_record["threat_model_id"]
+            tm_response = table.get_item(Key={"job_id": threat_model_id})
+
+            if "Item" in tm_response:
+                item = tm_response["Item"]
+                # Add access information
+                item["is_owner"] = False
+                item["access_level"] = sharing_record["access_level"]
+                item["shared_by"] = sharing_record.get("shared_by")
+                shared_items.append(item)
+
+        return {
+            "items": shared_items,
+            "last_evaluated_key": sharing_response.get("LastEvaluatedKey"),
+        }
+    except Exception as e:
+        LOG.error(f"Error querying shared threat models: {e}")
+        raise InternalError(e)
+
+
 @tracer.capture_method
-def fetch_all(owner):
+def fetch_all(owner, limit=20, cursor=None, filter_mode="all"):
+    """
+    Fetch paginated threat models for a user.
+
+    Args:
+        owner: User ID
+        limit: Number of items per page (default: 20)
+        cursor: Pagination cursor (base64-encoded JSON)
+        filter_mode: Filter mode - "owned", "shared", or "all" (default: "all")
+
+    Returns:
+        dict: {
+            "catalogs": [...],
+            "pagination": {
+                "hasNextPage": bool,
+                "cursor": str|None,
+                "totalReturned": int
+            }
+        }
+    """
     table = dynamodb.Table(AGENT_TABLE)
     sharing_table = dynamodb.Table(os.environ.get("SHARING_TABLE"))
-    LOG.info(f"Fetching all items for owner: {owner} and table: {table}")
+    LOG.info(
+        f"Fetching paginated items for owner: {owner}, limit: {limit}, filter: {filter_mode}"
+    )
+
     try:
-        # Get threat models owned by user
-        owned_items = get_all_by_owner(table, owner)
+        # Validate pagination parameters
+        validate_pagination_params(limit, filter_mode)
 
-        # Add access information to owned items
-        for item in owned_items:
-            item["is_owner"] = True
-            item["access_level"] = "OWNER"
-
-        # Get threat models shared with user
-        shared_items = []
-        if owner != "MCP":  # Skip sharing lookup for MCP user
+        # Decode cursor if provided
+        cursor_data = None
+        if cursor:
             try:
-                sharing_response = sharing_table.query(
-                    IndexName="user-index",
-                    KeyConditionExpression="#user_id = :user_id",
-                    ExpressionAttributeNames={"#user_id": "user_id"},
-                    ExpressionAttributeValues={":user_id": owner},
-                )
+                cursor_data = decode_cursor(cursor)
+                # Validate filter mode matches cursor
+                if cursor_data["filter"] != filter_mode:
+                    LOG.warning(
+                        f"Filter mode mismatch: cursor={cursor_data['filter']}, requested={filter_mode}"
+                    )
+                    # Reset cursor if filter changed
+                    cursor_data = None
+            except ValueError as e:
+                LOG.warning(f"Invalid cursor, resetting to first page: {e}")
+                cursor_data = None
 
-                # Fetch full threat model details for shared items
-                for sharing_record in sharing_response.get("Items", []):
-                    threat_model_id = sharing_record["threat_model_id"]
-                    tm_response = table.get_item(Key={"job_id": threat_model_id})
+        owned_items = []
+        shared_items = []
+        owned_last_key = None
+        shared_last_key = None
 
-                    if "Item" in tm_response:
-                        item = tm_response["Item"]
-                        # Add access information
-                        item["is_owner"] = False
-                        item["access_level"] = sharing_record["access_level"]
-                        item["shared_by"] = sharing_record.get("shared_by")
-                        shared_items.append(item)
-            except Exception as e:
-                LOG.warning(f"Error fetching shared items: {e}")
-                # Continue without shared items if there's an error
+        # Query owned threat models if needed
+        if filter_mode in ["owned", "all"]:
+            owned_start_key = cursor_data.get("owned") if cursor_data else None
+            owned_result = query_owned_paginated(table, owner, limit, owned_start_key)
+            owned_items = owned_result["items"]
+            owned_last_key = owned_result["last_evaluated_key"]
 
-        # Combine owned and shared items
+            # Add access information to owned items
+            for item in owned_items:
+                item["is_owner"] = True
+                item["access_level"] = "OWNER"
+
+        # Query shared threat models if needed
+        if filter_mode in ["shared", "all"] and owner != "MCP":
+            shared_start_key = cursor_data.get("shared") if cursor_data else None
+            shared_result = query_shared_paginated(
+                sharing_table, table, owner, limit, shared_start_key
+            )
+            shared_items = shared_result["items"]
+            shared_last_key = shared_result["last_evaluated_key"]
+
+        # Combine and sort results by timestamp (newest first)
         all_items = owned_items + shared_items
+        all_items.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
 
-        return {"catalogs": convert_decimals(all_items)}
+        # Limit to requested page size after merging
+        all_items = all_items[:limit]
+
+        # Determine if there's a next page
+        has_next_page = owned_last_key is not None or shared_last_key is not None
+
+        # Encode cursor for next page
+        next_cursor = None
+        if has_next_page:
+            next_cursor = encode_cursor(owned_last_key, shared_last_key, filter_mode)
+
+        return {
+            "catalogs": convert_decimals(all_items),
+            "pagination": {
+                "hasNextPage": has_next_page,
+                "cursor": next_cursor,
+                "totalReturned": len(all_items),
+            },
+        }
+    except ValueError:
+        # Invalid cursor - return error
+        raise
     except Exception as e:
         LOG.error(e)
         raise
@@ -703,6 +937,18 @@ def delete_tm(job_id, owner, force_release=False):
                 except Exception as e:
                     LOG.warning(f"Failed to stop execution for {job_id}: {e}")
                     # Continue with deletion even if stop fails
+
+        # Delete associated attack trees before deleting threat model
+        try:
+            from services.attack_tree_service import (
+                delete_attack_trees_for_threat_model,
+            )
+
+            LOG.info(f"Deleting attack trees for threat model {job_id}")
+            delete_attack_trees_for_threat_model(job_id, owner)
+        except Exception as e:
+            LOG.warning(f"Error deleting attack trees for {job_id}: {e}")
+            # Continue with threat model deletion even if attack tree deletion fails
 
         key = {"job_id": job_id}
         object_key = fetch_results(job_id).get("item").get("s3_location")

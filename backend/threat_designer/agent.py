@@ -62,23 +62,92 @@ def _run_agent_async(state: Dict, config: Dict, job_id: str, agent_config: Dict)
     """
     try:
         with operation_context("agent_execution", job_id):
-            logger.info(
-                "Starting threat modeling analysis in background",
-                job_id=job_id,
-                reasoning=agent_config["reasoning"],
-                iteration=state.get("iteration", 0),
-            )
+            # Check if this is an attack tree request
+            request_type = state.get("type")
 
-            # Execute the threat modeling workflow
-            agent.invoke(state, config=config)
+            if request_type == "attack_tree":
+                # Import attack tree workflow
+                from workflow_attack_tree import attack_tree_workflow, AttackTreeState
 
-            logger.info(
-                "Threat modeling completed successfully",
-                job_id=job_id,
-                execution_time_seconds=(
-                    datetime.now() - agent_config["start_time"]
-                ).total_seconds(),
-            )
+                logger.info(
+                    "Starting attack tree generation in background",
+                    job_id=job_id,
+                    threat_name=state.get("threat_name"),
+                )
+
+                # Initialize attack tree state
+                attack_tree_state = AttackTreeState(
+                    attack_tree_id=job_id,
+                    threat_model_id=state.get("threat_model_id"),
+                    threat_name=state.get("threat_name"),
+                    threat_description=state.get("threat_description"),
+                    owner=state.get("owner"),
+                    messages=[],
+                    attack_tree=None,
+                    tool_use=0,
+                    validate_tool_use=0,
+                    validate_called_since_reset=False,
+                    start_time=None,
+                )
+
+                # Attack tree always uses reasoning with fixed budget
+                # For Bedrock (Claude): 48000 tokens
+                # For OpenAI (GPT-5.1): "medium" effort
+                # This is hardcoded and not user-configurable
+                ATTACK_TREE_REASONING_LEVEL = (
+                    2  # Maps to 48000 for Bedrock, "medium" for OpenAI
+                )
+
+                models = initialize_models(ATTACK_TREE_REASONING_LEVEL)
+                attack_tree_model = models.get("attack_tree_agent_model")
+
+                if not attack_tree_model:
+                    raise RuntimeError("Attack tree model not configured")
+
+                logger.info(
+                    "Attack tree model configured with fixed reasoning",
+                    job_id=job_id,
+                    reasoning_level=ATTACK_TREE_REASONING_LEVEL,
+                    model_type=type(attack_tree_model).__name__,
+                )
+
+                # Create workflow config
+                workflow_config = {
+                    "configurable": {
+                        "model_attack_tree_agent": attack_tree_model,
+                    },
+                    "recursion_limit": 100,
+                }
+
+                # Execute attack tree workflow
+                attack_tree_workflow.invoke(attack_tree_state, config=workflow_config)
+
+                logger.info(
+                    "Attack tree generation completed successfully",
+                    job_id=job_id,
+                    execution_time_seconds=(
+                        datetime.now() - agent_config["start_time"]
+                    ).total_seconds(),
+                )
+            else:
+                # Default: Execute threat modeling workflow (existing logic)
+                logger.info(
+                    "Starting threat modeling analysis in background",
+                    job_id=job_id,
+                    reasoning=agent_config["reasoning"],
+                    iteration=state.get("iteration", 0),
+                )
+
+                # Execute the threat modeling workflow
+                agent.invoke(state, config=config)
+
+                logger.info(
+                    "Threat modeling completed successfully",
+                    job_id=job_id,
+                    execution_time_seconds=(
+                        datetime.now() - agent_config["start_time"]
+                    ).total_seconds(),
+                )
 
     except ThreatModelingError as e:
         _handle_error_response(e, job_id, HTTP_STATUS_UNPROCESSABLE_ENTITY)
@@ -448,13 +517,39 @@ async def handler(request: InvocationRequest, http_request: Request) -> Dict[str
         job_id = event["id"]
 
         with operation_context("handler", job_id):
-            logger.info("Processing threat modeling request", job_id=job_id)
+            # Check request type to determine processing path
+            request_type = event.get("type")
 
-            # Create agent configuration
-            agent_config = _create_agent_config(event)
+            if request_type == "attack_tree":
+                logger.info("Processing attack tree request", job_id=job_id)
 
-            # Initialize state
-            state = _initialize_state(event, job_id)
+                # Create minimal state for attack tree
+                state = {
+                    "type": "attack_tree",
+                    "threat_model_id": event.get("threat_model_id"),
+                    "threat_name": event.get("threat_name"),
+                    "threat_description": event.get("threat_description"),
+                    "owner": event.get("owner"),
+                }
+
+                # Create minimal agent configuration for attack tree
+                # Note: Model initialization happens in _run_agent_async with fixed reasoning level
+                agent_config = {
+                    "start_time": datetime.now(),
+                    "reasoning": 2,  # Fixed reasoning level for attack trees (not used, just for logging)
+                }
+
+                message = "Attack tree generation started"
+            else:
+                logger.info("Processing threat modeling request", job_id=job_id)
+
+                # Create agent configuration
+                agent_config = _create_agent_config(event)
+
+                # Initialize state for threat modeling
+                state = _initialize_state(event, job_id)
+
+                message = "Threat modeling process started"
 
             # Track active invocation
             with invocation_lock:
@@ -466,11 +561,14 @@ async def handler(request: InvocationRequest, http_request: Request) -> Dict[str
 
             # Log execution start
             logger.info(
-                "Accepting threat modeling request",
+                "Accepting request",
                 job_id=job_id,
+                request_type=request_type or "threat_modeling",
                 replay=event.get("replay", False),
                 reasoning=agent_config["reasoning"],
-                iteration=state.get("iteration", 0),
+                iteration=state.get("iteration", 0)
+                if isinstance(state, dict) and "iteration" in state
+                else 0,
             )
 
             # Create full configuration for the agent
@@ -485,7 +583,7 @@ async def handler(request: InvocationRequest, http_request: Request) -> Dict[str
             # Return immediately with 200 status
             return JSONResponse(
                 {
-                    "message": "Threat modeling process started",
+                    "message": message,
                     "job_id": job_id,
                     "status": "processing",
                 },

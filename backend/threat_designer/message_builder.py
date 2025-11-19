@@ -337,7 +337,7 @@ Any threat using an actor NOT in this list is INVALID and must be flagged.
                 - Does the current threats respect the shared responsibility model? \n
                 - Does all current threats honor assumptions?\n
                 At the end rate the model (1-10). If not already, what would it take it to make it at least 9/10? \n
-                """
+                """,
             }
         )
 

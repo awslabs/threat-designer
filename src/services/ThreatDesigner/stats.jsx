@@ -114,8 +114,22 @@ async function getThreatModelingResults(id) {
   return instance.get(statsPath);
 }
 
-async function getThreatModelingAllResults() {
-  const statsPath = `/all`;
+async function getThreatModelingAllResults(limit = null, cursor = null, filter = null) {
+  const params = new URLSearchParams();
+
+  if (limit !== null) {
+    params.append("limit", limit);
+  }
+  if (cursor !== null) {
+    params.append("cursor", cursor);
+  }
+  if (filter !== null) {
+    params.append("filter", filter);
+  }
+
+  const queryString = params.toString();
+  const statsPath = queryString ? `/all?${queryString}` : `/all`;
+
   return instance.get(statsPath);
 }
 

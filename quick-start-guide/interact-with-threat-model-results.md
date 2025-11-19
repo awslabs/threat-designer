@@ -49,6 +49,7 @@ A comprehensive list of identified threats mapped to the STRIDE categories (Spoo
 - Click the **"Add Threat"** button to manually create new threats
 - Use the **ellipsis (⋮)** menu on individual threats to edit or delete them
 - Customize threat severity, descriptions, and mitigation recommendations
+- Click the **tree/network icon button** (connected nodes icon) on any threat to visualize its attack paths (see the [Attack Tree Guide](./using-attack-trees.md))
 
 ### Inline Editing
 
@@ -164,6 +165,8 @@ Export your threat model in multiple formats for sharing and documentation:
 ---
 
 ## Next Steps
+
+**Visualize attack paths**: Generate attack trees for your critical threats to understand how attacks could be executed. See the [Attack Tree Guide](./using-attack-trees.md) to learn how to create and analyze attack tree visualizations.
 
 **Collaborate with your team**: Share your threat model with colleagues for review and collective input. See the [Collaboration Guide](./collaborate-on-threat-models.md) to learn how to manage access and work together effectively.
 

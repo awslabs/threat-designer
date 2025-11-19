@@ -9,8 +9,6 @@ from constants import (
     MITIGATION_MAX_ITEMS,
     MITIGATION_MIN_ITEMS,
     SUMMARY_MAX_WORDS_DEFAULT,
-    THREAT_DESCRIPTION_MAX_WORDS,
-    THREAT_DESCRIPTION_MIN_WORDS,
     AssetType,
     StrideCategory,
 )
@@ -107,13 +105,13 @@ class ContinueThreatModeling(BaseModel):
             Gaps should be actionable and specific. \n
             Very important! When referencing threats, do not use abreviations. Instead you need to reference the full name of the threat, which is their unique identifier. \n
             "Required only when 'stop' is False \n"""
-        )
+        ),
     ] = ""
     rating: Annotated[
         int,
         Field(
             description="Rating of the gap analysis, 1-10, 10 being the most comprehensive and complete."
-        )
+        ),
     ]
 
 
@@ -160,8 +158,8 @@ class Threat(BaseModel):
     description: Annotated[
         str,
         Field(
-            description=f"Threat description which must follow threat grammar template format:"
-            f"[threat source] [prerequisites] can [threat action] which leads to [threat impact], negatively impacting [impacted assets]."
+            description="Threat description which must follow threat grammar template format:"
+            "[threat source] [prerequisites] can [threat action] which leads to [threat impact], negatively impacting [impacted assets]."
         ),
     ]
     target: Annotated[
@@ -214,6 +212,12 @@ class Threat(BaseModel):
             description="User-defined flag for prioritization or tracking. Ignored by automated threat modeling agents",
         ),
     ] = False
+    attack_tree_id: Annotated[
+        Optional[str],
+        Field(
+            description="Optional foreign key reference to an associated attack tree. Set when an attack tree is generated for this threat.",
+        ),
+    ] = None
 
 
 class ThreatsList(BaseModel):

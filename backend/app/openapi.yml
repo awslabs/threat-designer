@@ -387,9 +387,45 @@ paths:
   "/threat-designer/all":
     get:
       summary: Fetch all threat models for a given user
-      description: Fetch all threat models for a given user
+      description: |
+        Fetch threat models for a given user with pagination support.
+
+        Returns a paginated list of threat models (both owned and shared) sorted by creation date (newest first).
+        Use the cursor from the response to fetch subsequent pages.
       tags:
         - Security
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [10, 20, 50, 100]
+            default: 20
+          description: Number of items per page (must be 10, 20, 50, or 100)
+          example: 20
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Base64-encoded pagination cursor from previous response.
+            Omit this parameter to fetch the first page.
+          example: "eyJvd25lZCI6ImJhc2U2NCIsInNoYXJlZCI6ImJhc2U2NCIsImZpbHRlciI6ImFsbCJ9"
+        - name: filter
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [owned, shared, all]
+            default: all
+          description: |
+            Filter results by ownership:
+            - owned: Only threat models owned by the user
+            - shared: Only threat models shared with the user
+            - all: Both owned and shared threat models
+          example: all
       responses:
         "200":
           description: OK
@@ -397,6 +433,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CatalogResponse"
+              examples:
+                first_page:
+                  summary: First page of results
+                  value:
+                    catalogs:
+                      - job_id: "550e8400-e29b-41d4-a716-446655440000"
+                        title: "E-commerce Platform Threat Model"
+                        state: "COMPLETE"
+                        created_at: "2024-01-15T10:30:00Z"
+                        owner: "user-123"
+                        is_owner: true
+                        access_level: "OWNER"
+                      - job_id: "550e8400-e29b-41d4-a716-446655440001"
+                        title: "API Gateway Security Analysis"
+                        state: "COMPLETE"
+                        created_at: "2024-01-14T15:20:00Z"
+                        owner: "user-456"
+                        is_owner: false
+                        access_level: "EDIT"
+                        shared_by: "user-456"
+                    pagination:
+                      hasNextPage: true
+                      cursor: "eyJvd25lZCI6ImJhc2U2NCIsInNoYXJlZCI6ImJhc2U2NCIsImZpbHRlciI6ImFsbCJ9"
+                      totalReturned: 20
+                last_page:
+                  summary: Last page of results
+                  value:
+                    catalogs:
+                      - job_id: "550e8400-e29b-41d4-a716-446655440099"
+                        title: "Mobile App Security Review"
+                        state: "COMPLETE"
+                        created_at: "2024-01-01T09:00:00Z"
+                        owner: "user-123"
+                        is_owner: true
+                        access_level: "OWNER"
+                    pagination:
+                      hasNextPage: false
+                      cursor: null
+                      totalReturned: 5
           headers:
             Access-Control-Allow-Headers:
               schema:
@@ -449,13 +524,49 @@ paths:
     get:
       summary: Fetch all threat models for a given user (MCP)
       description: |
-        Fetch all threat models for a given user using MCP API key authentication.
+        Fetch threat models for a given user with pagination support using MCP API key authentication.
         This endpoint provides the same functionality as the JWT version.
+
+        Returns a paginated list of threat models (both owned and shared) sorted by creation date (newest first).
+        Use the cursor from the response to fetch subsequent pages.
+
         Note: Response items do not include is_owner and access_level fields (JWT-only fields).
       tags:
         - Security
       security:
         - ApiKeyAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [10, 20, 50, 100]
+            default: 20
+          description: Number of items per page (must be 10, 20, 50, or 100)
+          example: 20
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Base64-encoded pagination cursor from previous response.
+            Omit this parameter to fetch the first page.
+          example: "eyJvd25lZCI6ImJhc2U2NCIsInNoYXJlZCI6ImJhc2U2NCIsImZpbHRlciI6ImFsbCJ9"
+        - name: filter
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [owned, shared, all]
+            default: all
+          description: |
+            Filter results by ownership:
+            - owned: Only threat models owned by the user
+            - shared: Only threat models shared with the user
+            - all: Both owned and shared threat models
+          example: all
       responses:
         "200":
           description: OK
@@ -1915,6 +2026,272 @@ paths:
         contentHandling: CONVERT_TO_TEXT
         passthroughBehavior: NEVER
 
+  "/attack-tree":
+    post:
+      summary: Initiate attack tree generation
+      description: |
+        Generate an attack tree for a specific threat.
+
+        The attack_tree_id is computed deterministically as a composite key from 
+        threat_model_id and threat_name in the format: {threat_model_id}_{normalized_threat_name}
+        where normalized_threat_name is lowercase with spaces replaced by underscores.
+
+        The attack_tree_id is NOT stored as a foreign key on the threat object - it is 
+        computed on-demand whenever needed.
+      tags:
+        - Attack Trees
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAttackTreeRequest"
+      responses:
+        "200":
+          description: Attack tree generation initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateAttackTreeResponse"
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/400"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+    options:
+      responses:
+        "200":
+          description: OK
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Credentials:
+              schema:
+                type: string
+      security: []
+      tags:
+        - CORS (Options)
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+
+  "/attack-tree/{attack_tree_id}/status":
+    get:
+      summary: Get attack tree generation status
+      description: |
+        Poll the status of attack tree generation.
+
+        The attack_tree_id should be computed as a composite key: {threat_model_id}_{normalized_threat_name}
+      tags:
+        - Attack Trees
+      parameters:
+        - name: attack_tree_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: |
+            Attack tree identifier
+      responses:
+        "200":
+          description: Status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttackTreeStatusResponse"
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+        "403":
+          $ref: "#/components/responses/403"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+    options:
+      responses:
+        "200":
+          description: OK
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Credentials:
+              schema:
+                type: string
+      security: []
+      tags:
+        - CORS (Options)
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+
+  "/attack-tree/{attack_tree_id}":
+    get:
+      summary: Retrieve completed attack tree
+      description: |
+        Fetch a completed attack tree in React Flow format.
+
+        The attack_tree_id should be computed as a composite key: {threat_model_id}_{normalized_threat_name}
+      tags:
+        - Attack Trees
+      parameters:
+        - name: attack_tree_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: |
+            Attack tree identifier
+      responses:
+        "200":
+          description: Attack tree retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttackTreeResponse"
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+    delete:
+      summary: Delete attack tree
+      description: |
+        Delete an attack tree.
+
+        Note: The attack_tree_id is NOT stored as a foreign key on threat objects,
+        so no foreign key cleanup is performed.
+      tags:
+        - Attack Trees
+      parameters:
+        - name: attack_tree_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: |
+            Attack tree identifier
+      responses:
+        "204":
+          description: Attack tree deleted successfully
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+    options:
+      responses:
+        "200":
+          description: OK
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Credentials:
+              schema:
+                type: string
+      security: []
+      tags:
+        - CORS (Options)
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+
 components:
   schemas:
     # Error Response Schemas
@@ -2317,6 +2694,34 @@ components:
           format: uuid
           description: User ID who shared this threat model (only for shared items)
 
+    PaginationMetadata:
+      type: object
+      required:
+        - hasNextPage
+        - totalReturned
+      properties:
+        hasNextPage:
+          type: boolean
+          description: |
+            Indicates whether more results are available.
+            True if there are additional pages to fetch, false if this is the last page.
+          example: true
+        cursor:
+          type: string
+          nullable: true
+          description: |
+            Base64-encoded cursor for fetching the next page of results.
+            Pass this value as the 'cursor' query parameter in the next request.
+            Null when hasNextPage is false (no more results available).
+          example: "eyJvd25lZCI6ImJhc2U2NCIsInNoYXJlZCI6ImJhc2U2NCIsImZpbHRlciI6ImFsbCJ9"
+        totalReturned:
+          type: integer
+          minimum: 0
+          description: |
+            Number of items returned in the current page.
+            May be less than the requested limit on the last page.
+          example: 20
+
     # Request Body Schemas
     CreateThreatModelRequest:
       type: object
@@ -2509,12 +2914,16 @@ components:
       type: object
       required:
         - catalogs
+        - pagination
       properties:
         catalogs:
           type: array
           items:
             $ref: "#/components/schemas/CatalogItem"
           description: List of threat models accessible to the user
+        pagination:
+          $ref: "#/components/schemas/PaginationMetadata"
+          description: Pagination information for navigating through results
 
     DeleteResponse:
       type: object
@@ -2652,6 +3061,173 @@ components:
           type: string
           format: uuid
           description: User ID who previously held the lock (for force release)
+
+    # Attack Tree Schemas
+    CreateAttackTreeRequest:
+      type: object
+      required:
+        - threat_model_id
+        - threat_name
+        - threat_description
+      properties:
+        threat_model_id:
+          type: string
+          format: uuid
+          description: ID of the parent threat model
+        threat_name:
+          type: string
+          description: Name of the threat to generate attack tree for
+        threat_description:
+          type: string
+          description: Description of the threat
+        reasoning:
+          type: integer
+          minimum: 0
+          maximum: 3
+          default: 0
+          description: Reasoning boost level (0-3)
+
+    CreateAttackTreeResponse:
+      type: object
+      required:
+        - attack_tree_id
+        - status
+      properties:
+        attack_tree_id:
+          type: string
+          description: |
+            The attack tree identifier (composite key format: {threat_model_id}_{normalized_threat_name})
+            Example: abc123-def456-ghi789_sql_injection_attack
+        status:
+          type: string
+          enum: [in_progress, completed]
+          description: |
+            Initial status of attack tree generation.
+            Returns 'completed' if attack tree already exists, 'in_progress' if newly created.
+        message:
+          type: string
+          description: Optional message
+
+    AttackTreeStatusResponse:
+      type: object
+      required:
+        - attack_tree_id
+        - status
+      properties:
+        attack_tree_id:
+          type: string
+          description: |
+            The attack tree identifier (composite key format: {threat_model_id}_{normalized_threat_name})
+            Example: abc123-def456-ghi789_sql_injection_attack
+        status:
+          type: string
+          enum: [in_progress, completed, failed, not_found]
+          description: Current status of attack tree generation
+        detail:
+          type: string
+          description: Additional detail message about the status (optional)
+        error:
+          type: string
+          description: Error message if status is failed (optional)
+
+    AttackTreeNode:
+      type: object
+      required:
+        - id
+        - type
+        - data
+        - position
+      properties:
+        id:
+          type: string
+          description: Unique node identifier
+        type:
+          type: string
+          enum: [rootGoal, andGate, orGate, leafAttack]
+          description: Type of node in the attack tree
+        data:
+          type: object
+          description: Node-specific data (varies by node type)
+        position:
+          type: object
+          required:
+            - x
+            - y
+          properties:
+            x:
+              type: number
+              description: X coordinate
+            y:
+              type: number
+              description: Y coordinate
+
+    AttackTreeEdge:
+      type: object
+      required:
+        - id
+        - source
+        - target
+      properties:
+        id:
+          type: string
+          description: Unique edge identifier
+        source:
+          type: string
+          description: Source node ID
+        target:
+          type: string
+          description: Target node ID
+        type:
+          type: string
+          description: Edge type (optional)
+
+    AttackTreeData:
+      type: object
+      required:
+        - nodes
+        - edges
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttackTreeNode"
+          description: List of nodes in React Flow format
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttackTreeEdge"
+          description: List of edges in React Flow format
+
+    AttackTreeResponse:
+      type: object
+      required:
+        - attack_tree_id
+        - threat_model_id
+        - threat_name
+        - attack_tree
+      properties:
+        attack_tree_id:
+          type: string
+          description: |
+            The attack tree identifier (composite key format: {threat_model_id}_{normalized_threat_name})
+            Example: abc123-def456-ghi789_sql_injection_attack
+
+            Note: This ID is computed deterministically from threat_model_id and threat_name.
+            It is NOT stored as a foreign key on the threat object.
+        threat_model_id:
+          type: string
+          format: uuid
+          description: ID of the parent threat model
+        threat_name:
+          type: string
+          description: Name of the threat
+        created_at:
+          type: string
+          format: date-time
+          description: When the attack tree was created
+        attack_tree:
+          $ref: "#/components/schemas/AttackTreeData"
+          description: Attack tree data in React Flow format
   responses:
     "400":
       content:

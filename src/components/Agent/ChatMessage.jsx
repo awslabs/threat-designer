@@ -7,12 +7,12 @@ const ChatMessage = React.memo(({ message, streaming, isLast, scroll, isParentFi
   const [inputHeight, setInputHeight] = React.useState(330);
   const isEnd = message?.[message.length - 1]?.end === true;
   const hasScrolled = useRef(false);
-  
+
   // Measure the input area height dynamically
   useEffect(() => {
     const measureInputHeight = () => {
       // Find the input area container
-      const inputContainer = document.querySelector('.chat-input-wrapper');
+      const inputContainer = document.querySelector(".chat-input-wrapper");
       if (inputContainer) {
         const height = inputContainer.offsetHeight;
         // The original was 330px, and input is ~162px, so we need ~168px padding
@@ -24,18 +24,18 @@ const ChatMessage = React.memo(({ message, streaming, isLast, scroll, isParentFi
         setInputHeight(330);
       }
     };
-    
+
     // Measure after a short delay to ensure DOM is ready
     const timer = setTimeout(measureInputHeight, 100);
-    
+
     // Re-measure when window resizes or when content changes
     const resizeObserver = new ResizeObserver(measureInputHeight);
-    const inputContainer = document.querySelector('.chat-input-wrapper');
-    
+    const inputContainer = document.querySelector(".chat-input-wrapper");
+
     if (inputContainer) {
       resizeObserver.observe(inputContainer);
     }
-    
+
     return () => {
       clearTimeout(timer);
       if (inputContainer) {

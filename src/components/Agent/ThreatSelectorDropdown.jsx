@@ -5,7 +5,7 @@ import "./ThreatSelector.css";
 
 /**
  * ThreatSelectorDropdown Component
- * 
+ *
  * Displays a searchable dropdown list of threats when @ is typed in the chat input.
  * Supports keyboard navigation, filtering, and mouse/touch selection.
  * Follows Cloudscape design patterns with theme-appropriate styling.
@@ -25,17 +25,15 @@ const ThreatSelectorDropdown = ({
   // Filter threats based on search text (case-insensitive)
   const filteredThreats = React.useMemo(() => {
     if (!searchText) return threats;
-    
+
     const searchLower = searchText.toLowerCase();
-    return threats.filter(threat => 
-      threat.name.toLowerCase().includes(searchLower)
-    );
+    return threats.filter((threat) => threat.name.toLowerCase().includes(searchLower));
   }, [threats, searchText]);
 
   // Get likelihood badge color based on likelihood value
   const getLikelihoodColor = (likelihood) => {
     if (!likelihood) return "grey";
-    
+
     const likelihoodLower = likelihood.toLowerCase();
     switch (likelihoodLower) {
       case "high":
@@ -50,9 +48,12 @@ const ThreatSelectorDropdown = ({
   };
 
   // Handle threat selection
-  const handleSelect = useCallback((threat) => {
-    onSelect(threat);
-  }, [onSelect]);
+  const handleSelect = useCallback(
+    (threat) => {
+      onSelect(threat);
+    },
+    [onSelect]
+  );
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -119,7 +120,7 @@ const ThreatSelectorDropdown = ({
       ref={dropdownRef}
       className={`threat-selector-dropdown ${theme}`}
       role="listbox"
-      aria-label={`Threat selector with ${filteredThreats.length} threat${filteredThreats.length === 1 ? '' : 's'}`}
+      aria-label={`Threat selector with ${filteredThreats.length} threat${filteredThreats.length === 1 ? "" : "s"}`}
       aria-activedescendant={focusedIndex >= 0 ? `threat-option-${focusedIndex}` : undefined}
     >
       <div className="threat-options-container">

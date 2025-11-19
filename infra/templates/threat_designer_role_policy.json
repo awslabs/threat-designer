@@ -11,7 +11,12 @@
         "dynamodb:Query",
         "dynamodb:Scan"
       ],
-      "Resource": ["${state_table_arn}", "${status_table_arn}", "${trail_table_arn}"]
+      "Resource": [
+        "${state_table_arn}",
+        "${status_table_arn}",
+        "${trail_table_arn}",
+        "${attack_tree_table_arn}"
+      ]
     },
     {
       "Effect": "Allow",

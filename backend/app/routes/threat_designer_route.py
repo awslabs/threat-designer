@@ -111,12 +111,91 @@ def _restore(id):
 @router.get("/threat-designer/mcp/all")
 @router.get("/threat-designer/all")
 def _fetch_all():
-    path = router.current_event.path
-    if "/mcp" in path:
-        owner = "MCP"
-    else:
-        owner = router.current_event.request_context.authorizer.get("user_id")
-    return fetch_all(owner)
+    try:
+        path = router.current_event.path
+        if "/mcp" in path:
+            owner = "MCP"
+        else:
+            owner = router.current_event.request_context.authorizer.get("user_id")
+
+        # Extract query parameters
+        query_params = router.current_event.query_string_parameters or {}
+
+        # Get pagination parameters with defaults
+        limit_str = query_params.get("limit", "20")
+        cursor = query_params.get("cursor")
+        filter_mode = query_params.get("filter", "all")
+
+        # Validate page size
+        try:
+            limit = int(limit_str)
+        except ValueError:
+            from aws_lambda_powertools.event_handler import Response
+            from aws_lambda_powertools.event_handler.api_gateway import content_types
+            import json
+
+            return Response(
+                status_code=400,
+                content_type=content_types.APPLICATION_JSON,
+                body=json.dumps({"error": "Page size must be a valid integer"}),
+            )
+
+        # Validate page size is one of the allowed values
+        allowed_page_sizes = [10, 20, 50, 100]
+        if limit not in allowed_page_sizes:
+            from aws_lambda_powertools.event_handler import Response
+            from aws_lambda_powertools.event_handler.api_gateway import content_types
+            import json
+
+            return Response(
+                status_code=400,
+                content_type=content_types.APPLICATION_JSON,
+                body=json.dumps({"error": "Page size must be 10, 20, 50, or 100"}),
+            )
+
+        # Validate filter mode
+        allowed_filters = ["owned", "shared", "all"]
+        if filter_mode not in allowed_filters:
+            from aws_lambda_powertools.event_handler import Response
+            from aws_lambda_powertools.event_handler.api_gateway import content_types
+            import json
+
+            return Response(
+                status_code=400,
+                content_type=content_types.APPLICATION_JSON,
+                body=json.dumps(
+                    {"error": "Filter must be 'owned', 'shared', or 'all'"}
+                ),
+            )
+
+        # Call service layer with pagination parameters
+        result = fetch_all(owner, limit=limit, cursor=cursor, filter_mode=filter_mode)
+
+        # Check if the service layer returned an error (e.g., invalid cursor)
+        if isinstance(result, dict) and result.get("error"):
+            from aws_lambda_powertools.event_handler import Response
+            from aws_lambda_powertools.event_handler.api_gateway import content_types
+            import json
+
+            return Response(
+                status_code=400,
+                content_type=content_types.APPLICATION_JSON,
+                body=json.dumps(result),
+            )
+
+        return result
+
+    except Exception as e:
+        LOG.exception(e)
+        from aws_lambda_powertools.event_handler import Response
+        from aws_lambda_powertools.event_handler.api_gateway import content_types
+        import json
+
+        return Response(
+            status_code=500,
+            content_type=content_types.APPLICATION_JSON,
+            body=json.dumps({"error": "Failed to fetch threat models"}),
+        )
 
 
 @router.put("/threat-designer/mcp/<id>")

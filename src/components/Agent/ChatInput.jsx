@@ -76,12 +76,12 @@ const ChatInput = ({
   const getAvailableThreats = useCallback(() => {
     try {
       const context = functions.getSessionContext(sessionId);
-      
+
       // Check if threat model exists in context
       if (!context?.threatModel) {
         return [];
       }
-      
+
       // The threat model structure is: context.threatModel.threats (array)
       const threats = context.threatModel.threats || [];
       return threats;
@@ -97,51 +97,52 @@ const ChatInput = ({
   // Filter threats based on search text with memoization
   const filteredThreats = useMemo(() => {
     if (!threatSearchText) return availableThreats;
-    
+
     const searchLower = threatSearchText.toLowerCase();
-    return availableThreats.filter(threat => 
-      threat.name.toLowerCase().includes(searchLower)
-    );
+    return availableThreats.filter((threat) => threat.name.toLowerCase().includes(searchLower));
   }, [availableThreats, threatSearchText]);
 
   // Handle threat selection
-  const handleThreatSelect = useCallback((threat) => {
-    setSelectedThreat(threat);
-    setShowThreatSelector(false);
-    setThreatSearchText("");
-    
-    // Announce selection to screen readers
-    setScreenReaderAnnouncement(`Threat selected: ${threat.name}`);
-    setTimeout(() => setScreenReaderAnnouncement(""), 1000);
-    
-    // Remove @ and search text from the beginning of message
-    const textarea = textareaRef.current;
-    if (textarea && message.startsWith('@')) {
-      const cursorPos = textarea.selectionStart;
-      // Remove everything from @ to cursor position
-      const newMessage = message.substring(cursorPos).trim();
-      setMessage(newMessage);
-      
-      // Keep focus on textarea after selection
-      setTimeout(() => {
-        textarea.focus();
-        // Set cursor to beginning
-        textarea.setSelectionRange(0, 0);
-      }, 0);
-    }
-  }, [message]);
+  const handleThreatSelect = useCallback(
+    (threat) => {
+      setSelectedThreat(threat);
+      setShowThreatSelector(false);
+      setThreatSearchText("");
+
+      // Announce selection to screen readers
+      setScreenReaderAnnouncement(`Threat selected: ${threat.name}`);
+      setTimeout(() => setScreenReaderAnnouncement(""), 1000);
+
+      // Remove @ and search text from the beginning of message
+      const textarea = textareaRef.current;
+      if (textarea && message.startsWith("@")) {
+        const cursorPos = textarea.selectionStart;
+        // Remove everything from @ to cursor position
+        const newMessage = message.substring(cursorPos).trim();
+        setMessage(newMessage);
+
+        // Keep focus on textarea after selection
+        setTimeout(() => {
+          textarea.focus();
+          // Set cursor to beginning
+          textarea.setSelectionRange(0, 0);
+        }, 0);
+      }
+    },
+    [message]
+  );
 
   // Handle threat dismissal
   const handleThreatDismiss = useCallback(() => {
     const threatName = selectedThreat?.name;
     setSelectedThreat(null);
-    
+
     // Announce removal to screen readers
     if (threatName) {
       setScreenReaderAnnouncement(`Threat removed: ${threatName}`);
       setTimeout(() => setScreenReaderAnnouncement(""), 1000);
     }
-    
+
     // Keep focus on textarea after dismissal
     setTimeout(() => {
       if (textareaRef.current) {
@@ -149,8 +150,6 @@ const ChatInput = ({
       }
     }, 0);
   }, [selectedThreat]);
-
-
 
   // Function to close dropdown with animation
   const closeDropdown = useCallback((buttonId, immediate = false) => {
@@ -193,7 +192,7 @@ const ChatInput = ({
     try {
       // Get the full context including selectedThreat
       const fullContext = functions.getSessionContext(sessionId);
-      
+
       // Parse and filter tools to get only enabled tool IDs
       const enabledToolIds =
         tools
@@ -227,13 +226,7 @@ const ChatInput = ({
       // Always reset the flag when done (success or error)
       preparingRef.current = false;
     }
-  }, [
-    functions,
-    currentSessionId,
-    sessionId,
-    tools,
-    processedThinkingBudget,
-  ]);
+  }, [functions, currentSessionId, sessionId, tools, processedThinkingBudget]);
 
   useEffect(() => {
     if (isFirstMount.current) {
@@ -349,80 +342,84 @@ const ChatInput = ({
     adjustTextareaHeight();
   }, [message, adjustTextareaHeight]);
 
-  const handleInputChange = useCallback((e) => {
-    const value = e.target.value;
-    setMessage(value);
-    
-    // Check for @ symbol to show threat selector - ONLY at the beginning of input
-    const textarea = textareaRef.current;
-    if (textarea) {
-      const cursorPos = textarea.selectionStart;
-      const textBeforeCursor = value.substring(0, cursorPos);
-      
-      // Only trigger if @ is at the very beginning (position 0)
-      if (textBeforeCursor.startsWith('@')) {
-        const textAfterAt = textBeforeCursor.substring(1);
-        
-        // Check if threat model exists in context (silent failure if not)
-        const context = functions.getSessionContext(sessionId);
-        if (!context?.threatModel) {
-          // Treat @ as regular character when no threat model exists
-          setShowThreatSelector(false);
+  const handleInputChange = useCallback(
+    (e) => {
+      const value = e.target.value;
+      setMessage(value);
+
+      // Check for @ symbol to show threat selector - ONLY at the beginning of input
+      const textarea = textareaRef.current;
+      if (textarea) {
+        const cursorPos = textarea.selectionStart;
+        const textBeforeCursor = value.substring(0, cursorPos);
+
+        // Only trigger if @ is at the very beginning (position 0)
+        if (textBeforeCursor.startsWith("@")) {
+          const textAfterAt = textBeforeCursor.substring(1);
+
+          // Check if threat model exists in context (silent failure if not)
+          const context = functions.getSessionContext(sessionId);
+          if (!context?.threatModel) {
+            // Treat @ as regular character when no threat model exists
+            setShowThreatSelector(false);
+            return;
+          }
+
+          // Show dropdown - allow spaces in search text for multi-word threat names
+          setThreatSearchText(textAfterAt);
+          setShowThreatSelector(true);
+          setFocusedThreatIndex(0);
           return;
         }
-        
-        // Show dropdown - allow spaces in search text for multi-word threat names
-        setThreatSearchText(textAfterAt);
-        setShowThreatSelector(true);
-        setFocusedThreatIndex(0);
-        return;
       }
-    }
-    
-    setShowThreatSelector(false);
-  }, [functions, sessionId]);
 
-  const handleKeyDown = useCallback((e) => {
-    // Handle threat selector keyboard navigation
-    if (showThreatSelector) {
-      if (e.key === 'Escape') {
+      setShowThreatSelector(false);
+    },
+    [functions, sessionId]
+  );
+
+  const handleKeyDown = useCallback(
+    (e) => {
+      // Handle threat selector keyboard navigation
+      if (showThreatSelector) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setShowThreatSelector(false);
+          setThreatSearchText("");
+          return;
+        }
+
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setFocusedThreatIndex((prev) => Math.min(prev + 1, filteredThreats.length - 1));
+          return;
+        }
+
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setFocusedThreatIndex((prev) => Math.max(prev - 1, 0));
+          return;
+        }
+
+        if (e.key === "Enter" && filteredThreats.length > 0) {
+          e.preventDefault();
+          handleThreatSelect(filteredThreats[focusedThreatIndex]);
+          return;
+        }
+      }
+
+      // Original Enter key handling
+      if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        setShowThreatSelector(false);
-        setThreatSearchText("");
-        return;
+        if (isStreaming) {
+          handleStopStreaming();
+        } else {
+          handleSend();
+        }
       }
-      
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setFocusedThreatIndex(prev => 
-          Math.min(prev + 1, filteredThreats.length - 1)
-        );
-        return;
-      }
-      
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setFocusedThreatIndex(prev => Math.max(prev - 1, 0));
-        return;
-      }
-      
-      if (e.key === 'Enter' && filteredThreats.length > 0) {
-        e.preventDefault();
-        handleThreatSelect(filteredThreats[focusedThreatIndex]);
-        return;
-      }
-    }
-    
-    // Original Enter key handling
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      if (isStreaming) {
-        handleStopStreaming();
-      } else {
-        handleSend();
-      }
-    }
-  }, [showThreatSelector, filteredThreats, focusedThreatIndex, handleThreatSelect, isStreaming]);
+    },
+    [showThreatSelector, filteredThreats, focusedThreatIndex, handleThreatSelect, isStreaming]
+  );
 
   const handleSend = useCallback(() => {
     const trimmedMessage = message.trim();
@@ -433,18 +430,26 @@ const ChatInput = ({
         timestamp: new Date().toISOString(),
         toggleStates: { ...toggleStates },
       };
-      
+
       // Add threat context if a threat is selected
       if (selectedThreat) {
         messageData.context = {
-          threat_in_focus: selectedThreat
+          threat_in_focus: selectedThreat,
         };
       }
-      
+
       onSendMessage(messageData);
       setMessage("");
     }
-  }, [message, onSendMessage, disabled, isStreaming, currentSessionId, toggleStates, selectedThreat]);
+  }, [
+    message,
+    onSendMessage,
+    disabled,
+    isStreaming,
+    currentSessionId,
+    toggleStates,
+    selectedThreat,
+  ]);
 
   const handleStopStreaming = useCallback(() => {
     if (onStopStreaming && isStreaming) {
@@ -455,104 +460,118 @@ const ChatInput = ({
     }
   }, [onStopStreaming, isStreaming, currentSessionId]);
 
-  const handleToggleButton = useCallback((button) => {
-    // Handle dropdown for non-toggle buttons - entire button click toggles dropdown
-    if (!button.isToggle && button.showDropdown) {
-      const isCurrentlyActive = activeDropdown === button.id;
+  const handleToggleButton = useCallback(
+    (button) => {
+      // Handle dropdown for non-toggle buttons - entire button click toggles dropdown
+      if (!button.isToggle && button.showDropdown) {
+        const isCurrentlyActive = activeDropdown === button.id;
+        const isCurrentlyOpen = dropdownStates[button.id];
+
+        if (isCurrentlyActive && isCurrentlyOpen) {
+          // Clicking the same button that's open - close it
+          closeDropdown(button.id, false);
+        } else {
+          // Either clicking a different button or reopening the same button
+          // Reset all states first to avoid conflicts
+          setIsClosing(false);
+
+          // Update all states atomically
+          setDropdownStates((prev) => {
+            const newStates = {};
+            Object.keys(prev).forEach((key) => {
+              newStates[key] = key === button.id;
+            });
+            return newStates;
+          });
+
+          setActiveDropdown(button.id);
+          setVisibleDropdown(button.id);
+        }
+
+        if (button.onClick) {
+          button.onClick(message, currentSessionId);
+        }
+        return;
+      }
+
+      // Toggle button logic - ONLY handles toggle, NOT dropdown
+      if (button.isToggle) {
+        const newState = !toggleStates[button.id];
+        setToggleStates((prev) => ({
+          ...prev,
+          [button.id]: newState,
+        }));
+
+        // If toggling off, close dropdown with animation
+        if (!newState && dropdownStates[button.id]) {
+          closeDropdown(button.id, false);
+        } else if (newState && button.showDropdown) {
+          // Just set up the button as active, but don't open dropdown
+          // The arrow click will handle the dropdown
+          setActiveDropdown(button.id);
+          // Don't set visibleDropdown here - let the arrow handle it
+        } else if (!newState) {
+          // When toggling off, clean up dropdown states
+          setActiveDropdown(null);
+          setVisibleDropdown(null);
+        }
+
+        onToggleButton(button.id, newState, currentSessionId);
+
+        if (button.onClick) {
+          button.onClick(message, currentSessionId, newState);
+        }
+      } else {
+        // Non-toggle button without dropdown
+        if (button.onClick) {
+          button.onClick(message, currentSessionId);
+        }
+      }
+    },
+    [
+      activeDropdown,
+      dropdownStates,
+      closeDropdown,
+      toggleStates,
+      onToggleButton,
+      message,
+      currentSessionId,
+    ]
+  );
+
+  const handleDropdownClick = useCallback(
+    (button, event) => {
+      event.stopPropagation();
+
       const isCurrentlyOpen = dropdownStates[button.id];
 
-      if (isCurrentlyActive && isCurrentlyOpen) {
-        // Clicking the same button that's open - close it
-        closeDropdown(button.id, false);
-      } else {
-        // Either clicking a different button or reopening the same button
-        // Reset all states first to avoid conflicts
+      if (!isCurrentlyOpen) {
+        // Opening this dropdown
+        // If another dropdown is open, close it without animation for smooth transition
+        if (visibleDropdown && visibleDropdown !== button.id) {
+          setDropdownStates((prev) => ({
+            ...prev,
+            [visibleDropdown]: false,
+          }));
+        }
+
+        // Open the new dropdown
         setIsClosing(false);
-
-        // Update all states atomically
-        setDropdownStates((prev) => {
-          const newStates = {};
-          Object.keys(prev).forEach((key) => {
-            newStates[key] = key === button.id;
-          });
-          return newStates;
-        });
-
-        setActiveDropdown(button.id);
-        setVisibleDropdown(button.id);
-      }
-
-      if (button.onClick) {
-        button.onClick(message, currentSessionId);
-      }
-      return;
-    }
-
-    // Toggle button logic - ONLY handles toggle, NOT dropdown
-    if (button.isToggle) {
-      const newState = !toggleStates[button.id];
-      setToggleStates((prev) => ({
-        ...prev,
-        [button.id]: newState,
-      }));
-
-      // If toggling off, close dropdown with animation
-      if (!newState && dropdownStates[button.id]) {
-        closeDropdown(button.id, false);
-      } else if (newState && button.showDropdown) {
-        // Just set up the button as active, but don't open dropdown
-        // The arrow click will handle the dropdown
-        setActiveDropdown(button.id);
-        // Don't set visibleDropdown here - let the arrow handle it
-      } else if (!newState) {
-        // When toggling off, clean up dropdown states
-        setActiveDropdown(null);
-        setVisibleDropdown(null);
-      }
-
-      onToggleButton(button.id, newState, currentSessionId);
-
-      if (button.onClick) {
-        button.onClick(message, currentSessionId, newState);
-      }
-    } else {
-      // Non-toggle button without dropdown
-      if (button.onClick) {
-        button.onClick(message, currentSessionId);
-      }
-    }
-  }, [activeDropdown, dropdownStates, closeDropdown, toggleStates, onToggleButton, message, currentSessionId]);
-
-  const handleDropdownClick = useCallback((button, event) => {
-    event.stopPropagation();
-
-    const isCurrentlyOpen = dropdownStates[button.id];
-
-    if (!isCurrentlyOpen) {
-      // Opening this dropdown
-      // If another dropdown is open, close it without animation for smooth transition
-      if (visibleDropdown && visibleDropdown !== button.id) {
         setDropdownStates((prev) => ({
           ...prev,
-          [visibleDropdown]: false,
+          [button.id]: true,
         }));
+        setActiveDropdown(button.id);
+        setVisibleDropdown(button.id);
+      } else {
+        // Closing dropdown - use animation
+        closeDropdown(button.id, false);
       }
 
-      // Open the new dropdown
-      setIsClosing(false);
-      setDropdownStates((prev) => ({
-        ...prev,
-        [button.id]: true,
-      }));
-      setActiveDropdown(button.id);
-      setVisibleDropdown(button.id);
-    } else {
-      // Closing dropdown - use animation
-      closeDropdown(button.id, false);
-    }
-
-    onDropdownClick(button.id, currentSessionId, !isCurrentlyOpen);
-  }, [dropdownStates, visibleDropdown, closeDropdown, onDropdownClick, currentSessionId]);
+      onDropdownClick(button.id, currentSessionId, !isCurrentlyOpen);
+    },
+    [dropdownStates, visibleDropdown, closeDropdown, onDropdownClick, currentSessionId]
+  );
 
   useEffect(() => {
     if (autoFocus && textareaRef.current && !isStreaming) {
@@ -563,7 +582,7 @@ const ChatInput = ({
   // Clear threat context when session is cleared
   useEffect(() => {
     const context = functions.getSessionContext(sessionId);
-    
+
     // If context is cleared (both diagram and threatModel are null), clear selected threat
     if (context && !context.diagram && !context.threatModel && selectedThreat) {
       setSelectedThreat(null);
@@ -590,15 +609,10 @@ const ChatInput = ({
   return (
     <div className={`chat-input-wrapper ${effectiveTheme}`} ref={containerRef}>
       {/* Screen Reader Announcements */}
-      <div
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        className="sr-only"
-      >
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {screenReaderAnnouncement}
       </div>
-      
+
       {/* Dropdown Content Area */}
       {activeDropdownButton && activeDropdownButton.dropdownContent && (
         <div
@@ -646,7 +660,7 @@ const ChatInput = ({
             />
           </div>
         )}
-        
+
         <textarea
           ref={textareaRef}
           className="chat-textarea"

@@ -1,0 +1,442 @@
+BGVY /* Base node styles */
+.custom-node {
+  padding: 4px;
+  border-radius: 3px;
+  border: 1px solid;
+  background: #ffffff;
+  color: var(--awsui-color-text-body-default, #000);
+  width: 90px;
+  min-height: 45px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  font-size: 8px;
+  box-sizing: border-box;
+}
+
+.custom-node.selected {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transform: scale(1.02);
+}
+
+.custom-node:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Node handles - visible */
+.node-handle {
+  width: 10px;
+  height: 10px;
+  background: #888;
+  border: 2px solid white;
+  border-radius: 50%;
+  opacity: 1;
+  z-index: 100;
+}
+
+/* Node header */
+.node-header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 2px;
+  font-size: 7px;
+}
+
+/* Node content */
+.node-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.node-status {
+  margin-top: 1px;
+  font-size: 6px;
+}
+
+/* Root Goal Node - Gate Style */
+.root-goal-node {
+  border-color: #d13212;
+  border-width: 3px;
+  background: #ffffff;
+  width: 180px;
+  box-shadow: 0 4px 12px rgba(209, 50, 18, 0.25);
+}
+
+.root-goal-node:hover {
+  box-shadow: 0 6px 18px rgba(209, 50, 18, 0.35);
+}
+
+.root-goal-node.selected {
+  box-shadow: 0 8px 24px rgba(209, 50, 18, 0.4);
+  border-width: 4px;
+}
+
+.root-goal-node .gate-node-header {
+  border-bottom-color: #d13212;
+  border-bottom-width: 2px;
+}
+
+.root-goal-icon {
+  background: #d13212 !important;
+  border-radius: 50%;
+}
+
+/* Gate Nodes (AND/OR) */
+.gate-node {
+  border-width: 2px;
+  border-style: solid;
+  border-color: #d5dbdb;
+  background: #ffffff;
+  padding: 0;
+  width: 220px;
+  min-height: auto;
+  border-radius: 8px;
+  overflow: visible;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.gate-node.focused {
+  border-color: #0972d3 !important;
+  border-width: 3px !important;
+  box-shadow:
+    0 0 0 4px rgba(9, 114, 211, 0.3),
+    0 4px 16px rgba(0, 0, 0, 0.2) !important;
+  transform: scale(1.05);
+}
+
+/* Dark mode focused state */
+.awsui-dark-mode .gate-node.focused {
+  border-color: #7fb3e8 !important;
+  box-shadow:
+    0 0 0 4px rgba(127, 179, 232, 0.5),
+    0 4px 20px rgba(127, 179, 232, 0.3) !important;
+}
+
+.gate-node-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.gate-icon {
+  width: 20px;
+  height: 20px;
+  background: #fce8f3;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #d13212;
+  flex-shrink: 0;
+}
+
+.gate-type {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--awsui-color-text-body-default, #000);
+  flex-shrink: 0;
+}
+
+.gate-badge-wrapper {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.gate-badge-wrapper span {
+  font-size: 8px !important;
+  padding: 2px 6px 1px 6px !important;
+  line-height: 1.3 !important;
+}
+
+.gate-label {
+  font-size: 11px;
+  color: var(--awsui-color-text-body-secondary, #5f6b7a);
+  margin-left: auto;
+}
+
+.gate-node-body {
+  padding: 8px 10px;
+  background: transparent;
+}
+
+.gate-description {
+  font-size: 14px;
+  color: var(--awsui-color-text-body-secondary, #5f6b7a);
+  line-height: 1.4;
+}
+
+/* AND Gate specific */
+.and-gate-node .gate-icon {
+  background: #e8f4f8;
+  color: #0972d3;
+}
+
+/* OR Gate specific */
+.or-gate-node .gate-icon {
+  background: #fce8f3;
+  color: #d13212;
+}
+
+.gate-indicator {
+  text-align: center;
+  padding: 2px;
+  margin-bottom: 2px;
+  border-radius: 2px;
+  font-weight: bold;
+  font-size: 7px;
+}
+
+/* Leaf Attack Node */
+.leaf-attack-node {
+  border-width: 2px;
+  border-style: solid;
+  border-color: #d5dbdb;
+  background: #ffffff;
+  padding: 0;
+  width: 280px;
+  min-height: auto;
+  border-radius: 8px;
+  overflow: visible;
+  position: relative;
+}
+
+.leaf-node-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.leaf-severity-icon {
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 500;
+  flex-shrink: 0;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.leaf-attack-phase {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--awsui-color-text-body-default, #000);
+  flex-shrink: 0;
+}
+
+.leaf-node-body {
+  padding: 8px 10px;
+  background: transparent;
+}
+
+.leaf-node-description {
+  font-size: 14px;
+  color: var(--awsui-color-text-body-secondary, #5f6b7a);
+  line-height: 1.4;
+}
+
+.leaf-node-footer {
+  display: flex;
+  gap: 10px;
+  font-size: 10px;
+  color: var(--awsui-color-text-body-secondary, #5f6b7a);
+  padding-top: 6px;
+  border-top: 1px solid #e9ecef;
+}
+
+.metric-item {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 500;
+}
+
+.leaf-attack-node:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.attack-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px;
+  background: #f9f9f9;
+  border-radius: 2px;
+  margin-top: 1px;
+  font-size: 6px;
+}
+
+.mitigation-status {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e9ebed;
+}
+
+/* Countermeasure Node */
+.countermeasure-node {
+  border-color: #037f0c;
+  background: #ffffff;
+}
+
+.countermeasure-node .node-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 2px solid #037f0c;
+  padding-bottom: 8px;
+}
+
+.effectiveness-bar {
+  margin-top: 8px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e9ebed;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #037f0c 0%, #1d8102 100%);
+  transition: width 0.3s ease;
+}
+
+.implementation-status {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e9ebed;
+}
+
+/* Dark mode support */
+.awsui-dark-mode {
+  .custom-node {
+    background: #18181b !important;
+    color: #e0e0e0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Exception: root node circle should stay red */
+  .custom-node.root-goal-node-circle {
+    background: #d13212 !important;
+    box-shadow: 0 2px 8px rgba(209, 50, 18, 0.5);
+  }
+
+  .custom-node.root-goal-node-circle:hover {
+    background: #e63c1c !important;
+    box-shadow: 0 4px 12px rgba(209, 50, 18, 0.7);
+  }
+
+  .custom-node:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+
+  .node-handle {
+    background: #888 !important;
+    border: 2px solid #444 !important;
+    opacity: 1 !important;
+  }
+
+  .gate-indicator {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Gate nodes dark mode */
+  .gate-node {
+    background: #18181b !important;
+    border-color: #444 !important;
+  }
+
+  .gate-node-header {
+    border-bottom-color: #444;
+  }
+
+  .gate-node-body {
+    background: transparent !important;
+  }
+
+  .gate-type {
+    color: #e0e0e0 !important;
+  }
+
+  .gate-description {
+    color: #999 !important;
+  }
+
+  .and-gate-node .gate-icon {
+    background: #1a3a4a !important;
+    color: #5fb3e0 !important;
+  }
+
+  .or-gate-node .gate-icon {
+    background: #4a1a2a !important;
+    color: #ff6b9d !important;
+  }
+
+  /* Leaf nodes dark mode */
+  .leaf-attack-node {
+    background: #18181b !important;
+    border-color: #444 !important;
+  }
+
+  .leaf-node-header {
+    border-bottom-color: #444;
+  }
+
+  .leaf-attack-phase {
+    color: #e0e0e0 !important;
+  }
+
+  .leaf-node-body {
+    background: transparent !important;
+  }
+
+  .leaf-node-description {
+    color: #999 !important;
+  }
+
+  .leaf-node-footer {
+    color: #999 !important;
+    border-top-color: #444;
+  }
+
+  /* Root goal node dark mode */
+  .root-goal-node {
+    background: #18181b !important;
+  }
+
+  .attack-metrics {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .mitigation-status,
+  .implementation-status {
+    border-top-color: #444;
+  }
+
+  .progress-bar {
+    background: #1a1a1a;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .custom-node {
+    min-width: 150px;
+    max-width: 250px;
+    padding: 10px;
+  }
+}

@@ -24,6 +24,7 @@ resource "aws_lambda_function" "backend" {
       ARCHITECTURE_BUCKET   = aws_s3_bucket.architecture_bucket.id,
       SHARING_TABLE         = aws_dynamodb_table.threat_designer_sharing.id,
       LOCKS_TABLE           = aws_dynamodb_table.threat_designer_locks.id,
+      ATTACK_TREE_TABLE     = aws_dynamodb_table.attack_tree_data.id,
       COGNITO_USER_POOL_ID  = aws_cognito_user_pool.user_pool.id
     }
   }
@@ -56,14 +57,15 @@ resource "aws_iam_role_policy" "lambda_threat_designer_api_policy" {
   name = "${local.prefix}-api-policy"
   role = aws_iam_role.threat_designer_api_role.id
   policy = templatefile("${path.module}/templates/backend_lambda_execution_role_policy.json", {
-    state_table_arn        = aws_dynamodb_table.threat_designer_state.arn,
-    status_table_arn       = aws_dynamodb_table.threat_designer_status.arn,
-    architecture_bucket    = aws_s3_bucket.architecture_bucket.arn,
-    threat_modeling_agent  = aws_bedrockagentcore_agent_runtime.threat_designer.agent_runtime_arn,
-    trail_table_arn        = aws_dynamodb_table.threat_designer_trail.arn,
-    sharing_table_arn      = aws_dynamodb_table.threat_designer_sharing.arn,
-    locks_table_arn        = aws_dynamodb_table.threat_designer_locks.arn,
-    cognito_user_pool_arn  = aws_cognito_user_pool.user_pool.arn
+    state_table_arn       = aws_dynamodb_table.threat_designer_state.arn,
+    status_table_arn      = aws_dynamodb_table.threat_designer_status.arn,
+    architecture_bucket   = aws_s3_bucket.architecture_bucket.arn,
+    threat_modeling_agent = aws_bedrockagentcore_agent_runtime.threat_designer.agent_runtime_arn,
+    trail_table_arn       = aws_dynamodb_table.threat_designer_trail.arn,
+    sharing_table_arn     = aws_dynamodb_table.threat_designer_sharing.arn,
+    locks_table_arn       = aws_dynamodb_table.threat_designer_locks.arn,
+    attack_tree_table_arn = aws_dynamodb_table.attack_tree_data.arn,
+    cognito_user_pool_arn = aws_cognito_user_pool.user_pool.arn
   })
 }
 

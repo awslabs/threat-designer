@@ -105,7 +105,7 @@
   overflow-x: hidden;
   max-height: 300px;
   overscroll-behavior: contain;
-  
+
   /* Hide scrollbar - all browsers */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
@@ -232,7 +232,7 @@
 /* Dark Theme Styles */
 .chat-input-wrapper.dark .threat-context-token {
   background: #252e36;
-  color: #e0e0e0;
+  color: #42b4ff;
   border: none;
 }
 
@@ -255,8 +255,6 @@
     0 1px 3px rgba(0, 0, 0, 0.3),
     0 2px 8px rgba(0, 0, 0, 0.2);
 }
-
-
 
 .chat-input-wrapper.dark .threat-option {
   border-bottom-color: rgba(255, 255, 255, 0.1);
@@ -330,8 +328,6 @@
     0 1px 3px rgba(0, 0, 0, 0.06),
     0 2px 8px rgba(0, 0, 0, 0.04);
 }
-
-
 
 .chat-input-wrapper.light .threat-option {
   border-bottom-color: rgba(0, 0, 0, 0.08);

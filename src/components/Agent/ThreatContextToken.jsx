@@ -4,7 +4,7 @@ import "./ThreatSelector.css";
 
 /**
  * ThreatContextToken Component
- * 
+ *
  * Displays a selected threat as a removable token above the chat input field.
  * Follows Cloudscape design patterns with theme-appropriate styling.
  */

@@ -6,6 +6,7 @@ resource "aws_bedrockagentcore_agent_runtime" "threat_designer" {
       AGENT_STATE_TABLE   = aws_dynamodb_table.threat_designer_state.id,
       JOB_STATUS_TABLE    = aws_dynamodb_table.threat_designer_status.id,
       AGENT_TRAIL_TABLE   = aws_dynamodb_table.threat_designer_trail.id,
+      ATTACK_TREE_TABLE   = aws_dynamodb_table.attack_tree_data.id,
       REGION              = var.region,
       LOG_LEVEL           = var.log_level,
       TRACEBACK_ENABLED   = var.traceback_enabled,
@@ -110,10 +111,11 @@ resource "aws_iam_role_policy" "policy_agent" {
   name = "${local.prefix}-agent-policy"
   role = aws_iam_role.threat_designer_role.id
   policy = templatefile("${path.module}/templates/threat_designer_role_policy.json", {
-    state_table_arn     = aws_dynamodb_table.threat_designer_state.arn,
-    trail_table_arn     = aws_dynamodb_table.threat_designer_trail.arn,
-    status_table_arn    = aws_dynamodb_table.threat_designer_status.arn,
-    architecture_bucket = aws_s3_bucket.architecture_bucket.arn
+    state_table_arn       = aws_dynamodb_table.threat_designer_state.arn,
+    trail_table_arn       = aws_dynamodb_table.threat_designer_trail.arn,
+    status_table_arn      = aws_dynamodb_table.threat_designer_status.arn,
+    attack_tree_table_arn = aws_dynamodb_table.attack_tree_data.arn,
+    architecture_bucket   = aws_s3_bucket.architecture_bucket.arn
   })
 }
 

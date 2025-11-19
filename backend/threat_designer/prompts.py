@@ -10,11 +10,20 @@ Each function generates specialized prompts for different phases of the threat m
 - Response structuring
 """
 
+import os
 from constants import (
     LikelihoodLevel,
     StrideCategory,
 )
 from langchain_core.messages import SystemMessage
+
+# Import model provider from config
+try:
+    from config import config
+
+    MODEL_PROVIDER = config.model_provider
+except ImportError:
+    MODEL_PROVIDER = os.environ.get("MODEL_PROVIDER", "bedrock")
 
 
 def _get_stride_categories_string() -> str:
@@ -326,7 +335,7 @@ Assess changes since last analysis:
 
 **COMPLIANCE:** [PASS or list violations with ❌ prefix]
 
-**COVERAGE:** 
+**COVERAGE:**
 [Component-by-component analysis]
 [Flag gaps: "GAP: [details] | Severity: X"]
 
@@ -880,7 +889,7 @@ Reference these rules throughout the process.
 For every threat, execute checks in order:
 
 1. **Assumption Check** (if provided) → Does it violate any assumption? → YES = STOP
-2. **Actor Check** → Is actor in threat_sources? → NO = STOP  
+2. **Actor Check** → Is actor in threat_sources? → NO = STOP
 3. **Control Check** → Can customer mitigate? → NO = STOP
 4. **Architecture Check** → Is attack path possible? → NO = STOP
 5. **STRIDE Check** → Does category fit? → NO = RECATEGORIZE or STOP
@@ -968,7 +977,16 @@ Your output will be **valued** if:
     if instructions:
         prompt += f"\n\nAdditional Instructions:\n{instructions}"
 
-    return SystemMessage(content=prompt)
+    # Build content with conditional cache points (Bedrock only)
+    # For OpenAI, caching is handled automatically
+    if MODEL_PROVIDER == "bedrock":
+        content = [
+            {"type": "text", "text": prompt},
+            {"cachePoint": {"type": "default"}},
+        ]
+        return SystemMessage(content=content)
+    else:
+        return SystemMessage(content=prompt)
 
 
 def structure_prompt(data) -> str:

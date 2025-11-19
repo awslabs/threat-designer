@@ -11,6 +11,7 @@ import { S3DownloaderComponent } from "./S3Downloader";
 import StatusIndicator from "@cloudscape-design/components/status-indicator";
 import { Spinner, ButtonDropdown } from "@cloudscape-design/components";
 import Badge from "@cloudscape-design/components/badge";
+import Alert from "@cloudscape-design/components/alert";
 import {
   getThreatModelingStatus,
   getThreatModelingAllResults,
@@ -94,6 +95,26 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
     }
   });
 
+  // Shared pagination state for both card and table views
+  const [pagination, setPagination] = useState({
+    hasNextPage: false,
+    cursor: null,
+    loading: false,
+    pageSize: (() => {
+      try {
+        const savedPageSize = localStorage.getItem("threatCatalogPageSize");
+        return savedPageSize && [10, 20, 50, 100].includes(parseInt(savedPageSize))
+          ? parseInt(savedPageSize)
+          : 20;
+      } catch (error) {
+        console.error("Error reading from localStorage:", error);
+        return 20;
+      }
+    })(),
+  });
+
+  const [error, setError] = useState(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -116,12 +137,14 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
     setResults(results.filter((item) => item.job_id !== idToRemove));
   };
 
+  // Load initial page of results
   useEffect(() => {
     setLoading(true);
+    setError(null);
     const fetchAllResults = async () => {
       try {
-        const results = await getThreatModelingAllResults();
-        const sortedCatalogs = results?.data?.catalogs.sort((a, b) => {
+        const response = await getThreatModelingAllResults(pagination.pageSize, null, filterMode);
+        const sortedCatalogs = response?.data?.catalogs.sort((a, b) => {
           if (!a.timestamp && !b.timestamp) return 0;
           if (!a.timestamp) return 1;
           if (!b.timestamp) return -1;
@@ -129,15 +152,21 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
           return new Date(b.timestamp) - new Date(a.timestamp);
         });
         setResults(sortedCatalogs);
+        setPagination((prev) => ({
+          ...prev,
+          hasNextPage: response?.data?.pagination?.hasNextPage || false,
+          cursor: response?.data?.pagination?.cursor || null,
+        }));
       } catch (error) {
         setResults([]);
+        setError("Failed to load threat models. Please try again.");
         console.error("Error getting threat modeling results:", error);
       } finally {
         setLoading(false);
       }
     };
     fetchAllResults();
-  }, [user]);
+  }, [user, pagination.pageSize, filterMode]);
 
   const handleDelete = async (id) => {
     setDeletingId(id);
@@ -150,6 +179,59 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
     } finally {
       setDeletingId(null);
     }
+  };
+
+  // Load more results (append to existing results)
+  const loadMore = async () => {
+    if (!pagination.hasNextPage || pagination.loading) return;
+
+    setPagination((prev) => ({ ...prev, loading: true }));
+    setError(null);
+
+    try {
+      const response = await getThreatModelingAllResults(
+        pagination.pageSize,
+        pagination.cursor,
+        filterMode
+      );
+      const newCatalogs = response?.data?.catalogs || [];
+      const sortedNewCatalogs = newCatalogs.sort((a, b) => {
+        if (!a.timestamp && !b.timestamp) return 0;
+        if (!a.timestamp) return 1;
+        if (!b.timestamp) return -1;
+
+        return new Date(b.timestamp) - new Date(a.timestamp);
+      });
+
+      setResults((prev) => [...prev, ...sortedNewCatalogs]);
+      setPagination((prev) => ({
+        ...prev,
+        hasNextPage: response?.data?.pagination?.hasNextPage || false,
+        cursor: response?.data?.pagination?.cursor || null,
+        loading: false,
+      }));
+    } catch (error) {
+      setError("Failed to load more results. Please try again.");
+      console.error("Error loading more results:", error);
+      setPagination((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  // Change page size and reset pagination
+  const changePageSize = (newSize) => {
+    try {
+      localStorage.setItem("threatCatalogPageSize", newSize.toString());
+    } catch (error) {
+      console.error("Error saving to localStorage:", error);
+    }
+
+    setPagination({
+      hasNextPage: false,
+      cursor: null,
+      loading: false,
+      pageSize: newSize,
+    });
+    setResults([]);
   };
 
   // Show all results without filtering
@@ -340,15 +422,44 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
             </div>
 
             {viewMode === "card" ? (
-              filteredResults.length > 0 ? (
-                renderCardView()
-              ) : (
-                <Box margin={{ vertical: "xs" }} textAlign="center" color="inherit">
-                  <SpaceBetween size="m">
-                    <b>No threat models match the selected filter</b>
-                  </SpaceBetween>
-                </Box>
-              )
+              <SpaceBetween size="m">
+                {error && (
+                  <Alert
+                    type="error"
+                    dismissible
+                    onDismiss={() => setError(null)}
+                    action={
+                      <Button onClick={loadMore} disabled={pagination.loading}>
+                        Retry
+                      </Button>
+                    }
+                  >
+                    {error}
+                  </Alert>
+                )}
+                {filteredResults.length > 0 ? (
+                  <>
+                    {renderCardView()}
+                    {pagination.hasNextPage && (
+                      <Box textAlign="center">
+                        <Button
+                          onClick={loadMore}
+                          loading={pagination.loading}
+                          disabled={pagination.loading}
+                        >
+                          Load More
+                        </Button>
+                      </Box>
+                    )}
+                  </>
+                ) : (
+                  <Box margin={{ vertical: "xs" }} textAlign="center" color="inherit">
+                    <SpaceBetween size="m">
+                      <b>No threat models match the selected filter</b>
+                    </SpaceBetween>
+                  </Box>
+                )}
+              </SpaceBetween>
             ) : (
               <ThreatCatalogTable
                 results={results}
@@ -356,6 +467,9 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
                 loading={loading}
                 filterMode={filterMode}
                 onFilterChange={setFilterMode}
+                pagination={pagination}
+                onLoadMore={loadMore}
+                error={error}
               />
             )}
           </SpaceBetween>

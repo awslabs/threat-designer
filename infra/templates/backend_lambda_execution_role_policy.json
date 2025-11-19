@@ -32,7 +32,8 @@
         "${status_table_arn}",
         "${trail_table_arn}",
         "${sharing_table_arn}",
-        "${locks_table_arn}"
+        "${locks_table_arn}",
+        "${attack_tree_table_arn}"
       ]
     },
     {
@@ -51,7 +52,8 @@
         "${status_table_arn}/*",
         "${trail_table_arn}/*",
         "${sharing_table_arn}/*",
-        "${locks_table_arn}/*"
+        "${locks_table_arn}/*",
+        "${attack_tree_table_arn}/*"
       ]
     },
     {

@@ -1,0 +1,846 @@
+/* ============================================
+   Attack Tree Visualization - Main Styles
+   ============================================ */
+
+/* Container and Layout */
+.attack-tree-container {
+  width: 100%;
+  height: calc(100vh - 150px);
+  position: relative;
+  background: transparent;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+/* React Flow Canvas Customization */
+.react-flow__node {
+  cursor: pointer;
+}
+
+.react-flow__node.selected {
+  z-index: 10;
+}
+
+.react-flow__edge:hover {
+  stroke-width: 3px !important;
+}
+
+.react-flow__edge-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Custom edge types */
+.react-flow__edge.edge-default {
+  stroke: #555;
+  stroke-width: 2;
+}
+
+.react-flow__edge.edge-attack {
+  stroke: #d13212;
+  stroke-width: 2.5;
+}
+
+.react-flow__edge.edge-mitigation {
+  stroke: #037f0c;
+  stroke-width: 2;
+  stroke-dasharray: 8, 4;
+  animation: dash 20s linear infinite;
+}
+
+.react-flow__edge.edge-countermeasure {
+  stroke: #037f0c;
+  stroke-width: 2;
+  stroke-dasharray: 5, 5;
+  animation: dash 15s linear infinite;
+}
+
+.react-flow__edge.edge-animated {
+  animation: dash 10s linear infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+/* Edge markers - ensure arrows are visible */
+.react-flow__edge-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.react-flow__arrowhead {
+  /* Allow custom colors from edge definitions */
+}
+
+.react-flow__edge-textwrapper {
+  pointer-events: all;
+}
+
+/* Hide arrow markers - multiple approaches to ensure they're gone */
+.react-flow__edges marker {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+.react-flow__edges marker path {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+.react-flow__arrowhead {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+marker {
+  display: none !important;
+}
+
+defs marker {
+  display: none !important;
+}
+
+/* Base Node Styles */
+.custom-node {
+  /* REMOVE padding from here */
+  border-radius: 10px;
+  border: 2px solid;
+  background: #FAFAF9;
+  min-width: 220px;
+  max-width: 320px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+  position: relative; /* CRITICAL: Add this */
+}
+
+.custom-node.selected {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  transform: scale(1.03);
+  z-index: 100;
+}
+
+.custom-node:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+/* Node handles */
+.node-handle {
+  width: 12px;
+  height: 12px;
+  background: #555;
+  border: 3px solid white;
+  border-radius: 50%;
+  /* transition: all 0.2s ease; */
+}
+
+.node-handle:hover {
+  width: 16px;
+  height: 16px;
+  background: #333;
+  border-width: 4px;
+}
+
+/* Node header */
+.node-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+}
+
+/* Node content */
+.node-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px; /* MOVED padding here */
+}
+
+.node-status {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 6px;
+  /* transition: background 0.2s ease; */
+}
+
+.node-status:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* ============================================
+   Root Goal Node Styles
+   ============================================ */
+.root-goal-node {
+  border-color: #d13212;
+  border-width: 3px;
+  background: #FAFAF9;
+  box-shadow: 0 4px 12px rgba(209, 50, 18, 0.15);
+}
+
+.root-goal-node:hover {
+  box-shadow: 0 6px 18px rgba(209, 50, 18, 0.25);
+}
+
+.root-goal-node.selected {
+  box-shadow: 0 8px 24px rgba(209, 50, 18, 0.3);
+  border-width: 4px;
+}
+
+.root-goal-node .node-header {
+  border-bottom: 2px solid #d13212;
+  padding-bottom: 10px;
+}
+
+/* ============================================
+   AND Gate Node Styles
+   ============================================ */
+.and-gate-node {
+  border-color: #7d3c98;
+  border-width: 2.5px;
+  background: #FAFAF9;
+  box-shadow: 0 3px 10px rgba(125, 60, 152, 0.12);
+}
+
+.and-gate-node:hover {
+  box-shadow: 0 5px 16px rgba(125, 60, 152, 0.2);
+}
+
+.and-gate-node.selected {
+  box-shadow: 0 7px 22px rgba(125, 60, 152, 0.25);
+}
+
+.gate-indicator {
+  text-align: center;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  /* transition: all 0.2s ease; */
+}
+
+.and-gate-node .gate-indicator {
+  background: linear-gradient(135deg, #7d3c98 0%, #9b59b6 100%);
+  color: white;
+  box-shadow: 0 2px 6px rgba(125, 60, 152, 0.3);
+}
+
+.and-gate-node:hover .gate-indicator {
+  box-shadow: 0 3px 8px rgba(125, 60, 152, 0.4);
+  transform: scale(1.02);
+}
+
+/* ============================================
+   OR Gate Node Styles
+   ============================================ */
+.or-gate-node {
+  border-color: #0972d3;
+  border-width: 2.5px;
+  background: #FAFAF9;
+  box-shadow: 0 3px 10px rgba(9, 114, 211, 0.12);
+}
+
+.or-gate-node:hover {
+  box-shadow: 0 5px 16px rgba(9, 114, 211, 0.2);
+}
+
+.or-gate-node.selected {
+  box-shadow: 0 7px 22px rgba(9, 114, 211, 0.25);
+}
+
+.or-gate-node .gate-indicator {
+  background: linear-gradient(135deg, #0972d3 0%, #3498db 100%);
+  color: white;
+  box-shadow: 0 2px 6px rgba(9, 114, 211, 0.3);
+}
+
+.or-gate-node:hover .gate-indicator {
+  box-shadow: 0 3px 8px rgba(9, 114, 211, 0.4);
+  transform: scale(1.02);
+}
+
+/* ============================================
+   Leaf Attack Node Styles
+   ============================================ */
+.leaf-attack-node {
+  border-width: 2.5px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Severity-based coloring */
+.leaf-attack-node.severity-low,
+.leaf-attack-node.severity-green {
+  border-color: #037f0c;
+  background: #FAFAF9;
+  box-shadow: 0 3px 10px rgba(3, 127, 12, 0.1);
+}
+
+.leaf-attack-node.severity-low:hover,
+.leaf-attack-node.severity-green:hover {
+  box-shadow: 0 5px 16px rgba(3, 127, 12, 0.18);
+}
+
+.leaf-attack-node.severity-medium,
+.leaf-attack-node.severity-yellow {
+  border-color: #f89256;
+  background: #FAFAF9;
+  box-shadow: 0 3px 10px rgba(248, 146, 86, 0.12);
+}
+
+.leaf-attack-node.severity-medium:hover,
+.leaf-attack-node.severity-yellow:hover {
+  box-shadow: 0 5px 16px rgba(248, 146, 86, 0.2);
+}
+
+.leaf-attack-node.severity-high,
+.leaf-attack-node.severity-orange {
+  border-color: #ff9900;
+  background: #FAFAF9;
+  box-shadow: 0 3px 10px rgba(255, 153, 0, 0.15);
+}
+
+.leaf-attack-node.severity-high:hover,
+.leaf-attack-node.severity-orange:hover {
+  box-shadow: 0 5px 16px rgba(255, 153, 0, 0.25);
+}
+
+.leaf-attack-node.severity-critical,
+.leaf-attack-node.severity-red {
+  border-color: #d13212;
+  background: #FAFAF9;
+  box-shadow: 0 3px 10px rgba(209, 50, 18, 0.15);
+}
+
+.leaf-attack-node.severity-critical:hover,
+.leaf-attack-node.severity-red:hover {
+  box-shadow: 0 5px 16px rgba(209, 50, 18, 0.25);
+}
+
+.leaf-attack-node.selected {
+  box-shadow: 0 7px 22px rgba(0, 0, 0, 0.2);
+}
+
+/* Attack metrics display */
+.attack-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 6px;
+  margin-top: 6px;
+  /* transition: background 0.2s ease; */
+}
+
+.attack-metrics:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.metric-label {
+  font-size: 12px;
+  color: #5f6b7a;
+  font-weight: 500;
+}
+
+.metric-value {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+/* Mitigation status */
+.mitigation-status {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e9ebed;
+}
+
+.mitigation-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  /* transition: all 0.2s ease; */
+}
+
+.mitigation-indicator.none {
+  background: #fff0f0;
+  color: #d13212;
+  border: 1px solid #ffcccc;
+}
+
+.mitigation-indicator.partial {
+  background: #fffbf0;
+  color: #f89256;
+  border: 1px solid #ffe6cc;
+}
+
+.mitigation-indicator.complete {
+  background: #f2f8f4;
+  color: #037f0c;
+  border: 1px solid #ccf0d1;
+}
+
+.mitigation-indicator:hover {
+  transform: scale(1.05);
+}
+
+/* ============================================
+   Countermeasure Node Styles
+   ============================================ */
+.countermeasure-node {
+  border-color: #037f0c;
+  border-width: 2.5px;
+  background: #FAFAF9;
+  box-shadow: 0 3px 10px rgba(3, 127, 12, 0.12);
+}
+
+.countermeasure-node:hover {
+  box-shadow: 0 5px 16px rgba(3, 127, 12, 0.2);
+}
+
+.countermeasure-node.selected {
+  box-shadow: 0 7px 22px rgba(3, 127, 12, 0.25);
+}
+
+.countermeasure-node .node-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 2px solid #037f0c;
+  padding-bottom: 10px;
+}
+
+/* Effectiveness bar */
+.effectiveness-bar {
+  margin-top: 10px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 10px;
+  background: #e9ebed;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 6px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #037f0c 0%, #1d8102 50%, #2ea043 100%);
+  /* transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); */
+  box-shadow: 0 0 8px rgba(3, 127, 12, 0.4);
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.implementation-status {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e9ebed;
+}
+
+/* ============================================
+   Layout Transitions
+   ============================================ */
+.react-flow__node {
+  /* transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.3s ease; */
+}
+
+.react-flow__edge {
+  /* transition: opacity 0.3s ease; */
+}
+
+/* Layout change animation */
+.attack-tree-container.layout-changing .react-flow__node {
+  opacity: 0.7;
+}
+
+.attack-tree-container.layout-changing .react-flow__edge {
+  opacity: 0.5;
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+@media (max-width: 1024px) {
+  .custom-node {
+    min-width: 180px;
+    max-width: 280px;
+    padding: 12px;
+  }
+  
+  .gate-indicator {
+    padding: 8px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .attack-tree-container {
+    height: 500px;
+  }
+  
+  .custom-node {
+    min-width: 160px;
+    max-width: 240px;
+    padding: 10px;
+  }
+  
+  .node-header {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  
+  .node-content {
+    gap: 8px;
+  }
+  
+  .gate-indicator {
+    padding: 6px;
+    font-size: 12px;
+  }
+  
+  .attack-metrics {
+    padding: 8px;
+    gap: 4px;
+  }
+  
+.node-handle {
+  width: 10px;
+  height: 10px;
+  background: #555;
+  border: 2px solid white;
+  border-radius: 50%;
+}
+
+.root-goal-node,
+.and-gate-node,
+.or-gate-node,
+.leaf-attack-node,
+.countermeasure-node {
+  position: relative; /* CRITICAL */
+}
+  
+.node-handle:hover {
+  width: 12px;
+  height: 12px;
+  background: #333;
+  border-width: 3px;
+}
+
+@media (max-width: 480px) {
+  .attack-tree-container {
+    height: 400px;
+  }
+  
+  .custom-node {
+    min-width: 140px;
+    max-width: 200px;
+    padding: 8px;
+    font-size: 12px;
+  }
+  
+  .gate-indicator {
+    padding: 4px;
+    font-size: 11px;
+  }
+}
+
+/* ============================================
+   Accessibility Enhancements
+   ============================================ */
+.custom-node:focus {
+  outline: 3px solid #0972d3;
+  outline-offset: 2px;
+}
+
+.custom-node:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .custom-node {
+    border-width: 3px;
+  }
+  
+  .react-flow__edge {
+    stroke-width: 3px !important;
+  }
+  
+  .node-handle {
+    border-width: 4px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .custom-node,
+  .react-flow__node,
+  .react-flow__edge,
+  .gate-indicator,
+  .progress-fill,
+  .mitigation-indicator {
+    transition: none;
+    animation: none;
+  }
+  
+  .progress-fill::after {
+    animation: none;
+  }
+}
+
+/* Dark mode support */
+.awsui-dark-mode {
+  /* ReactFlow canvas dark mode - keep transparent for dots */
+  .react-flow {
+    background: transparent !important;
+  }
+  
+  .react-flow__pane {
+    background: transparent !important;
+  }
+  
+  /* Dark mode dot pattern */
+  .react-flow__background {
+    background: transparent !important;
+  }
+  
+  .react-flow__background circle {
+    fill: #555 !important;
+  }
+  
+  .react-flow__controls {
+    background: #3a3a3a !important;
+    border-color: #555 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  }
+  
+  .react-flow__controls button {
+    background: #3a3a3a !important;
+    border-color: #555 !important;
+    color: #e0e0e0 !important;
+  }
+  
+  .react-flow__controls button:hover {
+    background: #4a4a4a !important;
+    border-color: #666 !important;
+  }
+  
+  .react-flow__controls button svg {
+    fill: #e0e0e0 !important;
+  }
+  
+  .react-flow__minimap {
+    background: #2a2a2a !important;
+  }
+  
+  .react-flow__edge-path {
+    /* Allow custom edge colors from edge definitions */
+  }
+  
+  .react-flow__handle {
+    background: #888 !important;
+  }
+  
+  /* Attack tree container - transparent to show parent background */
+  .attack-tree-container {
+    background: transparent !important;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .custom-node {
+    background: #18181B;
+    color: #e0e0e0;
+    border-color: #555;
+  }
+  
+  .node-status {
+    background: rgba(255, 255, 255, 0.05);
+    color: #e0e0e0;
+  }
+  
+  .attack-metrics {
+    background: rgba(255, 255, 255, 0.03);
+  }
+  
+  .metric-label {
+    color: #b0b0b0;
+  }
+  
+  .metric-value {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e0e0e0;
+  }
+  
+  /* Root node dark mode */
+  .root-goal-node {
+    background: #18181B;
+    border-color: #d13212;
+  }
+  
+  /* AND gate dark mode */
+  .and-gate-node {
+    background: #18181B;
+    border-color: #7d3c98;
+  }
+  
+  /* OR gate dark mode */
+  .or-gate-node {
+    background: #18181B;
+    border-color: #0972d3;
+  }
+  
+  /* Leaf attack nodes dark mode */
+  .leaf-attack-node.severity-low,
+  .leaf-attack-node.severity-green {
+    background: #18181B;
+    border-color: #037f0c;
+  }
+  
+  .leaf-attack-node.severity-medium,
+  .leaf-attack-node.severity-yellow {
+    background: #18181B;
+    border-color: #f89256;
+  }
+  
+  .leaf-attack-node.severity-high,
+  .leaf-attack-node.severity-orange {
+    background: #18181B;
+    border-color: #ff9900;
+  }
+  
+  .leaf-attack-node.severity-critical,
+  .leaf-attack-node.severity-red {
+    background: #18181B;
+    border-color: #d13212;
+  }
+  
+  /* Countermeasure dark mode */
+  .countermeasure-node {
+    background: #18181B;
+    border-color: #037f0c;
+  }
+  
+  /* Progress bar dark mode */
+  .progress-bar {
+    background: #1a1a1a;
+  }
+  
+  /* Mitigation indicators dark mode */
+  .mitigation-indicator.none {
+    background: rgba(209, 50, 18, 0.2);
+    color: #ff6b6b;
+    border-color: #d13212;
+  }
+  
+  .mitigation-indicator.partial {
+    background: rgba(248, 146, 86, 0.2);
+    color: #ffb366;
+    border-color: #f89256;
+  }
+  
+  .mitigation-indicator.complete {
+    background: rgba(3, 127, 12, 0.2);
+    color: #66ff66;
+    border-color: #037f0c;
+  }
+  
+  /* React Flow elements dark mode */
+  .react-flow__edge-path {
+    stroke: #888;
+  }
+  
+  .react-flow__background {
+    background: #1a1a1a;
+  }
+  
+  .react-flow__controls {
+    background: #2a2a2a;
+    border-color: #444;
+  }
+  
+  .react-flow__controls button {
+    background: #2a2a2a;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+  
+  .react-flow__controls button:hover {
+    background: #3a3a3a;
+  }
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+@media print {
+  .attack-tree-container {
+    height: auto;
+    page-break-inside: avoid;
+  }
+  
+  .custom-node {
+    box-shadow: none;
+    border-width: 2px;
+  }
+  
+  .react-flow__edge {
+    stroke-width: 1.5px !important;
+  }
+  
+  /* Hide interactive controls when printing */
+  .react-flow__controls,
+  .react-flow__minimap {
+    display: none;
+  }
+}

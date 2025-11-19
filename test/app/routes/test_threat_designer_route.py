@@ -152,6 +152,7 @@ class TestGetEndpoints:
         """Test _fetch_all returns owned and shared threat models."""
         mock_router.current_event.path = "/threat-designer/all"
         mock_router.current_event.request_context.authorizer = {"user_id": "user-123"}
+        mock_router.current_event.query_string_parameters = {}
         mock_fetch_all.return_value = {"owned": [{"job_id": "job-1"}], "shared": []}
 
         from routes.threat_designer_route import _fetch_all
@@ -159,7 +160,94 @@ class TestGetEndpoints:
         result = _fetch_all()
 
         assert "owned" in result
-        mock_fetch_all.assert_called_once_with("user-123")
+        mock_fetch_all.assert_called_once_with(
+            "user-123", limit=20, cursor=None, filter_mode="all"
+        )
+
+    @patch("routes.threat_designer_route.fetch_all")
+    @patch("routes.threat_designer_route.router")
+    def test_fetch_all_with_pagination_parameters(self, mock_router, mock_fetch_all):
+        """Test _fetch_all accepts pagination parameters."""
+        mock_router.current_event.path = "/threat-designer/all"
+        mock_router.current_event.request_context.authorizer = {"user_id": "user-123"}
+        mock_router.current_event.query_string_parameters = {
+            "limit": "50",
+            "cursor": "test-cursor",
+            "filter": "owned",
+        }
+        mock_fetch_all.return_value = {
+            "catalogs": [{"job_id": "job-1"}],
+            "pagination": {"hasNextPage": False, "cursor": None},
+        }
+
+        from routes.threat_designer_route import _fetch_all
+
+        result = _fetch_all()
+
+        assert "catalogs" in result
+        mock_fetch_all.assert_called_once_with(
+            "user-123", limit=50, cursor="test-cursor", filter_mode="owned"
+        )
+
+    @patch("routes.threat_designer_route.router")
+    def test_fetch_all_returns_400_for_invalid_page_size(self, mock_router):
+        """Test _fetch_all returns 400 for invalid page size."""
+        mock_router.current_event.path = "/threat-designer/all"
+        mock_router.current_event.request_context.authorizer = {"user_id": "user-123"}
+        mock_router.current_event.query_string_parameters = {"limit": "15"}
+
+        from routes.threat_designer_route import _fetch_all
+
+        result = _fetch_all()
+
+        assert result.status_code == 400
+        assert "Page size must be 10, 20, 50, or 100" in result.body
+
+    @patch("routes.threat_designer_route.router")
+    def test_fetch_all_returns_400_for_non_integer_page_size(self, mock_router):
+        """Test _fetch_all returns 400 for non-integer page size."""
+        mock_router.current_event.path = "/threat-designer/all"
+        mock_router.current_event.request_context.authorizer = {"user_id": "user-123"}
+        mock_router.current_event.query_string_parameters = {"limit": "abc"}
+
+        from routes.threat_designer_route import _fetch_all
+
+        result = _fetch_all()
+
+        assert result.status_code == 400
+        assert "Page size must be a valid integer" in result.body
+
+    @patch("routes.threat_designer_route.router")
+    def test_fetch_all_returns_400_for_invalid_filter(self, mock_router):
+        """Test _fetch_all returns 400 for invalid filter mode."""
+        mock_router.current_event.path = "/threat-designer/all"
+        mock_router.current_event.request_context.authorizer = {"user_id": "user-123"}
+        mock_router.current_event.query_string_parameters = {"filter": "invalid"}
+
+        from routes.threat_designer_route import _fetch_all
+
+        result = _fetch_all()
+
+        assert result.status_code == 400
+        assert "Filter must be 'owned', 'shared', or 'all'" in result.body
+
+    @patch("routes.threat_designer_route.fetch_all")
+    @patch("routes.threat_designer_route.router")
+    def test_fetch_all_returns_400_for_invalid_cursor(
+        self, mock_router, mock_fetch_all
+    ):
+        """Test _fetch_all returns 400 for invalid cursor."""
+        mock_router.current_event.path = "/threat-designer/all"
+        mock_router.current_event.request_context.authorizer = {"user_id": "user-123"}
+        mock_router.current_event.query_string_parameters = {"cursor": "invalid-cursor"}
+        mock_fetch_all.return_value = {"error": "Invalid pagination cursor"}
+
+        from routes.threat_designer_route import _fetch_all
+
+        result = _fetch_all()
+
+        assert result.status_code == 400
+        assert "Invalid pagination cursor" in result.body
 
     @patch("routes.threat_designer_route.get_lock_status")
     def test_get_lock_status_returns_lock_status(self, mock_get_lock_status):

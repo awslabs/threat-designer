@@ -438,7 +438,13 @@ export const useChatSessionFunctions = (props) => {
       }
 
       try {
-        const response = await sendMessageAPI(sessionId, userMessage, interrupt, interruptResponse, context);
+        const response = await sendMessageAPI(
+          sessionId,
+          userMessage,
+          interrupt,
+          interruptResponse,
+          context
+        );
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();

@@ -104,7 +104,6 @@ const SharingModal = ({ visible, setVisible, threatModelId, isOwner }) => {
       }
 
       const data = await response.json();
-      console.log("Collaborators response:", data);
       setCollaborators(data.collaborators || []);
     } catch (err) {
       console.error("Error fetching collaborators:", err);

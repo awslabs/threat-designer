@@ -85,6 +85,11 @@ variable "model_main" {
       max_tokens       = number
       reasoning_budget = map(number)
     })
+    attack_tree = object({
+      id               = string
+      max_tokens       = number
+      reasoning_budget = map(number)
+    })
   })
   default = {
     assets = {
@@ -129,6 +134,15 @@ variable "model_main" {
       reasoning_budget = {
         "1" = 24000
         "2" = 48000
+        "3" = 63999
+      }
+    }
+    attack_tree = {
+      id         = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+      max_tokens = 64000
+      reasoning_budget = {
+        "1" = 24000
+        "2" = 63999
         "3" = 63999
       }
     }
@@ -233,6 +247,11 @@ variable "openai_model_main" {
       max_tokens       = number
       reasoning_effort = map(string)
     })
+    attack_tree = object({
+      id               = string
+      max_tokens       = number
+      reasoning_effort = map(string)
+    })
   })
   description = "OpenAI model configurations for main workflow stages"
   default = {
@@ -279,6 +298,16 @@ variable "openai_model_main" {
     gaps = {
       id         = "gpt-5.1-2025-11-13"
       max_tokens = 64000
+      reasoning_effort = {
+        "0" = "none"
+        "1" = "low"
+        "2" = "medium"
+        "3" = "high"
+      }
+    }
+    attack_tree = {
+      id         = "gpt-5.1-2025-11-13"
+      max_tokens = 128000
       reasoning_effort = {
         "0" = "none"
         "1" = "low"

@@ -124,6 +124,7 @@ class JobState(Enum):
     FLOW = "FLOW"
     THREAT = "THREAT"
     THREAT_RETRY = "THREAT_RETRY"
+    ATTACK_TREE = "ATTACK_TREE"
     FINALIZE = "FINALIZE"
     COMPLETE = "COMPLETE"
     FAILED = "FAILED"
@@ -321,3 +322,7 @@ WORKFLOW_ROUTE_FULL = "full"
 
 # Sleep time in seconds for workflow finalization
 FINALIZATION_SLEEP_SECONDS = 3
+
+
+# Maximum execution time for attack tree generation (5 minutes)
+MAX_EXECUTION_TIME_SECONDS = 900

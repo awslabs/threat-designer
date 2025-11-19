@@ -1,0 +1,26 @@
+.nebula-loader-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.nebula-loader-bar-container {
+  width: 700px;
+}
+
+.nebula-loader-message {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #000716);
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .nebula-loader-message {
+    color: var(--text-primary-dark, #ffffff);
+  }
+}

@@ -13,6 +13,7 @@ import ExpandableSection from "@cloudscape-design/components/expandable-section"
 import Box from "@cloudscape-design/components/box";
 import { ModalComponent } from "./ModalForm.jsx";
 import ToggleButton from "@cloudscape-design/components/toggle-button";
+import AttackTreeButton from "./AttackTreeButton.jsx";
 
 export const ThreatComponent = React.memo((props) => {
   const [items, setItems] = React.useState([]);
@@ -32,23 +33,31 @@ export const ThreatComponent = React.memo((props) => {
         header={
           <Header
             actions={
-              <ButtonDropdown
-                onItemClick={(itemClickDetails) => {
-                  setAction(itemClickDetails.detail.id);
-                  if (itemClickDetails.detail.id === "edit") {
-                    handleModal();
-                  }
-                  if (itemClickDetails.detail.id === "delete") {
-                    props?.updateData(props?.type, props?.index, null);
-                  }
-                }}
-                items={[
-                  { id: "edit", text: "Edit", disabled: false },
-                  { id: "delete", text: "Delete", disabled: false },
-                ]}
-                ariaLabel={`Edit ${props?.data?.name} Threat`}
-                variant="icon"
-              />
+              <SpaceBetween direction="horizontal" size="xs">
+                <AttackTreeButton
+                  threatId={props?.data?.id || `threat-${props?.index}`}
+                  threatName={props?.data?.name}
+                  onOpenAttackTree={props?.onOpenAttackTree}
+                  disabled={!props?.onOpenAttackTree}
+                />
+                <ButtonDropdown
+                  onItemClick={(itemClickDetails) => {
+                    setAction(itemClickDetails.detail.id);
+                    if (itemClickDetails.detail.id === "edit") {
+                      handleModal();
+                    }
+                    if (itemClickDetails.detail.id === "delete") {
+                      props?.updateData(props?.type, props?.index, null);
+                    }
+                  }}
+                  items={[
+                    { id: "edit", text: "Edit", disabled: false },
+                    { id: "delete", text: "Delete", disabled: false },
+                  ]}
+                  ariaLabel={`Edit ${props?.data?.name} Threat`}
+                  variant="icon"
+                />
+              </SpaceBetween>
             }
           >
             <SpaceBetween direction="horizontal" size="m">

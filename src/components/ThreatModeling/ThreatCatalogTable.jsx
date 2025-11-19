@@ -34,7 +34,15 @@ const TableStatusComponent = ({ id }) => {
   return <StatusIndicatorComponent status={status} />;
 };
 
-export const ThreatCatalogTable = ({ results, onItemsChange, filterMode, onFilterChange }) => {
+export const ThreatCatalogTable = ({
+  results,
+  onItemsChange,
+  filterMode,
+  onFilterChange,
+  pagination,
+  onLoadMore,
+  error,
+}) => {
   const [selectedItems, setSelectedItems] = useState([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(1);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -232,6 +240,20 @@ export const ThreatCatalogTable = ({ results, onItemsChange, filterMode, onFilte
 
   return (
     <SpaceBetween size="s">
+      {error && (
+        <Alert
+          type="error"
+          dismissible
+          onDismiss={() => {}}
+          action={
+            <Button onClick={onLoadMore} disabled={pagination?.loading}>
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      )}
       <Table
         columnDefinitions={columnDefinitions}
         items={paginatedItems}
@@ -293,6 +315,13 @@ export const ThreatCatalogTable = ({ results, onItemsChange, filterMode, onFilte
           />
         }
       />
+      {pagination?.hasNextPage && (
+        <Box textAlign="center">
+          <Button onClick={onLoadMore} loading={pagination?.loading} disabled={pagination?.loading}>
+            Load More
+          </Button>
+        </Box>
+      )}
 
       <Modal
         onDismiss={() => setShowDeleteModal(false)}

@@ -16,7 +16,9 @@ class SessionManager:
         self,
     ):
         self.session_cache: Dict[str, str] = {}
-        self.cache_timestamps: Dict[str, float] = {}  # Track when each session was cached
+        self.cache_timestamps: Dict[
+            str, float
+        ] = {}  # Track when each session was cached
         self.cache_ttl = 300  # 5 minutes in seconds
         self.table_name = TABLE_NAME
         self.dynamodb = boto3.resource("dynamodb", region_name=REGION)
@@ -29,6 +31,7 @@ class SessionManager:
         """Load existing session mappings from DynamoDB into local cache"""
         try:
             import time
+
             current_time = time.time()
             response = self.table.scan()
             for item in response["Items"]:
@@ -50,6 +53,7 @@ class SessionManager:
         """Retrieve session ID from DynamoDB for the given header"""
         try:
             import time
+
             response = self.table.get_item(Key={"session_header": session_header})
 
             if "Item" in response:
@@ -92,9 +96,10 @@ class SessionManager:
     def _is_cache_expired(self, session_header: str) -> bool:
         """Check if the cached session has expired (older than 5 minutes)"""
         import time
+
         if session_header not in self.cache_timestamps:
             return True
-        
+
         age = time.time() - self.cache_timestamps[session_header]
         return age > self.cache_ttl
 
@@ -105,7 +110,7 @@ class SessionManager:
         Saves to both cache and DynamoDB.
         """
         import time
-        
+
         # Check local cache first, but verify it hasn't expired
         if session_header in self.session_cache:
             if self._is_cache_expired(session_header):
@@ -163,10 +168,10 @@ class SessionManager:
             logger.info(f"Deleted session mapping for header: {session_header}")
 
         except ClientError as e:
-            error_code = e.response.get('Error', {}).get('Code', '')
-            
+            error_code = e.response.get("Error", {}).get("Code", "")
+
             # If item doesn't exist, it's already deleted - this is fine
-            if error_code == 'ResourceNotFoundException':
+            if error_code == "ResourceNotFoundException":
                 logger.info(
                     f"Session mapping for {session_header} not found in DynamoDB (already deleted)"
                 )

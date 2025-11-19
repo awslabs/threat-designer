@@ -1,0 +1,62 @@
+.attack-tree-legend {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  max-width: 280px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.legend-item {
+  padding: 4px 0;
+}
+
+.legend-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.legend-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-color-box {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.severity-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  padding-left: 4px;
+}
+
+.severity-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.severity-item .legend-color-box {
+  width: 16px;
+  height: 16px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .attack-tree-legend {
+    max-width: 240px;
+    top: 12px;
+    left: 12px;
+  }
+}

@@ -392,8 +392,45 @@ paths:
 
         Returns a paginated list of threat models (both owned and shared) sorted by creation date (newest first).
         Use the cursor from the response to fetch subsequent pages.
+      description: |
+        Fetch threat models for a given user with pagination support.
+
+        Returns a paginated list of threat models (both owned and shared) sorted by creation date (newest first).
+        Use the cursor from the response to fetch subsequent pages.
       tags:
         - Security
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [10, 20, 50, 100]
+            default: 20
+          description: Number of items per page (must be 10, 20, 50, or 100)
+          example: 20
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Base64-encoded pagination cursor from previous response.
+            Omit this parameter to fetch the first page.
+          example: "eyJvd25lZCI6ImJhc2U2NCIsInNoYXJlZCI6ImJhc2U2NCIsImZpbHRlciI6ImFsbCJ9"
+        - name: filter
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [owned, shared, all]
+            default: all
+          description: |
+            Filter results by ownership:
+            - owned: Only threat models owned by the user
+            - shared: Only threat models shared with the user
+            - all: Both owned and shared threat models
+          example: all
       parameters:
         - name: limit
           in: query
@@ -433,6 +470,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CatalogResponse"
+              examples:
+                first_page:
+                  summary: First page of results
+                  value:
+                    catalogs:
+                      - job_id: "550e8400-e29b-41d4-a716-446655440000"
+                        title: "E-commerce Platform Threat Model"
+                        state: "COMPLETE"
+                        created_at: "2024-01-15T10:30:00Z"
+                        owner: "user-123"
+                        is_owner: true
+                        access_level: "OWNER"
+                      - job_id: "550e8400-e29b-41d4-a716-446655440001"
+                        title: "API Gateway Security Analysis"
+                        state: "COMPLETE"
+                        created_at: "2024-01-14T15:20:00Z"
+                        owner: "user-456"
+                        is_owner: false
+                        access_level: "EDIT"
+                        shared_by: "user-456"
+                    pagination:
+                      hasNextPage: true
+                      cursor: "eyJvd25lZCI6ImJhc2U2NCIsInNoYXJlZCI6ImJhc2U2NCIsImZpbHRlciI6ImFsbCJ9"
+                      totalReturned: 20
+                last_page:
+                  summary: Last page of results
+                  value:
+                    catalogs:
+                      - job_id: "550e8400-e29b-41d4-a716-446655440099"
+                        title: "Mobile App Security Review"
+                        state: "COMPLETE"
+                        created_at: "2024-01-01T09:00:00Z"
+                        owner: "user-123"
+                        is_owner: true
+                        access_level: "OWNER"
+                    pagination:
+                      hasNextPage: false
+                      cursor: null
+                      totalReturned: 5
               examples:
                 first_page:
                   summary: First page of results
@@ -525,7 +601,12 @@ paths:
       summary: Fetch all threat models for a given user (MCP)
       description: |
         Fetch threat models for a given user with pagination support using MCP API key authentication.
+        Fetch threat models for a given user with pagination support using MCP API key authentication.
         This endpoint provides the same functionality as the JWT version.
+
+        Returns a paginated list of threat models (both owned and shared) sorted by creation date (newest first).
+        Use the cursor from the response to fetch subsequent pages.
+
 
         Returns a paginated list of threat models (both owned and shared) sorted by creation date (newest first).
         Use the cursor from the response to fetch subsequent pages.
@@ -535,6 +616,38 @@ paths:
         - Security
       security:
         - ApiKeyAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [10, 20, 50, 100]
+            default: 20
+          description: Number of items per page (must be 10, 20, 50, or 100)
+          example: 20
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Base64-encoded pagination cursor from previous response.
+            Omit this parameter to fetch the first page.
+          example: "eyJvd25lZCI6ImJhc2U2NCIsInNoYXJlZCI6ImJhc2U2NCIsImZpbHRlciI6ImFsbCJ9"
+        - name: filter
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [owned, shared, all]
+            default: all
+          description: |
+            Filter results by ownership:
+            - owned: Only threat models owned by the user
+            - shared: Only threat models shared with the user
+            - all: Both owned and shared threat models
+          example: all
       parameters:
         - name: limit
           in: query
@@ -2222,6 +2335,61 @@ paths:
         connectionType: "INTERNET"
         contentHandling: CONVERT_TO_TEXT
         passthroughBehavior: NEVER
+    put:
+      summary: Update attack tree
+      description: |
+        Update an existing attack tree with new data.
+
+        This endpoint validates the attack tree structure, checks for circular
+        dependencies, and persists the validated data to the database.
+
+        The attack_tree_id should be computed as a composite key: {threat_model_id}_{normalized_threat_name}
+      tags:
+        - Attack Trees
+      parameters:
+        - name: attack_tree_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: |
+            Attack tree identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAttackTreeRequest"
+      responses:
+        "200":
+          description: Attack tree updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateAttackTreeResponse"
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/400"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
     delete:
       summary: Delete attack tree
       description: |
@@ -2722,6 +2890,34 @@ components:
             May be less than the requested limit on the last page.
           example: 20
 
+    PaginationMetadata:
+      type: object
+      required:
+        - hasNextPage
+        - totalReturned
+      properties:
+        hasNextPage:
+          type: boolean
+          description: |
+            Indicates whether more results are available.
+            True if there are additional pages to fetch, false if this is the last page.
+          example: true
+        cursor:
+          type: string
+          nullable: true
+          description: |
+            Base64-encoded cursor for fetching the next page of results.
+            Pass this value as the 'cursor' query parameter in the next request.
+            Null when hasNextPage is false (no more results available).
+          example: "eyJvd25lZCI6ImJhc2U2NCIsInNoYXJlZCI6ImJhc2U2NCIsImZpbHRlciI6ImFsbCJ9"
+        totalReturned:
+          type: integer
+          minimum: 0
+          description: |
+            Number of items returned in the current page.
+            May be less than the requested limit on the last page.
+          example: 20
+
     # Request Body Schemas
     CreateThreatModelRequest:
       type: object
@@ -2915,12 +3111,16 @@ components:
       required:
         - catalogs
         - pagination
+        - pagination
       properties:
         catalogs:
           type: array
           items:
             $ref: "#/components/schemas/CatalogItem"
           description: List of threat models accessible to the user
+        pagination:
+          $ref: "#/components/schemas/PaginationMetadata"
+          description: Pagination information for navigating through results
         pagination:
           $ref: "#/components/schemas/PaginationMetadata"
           description: Pagination information for navigating through results
@@ -3228,6 +3428,57 @@ components:
         attack_tree:
           $ref: "#/components/schemas/AttackTreeData"
           description: Attack tree data in React Flow format
+
+    UpdateAttackTreeRequest:
+      type: object
+      required:
+        - attack_tree
+      properties:
+        attack_tree:
+          $ref: "#/components/schemas/AttackTreeData"
+          description: Updated attack tree data in React Flow format
+      example:
+        attack_tree:
+          nodes:
+            - id: "node-1"
+              type: "root"
+              position:
+                x: 100
+                y: 100
+              data:
+                label: "Compromise System"
+            - id: "node-2"
+              type: "and-gate"
+              position:
+                x: 200
+                y: 200
+              data:
+                label: "Gain Access and Extract Data"
+                gateType: "AND"
+          edges:
+            - id: "edge-1"
+              source: "node-1"
+              target: "node-2"
+              type: "smoothstep"
+
+    UpdateAttackTreeResponse:
+      type: object
+      required:
+        - attack_tree_id
+        - updated_at
+        - message
+      properties:
+        attack_tree_id:
+          type: string
+          description: The attack tree identifier
+        updated_at:
+          type: string
+          format: date-time
+          description: When the attack tree was updated
+        message:
+          type: string
+          description: Success message
+          example: "Attack tree updated successfully"
   responses:
     "400":
       content:

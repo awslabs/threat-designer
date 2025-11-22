@@ -29,7 +29,11 @@ const cache = new Map();
  */
 const getCacheKey = (threatModelId, threatName) => {
   try {
+<<<<<<< HEAD
     // Use the same composite key generation as the backend (Requirement 5.1, 5.2, 5.3)
+=======
+    // Use the same composite key generation as the backend
+>>>>>>> d26f5ff (pushing v0.6.1)
     return generateAttackTreeId(threatModelId, threatName);
   } catch (error) {
     console.error("Error generating cache key:", error);

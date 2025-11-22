@@ -8,7 +8,7 @@ import "./ThreatSelector.css";
  * Displays a selected threat as a removable token above the chat input field.
  * Follows Cloudscape design patterns with theme-appropriate styling.
  */
-const ThreatContextToken = ({ threat, onDismiss, theme }) => {
+const ThreatContextToken = ({ threat, onDismiss }) => {
   if (!threat) return null;
 
   return (
@@ -49,7 +49,6 @@ ThreatContextToken.propTypes = {
     stride_category: PropTypes.string,
   }).isRequired,
   onDismiss: PropTypes.func.isRequired,
-  theme: PropTypes.oneOf(["light", "dark"]).isRequired,
 };
 
 export default ThreatContextToken;

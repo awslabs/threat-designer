@@ -2,8 +2,6 @@ import styled from "styled-components";
 import React from "react";
 import {
   colorBackgroundContainerContent,
-  colorBackgroundButtonPrimaryActive,
-  colorBackgroundButtonPrimaryHover,
   colorBackgroundLayoutToggleHover,
   colorBackgroundDropdownItemHover,
   colorTextButtonNormalDisabled,

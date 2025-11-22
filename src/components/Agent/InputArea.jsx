@@ -1,4 +1,4 @@
-import React, { useEffect, useContext, useCallback, useRef, useState } from "react";
+import React, { useEffect, useContext, useCallback, useRef } from "react";
 import { Bulb } from "./CustomStyles";
 import PromptInput from "@cloudscape-design/components/prompt-input";
 import { SpaceBetween } from "@cloudscape-design/components";
@@ -21,7 +21,6 @@ const InputArea = ({
   const { sendMessage, subscribe } = useContext(WebSocketContext);
   const fileIdMapRef = useRef(new Map());
   const presignedCallbacksRef = useRef(new Map());
-  const [disabled, setDisabled] = useState(true);
 
   const fileToBase64 = (file) => {
     return new Promise((resolve, reject) => {
@@ -203,18 +202,6 @@ const InputArea = ({
     extractS3KeyFromUrl,
     uploadFile,
   ]);
-
-  useEffect(() => {
-    if (sessionEstablished) {
-      if (streaming) {
-        setDisabled(true);
-      } else {
-        setDisabled(false);
-      }
-    } else {
-      setDisabled(true);
-    }
-  }, [sessionEstablished, streaming]);
 
   return (
     <PromptInput

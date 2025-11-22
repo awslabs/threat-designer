@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { AppLayout, SplitPanel } from "@cloudscape-design/components";
 import Main from "../../Main";
 import "@cloudscape-design/global-styles/index.css";
+import "./AppLayoutMFE.css";
 import "./AppLayoutMFE.css";
 import { useSplitPanel } from "../../SplitPanelContext";
 import { useLocation } from "react-router-dom";
@@ -32,9 +34,9 @@ function AppLayoutMFE({ user }) {
   const functions = useContext(ChatSessionFunctionsContext);
   const sentryEnabled = isSentryEnabled();
 
-  // State management for drawer width (Requirements 1.4, 1.5, 2.1)
-  const defaultWidth = 500;
-  const minWidth = 300;
+  // State management for drawer width
+  const defaultWidth = 600;
+  const minWidth = 400;
   const maxWidthPercent = 0.9; // 90% of window width
   const [drawerWidth, setDrawerWidth] = useState(defaultWidth);
 
@@ -45,14 +47,14 @@ function AppLayoutMFE({ user }) {
       splitPanelContext.context.includes("Attack Tree")) ||
     splitPanelContext?.isAttackTree === true;
 
-  // Calculate width based on content type (Requirement 2.1)
+  // Calculate width based on content type
   // Attack Tree: 70% of window width (fixed)
   // Other content: user-set width or default 500px, clamped to min/max constraints
   const maxWidth = Math.floor(window.innerWidth * maxWidthPercent);
   const clampedDrawerWidth = Math.max(minWidth, Math.min(drawerWidth, maxWidth));
   const splitPanelWidth = isAttackTree ? Math.floor(window.innerWidth * 0.7) : clampedDrawerWidth;
 
-  // Handle resize events for non-Attack Tree content (Requirements 1.1, 1.2)
+  // Handle resize events for non-Attack Tree content
   // Memoize to prevent unnecessary re-renders
   const handleSplitPanelResize = useCallback(
     (event) => {
@@ -84,11 +86,40 @@ function AppLayoutMFE({ user }) {
   // Memoize the split panel content to prevent unnecessary re-renders
   // This is critical for preventing AttackTreeViewer from unmounting on theme changes
   const RenderSplitPanelContent = useCallback(() => {
+  // Memoize the split panel content to prevent unnecessary re-renders
+  // This is critical for preventing AttackTreeViewer from unmounting on theme changes
+  const RenderSplitPanelContent = useCallback(() => {
     if (splitPanelContext?.content) {
       return splitPanelContext.content;
     } else {
       return <></>;
     }
+  }, [splitPanelContext?.content]);
+
+  // Memoize i18nStrings to prevent SplitPanel re-renders on theme changes
+  const splitPanelI18nStrings = useMemo(
+    () => ({
+      preferencesTitle: "Split panel preferences",
+      preferencesPositionLabel: "Split panel position",
+      preferencesPositionDescription: "Choose the default split panel position for the service.",
+      preferencesPositionSide: "Side",
+      preferencesPositionBottom: "Bottom",
+      preferencesConfirm: "Confirm",
+      preferencesCancel: "Cancel",
+      closeButtonAriaLabel: "Close drawer panel",
+      openButtonAriaLabel: "Open drawer panel",
+      resizeHandleAriaLabel: isAttackTree
+        ? "Resize disabled for Attack Tree view"
+        : "Resize drawer panel. Minimum width 300 pixels, maximum width 90 percent of window",
+    }),
+    [isAttackTree]
+  );
+
+  // Memoize conditional resize props to prevent SplitPanel re-renders
+  const splitPanelResizeProps = useMemo(
+    () => (!isAttackTree ? { onSplitPanelResize: handleSplitPanelResize } : {}),
+    [isAttackTree, handleSplitPanelResize]
+  );
   }, [splitPanelContext?.content]);
 
   // Memoize i18nStrings to prevent SplitPanel re-renders on theme changes
@@ -170,6 +201,7 @@ function AppLayoutMFE({ user }) {
           splitPanelOpen={splitPanelOpen}
           splitPanelPreferences={{ position: "side" }}
           splitPanelSize={splitPanelWidth}
+          splitPanelSize={splitPanelWidth}
           onSplitPanelToggle={(event) => setSplitPanelOpen(event.detail.open)}
           drawers={!splitPanelOpen && functions.visible && sentryEnabled ? items : []}
           splitPanel={
@@ -177,6 +209,8 @@ function AppLayoutMFE({ user }) {
               hidePreferencesButton={true}
               closeBehavior={"hide"}
               header={splitPanelContext?.context || "Details"}
+              i18nStrings={splitPanelI18nStrings}
+              {...splitPanelResizeProps}
               i18nStrings={splitPanelI18nStrings}
               {...splitPanelResizeProps}
             >

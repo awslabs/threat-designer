@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import ScrollToBottomButton from "./ScrollToBottomButton";
 import { useScrollToBottom } from "./useScrollToBottom";
 import ChatContent from "./ChatContent";
@@ -186,12 +186,9 @@ function ChatInterface({ user, inTools }) {
   );
 
   // Handle stop streaming
-  const handleStopStreaming = useCallback(
-    ({ sessionId: msgSessionId, timestamp }) => {
-      functions.stopStreaming(sessionId);
-    },
-    [functions, sessionId]
-  );
+  const handleStopStreaming = useCallback(() => {
+    functions.stopStreaming(sessionId);
+  }, [functions, sessionId]);
 
   // Handle dismiss error
   const handleDismissError = useCallback(() => {
@@ -256,7 +253,6 @@ function ChatInterface({ user, inTools }) {
         dropdownContent: () => (
           <ToolsConfigWrapper items={toolItems} onItemsChange={handleToolItemsChange} />
         ),
-        onClick: (message, sessionId) => {},
       },
     ],
     [
@@ -272,7 +268,7 @@ function ChatInterface({ user, inTools }) {
 
   // Handle toggle button callbacks
   const handleToggleButton = useCallback(
-    (buttonId, isToggled, sessionId) => {
+    (buttonId, isToggled) => {
       if (buttonId === "thinking") {
         handleThinkingToggle(isToggled);
       }
@@ -280,7 +276,7 @@ function ChatInterface({ user, inTools }) {
     [handleThinkingToggle]
   );
 
-  const handleDropdownClick = useCallback((buttonId, sessionId) => {
+  const handleDropdownClick = useCallback(() => {
     // Handle dropdown opening logic here
   }, []);
 

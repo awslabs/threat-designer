@@ -14,8 +14,11 @@ import { useReactFlow } from "reactflow";
  * - Layout direction toggle (vertical/horizontal)
  * - Zoom controls (in/out)
  * - Fit view button
+<<<<<<< HEAD
  *
  * Requirements: 6.1, 6.2, 6.4, 6.5
+=======
+>>>>>>> d26f5ff (pushing v0.6.1)
  */
 const AttackTreeControls = ({ layoutDirection, onLayoutChange }) => {
   const { zoomIn, zoomOut, fitView } = useReactFlow();

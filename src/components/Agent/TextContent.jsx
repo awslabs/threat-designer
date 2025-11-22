@@ -4,7 +4,7 @@ import remarkGfm from "remark-gfm";
 import { CodeRenderer, CustomTable } from "./MarkdownRenderers";
 import rehypeSanitize from "rehype-sanitize";
 
-const TextContent = ({ content, fontSize }) => (
+const TextContent = ({ content }) => (
   <div style={{ marginBottom: "16px" }}>
     <Markdown
       children={content}

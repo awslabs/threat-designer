@@ -2,14 +2,13 @@ import React, { useEffect, useState } from "react";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import { SubmissionComponent } from "./SubmissionForm";
 import { Modal } from "@cloudscape-design/components";
-import { useAlert } from "./hooks/useAlert";
 import { uploadFile } from "./docs";
 import { useNavigate } from "react-router-dom";
 import { startThreatModeling, generateUrl } from "../../services/ThreatDesigner/stats";
 import GenAiButton from "../../components/ThreatModeling/GenAiButton";
 import "./ThreatModeling.css";
 
-export default function ThreatModeling({ user }) {
+export default function ThreatModeling() {
   const [iteration, setIteration] = useState({ label: "Auto", value: 0 });
   const [reasoning, setReasoning] = useState("0");
   const [base64Content, setBase64Content] = useState([]);

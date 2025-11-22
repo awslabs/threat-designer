@@ -1,0 +1,111 @@
+/* AttackTreeViewer Styles */
+
+/* Slide down animation for alerts */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Connection line preview styling */
+.react-flow__connection-path {
+  stroke: #0972d3;
+  stroke-width: 2;
+  stroke-dasharray: 5, 5;
+  animation: dash 0.5s linear infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
+/* Invalid connection preview */
+.react-flow__connection-path.invalid {
+  stroke: #d13212;
+  stroke-width: 3;
+}
+
+/* Hide React Flow's selection box - comprehensive approach */
+.react-flow__nodesselection,
+.react-flow__nodesselection-rect,
+.react-flow__selection,
+.react-flow__selectionpane {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Remove selection box from selected nodes */
+.react-flow__node.selected {
+  /* Remove the selection box - visual feedback handled by focused state instead */
+}
+
+/* Ensure no outline or box-shadow on selected nodes */
+.react-flow__node.selected::before,
+.react-flow__node.selected::after {
+  display: none !important;
+}
+
+/* Dark mode connection line */
+.awsui-dark-mode .react-flow__connection-path {
+  stroke: #7fb3e8;
+}
+
+.awsui-dark-mode .react-flow__connection-path.invalid {
+  stroke: #ff6b9d;
+}
+
+/* Loading overlay styling */
+.attack-tree-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  animation: fadeIn 0.3s ease-in;
+}
+
+.awsui-dark-mode .attack-tree-loading-overlay {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Focus ring for accessibility */
+.react-flow__node:focus-visible {
+  outline: 2px solid #0972d3;
+  outline-offset: 2px;
+}
+
+.awsui-dark-mode .react-flow__node:focus-visible {
+  outline-color: #7fb3e8;
+}
+
+/* Edge hover effect */
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 3;
+  stroke: #0972d3;
+}
+
+.awsui-dark-mode .react-flow__edge:hover .react-flow__edge-path {
+  stroke: #7fb3e8;
+}

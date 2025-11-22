@@ -15,8 +15,8 @@ export const Threats = ({ color = "#ffffff" }) => (
     fill="#ffffff"
     stroke={color}
   >
-    <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-    <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+    <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
     <g id="SVGRepo_iconCarrier">
       <defs>
         <style>{`.cls-1{
@@ -68,16 +68,16 @@ export const Assets = ({ color = "#ffffff" }) => (
     xmlns="http://www.w3.org/2000/svg"
     stroke={color}
   >
-    <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-    <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+    <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
     <g id="SVGRepo_iconCarrier">
       {" "}
       <path
         d="M8 13H14M8 17H16M13 3H5V21H19V9M13 3H14L19 8V9M13 3V7C13 8 14 9 15 9H19"
         stroke={color}
-        stroke-width="0.8399999999999999"
-        stroke-linecap="round"
-        stroke-linejoin="round"
+        strokeWidth="0.8399999999999999"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       ></path>{" "}
     </g>
   </svg>
@@ -92,16 +92,16 @@ export const Flows = ({ color = "#ffffff" }) => (
     xmlns="http://www.w3.org/2000/svg"
     stroke={color}
   >
-    <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-    <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+    <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
     <g id="SVGRepo_iconCarrier">
       {" "}
       <path
         d="M4 15.9999L17 15.9999M17 15.9999L14 12.9999M17 15.9999L13.9999 19M5 7.99994L21 7.99994M21 7.99994L18.0001 5M21 7.99994L18.0001 10.9999"
         stroke={color}
-        stroke-width="0.8160000000000001"
-        stroke-linecap="round"
-        stroke-linejoin="round"
+        strokeWidth="0.8160000000000001"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       ></path>{" "}
     </g>
   </svg>
@@ -116,8 +116,8 @@ export const Complete = ({ color = "#ffffff" }) => (
     fill="#ffffff"
     stroke={color}
   >
-    <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-    <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+    <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
     <g id="SVGRepo_iconCarrier">
       {" "}
       <title></title>{" "}
@@ -129,9 +129,9 @@ export const Complete = ({ color = "#ffffff" }) => (
             fill="none"
             points="3.7 14.3 9.6 19 20.3 5"
             stroke={color}
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="0.8399999999999999"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="0.8399999999999999"
           ></polyline>{" "}
         </g>{" "}
       </g>{" "}

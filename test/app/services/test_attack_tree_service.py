@@ -1825,3 +1825,440 @@ class TestGenerateAttackTreeId:
         result1 = generate_attack_tree_id("test-id", "SQL Injection")
         result2 = generate_attack_tree_id("test-id", "SQL Injection")
         assert result1 == result2
+
+
+# ============================================================================
+# Tests for detect_circular_dependency function
+# ============================================================================
+
+
+class TestDetectCircularDependency:
+    """Tests for detect_circular_dependency function."""
+
+    def test_no_cycle_in_simple_tree(self):
+        """Test that a simple tree with no cycles is valid."""
+        from services.attack_tree_service import detect_circular_dependency
+
+        nodes = [
+            {"id": "1", "type": "root"},
+            {"id": "2", "type": "and-gate"},
+            {"id": "3", "type": "leaf-attack"},
+        ]
+        edges = [
+            {"id": "e1", "source": "1", "target": "2"},
+            {"id": "e2", "source": "2", "target": "3"},
+        ]
+
+        has_cycle, message = detect_circular_dependency(nodes, edges)
+        assert has_cycle is False
+        assert message is None
+
+    def test_detects_simple_cycle(self):
+        """Test that a simple cycle is detected."""
+        from services.attack_tree_service import detect_circular_dependency
+
+        nodes = [
+            {"id": "1", "type": "root"},
+            {"id": "2", "type": "and-gate"},
+        ]
+        edges = [
+            {"id": "e1", "source": "1", "target": "2"},
+            {"id": "e2", "source": "2", "target": "1"},
+        ]
+
+        has_cycle, message = detect_circular_dependency(nodes, edges)
+        assert has_cycle is True
+        assert "Circular dependency detected" in message
+        assert "1" in message and "2" in message
+
+    def test_detects_three_node_cycle(self):
+        """Test that a three-node cycle is detected."""
+        from services.attack_tree_service import detect_circular_dependency
+
+        nodes = [
+            {"id": "1", "type": "root"},
+            {"id": "2", "type": "and-gate"},
+            {"id": "3", "type": "or-gate"},
+        ]
+        edges = [
+            {"id": "e1", "source": "1", "target": "2"},
+            {"id": "e2", "source": "2", "target": "3"},
+            {"id": "e3", "source": "3", "target": "1"},
+        ]
+
+        has_cycle, message = detect_circular_dependency(nodes, edges)
+        assert has_cycle is True
+        assert "Circular dependency detected" in message
+
+    def test_no_cycle_in_dag(self):
+        """Test that a directed acyclic graph (DAG) is valid."""
+        from services.attack_tree_service import detect_circular_dependency
+
+        nodes = [
+            {"id": "1", "type": "root"},
+            {"id": "2", "type": "and-gate"},
+            {"id": "3", "type": "or-gate"},
+            {"id": "4", "type": "leaf-attack"},
+            {"id": "5", "type": "leaf-attack"},
+        ]
+        edges = [
+            {"id": "e1", "source": "1", "target": "2"},
+            {"id": "e2", "source": "1", "target": "3"},
+            {"id": "e3", "source": "2", "target": "4"},
+            {"id": "e4", "source": "3", "target": "5"},
+        ]
+
+        has_cycle, message = detect_circular_dependency(nodes, edges)
+        assert has_cycle is False
+        assert message is None
+
+    def test_empty_graph(self):
+        """Test that an empty graph has no cycles."""
+        from services.attack_tree_service import detect_circular_dependency
+
+        nodes = []
+        edges = []
+
+        has_cycle, message = detect_circular_dependency(nodes, edges)
+        assert has_cycle is False
+        assert message is None
+
+    def test_single_node_no_edges(self):
+        """Test that a single node with no edges has no cycles."""
+        from services.attack_tree_service import detect_circular_dependency
+
+        nodes = [{"id": "1", "type": "root"}]
+        edges = []
+
+        has_cycle, message = detect_circular_dependency(nodes, edges)
+        assert has_cycle is False
+        assert message is None
+
+
+# ============================================================================
+# Tests for update_attack_tree function
+# ============================================================================
+
+
+class TestUpdateAttackTree:
+    """Tests for update_attack_tree function."""
+
+    @patch.dict(
+        "os.environ",
+        {
+            "JOB_STATUS_TABLE": "test-status-table",
+            "AGENT_STATE_TABLE": "test-agent-table",
+            "ATTACK_TREE_TABLE": "test-attack-tree-table",
+            "SHARING_TABLE": "test-sharing-table",
+        },
+    )
+    @patch("services.collaboration_service.dynamodb")
+    @patch.object(attack_tree_service, "dynamodb")
+    def test_update_attack_tree_success(
+        self,
+        mock_attack_tree_dynamodb,
+        mock_collab_dynamodb,
+        sample_attack_tree_data,
+    ):
+        """Test update_attack_tree successfully updates valid attack tree."""
+        from services.attack_tree_service import update_attack_tree
+
+        # Setup
+        mock_state_table = Mock()
+        mock_state_table.get_item.return_value = {
+            "Item": {
+                "id": "attack-tree-123",
+                "state": "completed",
+                "threat_model_id": "test-tm-123",
+            }
+        }
+
+        mock_attack_tree_table = Mock()
+        mock_agent_table = Mock()
+        mock_agent_table.get_item.return_value = {
+            "Item": {
+                "job_id": "test-tm-123",
+                "owner": "user-123",
+            }
+        }
+
+        def table_selector(table_name):
+            if "status" in table_name.lower():
+                return mock_state_table
+            elif "attack" in table_name.lower():
+                return mock_attack_tree_table
+            return mock_agent_table
+
+        mock_attack_tree_dynamodb.Table.side_effect = table_selector
+        mock_collab_dynamodb.Table.side_effect = table_selector
+
+        # Execute
+        result = update_attack_tree(
+            "attack-tree-123", sample_attack_tree_data, "user-123"
+        )
+
+        # Assert
+        assert result["attack_tree_id"] == "attack-tree-123"
+        assert "updated_at" in result
+        assert result["message"] == "Attack tree updated successfully"
+
+        # Verify update was called
+        mock_attack_tree_table.update_item.assert_called_once()
+        call_args = mock_attack_tree_table.update_item.call_args
+        assert call_args[1]["Key"]["attack_tree_id"] == "attack-tree-123"
+
+    @patch.dict(
+        "os.environ",
+        {
+            "JOB_STATUS_TABLE": "test-status-table",
+            "ATTACK_TREE_TABLE": "test-attack-tree-table",
+        },
+    )
+    @patch.object(attack_tree_service, "dynamodb")
+    def test_update_attack_tree_not_found(self, mock_dynamodb):
+        """Test update_attack_tree raises NotFoundError for non-existent tree."""
+        from services.attack_tree_service import update_attack_tree
+        from exceptions.exceptions import NotFoundError
+
+        # Setup
+        mock_state_table = Mock()
+        mock_state_table.get_item.return_value = {}
+        mock_dynamodb.Table.return_value = mock_state_table
+
+        attack_tree_data = {
+            "nodes": [{"id": "1", "type": "root", "data": {"label": "Test"}}],
+            "edges": [],
+        }
+
+        # Execute and Assert
+        with pytest.raises(NotFoundError):
+            update_attack_tree("nonexistent-tree", attack_tree_data, "user-123")
+
+    @patch.dict(
+        "os.environ",
+        {
+            "JOB_STATUS_TABLE": "test-status-table",
+            "AGENT_STATE_TABLE": "test-agent-table",
+            "SHARING_TABLE": "test-sharing-table",
+        },
+    )
+    @patch("services.collaboration_service.dynamodb")
+    @patch.object(attack_tree_service, "dynamodb")
+    def test_update_attack_tree_unauthorized(
+        self, mock_attack_tree_dynamodb, mock_collab_dynamodb
+    ):
+        """Test update_attack_tree raises UnauthorizedError without EDIT access."""
+        from services.attack_tree_service import update_attack_tree
+        from exceptions.exceptions import UnauthorizedError
+
+        # Setup
+        mock_state_table = Mock()
+        mock_state_table.get_item.return_value = {
+            "Item": {
+                "id": "attack-tree-123",
+                "threat_model_id": "test-tm-123",
+            }
+        }
+
+        mock_agent_table = Mock()
+        mock_agent_table.get_item.return_value = {
+            "Item": {
+                "job_id": "test-tm-123",
+                "owner": "different-user",
+            }
+        }
+
+        def table_selector(table_name):
+            if "status" in table_name.lower():
+                return mock_state_table
+            return mock_agent_table
+
+        mock_attack_tree_dynamodb.Table.side_effect = table_selector
+        mock_collab_dynamodb.Table.side_effect = table_selector
+
+        attack_tree_data = {
+            "nodes": [{"id": "1", "type": "root", "data": {"label": "Test"}}],
+            "edges": [],
+        }
+
+        # Execute and Assert
+        with pytest.raises(UnauthorizedError):
+            update_attack_tree("attack-tree-123", attack_tree_data, "user-123")
+
+    @patch.dict(
+        "os.environ",
+        {
+            "JOB_STATUS_TABLE": "test-status-table",
+            "AGENT_STATE_TABLE": "test-agent-table",
+            "SHARING_TABLE": "test-sharing-table",
+        },
+    )
+    @patch("services.collaboration_service.dynamodb")
+    @patch.object(attack_tree_service, "dynamodb")
+    def test_update_attack_tree_invalid_structure(
+        self, mock_attack_tree_dynamodb, mock_collab_dynamodb
+    ):
+        """Test update_attack_tree raises BadRequestError for invalid structure."""
+        from services.attack_tree_service import update_attack_tree
+        from exceptions.exceptions import BadRequestError
+
+        # Setup
+        mock_state_table = Mock()
+        mock_state_table.get_item.return_value = {
+            "Item": {
+                "id": "attack-tree-123",
+                "threat_model_id": "test-tm-123",
+            }
+        }
+
+        mock_agent_table = Mock()
+        mock_agent_table.get_item.return_value = {
+            "Item": {
+                "job_id": "test-tm-123",
+                "owner": "user-123",
+            }
+        }
+
+        def table_selector(table_name):
+            if "status" in table_name.lower():
+                return mock_state_table
+            return mock_agent_table
+
+        mock_attack_tree_dynamodb.Table.side_effect = table_selector
+        mock_collab_dynamodb.Table.side_effect = table_selector
+
+        # Invalid data - missing required fields
+        invalid_data = {
+            "nodes": [{"id": "1"}],  # Missing type and data
+            "edges": [],
+        }
+
+        # Execute and Assert
+        with pytest.raises(BadRequestError) as exc_info:
+            update_attack_tree("attack-tree-123", invalid_data, "user-123")
+
+        assert "validation failed" in str(exc_info.value).lower()
+
+    @patch.dict(
+        "os.environ",
+        {
+            "JOB_STATUS_TABLE": "test-status-table",
+            "AGENT_STATE_TABLE": "test-agent-table",
+            "SHARING_TABLE": "test-sharing-table",
+        },
+    )
+    @patch("services.collaboration_service.dynamodb")
+    @patch.object(attack_tree_service, "dynamodb")
+    def test_update_attack_tree_circular_dependency(
+        self, mock_attack_tree_dynamodb, mock_collab_dynamodb
+    ):
+        """Test update_attack_tree raises BadRequestError for circular dependency."""
+        from services.attack_tree_service import update_attack_tree
+        from exceptions.exceptions import BadRequestError
+
+        # Setup
+        mock_state_table = Mock()
+        mock_state_table.get_item.return_value = {
+            "Item": {
+                "id": "attack-tree-123",
+                "threat_model_id": "test-tm-123",
+            }
+        }
+
+        mock_agent_table = Mock()
+        mock_agent_table.get_item.return_value = {
+            "Item": {
+                "job_id": "test-tm-123",
+                "owner": "user-123",
+            }
+        }
+
+        def table_selector(table_name):
+            if "status" in table_name.lower():
+                return mock_state_table
+            return mock_agent_table
+
+        mock_attack_tree_dynamodb.Table.side_effect = table_selector
+        mock_collab_dynamodb.Table.side_effect = table_selector
+
+        # Data with circular dependency
+        circular_data = {
+            "nodes": [
+                {"id": "1", "type": "root", "data": {"label": "Root"}},
+                {
+                    "id": "2",
+                    "type": "and-gate",
+                    "data": {"label": "Gate", "gateType": "AND"},
+                },
+            ],
+            "edges": [
+                {"id": "e1", "source": "1", "target": "2"},
+                {"id": "e2", "source": "2", "target": "1"},  # Creates cycle
+            ],
+        }
+
+        # Execute and Assert
+        with pytest.raises(BadRequestError) as exc_info:
+            update_attack_tree("attack-tree-123", circular_data, "user-123")
+
+        assert "circular dependency" in str(exc_info.value).lower()
+
+    @patch.dict(
+        "os.environ",
+        {
+            "JOB_STATUS_TABLE": "test-status-table",
+            "AGENT_STATE_TABLE": "test-agent-table",
+            "ATTACK_TREE_TABLE": "test-attack-tree-table",
+            "SHARING_TABLE": "test-sharing-table",
+        },
+    )
+    @patch("services.collaboration_service.dynamodb")
+    @patch.object(attack_tree_service, "dynamodb")
+    def test_update_attack_tree_preserves_data_on_failure(
+        self, mock_attack_tree_dynamodb, mock_collab_dynamodb, sample_attack_tree_data
+    ):
+        """Test update_attack_tree doesn't modify data when update fails."""
+        from services.attack_tree_service import update_attack_tree
+        from exceptions.exceptions import InternalError
+        from botocore.exceptions import ClientError
+
+        # Setup
+        mock_state_table = Mock()
+        mock_state_table.get_item.return_value = {
+            "Item": {
+                "id": "attack-tree-123",
+                "threat_model_id": "test-tm-123",
+            }
+        }
+
+        mock_attack_tree_table = Mock()
+        # Simulate DynamoDB error
+        mock_attack_tree_table.update_item.side_effect = ClientError(
+            {"Error": {"Code": "InternalServerError", "Message": "Database error"}},
+            "UpdateItem",
+        )
+
+        mock_agent_table = Mock()
+        mock_agent_table.get_item.return_value = {
+            "Item": {
+                "job_id": "test-tm-123",
+                "owner": "user-123",
+            }
+        }
+
+        def table_selector(table_name):
+            if "status" in table_name.lower():
+                return mock_state_table
+            elif "attack" in table_name.lower():
+                return mock_attack_tree_table
+            return mock_agent_table
+
+        mock_attack_tree_dynamodb.Table.side_effect = table_selector
+        mock_collab_dynamodb.Table.side_effect = table_selector
+
+        # Execute and Assert
+        with pytest.raises(InternalError):
+            update_attack_tree("attack-tree-123", sample_attack_tree_data, "user-123")
+
+        # Verify update was attempted but failed
+        mock_attack_tree_table.update_item.assert_called_once()

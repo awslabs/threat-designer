@@ -1,0 +1,172 @@
+/* EditorControls Styles */
+
+/* Button container styling - vertical layout */
+.editor-controls-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+}
+
+/* Add spacing after the Add Node button */
+.editor-controls-container > div:first-child {
+  margin-bottom: 20px;
+}
+
+/* Standard icon buttons */
+.editor-controls-container > button,
+.editor-controls-container > div button {
+  width: 36px;
+  height: 36px;
+}
+
+/* Custom circular add button - Light mode: black bg, white icon */
+.custom-add-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #000000;
+  border: 0px solid #333333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 200ms ease-in-out;
+  padding: 0;
+  margin-left: -4px;
+}
+
+.custom-add-icon {
+  font-size: 24px;
+  font-weight: 300;
+  line-height: 1;
+  color: #ffffff;
+}
+
+.custom-add-button:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  background-color: #1a1a1a;
+}
+
+.custom-add-button:active:not(:disabled) {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.custom-add-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.custom-add-button:focus-visible {
+  outline: 2px solid #0972d3;
+  outline-offset: 2px;
+}
+
+/* Dark mode: white bg, black icon */
+.awsui-dark-mode .custom-add-button {
+  background: #ffffff;
+  border-color: #e0e0e0;
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.15);
+}
+
+.awsui-dark-mode .custom-add-icon {
+  color: #000000;
+}
+
+.awsui-dark-mode .custom-add-button:hover:not(:disabled) {
+  background-color: #f5f5f5;
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+}
+
+.awsui-dark-mode .custom-add-button:focus-visible {
+  outline-color: #7fb3e8;
+}
+
+/* Icon buttons styling */
+.editor-controls-container button[variant="icon"] {
+  background: var(--awsui-color-background-container-content, #ffffff);
+  border: 1px solid var(--awsui-color-border-divider-default, #d5dbdb);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.awsui-dark-mode .editor-controls-container button[variant="icon"] {
+  background: var(--awsui-color-background-container-content, #18181b);
+  border-color: var(--awsui-color-border-divider-default, #444);
+}
+
+/* Save button with unsaved changes - add visual indicator */
+.editor-controls-container button[iconname="upload"]:not(:disabled) {
+  border-color: #0972d3;
+  background: rgba(9, 114, 211, 0.1);
+}
+
+.awsui-dark-mode .editor-controls-container button[iconname="upload"]:not(:disabled) {
+  border-color: #7fb3e8;
+  background: rgba(127, 179, 232, 0.1);
+}
+
+/* Enhanced button hover effects */
+.editor-controls-container button {
+  transition: all 200ms ease-in-out;
+}
+
+.editor-controls-container button:not(:disabled):hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.editor-controls-container button:not(:disabled):active {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Disabled button styling */
+.editor-controls-container button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Save button with unsaved changes - visual indicator */
+.editor-controls-container button[variant="primary"] {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(9, 114, 211, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(9, 114, 211, 0.1);
+  }
+}
+
+/* Loading state styling */
+.editor-controls-container button[loading] {
+  position: relative;
+  pointer-events: none;
+}
+
+/* Icon button hover effects */
+.editor-controls-container button[variant="icon"]:not(:disabled):hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+/* Dark mode support */
+.awsui-dark-mode .editor-controls-container button[variant="icon"]:not(:disabled):hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.awsui-dark-mode .editor-controls-container button:not(:disabled):hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* Focus visible for accessibility */
+.editor-controls-container button:focus-visible {
+  outline: 2px solid #0972d3;
+  outline-offset: 2px;
+}
+
+.awsui-dark-mode .editor-controls-container button:focus-visible {
+  outline-color: #7fb3e8;
+}

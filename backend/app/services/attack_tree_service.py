@@ -15,6 +15,7 @@ from aws_lambda_powertools import Logger, Tracer
 from botocore.exceptions import ClientError
 from pydantic import ValidationError
 from exceptions.exceptions import (
+    BadRequestError,
     InternalError,
     NotFoundError,
     UnauthorizedError,
@@ -1065,6 +1066,221 @@ def delete_attack_tree(attack_tree_id: str, owner: str) -> Dict[str, Any]:
             extra={"attack_tree_id": attack_tree_id},
         )
         raise InternalError(f"Failed to delete attack tree: {str(e)}")
+
+
+def detect_circular_dependency(
+    nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]]
+) -> Tuple[bool, Optional[str]]:
+    """
+    Detect circular dependencies in attack tree graph.
+
+    Uses depth-first search to detect cycles in the directed graph.
+
+    Args:
+        nodes: List of node dictionaries
+        edges: List of edge dictionaries
+
+    Returns:
+        Tuple of (has_cycle, error_message)
+        - has_cycle: True if circular dependency detected, False otherwise
+        - error_message: None if no cycle, descriptive error if cycle found
+    """
+    try:
+        # Build adjacency list
+        graph = {}
+        for node in nodes:
+            graph[node["id"]] = []
+
+        for edge in edges:
+            source = edge["source"]
+            target = edge["target"]
+            if source in graph:
+                graph[source].append(target)
+
+        # Track visited nodes and recursion stack
+        visited = set()
+        rec_stack = set()
+
+        def has_cycle_util(node_id: str, path: List[str]) -> Tuple[bool, List[str]]:
+            """
+            DFS helper to detect cycles.
+
+            Args:
+                node_id: Current node being visited
+                path: Current path from root
+
+            Returns:
+                Tuple of (has_cycle, cycle_path)
+            """
+            visited.add(node_id)
+            rec_stack.add(node_id)
+            path.append(node_id)
+
+            # Check all neighbors
+            for neighbor in graph.get(node_id, []):
+                if neighbor not in visited:
+                    has_cycle, cycle_path = has_cycle_util(neighbor, path[:])
+                    if has_cycle:
+                        return True, cycle_path
+                elif neighbor in rec_stack:
+                    # Found a cycle
+                    cycle_start_idx = path.index(neighbor)
+                    cycle_path = path[cycle_start_idx:] + [neighbor]
+                    return True, cycle_path
+
+            rec_stack.remove(node_id)
+            return False, []
+
+        # Check each node as potential starting point
+        for node_id in graph.keys():
+            if node_id not in visited:
+                has_cycle, cycle_path = has_cycle_util(node_id, [])
+                if has_cycle:
+                    cycle_str = " → ".join(cycle_path)
+                    return True, f"Circular dependency detected: {cycle_str}"
+
+        return False, None
+
+    except Exception as e:
+        LOG.error(f"Error detecting circular dependency: {e}")
+        return True, f"Error checking for circular dependencies: {str(e)}"
+
+
+@tracer.capture_method
+def update_attack_tree(
+    attack_tree_id: str, attack_tree_data: Dict[str, Any], user_id: str
+) -> Dict[str, Any]:
+    """
+    Update an existing attack tree with new data.
+
+    This function validates the attack tree structure, checks for circular
+    dependencies, and persists the validated data to the database.
+
+    Args:
+        attack_tree_id: ID of the attack tree to update
+        attack_tree_data: Attack tree data with 'nodes' and 'edges'
+        user_id: User ID of the requester
+
+    Returns:
+        Dict with attack_tree_id, updated_at timestamp, and success message
+
+    Raises:
+        UnauthorizedError: If user doesn't have EDIT access
+        NotFoundError: If attack tree doesn't exist
+        BadRequestError: If attack tree data is invalid
+        InternalError: If DynamoDB operation fails
+    """
+    try:
+        # First check if attack tree exists and get threat_model_id
+        state_table = dynamodb.Table(STATE_TABLE)
+        try:
+            status_response = state_table.get_item(Key={"id": attack_tree_id})
+        except ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            error_msg = e.response["Error"]["Message"]
+            LOG.error(
+                f"DynamoDB error fetching status for update: {error_code} - {error_msg}",
+                extra={
+                    "attack_tree_id": attack_tree_id,
+                    "error_code": error_code,
+                },
+            )
+            if error_code == "ProvisionedThroughputExceededException":
+                raise InternalError(
+                    "Service temporarily unavailable due to high load. Please try again."
+                )
+            else:
+                raise InternalError(f"Failed to fetch status: {error_msg}")
+
+        if "Item" not in status_response:
+            LOG.warning(f"Attack tree not found for update: {attack_tree_id}")
+            raise NotFoundError(f"Attack tree {attack_tree_id} not found")
+
+        status_item = status_response["Item"]
+        threat_model_id = status_item.get("threat_model_id")
+
+        # Validate user has EDIT access to parent threat model
+        require_access(threat_model_id, user_id, required_level="EDIT")
+
+        # Validate attack tree structure
+        is_valid, error_message = validate_attack_tree_structure(attack_tree_data)
+        if not is_valid:
+            LOG.warning(
+                f"Attack tree validation failed: {error_message}",
+                extra={"attack_tree_id": attack_tree_id},
+            )
+            raise BadRequestError(f"Attack tree validation failed: {error_message}")
+
+        # Check for circular dependencies
+        nodes = attack_tree_data.get("nodes", [])
+        edges = attack_tree_data.get("edges", [])
+        has_cycle, cycle_message = detect_circular_dependency(nodes, edges)
+        if has_cycle:
+            LOG.warning(
+                f"Circular dependency detected: {cycle_message}",
+                extra={"attack_tree_id": attack_tree_id},
+            )
+            raise BadRequestError(cycle_message)
+
+        # Get current timestamp
+        from datetime import datetime
+
+        updated_at = datetime.utcnow().isoformat() + "Z"
+
+        # Update attack tree in database
+        attack_tree_table = dynamodb.Table(ATTACK_TREE_TABLE)
+        try:
+            attack_tree_table.update_item(
+                Key={"attack_tree_id": attack_tree_id},
+                UpdateExpression="SET attack_tree_data = :data, updated_at = :updated",
+                ExpressionAttributeValues={
+                    ":data": attack_tree_data,
+                    ":updated": updated_at,
+                },
+            )
+            LOG.info(
+                f"Successfully updated attack tree",
+                extra={
+                    "attack_tree_id": attack_tree_id,
+                    "node_count": len(nodes),
+                    "edge_count": len(edges),
+                },
+            )
+        except ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            error_msg = e.response["Error"]["Message"]
+            LOG.error(
+                f"DynamoDB error updating attack tree: {error_code} - {error_msg}",
+                extra={
+                    "attack_tree_id": attack_tree_id,
+                    "error_code": error_code,
+                },
+            )
+            if error_code == "ProvisionedThroughputExceededException":
+                raise InternalError(
+                    "Service temporarily unavailable due to high load. Please try again."
+                )
+            elif error_code == "ResourceNotFoundException":
+                raise NotFoundError(
+                    f"Attack tree {attack_tree_id} not found in database"
+                )
+            else:
+                raise InternalError(f"Failed to update attack tree: {error_msg}")
+
+        return {
+            "attack_tree_id": attack_tree_id,
+            "updated_at": updated_at,
+            "message": "Attack tree updated successfully",
+        }
+
+    except (UnauthorizedError, NotFoundError, BadRequestError, InternalError):
+        raise
+    except Exception as e:
+        LOG.error(
+            f"Unexpected error updating attack tree: {str(e)}",
+            extra={"attack_tree_id": attack_tree_id},
+        )
+        raise InternalError(f"Failed to update attack tree: {str(e)}")
 
 
 @tracer.capture_method

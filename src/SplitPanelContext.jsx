@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useMemo, useCallback } from "react";
+import { createContext, useContext, useState, useCallback } from "react";
 
 const SplitPanelContext = createContext();
 

@@ -16,7 +16,6 @@ import {
 import {
   flattenMarkdownTokens,
   parseTableCellMarkdown,
-  extractTextFromTokens,
   parseMarkdownTable,
   parseMarkdown,
 } from "./markdownParser";
@@ -25,7 +24,6 @@ import {
   getDocumentSections,
   formatTableHeader,
   processImageData,
-  formatArrayCellContent,
 } from "./documentHelpers";
 
 /**

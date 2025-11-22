@@ -15,6 +15,7 @@ from services.attack_tree_service import (
     check_attack_tree_status,
     fetch_attack_tree,
     delete_attack_tree,
+    update_attack_tree,
 )
 from exceptions.exceptions import (
     BadRequestError,
@@ -183,6 +184,82 @@ def get_attack_tree(attack_tree_id: str):
     except Exception as e:
         LOG.exception(f"Error fetching attack tree: {e}")
         raise InternalError(f"Failed to fetch attack tree: {str(e)}")
+
+
+@router.put("/attack-tree/<attack_tree_id>")
+def update_attack_tree_endpoint(attack_tree_id: str):
+    """
+    Update an existing attack tree with new data.
+
+    This endpoint validates the attack tree structure, checks for circular
+    dependencies, and persists the validated data to the database.
+
+    Path parameters:
+        attack_tree_id: Attack tree identifier (composite key format)
+
+    Request body:
+        {
+            "attack_tree": {
+                "nodes": [
+                    {
+                        "id": "node-1",
+                        "type": "root|and-gate|or-gate|leaf-attack",
+                        "position": {"x": 100, "y": 100},
+                        "data": {...}
+                    }
+                ],
+                "edges": [
+                    {
+                        "id": "edge-1",
+                        "source": "node-1",
+                        "target": "node-2",
+                        "type": "smoothstep"
+                    }
+                ]
+            }
+        }
+
+    Returns:
+        {
+            "attack_tree_id": "composite_key",
+            "updated_at": "ISO timestamp",
+            "message": "Attack tree updated successfully"
+        }
+
+    Status codes:
+        200: Attack tree updated successfully
+        400: Invalid attack tree data (validation failed or circular dependency)
+        403: User not authorized (not owner or editor)
+        404: Attack tree not found
+        500: Internal server error
+    """
+    try:
+        # Extract user_id from request context
+        user_id = router.current_event.request_context.authorizer.get("user_id")
+
+        # Parse request body
+        body = router.current_event.json_body
+
+        # Validate required fields
+        if "attack_tree" not in body:
+            raise BadRequestError("attack_tree is required in request body")
+
+        attack_tree_data = body["attack_tree"]
+
+        if not isinstance(attack_tree_data, dict):
+            raise BadRequestError("attack_tree must be an object")
+
+        # Update attack tree
+        result = update_attack_tree(attack_tree_id, attack_tree_data, user_id)
+
+        LOG.info(f"Attack tree updated: {attack_tree_id}")
+        return result
+
+    except (BadRequestError, UnauthorizedError, NotFoundError, InternalError):
+        raise
+    except Exception as e:
+        LOG.exception(f"Error updating attack tree: {e}")
+        raise InternalError(f"Failed to update attack tree: {str(e)}")
 
 
 @router.delete("/attack-tree/<attack_tree_id>")

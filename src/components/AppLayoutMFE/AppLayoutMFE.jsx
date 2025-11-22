@@ -3,6 +3,7 @@ import { AppLayout, SplitPanel } from "@cloudscape-design/components";
 import Main from "../../Main";
 import "@cloudscape-design/global-styles/index.css";
 import "./AppLayoutMFE.css";
+import "./AppLayoutMFE.css";
 import { useSplitPanel } from "../../SplitPanelContext";
 import { useLocation } from "react-router-dom";
 import Agent from "../../pages/Agent/Agent";
@@ -32,9 +33,9 @@ function AppLayoutMFE({ user }) {
   const functions = useContext(ChatSessionFunctionsContext);
   const sentryEnabled = isSentryEnabled();
 
-  // State management for drawer width (Requirements 1.4, 1.5, 2.1)
-  const defaultWidth = 500;
-  const minWidth = 300;
+  // State management for drawer width
+  const defaultWidth = 600;
+  const minWidth = 400;
   const maxWidthPercent = 0.9; // 90% of window width
   const [drawerWidth, setDrawerWidth] = useState(defaultWidth);
 
@@ -45,14 +46,14 @@ function AppLayoutMFE({ user }) {
       splitPanelContext.context.includes("Attack Tree")) ||
     splitPanelContext?.isAttackTree === true;
 
-  // Calculate width based on content type (Requirement 2.1)
+  // Calculate width based on content type
   // Attack Tree: 70% of window width (fixed)
   // Other content: user-set width or default 500px, clamped to min/max constraints
   const maxWidth = Math.floor(window.innerWidth * maxWidthPercent);
   const clampedDrawerWidth = Math.max(minWidth, Math.min(drawerWidth, maxWidth));
   const splitPanelWidth = isAttackTree ? Math.floor(window.innerWidth * 0.7) : clampedDrawerWidth;
 
-  // Handle resize events for non-Attack Tree content (Requirements 1.1, 1.2)
+  // Handle resize events for non-Attack Tree content
   // Memoize to prevent unnecessary re-renders
   const handleSplitPanelResize = useCallback(
     (event) => {

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import Modal from "@cloudscape-design/components/modal";
 import { Button, SpaceBetween, Box, FormField, Select, Table } from "@cloudscape-design/components";
 import Alert from "@cloudscape-design/components/alert";
+import { fetchAuthSession } from "aws-amplify/auth";
 import { config } from "../../config.js";
 
 const SharingModal = ({ visible, setVisible, threatModelId, isOwner }) => {
@@ -114,7 +115,6 @@ const SharingModal = ({ visible, setVisible, threatModelId, isOwner }) => {
   };
 
   const getAuthToken = async () => {
-    const { fetchAuthSession } = await import("aws-amplify/auth");
     const session = await fetchAuthSession();
     return session.tokens.idToken.toString();
   };

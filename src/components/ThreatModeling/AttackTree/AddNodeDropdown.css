@@ -1,0 +1,220 @@
+/* AddNodeDropdown Animations */
+
+.add-node-dropdown {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition:
+    opacity 200ms ease-in-out,
+    transform 200ms ease-in-out;
+  min-width: 320px;
+}
+
+.add-node-dropdown.open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.dropdown-content {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background-color: #ffffff;
+}
+
+.awsui-dark-mode .dropdown-content {
+  background-color: #18181b;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* Dropdown header */
+.dropdown-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--awsui-color-border-divider-default, #e9ecef);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--awsui-color-text-body-default);
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.awsui-dark-mode .dropdown-header {
+  border-bottom-color: #444;
+  background-color: rgba(255, 255, 255, 0.03);
+  color: #e0e0e0;
+}
+
+.dropdown-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Badge styles */
+.dropdown-option-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* Root Goal - Dark red background to differentiate from OR gate */
+.badge-red {
+  background-color: #ffe0e0;
+  color: #b71c1c;
+  font-size: 16px;
+}
+
+/* AND Gate - Blue background */
+.badge-blue {
+  background-color: #e8f4f8;
+  color: #0972d3;
+}
+
+/* Leaf Attack - Yellow/Warning background */
+.badge-yellow {
+  background-color: #fff8e1;
+  color: #f59f00;
+}
+
+/* Dark mode badge variants */
+.awsui-dark-mode .badge-red {
+  background-color: #4a0e0e;
+  color: #ff5252;
+}
+
+.awsui-dark-mode .badge-blue {
+  background-color: #1a3a4a;
+  color: #5fb3e0;
+}
+
+.awsui-dark-mode .badge-yellow {
+  background-color: #4a3a1a;
+  color: #ffc107;
+}
+
+/* Option content layout */
+.dropdown-option-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 150ms ease-in-out;
+  outline: none;
+  background-color: transparent;
+}
+
+.dropdown-option-content:hover {
+  background-color: rgba(9, 114, 211, 0.08);
+}
+
+.dropdown-option-content:focus {
+  background-color: rgba(9, 114, 211, 0.08);
+  outline: 2px solid #0972d3;
+  outline-offset: -2px;
+}
+
+.dropdown-option-content:active {
+  background-color: rgba(9, 114, 211, 0.15);
+}
+
+/* Dark mode hover effects */
+.awsui-dark-mode .dropdown-option-content:hover {
+  background-color: rgba(127, 179, 232, 0.15);
+}
+
+.awsui-dark-mode .dropdown-option-content:focus {
+  background-color: rgba(127, 179, 232, 0.15);
+  outline-color: #7fb3e8;
+}
+
+.awsui-dark-mode .dropdown-option-content:active {
+  background-color: rgba(127, 179, 232, 0.25);
+}
+
+/* Text layout */
+.dropdown-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+/* Typography */
+.dropdown-option-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--awsui-color-text-body-default);
+  line-height: 1.2;
+}
+
+.dropdown-option-description {
+  font-size: 12px;
+  color: var(--awsui-color-text-body-secondary);
+  line-height: 1.3;
+}
+
+/* Divider styles */
+.option-divider {
+  height: 1px;
+  background-color: var(--awsui-color-border-divider-default, #e9ecef);
+  margin: 0;
+}
+
+.awsui-dark-mode .option-divider {
+  background-color: #444;
+}
+
+/* Node preview cursor styles */
+.node-preview-cursor {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.8;
+  transform: translate(-50%, -50%);
+  animation: float 2s ease-in-out infinite;
+}
+
+.node-preview-cursor.active {
+  cursor: crosshair;
+}
+
+/* Floating animation for node preview */
+@keyframes float {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) translateY(0px);
+  }
+  50% {
+    transform: translate(-50%, -50%) translateY(-4px);
+  }
+}
+
+/* Pulse effect for node preview */
+.node-preview-cursor::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  border: 2px dashed #0972d3;
+  border-radius: 4px;
+  transform: translate(-50%, -50%);
+  animation: pulse-border 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+}

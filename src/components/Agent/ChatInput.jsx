@@ -77,10 +77,12 @@ const ChatInput = ({
     try {
       const context = functions.getSessionContext(sessionId);
 
+
       // Check if threat model exists in context
       if (!context?.threatModel) {
         return [];
       }
+
 
       // The threat model structure is: context.threatModel.threats (array)
       const threats = context.threatModel.threats || [];
@@ -137,11 +139,13 @@ const ChatInput = ({
     const threatName = selectedThreat?.name;
     setSelectedThreat(null);
 
+
     // Announce removal to screen readers
     if (threatName) {
       setScreenReaderAnnouncement(`Threat removed: ${threatName}`);
       setTimeout(() => setScreenReaderAnnouncement(""), 1000);
     }
+
 
     // Keep focus on textarea after dismissal
     setTimeout(() => {
@@ -453,10 +457,7 @@ const ChatInput = ({
 
   const handleStopStreaming = useCallback(() => {
     if (onStopStreaming && isStreaming) {
-      onStopStreaming({
-        sessionId: currentSessionId,
-        timestamp: new Date().toISOString(),
-      });
+      onStopStreaming();
     }
   }, [onStopStreaming, isStreaming, currentSessionId]);
 
@@ -516,7 +517,7 @@ const ChatInput = ({
           setVisibleDropdown(null);
         }
 
-        onToggleButton(button.id, newState, currentSessionId);
+        onToggleButton(button.id, newState);
 
         if (button.onClick) {
           button.onClick(message, currentSessionId, newState);
@@ -568,7 +569,7 @@ const ChatInput = ({
         closeDropdown(button.id, false);
       }
 
-      onDropdownClick(button.id, currentSessionId, !isCurrentlyOpen);
+      onDropdownClick();
     },
     [dropdownStates, visibleDropdown, closeDropdown, onDropdownClick, currentSessionId]
   );
@@ -582,6 +583,7 @@ const ChatInput = ({
   // Clear threat context when session is cleared
   useEffect(() => {
     const context = functions.getSessionContext(sessionId);
+
 
     // If context is cleared (both diagram and threatModel are null), clear selected threat
     if (context && !context.diagram && !context.threatModel && selectedThreat) {
@@ -612,6 +614,7 @@ const ChatInput = ({
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {screenReaderAnnouncement}
       </div>
+
 
       {/* Dropdown Content Area */}
       {activeDropdownButton && activeDropdownButton.dropdownContent && (
@@ -653,13 +656,10 @@ const ChatInput = ({
         {/* Threat Context Token Row */}
         {selectedThreat && (
           <div className="threat-context-row">
-            <ThreatContextToken
-              threat={selectedThreat}
-              onDismiss={handleThreatDismiss}
-              theme={effectiveTheme}
-            />
+            <ThreatContextToken threat={selectedThreat} onDismiss={handleThreatDismiss} />
           </div>
         )}
+
 
         <textarea
           ref={textareaRef}

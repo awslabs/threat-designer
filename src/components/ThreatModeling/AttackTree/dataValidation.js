@@ -3,8 +3,6 @@
  *
  * Validates the structure and integrity of attack tree data
  * to ensure it can be safely rendered.
- *
- * Requirements: 5.2, 5.3, 5.4
  */
 
 /**

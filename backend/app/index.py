@@ -120,7 +120,9 @@ def handle_view_errors(ex: ViewError):  # receives exception raised
 @app.exception_handler(BadRequestError)
 def handle_bad_request_errors(ex: BadRequestError):  # receives exception raised
     logger.warning("Bad Request Error")
-    error_dict = {"code": type(ex).__name__, "message": str(ex.msg)}
+    # BadRequestError uses 'message' attribute, not 'msg'
+    error_message = getattr(ex, "message", str(ex))
+    error_dict = {"code": type(ex).__name__, "message": error_message}
     return build_error_response(error_dict, 400)
 
 

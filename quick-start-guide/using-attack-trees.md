@@ -28,15 +28,15 @@ The attack tree opens in a side drawer, displaying the full attack path visualiz
 
 ### Node Types
 
-**Root Goal Node** (Red border)  
+**Root Goal Node**
 The top-level attack objective. This represents what the attacker is trying to achieve with this specific threat.
 
-**Logic Gate Nodes** (Blue/Pink icons)
+**Logic Gate Nodes**
 
 - **AND Gates** (Blue ∧ icon): All child conditions must be satisfied
 - **OR Gates** (Pink ∨ icon): Any one child condition is sufficient
 
-**Leaf Attack Nodes** (Gray border)  
+**Leaf Attack Nodes**
 Individual attack techniques or steps classified using MITRE ATT&CK tactics. Click on any leaf node to open a detailed modal showing:
 
 - Full description
@@ -46,14 +46,6 @@ Individual attack techniques or steps classified using MITRE ATT&CK tactics. Cli
 - Skill level required
 - Resources needed
 - MITRE ATT&CK technique mapping
-
-### Visual Elements
-
-**Connection Lines**  
-Dashed lines show the relationships between nodes, flowing from the root goal down through gates to leaf attacks.
-
-**Node Badges**  
-Small labels on nodes indicate their type (Logic Gate, Attack Step, etc.) for quick identification.
 
 ## Navigating the Attack Tree
 
@@ -88,6 +80,70 @@ Attack trees are created **on-demand** for each threat. They are not automatical
 
 **You don't need to wait**: You can close the drawer and navigate away while the tree is being generated. When you return and click the tree icon again, the completed tree will be displayed if generation has finished, or you'll see the loading state if it's still in progress.
 
+## Editing Attack Trees
+
+Attack trees can be manually edited to refine the AI-generated analysis or add custom attack paths specific to your system.
+
+### Adding Nodes
+
+1. Click the **"+ Add Node"** button in the editor controls (top-left)
+2. Select the node type from the dropdown:
+   - **Goal Node**: Root objective (typically only one per tree)
+   - **AND Gate**: All children must succeed
+   - **OR Gate**: Any child can succeed
+   - **Leaf Attack**: Individual attack technique
+3. Click on the canvas where you want to place the new node
+4. The node appears and can be connected to the tree
+
+### Connecting Nodes
+
+1. **Hover near a source handle** (right side of nodes) - it will scale up and turn blue
+2. **Click and drag** from the source handle to a target handle (left side of another node)
+3. The connection is created
+
+**Connection Rules**:
+
+- Target nodes can only have **one incoming connection**
+- Goal nodes cannot connect directly to leaf attacks (use a gate node)
+- Leaf nodes can only receive connections, not create them
+- When in focus mode, you cannot connect to the focused node's target handle
+
+### Editing Nodes
+
+1. **Hover over any node** to reveal the action buttons
+2. Click the **edit icon** (pencil)
+3. Update the node details in the modal:
+   - **Goal nodes**: Edit the goal description
+   - **Gate nodes**: Change between AND/OR, edit label
+   - **Leaf attacks**: Edit all attack details (description, severity, likelihood, MITRE mapping, etc.)
+4. Click **"Save"** to apply changes
+
+### Deleting Nodes
+
+1. **Hover over the node** you want to delete
+2. Click the **delete icon** (trash can)
+3. Confirm the deletion in the modal
+4. The node and all its connections are removed
+
+**Note**: Deleting a node does not delete its children - they remain in the tree as unconnected nodes.
+
+### Deleting Connections
+
+1. **Hover near a connected target handle** (left side of nodes) - it will scale up and turn purple
+2. **Click the purple handle** to delete the incoming connection
+3. The connection is removed, leaving the target node unconnected
+
+### Saving Changes
+
+- Click the **"Save"** button in the editor controls to persist your changes
+- The save button shows a green checkmark when changes are successfully saved
+
+### Undo/Redo
+
+- Use the **undo** and **redo** buttons in the editor controls
+- These track all node additions, edits, deletions, and connection changes
+- Useful for experimenting with different tree structures
+
 ## Managing Attack Trees
 
 ### Deleting Attack Trees
@@ -95,11 +151,9 @@ Attack trees are created **on-demand** for each threat. They are not automatical
 If you want to regenerate an attack tree with updated information:
 
 1. Open the attack tree in the side drawer
-2. Click the **"Delete Attack Tree"** button in the top-right corner
+2. Click the **"Trash bin"** icon button in the top-left corner
 3. Confirm the deletion
 4. Click **"Create Attack Tree"** again to generate a fresh analysis
-
-**Use case**: Delete and regenerate when you've significantly modified the threat description or want the AI to reconsider the attack paths.
 
 ## Best Practices
 
@@ -110,6 +164,12 @@ If you want to regenerate an attack tree with updated information:
 **Review leaf attacks carefully**: The leaf nodes contain the actual attack techniques mapped to MITRE ATT&CK. Click on them to see full details. These are where you should focus your defensive efforts.
 
 **Look for AND gates**: AND gates represent points where multiple conditions must be met. These are often good places to implement defenses, as blocking any one condition prevents the entire attack path.
+
+**Customize AI-generated trees**: The AI provides a solid starting point, but you can refine the tree by adding system-specific attack paths, adjusting gate logic, or adding custom leaf attacks relevant to your environment.
+
+**Build incrementally in focus mode**: When adding complex branches, use focus mode on the parent gate to work on that subtree without visual clutter from the rest of the tree.
+
+**Save frequently**: Use the save button regularly when making manual edits to avoid losing your customizations.
 
 **Regenerate after major changes**: If you significantly update a threat's description, target assets, or mitigations, delete and regenerate the attack tree to get updated analysis.
 

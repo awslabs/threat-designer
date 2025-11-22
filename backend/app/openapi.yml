@@ -2222,6 +2222,61 @@ paths:
         connectionType: "INTERNET"
         contentHandling: CONVERT_TO_TEXT
         passthroughBehavior: NEVER
+    put:
+      summary: Update attack tree
+      description: |
+        Update an existing attack tree with new data.
+
+        This endpoint validates the attack tree structure, checks for circular
+        dependencies, and persists the validated data to the database.
+
+        The attack_tree_id should be computed as a composite key: {threat_model_id}_{normalized_threat_name}
+      tags:
+        - Attack Trees
+      parameters:
+        - name: attack_tree_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: |
+            Attack tree identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAttackTreeRequest"
+      responses:
+        "200":
+          description: Attack tree updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateAttackTreeResponse"
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/400"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
     delete:
       summary: Delete attack tree
       description: |
@@ -3228,6 +3283,57 @@ components:
         attack_tree:
           $ref: "#/components/schemas/AttackTreeData"
           description: Attack tree data in React Flow format
+
+    UpdateAttackTreeRequest:
+      type: object
+      required:
+        - attack_tree
+      properties:
+        attack_tree:
+          $ref: "#/components/schemas/AttackTreeData"
+          description: Updated attack tree data in React Flow format
+      example:
+        attack_tree:
+          nodes:
+            - id: "node-1"
+              type: "root"
+              position:
+                x: 100
+                y: 100
+              data:
+                label: "Compromise System"
+            - id: "node-2"
+              type: "and-gate"
+              position:
+                x: 200
+                y: 200
+              data:
+                label: "Gain Access and Extract Data"
+                gateType: "AND"
+          edges:
+            - id: "edge-1"
+              source: "node-1"
+              target: "node-2"
+              type: "smoothstep"
+
+    UpdateAttackTreeResponse:
+      type: object
+      required:
+        - attack_tree_id
+        - updated_at
+        - message
+      properties:
+        attack_tree_id:
+          type: string
+          description: The attack tree identifier
+        updated_at:
+          type: string
+          format: date-time
+          description: When the attack tree was updated
+        message:
+          type: string
+          description: Success message
+          example: "Attack tree updated successfully"
   responses:
     "400":
       content:

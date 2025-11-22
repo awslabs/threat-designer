@@ -4,7 +4,6 @@ import SpaceBetween from "@cloudscape-design/components/space-between";
 import Header from "@cloudscape-design/components/header";
 import Badge from "@cloudscape-design/components/badge";
 import { ThreatTableComponent } from "./ThreatDesignerTable";
-import { ThreatComponent } from "./ThreatCatalog";
 import VirtualizedThreatList from "./VirtualizedThreatList";
 import LazySection from "./LazySection";
 import { ModalComponent } from "./ModalForm";
@@ -41,7 +40,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
 
   const handleOpenAttackTree = (threatId, threatName) => {
     // Find the threat data to get description
-    // Note: attack_tree_id is no longer stored on threat objects (Requirement 2.1)
+    // Note: attack_tree_id is no longer stored on threat objects
     // It will be computed from threatModelId and threatName when needed
     const threat = threatCatalogData.find((t) => t.id === threatId || t.name === threatName);
     const threatDescription = threat?.description || "";
@@ -50,6 +49,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
 
     const attackTreeContent = (
       <AttackTreeViewer
+        key={`attack-tree-${id}-${threatName}`}
         threatModelId={id}
         threatName={threatName}
         threatDescription={threatDescription}

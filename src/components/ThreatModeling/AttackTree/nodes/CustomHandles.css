@@ -1,0 +1,110 @@
+/* Custom Handle Wrapper Styles */
+.custom-source-handle-wrapper,
+.custom-target-handle-wrapper {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+/* ============================================
+   SOURCE HANDLE STYLES
+   ============================================ */
+
+/* Default source handle appearance - matches original node-handle styling */
+.custom-source-handle {
+  width: 8px !important;
+  height: 8px !important;
+  background: #888 !important;
+  border: none !important;
+  border-radius: 50% !important;
+  transition: all 200ms ease-in-out !important;
+  cursor: crosshair !important;
+  transform-origin: center !important;
+  margin-top: -4px !important; /* Center vertically (half of 8px height) */
+  margin-right: -1px !important; /* Position on border edge */
+  margin-left: -1px !important; /* Position on border edge */
+}
+
+/* Source handle when scaling (proximity-based zoom) */
+.custom-source-handle.scaling {
+  background: #0972d3 !important;
+}
+
+/* ============================================
+   TARGET HANDLE STYLES
+   ============================================ */
+
+/* Default target handle appearance - matches original node-handle styling */
+.custom-target-handle {
+  width: 8px !important;
+  height: 8px !important;
+  background: #888 !important;
+  border: none !important;
+  border-radius: 50% !important;
+  transition: all 200ms ease-in-out !important;
+  cursor: default !important;
+  transform-origin: center !important;
+  margin-top: -4px !important; /* Center vertically (half of 8px height) */
+  margin-right: -1px !important; /* Position on border edge */
+  margin-left: -1px !important; /* Position on border edge */
+}
+
+/* Target handle when scaling and NOT connected - turns BLUE like source handles */
+.custom-target-handle.scaling:not(.connected) {
+  background: #0972d3 !important;
+}
+
+/* Connected target handle - changes cursor to indicate interactivity */
+.custom-target-handle.connected {
+  background: #888 !important;
+  cursor: pointer !important;
+}
+
+/* Connected target handle when mouse is near - turns RED for deletion */
+.custom-target-handle.connected.hovered {
+  background: #962eff !important;
+}
+
+/* ============================================
+   READ-ONLY MODE STYLES
+   ============================================ */
+
+/* Disable all interactive features in read-only mode */
+.custom-source-handle.read-only,
+.custom-target-handle.read-only {
+  cursor: default !important;
+  pointer-events: none !important;
+}
+
+/* Read-only mode - no color changes */
+.custom-target-handle.connected.read-only.hovered {
+  background: #888 !important;
+}
+
+/* ============================================
+   DARK MODE STYLES
+   ============================================ */
+
+/* Dark mode handles - match original styling */
+.awsui-dark-mode .custom-source-handle {
+  background: #888 !important;
+}
+
+/* Dark mode source handle when scaling */
+.awsui-dark-mode .custom-source-handle.scaling {
+  background: #0972d3 !important;
+}
+
+.awsui-dark-mode .custom-target-handle {
+  background: #888 !important;
+}
+
+/* Dark mode target handle when scaling and NOT connected */
+.awsui-dark-mode .custom-target-handle.scaling:not(.connected) {
+  background: #0972d3 !important;
+}
+
+/* Dark mode connected target handle when mouse is near - brighter red for visibility */
+.awsui-dark-mode .custom-target-handle.connected.hovered {
+  background: #962eff !important;
+}

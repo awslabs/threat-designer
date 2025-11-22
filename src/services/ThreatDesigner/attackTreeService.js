@@ -103,7 +103,7 @@ const getAuthHeaders = async () => {
  */
 export const generateAttackTree = async (threatModelId, threatName, threatDescription) => {
   try {
-    // Compute attack tree ID before making API call (Requirement 5.1)
+    // Compute attack tree ID before making API call
     const attackTreeId = generateAttackTreeId(threatModelId, threatName);
     console.log("Computed attack tree ID for generation:", attackTreeId);
 
@@ -126,7 +126,7 @@ export const generateAttackTree = async (threatModelId, threatName, threatDescri
   } catch (error) {
     console.error("Error generating attack tree:", error);
 
-    // Handle specific error cases (Requirement 3.1)
+    // Handle specific error cases
     if (error.response?.status === 401 || error.response?.status === 403) {
       throw new Error("Authentication failed - please sign in again");
     }
@@ -166,7 +166,7 @@ export const getAttackTreeStatus = async (attackTreeId) => {
   } catch (error) {
     console.error("Error fetching attack tree status:", error);
 
-    // Handle specific error cases (Requirement 3.1)
+    // Handle specific error cases
     if (error.response?.status === 404) {
       throw new Error("Attack tree not found - it may have been deleted");
     }
@@ -201,7 +201,7 @@ export const fetchAttackTree = async (attackTreeId) => {
   } catch (error) {
     console.error("Error fetching attack tree:", error);
 
-    // Handle specific error cases (Requirement 3.1)
+    // Handle specific error cases
     if (error.response?.status === 404) {
       throw new Error("Attack tree not found - it may have been deleted");
     }
@@ -222,6 +222,53 @@ export const fetchAttackTree = async (attackTreeId) => {
 };
 
 /**
+ * Update an existing attack tree
+ *
+ * @param {string} attackTreeId - ID of the attack tree to update
+ * @param {object} attackTreeData - Attack tree data with nodes and edges
+ * @returns {Promise<{attack_tree_id: string, updated_at: string, message: string}>}
+ * @throws {Error} - Throws error with specific message for different failure scenarios
+ */
+export const updateAttackTree = async (attackTreeId, attackTreeData) => {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await axios.put(`${baseUrl}/${attackTreeId}`, attackTreeData, { headers });
+    return response.data;
+  } catch (error) {
+    console.error("Error updating attack tree:", error);
+
+    // Handle specific error cases
+    if (error.response?.status === 404) {
+      throw new Error("Attack tree not found - it may have been deleted");
+    }
+
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      throw new Error("Authentication failed - please sign in again");
+    }
+
+    if (error.response?.status === 400) {
+      // Validation error - extract message from backend response
+      const message =
+        error.response?.data?.message || error.response?.data?.error || "Validation failed";
+      throw new Error(message);
+    }
+
+    if (error.response?.status >= 500) {
+      throw new Error("Server error - please try again later");
+    }
+
+    if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT") {
+      throw new Error("Request timeout - please check your connection and try again");
+    }
+
+    // Generic error
+    throw new Error(
+      error.response?.data?.message || error.message || "Failed to update attack tree"
+    );
+  }
+};
+
+/**
  * Delete an attack tree
  *
  * @param {string} attackTreeId - ID of the attack tree to delete
@@ -235,7 +282,7 @@ export const deleteAttackTree = async (attackTreeId) => {
   } catch (error) {
     console.error("Error deleting attack tree:", error);
 
-    // Handle specific error cases (Requirement 2.2, 3.1)
+    // Handle specific error cases
     if (error.response?.status === 404) {
       throw new Error("Attack tree not found - it may have already been deleted");
     }
@@ -278,7 +325,7 @@ export const pollAttackTreeStatus = async (
   let attempts = 0;
 
   while (attempts < maxAttempts) {
-    // Check if polling was cancelled (Requirement 1.3 - handle cancellation)
+    // Check if polling was cancelled
     if (signal?.aborted) {
       console.log(`Polling cancelled for attack tree ${attackTreeId}`);
       throw new Error("Polling cancelled");
@@ -298,11 +345,11 @@ export const pollAttackTreeStatus = async (
 
       if (normalizedStatus === "completed") {
         console.log(`Attack tree ${attackTreeId} completed, fetching data`);
-        // Fetch the completed attack tree (Requirement 1.4)
+        // Fetch the completed attack tree
         try {
           return await fetchAttackTree(attackTreeId);
         } catch (fetchError) {
-          // Handle fetch errors specifically (Requirement 3.1)
+          // Handle fetch errors specifically
           console.error("Error fetching completed attack tree:", fetchError);
           throw new Error(
             `Failed to retrieve attack tree data: ${fetchError.message || "Unknown error"}`
@@ -312,7 +359,7 @@ export const pollAttackTreeStatus = async (
 
       if (normalizedStatus === "failed") {
         console.log(`Attack tree ${attackTreeId} failed`);
-        // Provide detailed error message from backend (Requirement 3.1)
+        // Provide detailed error message from backend
         const errorDetail = status.error || status.detail || "Attack tree generation failed";
         throw new Error(errorDetail);
       }
@@ -344,7 +391,7 @@ export const pollAttackTreeStatus = async (
         console.error("Error polling attack tree status:", error);
       }
 
-      // Handle network errors specifically (Requirement 3.1)
+      // Handle network errors specifically
       if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT") {
         throw new Error("Network timeout - please check your connection and try again");
       }
@@ -365,7 +412,7 @@ export const pollAttackTreeStatus = async (
     }
   }
 
-  // Timeout error with helpful message (Requirement 1.3, 3.1)
+  // Timeout error with helpful message
   throw new Error(
     `Attack tree generation timed out after ${timeoutMinutes} minutes. ` +
       `The operation is taking longer than expected. Please try again or contact support if the issue persists.`

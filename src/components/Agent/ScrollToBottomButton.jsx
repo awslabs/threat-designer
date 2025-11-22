@@ -1,5 +1,5 @@
 import { ScrollButton } from "./ScrollButton";
-import React, { useState, useEffect, memo } from "react";
+import React, { memo } from "react";
 
 const ScrollToBottomButton = memo(function ScrollToBottomButton({ scroll }) {
   return (

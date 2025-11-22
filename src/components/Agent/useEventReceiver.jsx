@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { eventBus } from "./eventBus";
 
 export const useEventReceiver = (eventTypes, targetId, onEventReceived) => {

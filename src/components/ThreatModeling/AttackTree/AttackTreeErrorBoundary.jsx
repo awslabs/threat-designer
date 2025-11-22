@@ -9,8 +9,6 @@ import Button from "@cloudscape-design/components/button";
  *
  * Catches React errors in the attack tree component tree and displays
  * a user-friendly error message instead of crashing the entire application.
- *
- * Requirements: 5.1
  */
 class AttackTreeErrorBoundary extends Component {
   constructor(props) {

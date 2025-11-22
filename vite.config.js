@@ -16,16 +16,17 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: true,
-    rollupOptions: {
-      output: {
-        manualChunks: undefined,
-      },
-    },
+    chunkSizeWarningLimit: 2500,
+    // Let Vite handle chunking automatically for proper dependency resolution
+    rollupOptions: {},
   },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
     extensions: [".js", ".jsx", ".json"],
+  },
+  optimizeDeps: {
+    include: ["hoist-non-react-statics"],
   },
 });

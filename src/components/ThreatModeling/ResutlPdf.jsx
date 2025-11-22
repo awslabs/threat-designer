@@ -5,7 +5,6 @@ import {
   SECTION_TITLES,
   getDocumentSections,
   formatTableHeader,
-  processImageData,
   formatArrayCellContent,
 } from "./documentHelpers";
 

@@ -7,7 +7,7 @@ import ThreatCatalog from "./pages/ThreatDesigner/ThreatCatalog.jsx";
 function Main({ user }) {
   return (
     <Routes>
-      <Route path="/" element={<ThreatModeling user={user} />} />
+      <Route path="/" element={<ThreatModeling />} />
       <Route path="/:id" element={<ThreatModelResult user={user} />} />
       <Route path="/threat-catalog" element={<ThreatCatalog user={user} />} />
     </Routes>

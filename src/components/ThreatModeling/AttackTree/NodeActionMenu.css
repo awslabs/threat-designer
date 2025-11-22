@@ -1,0 +1,65 @@
+/* NodeActionMenu Styles */
+
+.node-action-menu {
+  background: var(--awsui-color-background-container-content, #ffffff);
+  border: 1px solid var(--awsui-color-border-divider-default, #d5dbdb);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  animation: fadeIn 0.15s ease-in-out;
+}
+
+/* Invisible hover area to keep menu visible */
+.node-action-menu::before {
+  content: "";
+  position: absolute;
+  top: -20px;
+  left: -20px;
+  right: -20px;
+  bottom: -20px;
+  z-index: -1;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Hover effect for menu */
+.node-action-menu:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  transform: translateX(-50%) translateY(-2px);
+}
+
+/* Button hover effects within menu */
+.node-action-menu button {
+  transition: all 150ms ease-in-out;
+}
+
+.node-action-menu button:hover {
+  transform: scale(1.1);
+}
+
+.node-action-menu button:active {
+  transform: scale(0.95);
+}
+
+/* Dark mode support */
+.awsui-dark-mode .node-action-menu {
+  background: var(--awsui-color-background-container-content, #18181b);
+  border-color: var(--awsui-color-border-divider-default, #444);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.awsui-dark-mode .node-action-menu:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.7);
+}

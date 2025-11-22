@@ -1,4 +1,4 @@
-BGVY /* Base node styles */
+/* Base node styles */
 .custom-node {
   padding: 4px;
   border-radius: 3px;
@@ -10,11 +10,11 @@ BGVY /* Base node styles */
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
   font-size: 8px;
   box-sizing: border-box;
+  position: relative;
 }
 
 .custom-node.selected {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  transform: scale(1.02);
+  /* Remove selection styling - handled by focused state instead */
 }
 
 .custom-node:hover {
@@ -26,7 +26,7 @@ BGVY /* Base node styles */
   width: 10px;
   height: 10px;
   background: #888;
-  border: 2px solid white;
+  border: 3px solid white;
   border-radius: 50%;
   opacity: 1;
   z-index: 100;
@@ -36,8 +36,8 @@ BGVY /* Base node styles */
 .node-header {
   display: flex;
   align-items: center;
-  gap: 2px;
-  margin-bottom: 2px;
+  gap: 3px;
+  margin-bottom: 3px;
   font-size: 7px;
 }
 
@@ -45,7 +45,7 @@ BGVY /* Base node styles */
 .node-content {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .node-status {
@@ -55,25 +55,28 @@ BGVY /* Base node styles */
 
 /* Root Goal Node - Gate Style */
 .root-goal-node {
-  border-color: #d13212;
-  border-width: 3px;
+  border: 3px solid #d5dbdb;
   background: #ffffff;
   width: 180px;
-  box-shadow: 0 4px 12px rgba(209, 50, 18, 0.25);
 }
 
 .root-goal-node:hover {
-  box-shadow: 0 6px 18px rgba(209, 50, 18, 0.35);
+  border: 10px solid transparent;
+  background-image:
+    linear-gradient(#ffffff, #ffffff),
+    linear-gradient(120deg, #b8e7ff, #8575ff, #962eff, #8575ff, #b8e7ff);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  box-shadow: 0 8px 24px rgba(133, 117, 255, 0.4);
 }
 
 .root-goal-node.selected {
-  box-shadow: 0 8px 24px rgba(209, 50, 18, 0.4);
-  border-width: 4px;
+  /* Remove selection styling - handled by focused state instead */
 }
 
 .root-goal-node .gate-node-header {
-  border-bottom-color: #d13212;
-  border-bottom-width: 2px;
+  border-bottom-color: #e9ecef;
+  border-bottom-width: 1px;
 }
 
 .root-goal-icon {
@@ -83,35 +86,45 @@ BGVY /* Base node styles */
 
 /* Gate Nodes (AND/OR) */
 .gate-node {
-  border-width: 2px;
-  border-style: solid;
-  border-color: #d5dbdb;
+  border: 3px solid #d5dbdb;
+  border-radius: 8px;
   background: #ffffff;
   padding: 0;
   width: 220px;
   min-height: auto;
-  border-radius: 8px;
   overflow: visible;
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
 }
 
+/* Enhanced hover effect for gate nodes */
+.gate-node:hover {
+  border: 3px solid transparent;
+  background-image:
+    linear-gradient(#ffffff, #ffffff),
+    linear-gradient(120deg, #b8e7ff, #8575ff, #962eff, #8575ff, #b8e7ff);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  box-shadow: 0 8px 24px rgba(133, 117, 255, 0.4);
+}
+
 .gate-node.focused {
-  border-color: #0972d3 !important;
-  border-width: 3px !important;
-  box-shadow:
-    0 0 0 4px rgba(9, 114, 211, 0.3),
-    0 4px 16px rgba(0, 0, 0, 0.2) !important;
-  transform: scale(1.05);
+  border: 3px solid transparent !important;
+  background-image:
+    linear-gradient(#ffffff, #ffffff),
+    linear-gradient(120deg, #b8e7ff, #8575ff, #962eff, #8575ff, #b8e7ff);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
 }
 
 /* Dark mode focused state */
 .awsui-dark-mode .gate-node.focused {
-  border-color: #7fb3e8 !important;
-  box-shadow:
-    0 0 0 4px rgba(127, 179, 232, 0.5),
-    0 4px 20px rgba(127, 179, 232, 0.3) !important;
+  background-image:
+    linear-gradient(#18181b, #18181b),
+    linear-gradient(120deg, #b8e7ff, #8575ff, #962eff, #8575ff, #b8e7ff) !important;
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
 }
 
 .gate-node-header {
@@ -120,6 +133,9 @@ BGVY /* Base node styles */
   gap: 6px;
   padding: 6px 8px;
   border-bottom: 1px solid #e9ecef;
+  min-height: 38px; /* Fixed height to ensure handle alignment */
+  box-sizing: border-box;
+  background: transparent;
 }
 
 .gate-icon {
@@ -150,7 +166,7 @@ BGVY /* Base node styles */
 
 .gate-badge-wrapper span {
   font-size: 8px !important;
-  padding: 2px 6px 1px 6px !important;
+  padding: 3px 6px 1px 6px !important;
   line-height: 1.3 !important;
 }
 
@@ -185,23 +201,21 @@ BGVY /* Base node styles */
 
 .gate-indicator {
   text-align: center;
-  padding: 2px;
-  margin-bottom: 2px;
-  border-radius: 2px;
+  padding: 3px;
+  margin-bottom: 3px;
+  border-radius: 3px;
   font-weight: bold;
   font-size: 7px;
 }
 
 /* Leaf Attack Node */
 .leaf-attack-node {
-  border-width: 2px;
-  border-style: solid;
-  border-color: #d5dbdb;
+  border: 3px solid #d5dbdb;
+  border-radius: 8px;
   background: #ffffff;
   padding: 0;
   width: 280px;
   min-height: auto;
-  border-radius: 8px;
   overflow: visible;
   position: relative;
 }
@@ -212,10 +226,11 @@ BGVY /* Base node styles */
   gap: 6px;
   padding: 6px 8px;
   border-bottom: 1px solid #e9ecef;
+  background: transparent;
 }
 
 .leaf-severity-icon {
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -261,17 +276,27 @@ BGVY /* Base node styles */
 }
 
 .leaf-attack-node:hover {
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
+  border: 3px solid transparent;
+  background-image:
+    linear-gradient(#ffffff, #ffffff),
+    linear-gradient(120deg, #b8e7ff, #8575ff, #962eff, #8575ff, #b8e7ff);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  box-shadow: 0 10px 28px rgba(133, 117, 255, 0.4);
+}
+
+/* Cursor pointer for interactive leaf nodes */
+.leaf-attack-node {
+  cursor: pointer;
 }
 
 .attack-metrics {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding: 2px;
+  padding: 3px;
   background: #f9f9f9;
-  border-radius: 2px;
+  border-radius: 3px;
   margin-top: 1px;
   font-size: 6px;
 }
@@ -292,7 +317,7 @@ BGVY /* Base node styles */
   display: flex;
   align-items: center;
   gap: 8px;
-  border-bottom: 2px solid #037f0c;
+  border-bottom: 3px solid #037f0c;
   padding-bottom: 8px;
 }
 
@@ -323,16 +348,21 @@ BGVY /* Base node styles */
 
 /* Dark mode support */
 .awsui-dark-mode {
-  .custom-node {
+  .custom-node:not(.gate-node):not(.leaf-attack-node) {
     background: #18181b !important;
     color: #e0e0e0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  .gate-node,
+  .leaf-attack-node {
+    color: #e0e0e0;
   }
 
   /* Exception: root node circle should stay red */
   .custom-node.root-goal-node-circle {
     background: #d13212 !important;
-    box-shadow: 0 2px 8px rgba(209, 50, 18, 0.5);
+    box-shadow: 0 3px 8px rgba(209, 50, 18, 0.5);
   }
 
   .custom-node.root-goal-node-circle:hover {
@@ -341,27 +371,45 @@ BGVY /* Base node styles */
   }
 
   .custom-node:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  .gate-node:hover {
+    box-shadow: none !important;
+  }
+
+  .leaf-attack-node:hover {
+    box-shadow: none !important;
   }
 
   .node-handle {
     background: #888 !important;
-    border: 2px solid #444 !important;
+    border: 3px solid #444 !important;
     opacity: 1 !important;
   }
 
   .gate-indicator {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 3px 4px rgba(0, 0, 0, 0.4);
   }
 
   /* Gate nodes dark mode */
   .gate-node {
-    background: #18181b !important;
-    border-color: #444 !important;
+    background: #18181b;
+    border-color: #444;
+  }
+
+  .gate-node:hover {
+    border: 3px solid transparent;
+    background-image:
+      linear-gradient(#18181b, #18181b),
+      linear-gradient(120deg, #b8e7ff, #8575ff, #962eff, #8575ff, #b8e7ff) !important;
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
   }
 
   .gate-node-header {
     border-bottom-color: #444;
+    background: transparent !important;
   }
 
   .gate-node-body {
@@ -388,12 +436,22 @@ BGVY /* Base node styles */
 
   /* Leaf nodes dark mode */
   .leaf-attack-node {
-    background: #18181b !important;
-    border-color: #444 !important;
+    background: #18181b;
+    border-color: #444;
+  }
+
+  .leaf-attack-node:hover {
+    border: 3px solid transparent;
+    background-image:
+      linear-gradient(#18181b, #18181b),
+      linear-gradient(120deg, #b8e7ff, #8575ff, #962eff, #8575ff, #b8e7ff) !important;
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
   }
 
   .leaf-node-header {
     border-bottom-color: #444;
+    background: transparent !important;
   }
 
   .leaf-attack-phase {
@@ -415,7 +473,17 @@ BGVY /* Base node styles */
 
   /* Root goal node dark mode */
   .root-goal-node {
-    background: #18181b !important;
+    background: #18181b;
+    border-color: #444;
+  }
+
+  .root-goal-node:hover {
+    border: 3px solid transparent;
+    background-image:
+      linear-gradient(#18181b, #18181b),
+      linear-gradient(120deg, #b8e7ff, #8575ff, #962eff, #8575ff, #b8e7ff) !important;
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
   }
 
   .attack-metrics {

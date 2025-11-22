@@ -56,7 +56,7 @@ export const ChatSessionProvider = ({ children }) => {
 
   // Auto-flush on page unload/refresh
   useEffect(() => {
-    const handleBeforeUnload = (event) => {
+    const handleBeforeUnload = () => {
       console.log("Page unloading, flushing all sessions");
       stableFunctions.flushAllSessions();
     };

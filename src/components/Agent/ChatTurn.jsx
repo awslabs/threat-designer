@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import ChatMessage from "./ChatMessage";
 import UserChatMessage from "./UserChatMessage";
 

@@ -1,7 +1,6 @@
 import React from "react";
 import TextContent from "./TextContent";
 import ThinkingContent from "./ThinkingContent";
-import ToolContent from "./ToolContent";
 import ThreatModelingTools from "./ThreatModelingTools";
 
 const ContentResolver = React.memo(({ msg, type, isBlockComplete, isParentFirstMount }) => {

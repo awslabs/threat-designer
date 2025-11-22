@@ -6,7 +6,6 @@ import Button from "@cloudscape-design/components/button";
 import Alert from "@cloudscape-design/components/alert";
 import Tabs from "@cloudscape-design/components/tabs";
 import Container from "@cloudscape-design/components/container";
-import Header from "@cloudscape-design/components/header";
 import ColumnLayout from "@cloudscape-design/components/column-layout";
 import Badge from "@cloudscape-design/components/badge";
 import ExpandableSection from "@cloudscape-design/components/expandable-section";

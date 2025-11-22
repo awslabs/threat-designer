@@ -201,12 +201,14 @@ For each threat provide:
 - Exploitation likelihood (exposed, weak controls, known patterns)
 - Impact severity (data exposure, outages, escalation potential)
 
-**NOT gaps when:**
-- Excluded by stated assumptions
-- Outside customer control
-- Architecturally unsupported
-- Low likelihood AND low impact
-- Adequately covered by existing threats
+A gap does NOT exist when:
+- The item is excluded by stated assumptions
+- The issue is outside customer control
+- The functionality is not architecturally supported
+- The risk has both low likelihood AND low impact
+- The threat is adequately covered by existing threat definitions
+- The issue addresses a concept not included in the threat model data model 
+(e.g., absence of a risk score or prioritization is not a gap because the threat definition has no risk score attribute)
 
 **Severity Classification:**
 - CRITICAL: Compliance violations, missing high-likelihood + high-impact vectors

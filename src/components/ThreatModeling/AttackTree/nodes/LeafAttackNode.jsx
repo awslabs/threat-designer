@@ -1,8 +1,17 @@
 import React, { useState } from "react";
 import PropTypes from "prop-types";
-import { Handle, Position } from "reactflow";
-import { Modal, Box, SpaceBetween, ColumnLayout, Badge } from "@cloudscape-design/components";
+import { Position } from "reactflow";
+import {
+  Modal,
+  Box,
+  SpaceBetween,
+  ColumnLayout,
+  Badge,
+  Button,
+} from "@cloudscape-design/components";
+import CustomTargetHandle from "./CustomTargetHandle";
 import "./NodeStyles.css";
+import "./NodeActionButtons.css";
 
 const getSeverityBadgeColor = (severity) => {
   const colorMap = {
@@ -14,12 +23,24 @@ const getSeverityBadgeColor = (severity) => {
   return colorMap[severity] || "grey";
 };
 
-const LeafAttackNode = ({ data, selected }) => {
+const LeafAttackNode = ({ data, selected, id }) => {
   const [showModal, setShowModal] = useState(false);
 
   const handleNodeClick = (e) => {
     e.stopPropagation();
     setShowModal(true);
+  };
+
+  const handleEdit = (e) => {
+    e.stopPropagation();
+    const event = new CustomEvent("node-edit", { detail: { nodeId: id }, bubbles: true });
+    document.dispatchEvent(event);
+  };
+
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    const event = new CustomEvent("node-delete", { detail: { nodeId: id }, bubbles: true });
+    document.dispatchEvent(event);
   };
 
   return (
@@ -31,16 +52,40 @@ const LeafAttackNode = ({ data, selected }) => {
           cursor: "pointer",
         }}
       >
-        <Handle
-          type="target"
+        {/* Action Buttons */}
+        {!data.isReadOnly && (
+          <div className="node-action-buttons">
+            <SpaceBetween direction="horizontal" size="xs">
+              <Button
+                iconName="edit"
+                variant="icon"
+                onClick={handleEdit}
+                ariaLabel="Edit leaf attack node"
+              />
+              <Button
+                iconName="remove"
+                variant="icon"
+                onClick={handleDelete}
+                ariaLabel="Delete leaf attack node"
+              />
+            </SpaceBetween>
+          </div>
+        )}
+
+        <CustomTargetHandle
+          nodeId={id}
           position={Position.Left}
-          className="node-handle"
-          style={{ top: "19px", left: "-5px" }}
+          style={{ top: "19px" }}
+          isReadOnly={data.isReadOnly}
+          edges={data.edges || []}
+          onEdgeDelete={data.onEdgeDelete}
         />
 
         <div className="leaf-node-header">
           <Badge color={getSeverityBadgeColor(data.impactSeverity)}>
-            {data.impactSeverity || "Impact"}
+            {data.impactSeverity
+              ? data.impactSeverity.charAt(0).toUpperCase() + data.impactSeverity.slice(1)
+              : "Impact"}
           </Badge>
           <div className="leaf-attack-phase">{data.attackChainPhase}</div>
         </div>
@@ -68,13 +113,17 @@ const LeafAttackNode = ({ data, selected }) => {
             <div>
               <Box variant="awsui-key-label">Impact Severity</Box>
               <Badge color={getSeverityBadgeColor(data.impactSeverity)}>
-                {data.impactSeverity}
+                {data.impactSeverity
+                  ? data.impactSeverity.charAt(0).toUpperCase() + data.impactSeverity.slice(1)
+                  : ""}
               </Badge>
             </div>
             {data.likelihood && (
               <div>
                 <Box variant="awsui-key-label">Likelihood</Box>
-                <Badge color={getSeverityBadgeColor(data.likelihood)}>{data.likelihood}</Badge>
+                <Badge color={getSeverityBadgeColor(data.likelihood)}>
+                  {data.likelihood.charAt(0).toUpperCase() + data.likelihood.slice(1)}
+                </Badge>
               </div>
             )}
             <div>
@@ -112,7 +161,7 @@ const LeafAttackNode = ({ data, selected }) => {
           {data.skillLevel && (
             <div>
               <Box variant="awsui-key-label">Skill Level Required</Box>
-              <Box style={{ textTransform: "capitalize" }}>{data.skillLevel}</Box>
+              <Box>{data.skillLevel.charAt(0).toUpperCase() + data.skillLevel.slice(1)}</Box>
             </div>
           )}
 
@@ -189,8 +238,12 @@ LeafAttackNode.propTypes = {
     detectionProbability: PropTypes.number,
     cost: PropTypes.string,
     cvssScore: PropTypes.number,
+    isReadOnly: PropTypes.bool,
+    edges: PropTypes.array,
+    onEdgeDelete: PropTypes.func,
   }).isRequired,
   selected: PropTypes.bool,
+  id: PropTypes.string.isRequired,
 };
 
 export default React.memo(LeafAttackNode);

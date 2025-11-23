@@ -1433,9 +1433,6 @@ class TestGenerateAttackTreeIdProperties:
         """
         Property: For any valid threat_model_id and threat_name, the generated
         attack_tree_id should have the correct format and be deterministic.
-
-        Feature: attack-tree-id-composite-key, Property 1: Composite key format and determinism
-        Validates: Requirements 1.1, 1.2, 1.3, 1.4, 1.5
         """
         from services.attack_tree_service import generate_attack_tree_id
 
@@ -1483,9 +1480,6 @@ class TestGenerateAttackTreeIdInputValidation:
     def test_invalid_threat_model_id(self, threat_model_id):
         """
         Property: For any invalid threat_model_id, the function should raise ValueError.
-
-        Feature: attack-tree-id-composite-key, Property 3: Input validation
-        Validates: Requirements 4.1, 4.2, 4.3
         """
         from services.attack_tree_service import generate_attack_tree_id
 
@@ -1506,9 +1500,6 @@ class TestGenerateAttackTreeIdInputValidation:
     def test_invalid_threat_name(self, threat_name):
         """
         Property: For any invalid threat_name, the function should raise ValueError.
-
-        Feature: attack-tree-id-composite-key, Property 3: Input validation
-        Validates: Requirements 4.1, 4.2, 4.3
         """
         from services.attack_tree_service import generate_attack_tree_id
 
@@ -1551,9 +1542,6 @@ class TestNoForeignKeyStorageProperty:
         """
         Property: For any attack tree generation, the threat object should not
         be updated with an attack_tree_id field.
-
-        Feature: attack-tree-id-composite-key, Property 2: No foreign key storage
-        Validates: Requirements 2.1
         """
         # Setup
         mock_state_table = Mock()
@@ -1638,9 +1626,6 @@ class TestDuplicatePreventionCheckProperty:
         """
         Property: For any attack tree generation request, the system should check
         for an existing attack tree with the computed composite key before starting generation.
-
-        Feature: attack-tree-id-composite-key, Property 4: Duplicate prevention check
-        Validates: Requirements 8.1
         """
         # Setup
         mock_state_table = Mock()
@@ -2262,3 +2247,245 @@ class TestUpdateAttackTree:
 
         # Verify update was attempted but failed
         mock_attack_tree_table.update_item.assert_called_once()
+
+
+# ============================================================================
+# Tests for get_attack_tree_metadata function
+# ============================================================================
+
+
+class TestGetAttackTreeMetadata:
+    """Tests for get_attack_tree_metadata function."""
+
+    @patch("services.collaboration_service.dynamodb")
+    @patch.object(attack_tree_service, "dynamodb")
+    def test_get_attack_tree_metadata_returns_threat_names(
+        self, mock_attack_tree_dynamodb, mock_collab_dynamodb
+    ):
+        """Test get_attack_tree_metadata returns list of threat names with attack trees."""
+        from services.attack_tree_service import get_attack_tree_metadata
+
+        # Setup
+        mock_agent_table = Mock()
+        mock_agent_table.get_item.return_value = {
+            "Item": {
+                "job_id": "test-tm-123",
+                "owner": "user-123",
+            }
+        }
+
+        mock_attack_tree_table = Mock()
+        mock_attack_tree_table.query.return_value = {
+            "Items": [
+                {"threat_name": "SQL Injection Attack"},
+                {"threat_name": "Cross-Site Scripting"},
+                {"threat_name": "CSRF Attack"},
+            ]
+        }
+
+        def table_selector(table_name):
+            if "attack" in table_name.lower():
+                return mock_attack_tree_table
+            return mock_agent_table
+
+        mock_attack_tree_dynamodb.Table.side_effect = table_selector
+        mock_collab_dynamodb.Table.side_effect = table_selector
+
+        # Execute
+        result = get_attack_tree_metadata("test-tm-123", "user-123")
+
+        # Assert
+        assert result["threat_model_id"] == "test-tm-123"
+        assert len(result["threats_with_attack_trees"]) == 3
+        assert "SQL Injection Attack" in result["threats_with_attack_trees"]
+        assert "Cross-Site Scripting" in result["threats_with_attack_trees"]
+        assert "CSRF Attack" in result["threats_with_attack_trees"]
+
+        # Verify query was called with correct parameters
+        mock_attack_tree_table.query.assert_called_once()
+        call_kwargs = mock_attack_tree_table.query.call_args[1]
+        assert call_kwargs["IndexName"] == "threat_model_id-index"
+        assert call_kwargs["KeyConditionExpression"] == "threat_model_id = :tm_id"
+        assert call_kwargs["ExpressionAttributeValues"] == {":tm_id": "test-tm-123"}
+        assert call_kwargs["ProjectionExpression"] == "threat_name"
+
+    @patch("services.collaboration_service.dynamodb")
+    @patch.object(attack_tree_service, "dynamodb")
+    def test_get_attack_tree_metadata_with_no_attack_trees(
+        self, mock_attack_tree_dynamodb, mock_collab_dynamodb
+    ):
+        """Test get_attack_tree_metadata returns empty list when no attack trees exist."""
+        from services.attack_tree_service import get_attack_tree_metadata
+
+        # Setup
+        mock_agent_table = Mock()
+        mock_agent_table.get_item.return_value = {
+            "Item": {
+                "job_id": "test-tm-123",
+                "owner": "user-123",
+            }
+        }
+
+        mock_attack_tree_table = Mock()
+        mock_attack_tree_table.query.return_value = {"Items": []}
+
+        def table_selector(table_name):
+            if "attack" in table_name.lower():
+                return mock_attack_tree_table
+            return mock_agent_table
+
+        mock_attack_tree_dynamodb.Table.side_effect = table_selector
+        mock_collab_dynamodb.Table.side_effect = table_selector
+
+        # Execute
+        result = get_attack_tree_metadata("test-tm-123", "user-123")
+
+        # Assert
+        assert result["threat_model_id"] == "test-tm-123"
+        assert result["threats_with_attack_trees"] == []
+
+    @patch("services.collaboration_service.dynamodb")
+    @patch.object(attack_tree_service, "dynamodb")
+    def test_get_attack_tree_metadata_with_invalid_threat_model_id(
+        self, mock_attack_tree_dynamodb, mock_collab_dynamodb
+    ):
+        """Test get_attack_tree_metadata raises InternalError for invalid threat model ID."""
+        from services.attack_tree_service import get_attack_tree_metadata
+        from exceptions.exceptions import InternalError
+
+        # Setup
+        mock_agent_table = Mock()
+        mock_agent_table.get_item.return_value = {}  # No threat model found
+
+        mock_attack_tree_table = Mock()
+
+        def table_selector(table_name):
+            if "attack" in table_name.lower():
+                return mock_attack_tree_table
+            return mock_agent_table
+
+        mock_attack_tree_dynamodb.Table.side_effect = table_selector
+        mock_collab_dynamodb.Table.side_effect = table_selector
+
+        # Execute and Assert
+        with pytest.raises(InternalError):
+            get_attack_tree_metadata("invalid-tm-id", "user-123")
+
+    @patch("services.collaboration_service.dynamodb")
+    @patch.object(attack_tree_service, "dynamodb")
+    def test_get_attack_tree_metadata_authorization_check(
+        self, mock_attack_tree_dynamodb, mock_collab_dynamodb
+    ):
+        """Test get_attack_tree_metadata checks user authorization."""
+        from services.attack_tree_service import get_attack_tree_metadata
+        from exceptions.exceptions import UnauthorizedError
+
+        # Setup
+        mock_agent_table = Mock()
+        mock_agent_table.get_item.return_value = {
+            "Item": {
+                "job_id": "test-tm-123",
+                "owner": "different-user",
+            }
+        }
+
+        mock_sharing_table = Mock()
+        mock_sharing_table.get_item.return_value = {}  # No sharing record
+
+        mock_attack_tree_table = Mock()
+
+        def table_selector(table_name):
+            if "attack" in table_name.lower():
+                return mock_attack_tree_table
+            elif "sharing" in table_name.lower():
+                return mock_sharing_table
+            return mock_agent_table
+
+        mock_attack_tree_dynamodb.Table.side_effect = table_selector
+        mock_collab_dynamodb.Table.side_effect = table_selector
+
+        # Execute and Assert
+        with pytest.raises(UnauthorizedError):
+            get_attack_tree_metadata("test-tm-123", "unauthorized-user")
+
+
+# ============================================================================
+# Property-based tests for get_attack_tree_metadata
+# ============================================================================
+
+
+class TestGetAttackTreeMetadataProperties:
+    """Property-based tests for get_attack_tree_metadata function.
+
+    **Feature: attack-tree-filter, Property 9: Backend returns correct threat names with trees**
+    """
+
+    @given(
+        threat_model_id=st.uuids().map(str),
+        threat_names=st.lists(
+            st.text(min_size=1, max_size=100).filter(
+                lambda s: any(c.isascii() and c.isalnum() for c in s)
+            ),
+            min_size=0,
+            max_size=20,
+            unique=True,
+        ),
+    )
+    @patch("services.collaboration_service.dynamodb")
+    @patch.object(attack_tree_service, "dynamodb")
+    def test_metadata_returns_only_threats_with_trees(
+        self,
+        mock_attack_tree_dynamodb,
+        mock_collab_dynamodb,
+        threat_model_id,
+        threat_names,
+    ):
+        """
+        Property 9: Backend returns correct threat names with trees
+
+        For any threat model ID and list of threat names, the backend function
+        should return a list containing only threat names that have corresponding
+        attack tree records in the database.
+
+        """
+        from services.attack_tree_service import get_attack_tree_metadata
+
+        # Setup
+        mock_agent_table = Mock()
+        mock_agent_table.get_item.return_value = {
+            "Item": {
+                "job_id": threat_model_id,
+                "owner": "test-user",
+            }
+        }
+
+        mock_attack_tree_table = Mock()
+        # Simulate database returning the threat names
+        mock_attack_tree_table.query.return_value = {
+            "Items": [{"threat_name": name} for name in threat_names]
+        }
+
+        def table_selector(table_name):
+            if "attack" in table_name.lower():
+                return mock_attack_tree_table
+            return mock_agent_table
+
+        mock_attack_tree_dynamodb.Table.side_effect = table_selector
+        mock_collab_dynamodb.Table.side_effect = table_selector
+
+        # Execute
+        result = get_attack_tree_metadata(threat_model_id, "test-user")
+
+        # Assert - verify all returned names were in the database response
+        assert result["threat_model_id"] == threat_model_id
+        assert set(result["threats_with_attack_trees"]) == set(threat_names)
+
+        # Verify no extra names were added
+        assert len(result["threats_with_attack_trees"]) == len(threat_names)
+
+        # Verify query was called with correct threat_model_id
+        if mock_attack_tree_table.query.called:
+            call_kwargs = mock_attack_tree_table.query.call_args[1]
+            assert call_kwargs["ExpressionAttributeValues"] == {
+                ":tm_id": threat_model_id
+            }

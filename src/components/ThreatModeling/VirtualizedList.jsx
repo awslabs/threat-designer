@@ -23,16 +23,16 @@ const VirtualizedList = memo(function VirtualizedList({
   const observerRef = useRef(null);
   const itemRefs = useRef({});
 
+  // Create intersection observer once
   useEffect(() => {
-    // Create intersection observer
     observerRef.current = new IntersectionObserver(
       (entries) => {
         setVisibleItems((prev) => {
           const newVisible = new Set(prev);
           entries.forEach((entry) => {
-            const index = parseInt(entry.target.dataset.index, 10);
+            const itemId = entry.target.dataset.itemId;
             if (entry.isIntersecting) {
-              newVisible.add(index);
+              newVisible.add(itemId);
             } else {
               // Keep items loaded much longer to avoid visible unloading during scrolling
               // Only remove if they're very far from viewport (3+ screen heights away)
@@ -40,7 +40,7 @@ const VirtualizedList = memo(function VirtualizedList({
                 entry.boundingClientRect.top > window.innerHeight * 3 ||
                 entry.boundingClientRect.bottom < -window.innerHeight * 3
               ) {
-                newVisible.delete(index);
+                newVisible.delete(itemId);
               }
             }
           });
@@ -54,19 +54,24 @@ const VirtualizedList = memo(function VirtualizedList({
       }
     );
 
-    // Observe all item placeholders
-    Object.values(itemRefs.current).forEach((ref) => {
-      if (ref) {
-        observerRef.current.observe(ref);
-      }
-    });
-
     return () => {
       if (observerRef.current) {
         observerRef.current.disconnect();
       }
     };
-  }, [items.length, rootMargin]);
+  }, [rootMargin]);
+
+  // Observe items when they change (without recreating the observer)
+  useEffect(() => {
+    if (!observerRef.current) return;
+
+    // Observe all current item refs
+    Object.values(itemRefs.current).forEach((ref) => {
+      if (ref) {
+        observerRef.current.observe(ref);
+      }
+    });
+  }, [items.length]);
 
   if (!items || items.length === 0) {
     return null;
@@ -75,20 +80,21 @@ const VirtualizedList = memo(function VirtualizedList({
   return (
     <>
       {items.map((item, index) => {
-        const isVisible = visibleItems.has(index);
-        const key = item[itemKey] || index;
+        const itemId = item[itemKey] || item.name || index;
+        const isVisible = visibleItems.has(itemId);
+        const key = itemId;
 
         return (
           <div
             key={key}
             ref={(el) => {
-              itemRefs.current[index] = el;
+              itemRefs.current[itemId] = el;
               // Observe new elements
               if (el && observerRef.current) {
                 observerRef.current.observe(el);
               }
             }}
-            data-index={index}
+            data-item-id={itemId}
             style={{
               marginBottom: "16px",
               minHeight: isVisible ? "auto" : `${estimatedItemHeight}px`,

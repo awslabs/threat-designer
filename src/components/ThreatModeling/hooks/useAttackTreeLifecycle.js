@@ -36,6 +36,8 @@ const POLLING_CONFIG = {
  * @param {string} params.threatName - Name of the threat
  * @param {string} params.threatDescription - Description of the threat
  * @param {Function} params.onTreeLoaded - Callback when tree is loaded with (nodes, edges)
+ * @param {Function} params.onTreeDeleted - Callback when tree is deleted
+ * @param {Function} params.onTreeCreated - Callback when tree is created
  *
  * @returns {Object} Lifecycle state and operations
  * @returns {string|null} returns.attackTreeId - Current attack tree ID
@@ -54,6 +56,7 @@ export const useAttackTreeLifecycle = ({
   threatDescription,
   onTreeLoaded,
   onTreeDeleted,
+  onTreeCreated,
 }) => {
   const [attackTreeId, setAttackTreeId] = useState(null);
 
@@ -172,6 +175,12 @@ export const useAttackTreeLifecycle = ({
 
       // Cache the attack tree ID for future lookups
       cacheAttackTreeId(threatModelId, threatName, newAttackTreeId);
+
+      // Notify parent that tree generation has started
+      // This adds the threat to local state immediately for filter purposes
+      if (onTreeCreated) {
+        onTreeCreated();
+      }
 
       // Transition to creating state after submission
       transitionToState("creating");

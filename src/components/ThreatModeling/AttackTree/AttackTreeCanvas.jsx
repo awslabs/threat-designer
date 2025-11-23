@@ -38,18 +38,29 @@ const AttackTreeCanvas = ({
   // Memoize node types to prevent re-renders
   const memoizedNodeTypes = useMemo(() => nodeTypes, []);
 
-  // Enhance nodes with read-only flag and edge deletion handler
+  // Enhance nodes with read-only flag, edge deletion handler, and z-index
   const enhancedNodes = useMemo(
     () =>
-      nodes.map((node) => ({
-        ...node,
-        data: {
-          ...node.data,
-          isReadOnly,
-          edges,
-          onEdgeDelete,
-        },
-      })),
+      nodes.map((node) => {
+        // Check if node is unconnected (no incoming or outgoing edges)
+        const hasConnection = edges.some(
+          (edge) => edge.source === node.id || edge.target === node.id
+        );
+
+        // Unconnected nodes get higher z-index to appear on top when dragging
+        const zIndex = hasConnection ? 1 : 1000;
+
+        return {
+          ...node,
+          zIndex,
+          data: {
+            ...node.data,
+            isReadOnly,
+            edges,
+            onEdgeDelete,
+          },
+        };
+      }),
     [nodes, isReadOnly, edges, onEdgeDelete]
   );
 

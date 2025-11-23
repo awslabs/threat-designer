@@ -16,6 +16,7 @@ from services.attack_tree_service import (
     fetch_attack_tree,
     delete_attack_tree,
     update_attack_tree,
+    get_attack_tree_metadata,
 )
 from exceptions.exceptions import (
     BadRequestError,
@@ -303,3 +304,47 @@ def delete_attack_tree_endpoint(attack_tree_id: str):
     except Exception as e:
         LOG.exception(f"Error deleting attack tree: {e}")
         raise InternalError(f"Failed to delete attack tree: {str(e)}")
+
+
+@router.get("/threat-models/<threat_model_id>/attack-trees/metadata")
+def get_attack_tree_metadata_endpoint(threat_model_id: str):
+    """
+    Get metadata about which threats have attack trees.
+
+    This endpoint returns a list of threat names that have associated attack
+    trees without loading the full tree data. This is used for filtering
+    threats in the catalog.
+
+    Path parameters:
+        threat_model_id: The threat model identifier
+
+    Returns:
+        {
+            "threat_model_id": "uuid",
+            "threats_with_attack_trees": ["threat_name_1", "threat_name_2", ...]
+        }
+
+    Status codes:
+        200: Metadata retrieved successfully
+        403: User not authorized (no access to threat model)
+        404: Threat model not found
+        500: Internal server error
+    """
+    try:
+        # Extract user_id from request context
+        user_id = router.current_event.request_context.authorizer.get("user_id")
+
+        # Get attack tree metadata
+        result = get_attack_tree_metadata(threat_model_id, user_id)
+
+        LOG.info(
+            f"Attack tree metadata retrieved for threat model: {threat_model_id}",
+            extra={"count": len(result["threats_with_attack_trees"])},
+        )
+        return result
+
+    except (UnauthorizedError, NotFoundError, InternalError):
+        raise
+    except Exception as e:
+        LOG.exception(f"Error getting attack tree metadata: {e}")
+        raise InternalError(f"Failed to get attack tree metadata: {str(e)}")

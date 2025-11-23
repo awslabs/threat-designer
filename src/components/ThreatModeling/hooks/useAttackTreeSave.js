@@ -55,12 +55,39 @@ export const useAttackTreeSave = ({ attackTreeId, nodes, edges, setHasUnsavedCha
   const cleanNodeForSave = useCallback((node) => {
     // Remove React Flow internal properties and position data
     // Backend only stores tree structure, not layout positions
-    const { measured, selected, dragging, position, width, height, ...cleanNode } = node;
+    const {
+      measured,
+      selected,
+      dragging,
+      position,
+      width,
+      height,
+      positionAbsolute,
+      ...cleanNode
+    } = node;
 
     // Transform node type back to backend format
     // Frontend uses "root-goal" but backend expects "root"
     if (cleanNode.type === "root-goal") {
       cleanNode.type = "root";
+    }
+
+    // Remove position-related and React Flow internal fields from node data if they exist
+    // These are React Flow layout properties that shouldn't be persisted
+    if (cleanNode.data) {
+      const {
+        position: dataPosition,
+        width: dataWidth,
+        height: dataHeight,
+        measured: dataMeasured,
+        positionAbsolute: dataPositionAbsolute,
+        isFocused,
+        isReadOnly,
+        edges: dataEdges,
+        onEdgeDelete,
+        ...cleanData
+      } = cleanNode.data;
+      cleanNode.data = cleanData;
     }
 
     return cleanNode;
@@ -103,6 +130,13 @@ export const useAttackTreeSave = ({ attackTreeId, nodes, edges, setHasUnsavedCha
       // Clean nodes and edges for saving
       const cleanedNodes = nodes.map(cleanNodeForSave);
       const cleanedEdges = edges.map(cleanEdgeForSave);
+
+      // Log what we're sending for debugging
+      console.log("Saving attack tree with cleaned data:", {
+        nodeCount: cleanedNodes.length,
+        edgeCount: cleanedEdges.length,
+        sampleNode: cleanedNodes[0],
+      });
 
       // Call API to save attack tree
       await updateAttackTree(attackTreeId, {

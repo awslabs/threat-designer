@@ -56,17 +56,17 @@
 /* Root Goal Node - Gate Style */
 .root-goal-node {
   border: 3px solid #d5dbdb;
-  background: #ffffff;
-  width: 180px;
-}
-
-.root-goal-node:hover {
-  border: 10px solid transparent;
   background-image:
     linear-gradient(#ffffff, #ffffff),
     linear-gradient(120deg, #b8e7ff, #8575ff, #962eff, #8575ff, #b8e7ff);
   background-origin: border-box;
   background-clip: padding-box, border-box;
+  width: 180px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.root-goal-node:hover {
+  border-color: transparent;
   box-shadow: 0 8px 24px rgba(133, 117, 255, 0.4);
 }
 
@@ -88,24 +88,23 @@
 .gate-node {
   border: 3px solid #d5dbdb;
   border-radius: 8px;
-  background: #ffffff;
-  padding: 0;
-  width: 220px;
-  min-height: auto;
-  overflow: visible;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-/* Enhanced hover effect for gate nodes */
-.gate-node:hover {
-  border: 3px solid transparent;
   background-image:
     linear-gradient(#ffffff, #ffffff),
     linear-gradient(120deg, #b8e7ff, #8575ff, #962eff, #8575ff, #b8e7ff);
   background-origin: border-box;
   background-clip: padding-box, border-box;
+  padding: 0;
+  width: 220px;
+  min-height: auto;
+  overflow: visible;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+}
+
+/* Enhanced hover effect for gate nodes */
+.gate-node:hover {
+  border-color: transparent;
   box-shadow: 0 8px 24px rgba(133, 117, 255, 0.4);
 }
 
@@ -394,17 +393,16 @@
 
   /* Gate nodes dark mode */
   .gate-node {
-    background: #18181b;
-    border-color: #444;
-  }
-
-  .gate-node:hover {
-    border: 3px solid transparent;
     background-image:
       linear-gradient(#18181b, #18181b),
       linear-gradient(120deg, #b8e7ff, #8575ff, #962eff, #8575ff, #b8e7ff) !important;
     background-origin: border-box;
     background-clip: padding-box, border-box;
+    border-color: #444;
+  }
+
+  .gate-node:hover {
+    border-color: transparent;
   }
 
   .gate-node-header {
@@ -473,17 +471,16 @@
 
   /* Root goal node dark mode */
   .root-goal-node {
-    background: #18181b;
-    border-color: #444;
-  }
-
-  .root-goal-node:hover {
-    border: 3px solid transparent;
     background-image:
       linear-gradient(#18181b, #18181b),
       linear-gradient(120deg, #b8e7ff, #8575ff, #962eff, #8575ff, #b8e7ff) !important;
     background-origin: border-box;
     background-clip: padding-box, border-box;
+    border-color: #444;
+  }
+
+  .root-goal-node:hover {
+    border-color: transparent;
   }
 
   .attack-metrics {

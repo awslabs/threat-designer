@@ -77,12 +77,10 @@ const ChatInput = ({
     try {
       const context = functions.getSessionContext(sessionId);
 
-
       // Check if threat model exists in context
       if (!context?.threatModel) {
         return [];
       }
-
 
       // The threat model structure is: context.threatModel.threats (array)
       const threats = context.threatModel.threats || [];
@@ -139,13 +137,11 @@ const ChatInput = ({
     const threatName = selectedThreat?.name;
     setSelectedThreat(null);
 
-
     // Announce removal to screen readers
     if (threatName) {
       setScreenReaderAnnouncement(`Threat removed: ${threatName}`);
       setTimeout(() => setScreenReaderAnnouncement(""), 1000);
     }
-
 
     // Keep focus on textarea after dismissal
     setTimeout(() => {
@@ -584,7 +580,6 @@ const ChatInput = ({
   useEffect(() => {
     const context = functions.getSessionContext(sessionId);
 
-
     // If context is cleared (both diagram and threatModel are null), clear selected threat
     if (context && !context.diagram && !context.threatModel && selectedThreat) {
       setSelectedThreat(null);
@@ -614,7 +609,6 @@ const ChatInput = ({
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {screenReaderAnnouncement}
       </div>
-
 
       {/* Dropdown Content Area */}
       {activeDropdownButton && activeDropdownButton.dropdownContent && (
@@ -659,7 +653,6 @@ const ChatInput = ({
             <ThreatContextToken threat={selectedThreat} onDismiss={handleThreatDismiss} />
           </div>
         )}
-
 
         <textarea
           ref={textareaRef}

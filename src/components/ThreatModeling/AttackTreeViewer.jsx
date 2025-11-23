@@ -21,7 +21,14 @@ import { useAttackTreeLayout } from "./hooks/useAttackTreeLayout";
 import { useAttackTreeSave } from "./hooks/useAttackTreeSave";
 
 // Inner component that has access to React Flow instance
-const AttackTreeFlow = ({ threatModelId, threatName, threatDescription, isReadOnly = false }) => {
+const AttackTreeFlow = ({
+  threatModelId,
+  threatName,
+  threatDescription,
+  isReadOnly = false,
+  onAttackTreeCreated,
+  onAttackTreeDeleted,
+}) => {
   const reactFlowInstance = useReactFlow();
   const { isDark } = useTheme();
 
@@ -69,6 +76,16 @@ const AttackTreeFlow = ({ threatModelId, threatName, threatDescription, isReadOn
       setAllNodes([]);
       setAllEdges([]);
       historyManager.clear();
+      // Notify parent component that tree was deleted
+      if (onAttackTreeDeleted) {
+        onAttackTreeDeleted(threatName);
+      }
+    },
+    onTreeCreated: () => {
+      // Notify parent component that tree was created
+      if (onAttackTreeCreated) {
+        onAttackTreeCreated(threatName);
+      }
     },
   });
 
@@ -340,6 +357,8 @@ AttackTreeFlow.propTypes = {
   attackTreeId: PropTypes.string,
   onClose: PropTypes.func,
   isReadOnly: PropTypes.bool,
+  onAttackTreeCreated: PropTypes.func,
+  onAttackTreeDeleted: PropTypes.func,
 };
 
 // AttackTreeViewer component - displays and manages attack tree visualization
@@ -358,6 +377,8 @@ AttackTreeViewer.propTypes = {
   attackTreeId: PropTypes.string,
   onClose: PropTypes.func,
   isReadOnly: PropTypes.bool,
+  onAttackTreeCreated: PropTypes.func,
+  onAttackTreeDeleted: PropTypes.func,
 };
 
 export default AttackTreeViewer;

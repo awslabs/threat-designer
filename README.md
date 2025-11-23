@@ -73,11 +73,6 @@ Lightning Mode provides:
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./assets/attack_tree_dark.png">
-  <img alt="sentry" src="./assets/attack_tree.png">
-</picture>
-
-<picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/threat_catalog_dark.png">
   <img alt="threat catalog" src="./assets/threat_catalog.png" style="margin-bottom: 20px;">
 </picture>

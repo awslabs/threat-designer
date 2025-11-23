@@ -89,7 +89,7 @@ const customTheme = {
       dark: "#212124",
     },
     borderRadiusButton: "10px",
-    borderRadiusInput: "12px",
+    borderRadiusInput: "8px",
     borderRadiusContainer: "12px",
     colorForegroundControlDefault: {
       dark: "#18181B",
@@ -185,10 +185,6 @@ const customTheme = {
     },
 
     // colorBorderDropdownItemFocused: {
-    //   light: "transparent",
-    //   dark: "#000000",
-    // },
-    // colorBorderDropdownItemHover: {
     //   light: "transparent",
     //   dark: "#000000",
     // },

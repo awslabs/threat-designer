@@ -1284,6 +1284,95 @@ def update_attack_tree(
 
 
 @tracer.capture_method
+def get_attack_tree_metadata(threat_model_id: str, user_id: str) -> Dict[str, Any]:
+    """
+    Get metadata about which threats have attack trees.
+
+    This function queries the attack tree table using the GSI to find all
+    attack trees for a given threat model, returning only the threat names
+    without loading the full tree data.
+
+    Args:
+        threat_model_id: The threat model ID
+        user_id: The requesting user ID
+
+    Returns:
+        Dictionary with threat_model_id and list of threat names with trees
+
+    Raises:
+        UnauthorizedError: If user doesn't have access to the threat model
+        NotFoundError: If threat model doesn't exist
+        InternalError: If DynamoDB operation fails
+    """
+    try:
+        # Validate user has access to the threat model
+        require_access(threat_model_id, user_id, required_level="READ_ONLY")
+
+        # Query attack tree table using GSI
+        attack_tree_table = dynamodb.Table(ATTACK_TREE_TABLE)
+
+        try:
+            response = attack_tree_table.query(
+                IndexName="threat_model_id-index",
+                KeyConditionExpression="threat_model_id = :tm_id",
+                ExpressionAttributeValues={":tm_id": threat_model_id},
+                ProjectionExpression="threat_name",
+            )
+        except ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            error_msg = e.response["Error"]["Message"]
+            LOG.error(
+                f"DynamoDB error querying attack tree metadata: {error_code} - {error_msg}",
+                extra={
+                    "threat_model_id": threat_model_id,
+                    "error_code": error_code,
+                },
+            )
+            if error_code == "ProvisionedThroughputExceededException":
+                raise InternalError(
+                    "Service temporarily unavailable due to high load. Please try again."
+                )
+            elif error_code == "ResourceNotFoundException":
+                raise InternalError(
+                    "Attack tree table not found. Please contact support."
+                )
+            else:
+                raise InternalError(
+                    f"Failed to query attack tree metadata: {error_msg}"
+                )
+
+        # Extract threat names from results
+        items = response.get("Items", [])
+        threats_with_attack_trees = [
+            item["threat_name"] for item in items if "threat_name" in item
+        ]
+
+        LOG.info(
+            f"Retrieved attack tree metadata",
+            extra={
+                "threat_model_id": threat_model_id,
+                "count": len(threats_with_attack_trees),
+            },
+        )
+
+        return {
+            "threat_model_id": threat_model_id,
+            "threats_with_attack_trees": threats_with_attack_trees,
+        }
+
+    except (UnauthorizedError, NotFoundError):
+        raise
+    except InternalError:
+        raise
+    except Exception as e:
+        LOG.error(
+            f"Unexpected error getting attack tree metadata: {str(e)}",
+            extra={"threat_model_id": threat_model_id},
+        )
+        raise InternalError(f"Failed to get attack tree metadata: {str(e)}")
+
+
+@tracer.capture_method
 def delete_attack_trees_for_threat_model(
     threat_model_id: str, owner: str
 ) -> Dict[str, Any]:

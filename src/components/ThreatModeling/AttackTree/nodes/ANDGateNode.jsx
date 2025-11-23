@@ -26,8 +26,8 @@ const ANDGateNode = ({ data, selected, id }) => {
     <div
       className={`custom-node gate-node and-gate-node ${selected ? "selected" : ""} ${isFocused ? "focused" : ""}`}
     >
-      {/* Action Buttons */}
-      {!data.isReadOnly && (
+      {/* Action Buttons - Hidden when node is focused */}
+      {!data.isReadOnly && !isFocused && (
         <div className="node-action-buttons">
           <SpaceBetween direction="horizontal" size="xs">
             <Button

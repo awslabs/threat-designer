@@ -93,8 +93,6 @@ export const useAttackTreeOperations = ({
           tools: [],
           timeRequired: "",
           cost: "",
-          detectionProbability: 0,
-          cvssScore: 0,
         };
       default:
         return { label: "New Node" };

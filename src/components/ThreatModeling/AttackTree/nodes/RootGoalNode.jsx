@@ -23,23 +23,10 @@ const RootGoalNode = ({ data, selected, id }) => {
 
   return (
     <div className={`custom-node gate-node root-goal-node ${selected ? "selected" : ""}`}>
-      {/* Action Buttons */}
+      {/* Action Buttons - Only edit, no delete for root goal */}
       {!data.isReadOnly && (
         <div className="node-action-buttons">
-          <SpaceBetween direction="horizontal" size="xs">
-            <Button
-              iconName="edit"
-              variant="icon"
-              onClick={handleEdit}
-              ariaLabel="Edit goal node"
-            />
-            <Button
-              iconName="remove"
-              variant="icon"
-              onClick={handleDelete}
-              ariaLabel="Delete goal node"
-            />
-          </SpaceBetween>
+          <Button iconName="edit" variant="icon" onClick={handleEdit} ariaLabel="Edit goal node" />
         </div>
       )}
 

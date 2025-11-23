@@ -2347,6 +2347,96 @@ paths:
         contentHandling: CONVERT_TO_TEXT
         passthroughBehavior: NEVER
 
+  "/threat-models/{threat_model_id}/attack-trees/metadata":
+    get:
+      summary: Get attack tree metadata for a threat model
+      description: |
+        Returns a list of threat names that have associated attack trees.
+
+        This endpoint queries for attack tree existence without loading full tree data,
+        enabling efficient filtering of threats in the catalog based on whether they
+        have attack trees.
+      tags:
+        - Attack Trees
+      parameters:
+        - name: threat_model_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Threat model identifier
+      responses:
+        "200":
+          description: Metadata retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttackTreeMetadataResponse"
+              examples:
+                with_trees:
+                  summary: Threat model with attack trees
+                  value:
+                    threat_model_id: "550e8400-e29b-41d4-a716-446655440000"
+                    threats_with_attack_trees:
+                      - "SQL Injection Attack"
+                      - "Cross-Site Scripting (XSS)"
+                      - "Denial of Service"
+                no_trees:
+                  summary: Threat model without attack trees
+                  value:
+                    threat_model_id: "550e8400-e29b-41d4-a716-446655440001"
+                    threats_with_attack_trees: []
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+    options:
+      responses:
+        "200":
+          description: OK
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Credentials:
+              schema:
+                type: string
+      security: []
+      tags:
+        - CORS (Options)
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+
 components:
   schemas:
     # Error Response Schemas
@@ -3334,6 +3424,28 @@ components:
           type: string
           description: Success message
           example: "Attack tree updated successfully"
+
+    AttackTreeMetadataResponse:
+      type: object
+      required:
+        - threat_model_id
+        - threats_with_attack_trees
+      properties:
+        threat_model_id:
+          type: string
+          format: uuid
+          description: The threat model identifier
+        threats_with_attack_trees:
+          type: array
+          items:
+            type: string
+          description: |
+            List of threat names that have associated attack trees.
+            Returns an empty array if no attack trees exist for this threat model.
+          example:
+            - "SQL Injection Attack"
+            - "Cross-Site Scripting (XSS)"
+            - "Denial of Service"
   responses:
     "400":
       content:

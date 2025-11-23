@@ -13,14 +13,8 @@ const AddNodeDropdown = ({ isOpen, onClose, onSelectNodeType }) => {
   const dropdownRef = useRef(null);
 
   // Node type options with display names, icons, descriptions, and badge colors
+  // Note: root-goal is excluded as it's created by default and cannot be added manually
   const nodeOptions = [
-    {
-      type: "root-goal",
-      label: "Goal Node",
-      icon: "⊙",
-      description: "Root objective of the attack tree",
-      badgeColor: "red",
-    },
     {
       type: "and-gate",
       label: "AND Gate",

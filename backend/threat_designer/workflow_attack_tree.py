@@ -6,7 +6,7 @@ The workflow guides an LLM agent through creating comprehensive attack trees for
 """
 
 import time
-from typing import Optional, TypedDict
+from typing import Optional, TypedDict, Annotated
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph import StateGraph
@@ -32,6 +32,55 @@ from constants import MAX_EXECUTION_TIME_SECONDS
 # ============================================================================
 
 
+def _attack_tree_reducer(
+    left: Optional[AttackTreeLogical], right: Optional[AttackTreeLogical]
+) -> Optional[AttackTreeLogical]:
+    """
+    Reducer function for attack_tree state to handle concurrent updates.
+
+    All tools modify the same attack_tree object in-place, so this reducer
+    typically receives the same object reference twice. It exists to prevent
+    LangGraph errors when multiple tools return updates in the same step.
+
+    Args:
+        left: Current attack_tree value
+        right: New attack_tree value from tool
+
+    Returns:
+        The attack_tree object (they should be the same reference)
+    """
+    # If both are None, return None
+    if left is None and right is None:
+        return None
+
+    # If only one is provided, use it
+    if left is None:
+        return right
+    if right is None:
+        return left
+
+    # Both are provided - return the right (newer) value
+    # In practice, they should be the same object since tools modify in-place
+    return right
+
+
+def _counter_reducer(left: int, right: int) -> int:
+    """
+    Reducer function for counter fields (tool_use, validate_tool_use).
+
+    When multiple tools update counters in parallel, take the maximum value
+    to ensure we don't lose any increments.
+
+    Args:
+        left: Current counter value
+        right: New counter value from tool
+
+    Returns:
+        The maximum of the two values
+    """
+    return max(left, right)
+
+
 class AttackTreeState(MessagesState):
     """
     State for attack tree generation workflow.
@@ -55,9 +104,9 @@ class AttackTreeState(MessagesState):
     threat_name: str
     threat_description: str
     owner: str
-    attack_tree: Optional[AttackTreeLogical]
-    tool_use: int
-    validate_tool_use: int
+    attack_tree: Annotated[Optional[AttackTreeLogical], _attack_tree_reducer]
+    tool_use: Annotated[int, _counter_reducer]
+    validate_tool_use: Annotated[int, _counter_reducer]
     validate_called_since_reset: bool
     start_time: Optional[float]
 
@@ -461,14 +510,16 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
             add_attack_node,
             update_attack_node,
             delete_attack_node,
+            validate_attack_tree,
         )
 
         tools = [
             create_attack_tree,
             read_attack_tree,
+            add_attack_node,
             update_attack_node,
             delete_attack_node,
-            add_attack_node,
+            validate_attack_tree,
         ]
 
         # Bind tools to model with "auto" tool choice
@@ -514,34 +565,7 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
 
         # Update status based on tool calls
         if hasattr(response, "tool_calls") and response.tool_calls:
-            # Get the first tool call to set appropriate status
-            first_tool = response.tool_calls[0].get("name", "unknown")
-
-            # Log current attack_tree state
-            current_attack_tree = state.get("attack_tree")
-            if current_attack_tree:
-                logger.info(
-                    "Current attack_tree state before tool execution",
-                    node="agent",
-                    attack_tree_id=attack_tree_id,
-                    has_goal=bool(
-                        current_attack_tree.goal
-                        if hasattr(current_attack_tree, "goal")
-                        else None
-                    ),
-                    children_count=len(current_attack_tree.children)
-                    if hasattr(current_attack_tree, "children")
-                    else 0,
-                    attack_tree_type=type(current_attack_tree).__name__,
-                )
-            else:
-                logger.info(
-                    "Attack_tree state is None before tool execution",
-                    node="agent",
-                    attack_tree_id=attack_tree_id,
-                )
-
-            # Update status without detailed messages
+            # Update status
             try:
                 state_service.update_job_state(
                     attack_tree_id, JobState.ATTACK_TREE.value
@@ -634,6 +658,90 @@ def should_continue(state: AttackTreeState) -> str:
     return "continue"
 
 
+def _save_message_trail(state: AttackTreeState, attack_tree_id: str) -> None:
+    """
+    Save all messages from the conversation to the trail table.
+
+    This function extracts all messages (not just reasoning) and saves them
+    to the trail table for debugging and analysis purposes.
+
+    Can be easily commented out if not needed.
+
+    Args:
+        state: Current AttackTreeState containing messages
+        attack_tree_id: ID of the attack tree job
+    """
+    try:
+        import json
+
+        messages = state.get("messages", [])
+        message_trail = []
+
+        for msg in messages:
+            # Skip system messages
+            msg_type = type(msg).__name__
+            if msg_type == "SystemMessage":
+                continue
+
+            # Convert message to a serializable format
+            msg_dict = {}
+
+            # Get message type
+            msg_dict["type"] = msg_type
+
+            # Get content
+            if hasattr(msg, "content"):
+                if isinstance(msg.content, str):
+                    msg_dict["content"] = msg.content
+                elif isinstance(msg.content, list):
+                    msg_dict["content"] = msg.content
+                else:
+                    msg_dict["content"] = str(msg.content)
+
+            # Get tool calls if present
+            if hasattr(msg, "tool_calls") and msg.tool_calls:
+                msg_dict["tool_calls"] = [
+                    {
+                        "name": tc.get("name"),
+                        "id": tc.get("id"),
+                        "args": tc.get("args"),
+                    }
+                    for tc in msg.tool_calls
+                ]
+
+            # Get tool call id if present (for ToolMessage)
+            if hasattr(msg, "tool_call_id"):
+                msg_dict["tool_call_id"] = msg.tool_call_id
+
+            message_trail.append(msg_dict)
+
+        # Save to trail table if we have messages
+        if message_trail:
+            # Convert to JSON string for storage
+            trail_json = json.dumps(message_trail, indent=2)
+
+            logger.info(
+                "Saving message trail to trail table",
+                node="continue",
+                attack_tree_id=attack_tree_id,
+                message_count=len(message_trail),
+            )
+
+            # Save using the state service
+            # Using 'threats' field as a generic storage for attack tree messages
+            state_service.update_trail(job_id=attack_tree_id, threats=[trail_json])
+
+    except Exception as e:
+        # Don't fail the workflow if trail saving fails
+        logger.error(
+            "Failed to save message trail",
+            node="continue",
+            attack_tree_id=attack_tree_id,
+            error=str(e),
+            exc_info=True,
+        )
+
+
 def continue_or_finish(state: AttackTreeState) -> Command:
     """
     Validate attack tree completeness and route to agent or finish.
@@ -680,20 +788,20 @@ def continue_or_finish(state: AttackTreeState) -> Command:
             )
             return Command(goto="agent", update={"messages": [feedback_message]})
 
-        # # Check if validation was performed
-        # if validate_tool_use == 0:
-        #     logger.info(
-        #         "Validation not performed - routing back to agent",
-        #         node="continue",
-        #         attack_tree_id=attack_tree_id,
-        #         route="agent",
-        #         validate_tool_use=validate_tool_use,
-        #     )
-        #     # Inject feedback message requesting validation
-        #     feedback_message = HumanMessage(
-        #         content="You have not performed validation yet. Please use the validate_attack_tree tool to check the completeness and correctness of the attack tree before finishing."
-        #     )
-        #     return Command(goto="agent", update={"messages": [feedback_message]})
+        # Check if validation was performed
+        if validate_tool_use == 0:
+            logger.info(
+                "Validation not performed - routing back to agent",
+                node="continue",
+                attack_tree_id=attack_tree_id,
+                route="agent",
+                validate_tool_use=validate_tool_use,
+            )
+            # Inject feedback message requesting validation
+            feedback_message = HumanMessage(
+                content="You have not performed validation yet. Please use the validate_attack_tree tool to check the completeness and correctness of the attack tree before finishing."
+            )
+            return Command(goto="agent", update={"messages": [feedback_message]})
 
         # Store the attack tree in DynamoDB
         try:
@@ -757,6 +865,9 @@ def continue_or_finish(state: AttackTreeState) -> Command:
                 )
             # Re-raise to stop workflow
             raise
+
+        # Save message trail (can be commented out if not needed)
+        # _save_message_trail(state, attack_tree_id)
 
         # Update status to completed
         try:
@@ -841,6 +952,8 @@ def create_attack_tree_workflow():
         delete_attack_node,
         validate_attack_tree,
     ]
+
+    # Create tool node
     tool_node = ToolNode(tools)
 
     # Create workflow graph

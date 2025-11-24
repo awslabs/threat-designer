@@ -68,14 +68,13 @@ resource "null_resource" "docker_agent_build_push" {
       aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
       aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${aws_ecr_repository.threat-designer.repository_url}
       
-      # Build image
-      docker build --build-arg AWS_REGION=${var.region} -t ${aws_ecr_repository.threat-designer.name}:latest .
+      # Ensure buildx is set up
+      docker buildx create --use --name multiarch 2>/dev/null || docker buildx use multiarch
       
-      # Tag image
-      docker tag ${aws_ecr_repository.threat-designer.name}:latest ${aws_ecr_repository.threat-designer.repository_url}:latest
-      
-      # Push image
-      docker push ${aws_ecr_repository.threat-designer.repository_url}:latest
+      # Build and push image for ARM64
+      docker buildx build --platform linux/arm64 --build-arg AWS_REGION=${var.region} \
+        -t ${aws_ecr_repository.threat-designer.repository_url}:latest \
+        --push .
     EOT
   }
 }

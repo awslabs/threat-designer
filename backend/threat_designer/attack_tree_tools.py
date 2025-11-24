@@ -85,8 +85,6 @@ def create_attack_tree(
         # Increment tool use counter
         new_tool_use = tool_use + 1
 
-        time.sleep(2)
-
         return Command(
             update={
                 "attack_tree": attack_tree,
@@ -217,8 +215,6 @@ def read_attack_tree(runtime: ToolRuntime) -> Command:
             leaf_count=len(leaf_nodes),
             children_count=len(attack_tree.children),
         )
-
-        time.sleep(1)
 
         return Command(
             update={
@@ -389,8 +385,6 @@ def add_attack_node(
     # Increment tool use counter
     new_tool_use = tool_use + 1
 
-    time.sleep(2)
-
     return Command(
         update={
             "attack_tree": attack_tree,
@@ -555,8 +549,6 @@ def update_attack_node(
 
     # Increment tool use counter
     new_tool_use = tool_use + 1
-
-    time.sleep(2)
 
     return Command(
         update={
@@ -738,8 +730,6 @@ def delete_attack_node(
     # Increment tool use counter
     new_tool_use = tool_use + 1
 
-    time.sleep(2)
-
     return Command(
         update={
             "attack_tree": attack_tree,
@@ -813,6 +803,11 @@ def validate_attack_tree(runtime: ToolRuntime) -> Command:
         validation_issues.append(
             "Attack tree has no children. Add at least one attack path."
         )
+    elif len(attack_tree.children) < 2:
+        validation_issues.append(
+            f"Attack tree has only {len(attack_tree.children)} child. "
+            f"Add at least 2 children to represent distinct attack paths."
+        )
 
     # Check 2: All leaf nodes have required fields
     leaf_nodes = _collect_leaf_nodes(attack_tree)
@@ -840,15 +835,15 @@ def validate_attack_tree(runtime: ToolRuntime) -> Command:
         if isinstance(leaf, AttackTechnique):
             attack_phases.add(leaf.attack_phase)
 
-    # Recommend coverage of key phases
-    key_phases = ["Initial Access", "Execution", "Exfiltration"]
-    missing_key_phases = [phase for phase in key_phases if phase not in attack_phases]
-    if missing_key_phases:
-        validation_issues.append(
-            f"Consider adding attack techniques for these key phases: {', '.join(missing_key_phases)}"
-        )
+    # # Recommend coverage of key phases
+    # key_phases = ["Initial Access", "Execution", "Exfiltration"]
+    # missing_key_phases = [phase for phase in key_phases if phase not in attack_phases]
+    # if missing_key_phases:
+    #     validation_issues.append(
+    #         f"Consider adding attack techniques for these key phases: {', '.join(missing_key_phases)}"
+    #     )
 
-    # Check 4: Logical consistency of gates
+    # Check 4: Logical consistency of gates (includes root children and OR gate validation)
     gate_issues = _validate_gates(attack_tree)
     validation_issues.extend(gate_issues)
 
@@ -859,8 +854,6 @@ def validate_attack_tree(runtime: ToolRuntime) -> Command:
 
     # Increment validate_tool_use counter
     new_validate_tool_use = validate_tool_use + 1
-
-    time.sleep(2)
 
     # Build response message
     if len(validation_issues) == 0:
@@ -1021,6 +1014,89 @@ def _validate_gates(attack_tree: AttackTreeLogical) -> List[str]:
                 issues.append(f"Logic gate at {path} missing description")
 
             # Traverse children
+            for i, child in enumerate(node.children):
+                traverse(child, f"{path}[{i}]")
+
+    for i, child in enumerate(attack_tree.children):
+        traverse(child, f"root[{i}]")
+
+    # Call validation helpers and collect issues
+    root_issues = _validate_root_children(attack_tree)
+    issues.extend(root_issues)
+
+    or_gate_issues = _validate_or_gate_children(attack_tree)
+    issues.extend(or_gate_issues)
+
+    return issues
+
+
+def _validate_root_children(attack_tree: AttackTreeLogical) -> List[str]:
+    """
+    Validate that root node does not have direct leaf children.
+
+    Args:
+        attack_tree: The attack tree to validate
+
+    Returns:
+        List of validation issues found
+    """
+    issues = []
+
+    for i, child in enumerate(attack_tree.children):
+        if isinstance(child, AttackTechnique):
+            issues.append(
+                f"Root node has direct leaf child at index {i}: '{child.name}'. "
+                f"Root should only have logic gates as children."
+            )
+
+    return issues
+
+
+def _validate_or_gate_children(attack_tree: AttackTreeLogical) -> List[str]:
+    """
+    Validate OR gate children composition rules.
+
+    Checks:
+    1. OR gates cannot have AND gates as children
+    2. Leaf children of OR gates must share the same attack phase
+
+    Args:
+        attack_tree: The attack tree to validate
+
+    Returns:
+        List of validation issues found
+    """
+    issues = []
+
+    def traverse(node: Union[LogicGate, AttackTechnique], path: str):
+        if isinstance(node, LogicGate):
+            # Check OR gate specific rules
+            if node.gate_type == "OR":
+                # Check 1: OR gates cannot have AND gates as children
+                for i, child in enumerate(node.children):
+                    if isinstance(child, LogicGate) and child.gate_type == "AND":
+                        issues.append(
+                            f"OR gate at {path} contains AND gate as child at index {i}. "
+                            f"OR gates cannot have AND gates as children."
+                        )
+
+                # Check 2: All leaf children must share the same attack phase
+                leaf_children = [
+                    child
+                    for child in node.children
+                    if isinstance(child, AttackTechnique)
+                ]
+
+                if len(leaf_children) > 0:
+                    attack_phases = set(leaf.attack_phase for leaf in leaf_children)
+                    if len(attack_phases) > 1:
+                        phases_str = ", ".join(sorted(attack_phases))
+                        issues.append(
+                            f"OR gate at {path} has leaf children with inconsistent attack phases: {phases_str}. "
+                            f"All leaf children should share the same attack phase."
+                        )
+
+            # Traverse children recursively
             for i, child in enumerate(node.children):
                 traverse(child, f"{path}[{i}]")
 

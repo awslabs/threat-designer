@@ -1,27 +1,41 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { getDownloadUrl } from "../../services/ThreatDesigner/stats";
 import StatusIndicator from "@cloudscape-design/components/status-indicator";
 import { Spinner } from "@cloudscape-design/components";
+import axios from "axios";
+import {
+  getCachedImageBlob,
+  setCachedImageBlob,
+} from "../../services/ThreatDesigner/presignedUrlCache";
 
-const imageCache = new Map();
-
-const useImageLoader = (fileName) => {
+const useImageLoader = (threatModelId, presignedUrl) => {
   const [imageUrl, setImageUrl] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadImage = async () => {
-      if (imageCache.has(fileName)) {
-        setImageUrl(imageCache.get(fileName));
+      // Check cache first
+      const cachedBlob = getCachedImageBlob(threatModelId);
+      if (cachedBlob) {
+        setImageUrl(cachedBlob);
         setLoading(false);
+        return;
+      }
+
+      // If no presigned URL is provided, don't load anything
+      if (!presignedUrl) {
+        setLoading(true);
         return;
       }
 
       setLoading(true);
       try {
-        const blobData = await getDownloadUrl(fileName);
+        const fileResponse = await axios.get(presignedUrl, {
+          responseType: "blob",
+        });
+        const blobData = fileResponse.data;
+
         const objectUrl = URL.createObjectURL(blobData);
-        imageCache.set(fileName, objectUrl);
+        setCachedImageBlob(threatModelId, objectUrl);
         setImageUrl(objectUrl);
         setLoading(false);
       } catch (error) {
@@ -34,17 +48,19 @@ const useImageLoader = (fileName) => {
     loadImage();
 
     return () => {
-      if (imageUrl && !imageCache.has(fileName)) {
+      // Don't revoke URLs that are in the cache
+      const cachedBlob = getCachedImageBlob(threatModelId);
+      if (imageUrl && !cachedBlob) {
         URL.revokeObjectURL(imageUrl);
       }
     };
-  }, [fileName]);
+  }, [threatModelId, presignedUrl]);
 
   return { imageUrl, loading };
 };
 
-export const S3DownloaderComponent = React.memo(({ fileName }) => {
-  const { imageUrl, loading } = useImageLoader(fileName);
+export const S3DownloaderComponent = React.memo(({ threatModelId, presignedUrl }) => {
+  const { imageUrl, loading } = useImageLoader(threatModelId, presignedUrl);
 
   const content = useMemo(() => {
     if (loading || imageUrl === "FAILED") {

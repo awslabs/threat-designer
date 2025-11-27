@@ -13,6 +13,7 @@ class AgentManager:
     def __init__(self):
         # Global variables to store reusable components
         self.cached_agent = None
+        self.cached_llm = None  # Cache the LLM instance
         self.current_tool_preferences = None
         self.current_tools_hash = None
         self.current_context = None
@@ -29,17 +30,22 @@ class AgentManager:
         diagram_path: Optional[str] = None,
         budget_level: int = 0,
     ):
-        # Check if budget level changed - if so, we need to recreate the agent
+        # Check if budget level changed - if so, we need to recreate the agent and LLM
         budget_level_changed = self.current_budget_level != budget_level
         if budget_level_changed:
             logger.info(
-                f"Budget level changed from {self.current_budget_level} to {budget_level}, recreating agent..."
+                f"Budget level changed from {self.current_budget_level} to {budget_level}, recreating agent and LLM..."
             )
             self.current_budget_level = budget_level
             self.cached_agent = None  # Force recreation
+            self.cached_llm = None  # Force LLM recreation
 
-        # Create new LLM with updated config
-        llm = create_model(budget_level)
+        # Create or reuse LLM
+        if self.cached_llm is None:
+            logger.info(f"Creating new LLM with budget level {budget_level}")
+            self.cached_llm = create_model(budget_level)
+
+        llm = self.cached_llm
 
         result = await get_or_create_agent(
             tool_preferences,

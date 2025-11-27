@@ -1321,3 +1321,702 @@ class TestHelperFunctions:
         assert "s3_location" not in update_expression
         assert "job_id" not in update_expression
         assert "description" in update_expression
+
+
+# ============================================================================
+# Tests for extract_threat_model_id_from_s3_location function
+# ============================================================================
+
+
+class TestExtractThreatModelIdFromS3Location:
+    """Tests for extract_threat_model_id_from_s3_location function."""
+
+    def test_extract_valid_uuid(self):
+        """Test extraction of valid UUID from S3 location."""
+        # Setup
+        valid_uuid = "550e8400-e29b-41d4-a716-446655440000"
+
+        # Execute
+        from services.threat_designer_service import (
+            extract_threat_model_id_from_s3_location,
+        )
+
+        result = extract_threat_model_id_from_s3_location(valid_uuid)
+
+        # Assert
+        assert result == valid_uuid
+
+    def test_extract_valid_uuid_with_whitespace(self):
+        """Test extraction handles leading/trailing whitespace."""
+        # Setup
+        valid_uuid = "550e8400-e29b-41d4-a716-446655440000"
+        s3_location_with_spaces = f"  {valid_uuid}  "
+
+        # Execute
+        from services.threat_designer_service import (
+            extract_threat_model_id_from_s3_location,
+        )
+
+        result = extract_threat_model_id_from_s3_location(s3_location_with_spaces)
+
+        # Assert
+        assert result == valid_uuid
+
+    def test_extract_raises_value_error_for_empty_string(self):
+        """Test extraction raises ValueError for empty string."""
+        # Execute and Assert
+        from services.threat_designer_service import (
+            extract_threat_model_id_from_s3_location,
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            extract_threat_model_id_from_s3_location("")
+
+        assert "cannot be empty" in str(exc_info.value)
+
+    def test_extract_raises_value_error_for_whitespace_only(self):
+        """Test extraction raises ValueError for whitespace-only string."""
+        # Execute and Assert
+        from services.threat_designer_service import (
+            extract_threat_model_id_from_s3_location,
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            extract_threat_model_id_from_s3_location("   ")
+
+        assert "cannot be empty" in str(exc_info.value)
+
+    def test_extract_raises_not_found_error_for_invalid_uuid_format(self):
+        """Test extraction raises NotFoundError for invalid UUID format."""
+        # Setup
+        invalid_formats = [
+            "not-a-uuid",
+            "12345",
+            "550e8400-e29b-41d4-a716",  # Incomplete UUID
+            "550e8400-e29b-41d4-a716-446655440000-extra",  # Extra characters
+            "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",  # Invalid characters
+        ]
+
+        # Execute and Assert
+        from services.threat_designer_service import (
+            extract_threat_model_id_from_s3_location,
+        )
+
+        for invalid_format in invalid_formats:
+            with pytest.raises(NotFoundError) as exc_info:
+                extract_threat_model_id_from_s3_location(invalid_format)
+
+            assert "Invalid threat model ID format" in str(exc_info.value)
+
+    def test_extract_handles_uppercase_uuid(self):
+        """Test extraction handles uppercase UUID."""
+        # Setup
+        uppercase_uuid = "550E8400-E29B-41D4-A716-446655440000"
+
+        # Execute
+        from services.threat_designer_service import (
+            extract_threat_model_id_from_s3_location,
+        )
+
+        result = extract_threat_model_id_from_s3_location(uppercase_uuid)
+
+        # Assert - UUID validation should accept uppercase
+        assert result.lower() == uppercase_uuid.lower()
+
+    def test_extract_handles_mixed_case_uuid(self):
+        """Test extraction handles mixed case UUID."""
+        # Setup
+        mixed_case_uuid = "550e8400-E29B-41d4-A716-446655440000"
+
+        # Execute
+        from services.threat_designer_service import (
+            extract_threat_model_id_from_s3_location,
+        )
+
+        result = extract_threat_model_id_from_s3_location(mixed_case_uuid)
+
+        # Assert
+        assert result.lower() == mixed_case_uuid.lower()
+
+
+# ============================================================================
+# Property-Based Tests for Authorization
+# ============================================================================
+
+from hypothesis import given, strategies as st, settings
+
+
+class TestSingleDownloadAuthorizationProperty:
+    """
+    Property-based tests for single download authorization.
+
+    Feature: batch-presigned-url-authorization, Property 4: Authorization enforcement
+    Validates: Requirements 2.1
+    """
+
+    @given(
+        threat_model_id=st.uuids().map(str),
+        user_id=st.uuids().map(str),
+        access_level=st.sampled_from(["OWNER", "READ_ONLY", "EDIT", "NONE"]),
+    )
+    @settings(max_examples=100)
+    def test_authorization_always_checked_before_presigned_url_generation(
+        self, threat_model_id, user_id, access_level
+    ):
+        """
+        Property: For any presigned URL request (single or batch), the system should
+        verify the requesting user has at least READ_ONLY access to the threat model
+        associated with each S3 location before generating the presigned URL.
+
+        Feature: batch-presigned-url-authorization, Property 4: Authorization enforcement
+        Validates: Requirements 2.1
+        """
+        from services.threat_designer_service import generate_presigned_download_url
+        from unittest.mock import patch, MagicMock
+
+        # Mock the authorization check - patch where it's imported
+        with (
+            patch("utils.authorization.require_access") as mock_require_access,
+            patch(
+                "services.threat_designer_service.extract_threat_model_id_from_s3_location"
+            ) as mock_extract,
+            patch("services.threat_designer_service.s3_pre") as mock_s3,
+        ):
+            # Setup mocks
+            mock_extract.return_value = threat_model_id
+            mock_s3.generate_presigned_url.return_value = (
+                f"https://s3.example.com/{threat_model_id}"
+            )
+
+            # Configure authorization based on access level
+            if access_level == "NONE":
+                mock_require_access.side_effect = UnauthorizedError("No access")
+            else:
+                mock_require_access.return_value = {
+                    "has_access": True,
+                    "is_owner": access_level == "OWNER",
+                    "access_level": access_level,
+                }
+
+            # Execute
+            if access_level == "NONE":
+                # Should raise UnauthorizedError
+                with pytest.raises(UnauthorizedError):
+                    generate_presigned_download_url(threat_model_id, user_id)
+
+                # Verify authorization was checked
+                mock_require_access.assert_called_once_with(
+                    threat_model_id, user_id, required_level="READ_ONLY"
+                )
+
+                # Verify presigned URL was NOT generated
+                mock_s3.generate_presigned_url.assert_not_called()
+            else:
+                # Should succeed
+                result = generate_presigned_download_url(threat_model_id, user_id)
+
+                # Verify authorization was checked BEFORE generating URL
+                mock_require_access.assert_called_once_with(
+                    threat_model_id, user_id, required_level="READ_ONLY"
+                )
+
+                # Verify presigned URL was generated
+                mock_s3.generate_presigned_url.assert_called_once()
+                assert result == f"https://s3.example.com/{threat_model_id}"
+
+    @given(
+        threat_model_id=st.uuids().map(str),
+        owner_id=st.uuids().map(str),
+        collaborator_id=st.uuids().map(str),
+        unauthorized_user_id=st.uuids().map(str),
+    )
+    @settings(max_examples=100)
+    def test_authorization_enforces_access_control(
+        self, threat_model_id, owner_id, collaborator_id, unauthorized_user_id
+    ):
+        """
+        Property: Authorization should grant access to owners and collaborators,
+        but deny access to unauthorized users.
+
+        Feature: batch-presigned-url-authorization, Property 4: Authorization enforcement
+        Validates: Requirements 2.1
+        """
+        from services.threat_designer_service import generate_presigned_download_url
+        from unittest.mock import patch
+
+        # Test cases: (user_id, should_have_access)
+        test_cases = [
+            (owner_id, True),
+            (collaborator_id, True),
+            (unauthorized_user_id, False),
+        ]
+
+        for user_id, should_have_access in test_cases:
+            with (
+                patch("utils.authorization.require_access") as mock_require_access,
+                patch(
+                    "services.threat_designer_service.extract_threat_model_id_from_s3_location"
+                ) as mock_extract,
+                patch("services.threat_designer_service.s3_pre") as mock_s3,
+            ):
+                # Setup mocks
+                mock_extract.return_value = threat_model_id
+                mock_s3.generate_presigned_url.return_value = (
+                    f"https://s3.example.com/{threat_model_id}"
+                )
+
+                if should_have_access:
+                    mock_require_access.return_value = {
+                        "has_access": True,
+                        "is_owner": user_id == owner_id,
+                        "access_level": "OWNER" if user_id == owner_id else "READ_ONLY",
+                    }
+
+                    # Should succeed
+                    result = generate_presigned_download_url(threat_model_id, user_id)
+                    assert result == f"https://s3.example.com/{threat_model_id}"
+
+                    # Verify authorization was checked
+                    mock_require_access.assert_called_once_with(
+                        threat_model_id, user_id, required_level="READ_ONLY"
+                    )
+                else:
+                    mock_require_access.side_effect = UnauthorizedError("No access")
+
+                    # Should raise UnauthorizedError
+                    with pytest.raises(UnauthorizedError):
+                        generate_presigned_download_url(threat_model_id, user_id)
+
+                    # Verify authorization was checked
+                    mock_require_access.assert_called_once_with(
+                        threat_model_id, user_id, required_level="READ_ONLY"
+                    )
+
+                    # Verify presigned URL was NOT generated
+                    mock_s3.generate_presigned_url.assert_not_called()
+
+
+class TestSufficientAccessGrantsPresignedURLsProperty:
+    """
+    Property-based tests for sufficient access granting presigned URLs.
+
+    Feature: batch-presigned-url-authorization, Property 6: Sufficient access grants presigned URLs
+    Validates: Requirements 2.5, 3.1, 3.2
+    """
+
+    @given(
+        threat_model_id=st.uuids().map(str),
+        user_id=st.uuids().map(str),
+        access_level=st.sampled_from(["OWNER", "READ_ONLY", "EDIT"]),
+    )
+    @settings(max_examples=100)
+    def test_sufficient_access_levels_generate_presigned_urls(
+        self, threat_model_id, user_id, access_level
+    ):
+        """
+        Property: For any user who is either the owner of a threat model OR a collaborator
+        with READ_ONLY or EDIT access, requesting a presigned URL for that threat model's
+        architecture diagram should succeed and return a valid presigned URL.
+
+        Feature: batch-presigned-url-authorization, Property 6: Sufficient access grants presigned URLs
+        Validates: Requirements 2.5, 3.1, 3.2
+        """
+        from services.threat_designer_service import (
+            generate_presigned_download_url_with_auth,
+        )
+        from unittest.mock import patch
+
+        with (
+            patch("utils.authorization.require_access") as mock_require_access,
+            patch(
+                "services.threat_designer_service.extract_threat_model_id_from_s3_location"
+            ) as mock_extract,
+            patch("services.threat_designer_service.s3_pre") as mock_s3,
+        ):
+            # Setup mocks
+            mock_extract.return_value = threat_model_id
+            expected_url = f"https://s3.example.com/{threat_model_id}"
+            mock_s3.generate_presigned_url.return_value = expected_url
+
+            # Configure authorization - all these access levels should succeed
+            mock_require_access.return_value = {
+                "has_access": True,
+                "is_owner": access_level == "OWNER",
+                "access_level": access_level,
+            }
+
+            # Execute - should succeed for all sufficient access levels
+            result = generate_presigned_download_url_with_auth(
+                threat_model_id, user_id, expiration=300
+            )
+
+            # Verify authorization was checked with READ_ONLY requirement
+            mock_require_access.assert_called_once_with(
+                threat_model_id, user_id, required_level="READ_ONLY"
+            )
+
+            # Verify presigned URL was generated
+            mock_s3.generate_presigned_url.assert_called_once()
+
+            # Verify correct URL was returned
+            assert result == expected_url
+
+            # Verify the presigned URL call had correct parameters
+            call_kwargs = mock_s3.generate_presigned_url.call_args[1]
+            assert call_kwargs["Params"]["Bucket"] == os.environ.get(
+                "ARCHITECTURE_BUCKET"
+            )
+            assert call_kwargs["Params"]["Key"] == threat_model_id
+            assert call_kwargs["ExpiresIn"] == 300
+            assert call_kwargs["HttpMethod"] == "GET"
+
+    @given(
+        threat_model_id=st.uuids().map(str),
+        owner_id=st.uuids().map(str),
+        read_only_user_id=st.uuids().map(str),
+        edit_user_id=st.uuids().map(str),
+    )
+    @settings(max_examples=100)
+    def test_all_access_levels_can_generate_presigned_urls(
+        self, threat_model_id, owner_id, read_only_user_id, edit_user_id
+    ):
+        """
+        Property: All sufficient access levels (OWNER, READ_ONLY, EDIT) should be able
+        to generate presigned URLs for the same threat model.
+
+        Feature: batch-presigned-url-authorization, Property 6: Sufficient access grants presigned URLs
+        Validates: Requirements 2.5, 3.1, 3.2
+        """
+        from services.threat_designer_service import (
+            generate_presigned_download_url_with_auth,
+        )
+        from unittest.mock import patch
+
+        # Test cases: (user_id, access_level)
+        test_cases = [
+            (owner_id, "OWNER"),
+            (read_only_user_id, "READ_ONLY"),
+            (edit_user_id, "EDIT"),
+        ]
+
+        for user_id, access_level in test_cases:
+            with (
+                patch("utils.authorization.require_access") as mock_require_access,
+                patch(
+                    "services.threat_designer_service.extract_threat_model_id_from_s3_location"
+                ) as mock_extract,
+                patch("services.threat_designer_service.s3_pre") as mock_s3,
+            ):
+                # Setup mocks
+                mock_extract.return_value = threat_model_id
+                expected_url = (
+                    f"https://s3.example.com/{threat_model_id}?user={user_id}"
+                )
+                mock_s3.generate_presigned_url.return_value = expected_url
+
+                # Configure authorization - should succeed
+                mock_require_access.return_value = {
+                    "has_access": True,
+                    "is_owner": access_level == "OWNER",
+                    "access_level": access_level,
+                }
+
+                # Execute - should succeed
+                result = generate_presigned_download_url_with_auth(
+                    threat_model_id, user_id
+                )
+
+                # Verify authorization was checked
+                mock_require_access.assert_called_once_with(
+                    threat_model_id, user_id, required_level="READ_ONLY"
+                )
+
+                # Verify presigned URL was generated
+                mock_s3.generate_presigned_url.assert_called_once()
+
+                # Verify correct URL was returned
+                assert result == expected_url
+
+    @given(
+        threat_model_id=st.uuids().map(str),
+        user_id=st.uuids().map(str),
+        expiration=st.integers(min_value=60, max_value=3600),
+    )
+    @settings(max_examples=100)
+    def test_presigned_url_respects_expiration_parameter(
+        self, threat_model_id, user_id, expiration
+    ):
+        """
+        Property: For any valid expiration time, the presigned URL generation should
+        respect the expiration parameter.
+
+        Feature: batch-presigned-url-authorization, Property 6: Sufficient access grants presigned URLs
+        Validates: Requirements 2.5, 3.1, 3.2
+        """
+        from services.threat_designer_service import (
+            generate_presigned_download_url_with_auth,
+        )
+        from unittest.mock import patch
+
+        with (
+            patch("utils.authorization.require_access") as mock_require_access,
+            patch(
+                "services.threat_designer_service.extract_threat_model_id_from_s3_location"
+            ) as mock_extract,
+            patch("services.threat_designer_service.s3_pre") as mock_s3,
+        ):
+            # Setup mocks
+            mock_extract.return_value = threat_model_id
+            expected_url = f"https://s3.example.com/{threat_model_id}"
+            mock_s3.generate_presigned_url.return_value = expected_url
+
+            # Configure authorization - OWNER access
+            mock_require_access.return_value = {
+                "has_access": True,
+                "is_owner": True,
+                "access_level": "OWNER",
+            }
+
+            # Execute with custom expiration
+            result = generate_presigned_download_url_with_auth(
+                threat_model_id, user_id, expiration=expiration
+            )
+
+            # Verify presigned URL was generated with correct expiration
+            mock_s3.generate_presigned_url.assert_called_once()
+            call_kwargs = mock_s3.generate_presigned_url.call_args[1]
+            assert call_kwargs["ExpiresIn"] == expiration
+
+            # Verify result
+            assert result == expected_url
+
+
+# ============================================================================
+# Property-Based Tests for Batch Presigned URL Generation
+# ============================================================================
+
+
+class TestBatchPresignedURLGeneration:
+    """Property-based tests for batch presigned URL generation."""
+
+    @given(
+        batch_size=st.integers(min_value=1, max_value=50),
+        user_id=st.text(min_size=1, max_size=50),
+    )
+    @settings(max_examples=100)
+    def test_batch_completeness(self, batch_size, user_id):
+        """
+        Property 1: Batch completeness
+        For any batch request containing 1 to 50 S3 locations, the response should
+        contain exactly one result entry for each input S3 location.
+
+        Feature: batch-presigned-url-authorization, Property 1: Batch completeness
+        Validates: Requirements 1.1, 1.2
+        """
+        from services.threat_designer_service import (
+            generate_presigned_download_urls_batch,
+        )
+        from unittest.mock import patch
+        import uuid
+
+        # Generate batch_size valid UUIDs
+        s3_locations = [str(uuid.uuid4()) for _ in range(batch_size)]
+
+        with patch(
+            "services.threat_designer_service.generate_presigned_download_url_with_auth"
+        ) as mock_gen:
+            # Mock successful URL generation for all locations
+            mock_gen.return_value = "https://s3.example.com/presigned-url"
+
+            # Execute
+            results = generate_presigned_download_urls_batch(s3_locations, user_id)
+
+            # Verify: response contains exactly one result per input location
+            assert len(results) == batch_size
+            assert len(results) == len(s3_locations)
+
+            # Verify each input location has a corresponding result
+            result_locations = [r["s3_location"] for r in results]
+            assert result_locations == s3_locations
+
+    @given(
+        valid_count=st.integers(min_value=1, max_value=25),
+        invalid_count=st.integers(min_value=1, max_value=25),
+        user_id=st.text(min_size=1, max_size=50),
+    )
+    @settings(max_examples=100)
+    def test_invalid_item_handling(self, valid_count, invalid_count, user_id):
+        """
+        Property 2: Invalid item handling
+        For any batch request containing a mix of valid and invalid S3 locations,
+        the response should include success results for valid locations and error
+        indicators for invalid locations, with all items processed.
+
+        Feature: batch-presigned-url-authorization, Property 2: Invalid item handling
+        Validates: Requirements 1.4
+        """
+        from services.threat_designer_service import (
+            generate_presigned_download_urls_batch,
+        )
+        from unittest.mock import patch
+        import uuid
+
+        # Generate valid UUIDs
+        valid_locations = [str(uuid.uuid4()) for _ in range(valid_count)]
+
+        # Generate invalid locations (not UUIDs)
+        invalid_locations = [f"invalid-{i}" for i in range(invalid_count)]
+
+        # Mix them together
+        all_locations = valid_locations + invalid_locations
+
+        with patch(
+            "services.threat_designer_service.generate_presigned_download_url_with_auth"
+        ) as mock_gen:
+            # Mock to succeed for valid UUIDs, fail for invalid
+            def side_effect(s3_location, uid, exp=300):
+                try:
+                    uuid.UUID(s3_location)
+                    return f"https://s3.example.com/{s3_location}"
+                except ValueError:
+                    from exceptions.exceptions import NotFoundError
+
+                    raise NotFoundError(
+                        f"Invalid threat model ID format: {s3_location}"
+                    )
+
+            mock_gen.side_effect = side_effect
+
+            # Execute
+            results = generate_presigned_download_urls_batch(all_locations, user_id)
+
+            # Verify: all items processed
+            assert len(results) == len(all_locations)
+
+            # Verify: valid locations have success=True
+            valid_results = [r for r in results if r["s3_location"] in valid_locations]
+            assert all(r["success"] for r in valid_results)
+            assert all("presigned_url" in r for r in valid_results)
+
+            # Verify: invalid locations have success=False and error message
+            invalid_results = [
+                r for r in results if r["s3_location"] in invalid_locations
+            ]
+            assert all(not r["success"] for r in invalid_results)
+            assert all("error" in r for r in invalid_results)
+
+    @given(
+        batch_size=st.integers(min_value=2, max_value=50),
+        user_id=st.text(min_size=1, max_size=50),
+    )
+    @settings(max_examples=100)
+    def test_order_preservation(self, batch_size, user_id):
+        """
+        Property 3: Order preservation
+        For any batch request with S3 locations in a specific order, the response
+        results should be in the same order as the input locations.
+
+        Feature: batch-presigned-url-authorization, Property 3: Order preservation
+        Validates: Requirements 1.5
+        """
+        from services.threat_designer_service import (
+            generate_presigned_download_urls_batch,
+        )
+        from unittest.mock import patch
+        import uuid
+
+        # Generate random ordered list of UUIDs
+        s3_locations = [str(uuid.uuid4()) for _ in range(batch_size)]
+
+        with patch(
+            "services.threat_designer_service.generate_presigned_download_url_with_auth"
+        ) as mock_gen:
+            # Mock to return unique URLs based on location
+            def side_effect(s3_location, uid, exp=300):
+                return f"https://s3.example.com/{s3_location}"
+
+            mock_gen.side_effect = side_effect
+
+            # Execute
+            results = generate_presigned_download_urls_batch(s3_locations, user_id)
+
+            # Verify: output order matches input order
+            result_locations = [r["s3_location"] for r in results]
+            assert result_locations == s3_locations
+
+            # Verify: each result corresponds to the correct input at the same index
+            for i, (input_loc, result) in enumerate(zip(s3_locations, results)):
+                assert result["s3_location"] == input_loc
+                assert result["presigned_url"] == f"https://s3.example.com/{input_loc}"
+
+    @given(
+        authorized_count=st.integers(min_value=1, max_value=25),
+        unauthorized_count=st.integers(min_value=1, max_value=25),
+        user_id=st.text(min_size=1, max_size=50),
+    )
+    @settings(max_examples=100)
+    def test_partial_failure_handling(
+        self, authorized_count, unauthorized_count, user_id
+    ):
+        """
+        Property 5: Partial failure handling
+        For any batch request where the user has access to some but not all threat
+        models, the response should contain presigned URLs for authorized items and
+        error indicators (with "Unauthorized" message) for unauthorized items.
+
+        Feature: batch-presigned-url-authorization, Property 5: Partial failure handling
+        Validates: Requirements 2.3, 4.2
+        """
+        from services.threat_designer_service import (
+            generate_presigned_download_urls_batch,
+        )
+        from unittest.mock import patch
+        import uuid
+
+        # Generate UUIDs for authorized and unauthorized locations
+        authorized_locations = [str(uuid.uuid4()) for _ in range(authorized_count)]
+        unauthorized_locations = [str(uuid.uuid4()) for _ in range(unauthorized_count)]
+
+        # Mix them together
+        all_locations = authorized_locations + unauthorized_locations
+
+        with patch(
+            "services.threat_designer_service.generate_presigned_download_url_with_auth"
+        ) as mock_gen:
+            # Mock to succeed for authorized, fail with UnauthorizedError for unauthorized
+            def side_effect(s3_location, uid, exp=300):
+                if s3_location in authorized_locations:
+                    return f"https://s3.example.com/{s3_location}"
+                else:
+                    from exceptions.exceptions import UnauthorizedError
+
+                    raise UnauthorizedError(
+                        "You do not have access to this threat model"
+                    )
+
+            mock_gen.side_effect = side_effect
+
+            # Execute
+            results = generate_presigned_download_urls_batch(all_locations, user_id)
+
+            # Verify: all items processed
+            assert len(results) == len(all_locations)
+
+            # Verify: authorized locations have presigned URLs
+            authorized_results = [
+                r for r in results if r["s3_location"] in authorized_locations
+            ]
+            assert len(authorized_results) == authorized_count
+            assert all(r["success"] for r in authorized_results)
+            assert all("presigned_url" in r for r in authorized_results)
+            assert all("error" not in r for r in authorized_results)
+
+            # Verify: unauthorized locations have error indicators with "Unauthorized"
+            unauthorized_results = [
+                r for r in results if r["s3_location"] in unauthorized_locations
+            ]
+            assert len(unauthorized_results) == unauthorized_count
+            assert all(not r["success"] for r in unauthorized_results)
+            assert all("error" in r for r in unauthorized_results)
+            assert all("Unauthorized" in r["error"] for r in unauthorized_results)
+            assert all("presigned_url" not in r for r in unauthorized_results)

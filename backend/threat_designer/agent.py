@@ -12,8 +12,6 @@ from fastapi.responses import JSONResponse
 from models import InvocationRequest
 from fastapi.middleware.cors import CORSMiddleware
 import boto3
-import time
-from threading import Lock
 from config import ThreatModelingConfig
 from constants import (
     ENV_AGENT_STATE_TABLE,
@@ -47,13 +45,6 @@ executor = ThreadPoolExecutor(max_workers=10)
 
 # Initialize configuration
 threat_config = ThreatModelingConfig()
-
-# Track active invocation requests
-invocation_lock = Lock()
-active_invocations = 0
-
-last_known_status = None
-last_status_update_time = time.time()
 
 
 def _run_agent_async(state: Dict, config: Dict, job_id: str, agent_config: Dict):
@@ -170,13 +161,7 @@ def _run_agent_async(state: Dict, config: Dict, job_id: str, agent_config: Dict)
     except Exception as e:
         _handle_error_response(e, job_id, HTTP_STATUS_INTERNAL_SERVER_ERROR)
     finally:
-        # Decrement active invocations counter
-        with invocation_lock:
-            global active_invocations
-            active_invocations -= 1
-        logger.info(
-            "Background invocation completed", active_invocations=active_invocations
-        )
+        logger.info("Background invocation completed", job_id=job_id)
 
 
 @with_error_context("create agent configuration")
@@ -473,26 +458,7 @@ async def handle_options():
 
 @app.get("/ping")
 async def ping():
-    global active_invocations, last_known_status, last_status_update_time
-
-    with invocation_lock:
-        # Determine current status
-        if active_invocations > 0:
-            current_status = "HealthyBusy"
-        else:
-            current_status = "Healthy"
-
-        # Update timestamp only when status changes
-        if last_known_status != current_status:
-            last_known_status = current_status
-            last_status_update_time = time.time()
-
-        return JSONResponse(
-            {
-                "status": current_status,
-                "time_of_last_update": int(last_status_update_time),
-            }
-        )
+    return JSONResponse({"status": "Healthy"})
 
 
 @app.post("/invocations")
@@ -508,8 +474,6 @@ async def handler(request: InvocationRequest, http_request: Request) -> Dict[str
     Returns:
         Dict: Response containing status code and job acceptance
     """
-
-    global active_invocations
     job_id = None
     event = request.input
 
@@ -551,13 +515,7 @@ async def handler(request: InvocationRequest, http_request: Request) -> Dict[str
 
                 message = "Threat modeling process started"
 
-            # Track active invocation
-            with invocation_lock:
-                active_invocations += 1
-
-            logger.info(
-                "Agent invocation accepted", active_invocations=active_invocations
-            )
+            logger.info("Agent invocation accepted", job_id=job_id)
 
             # Log execution start
             logger.info(

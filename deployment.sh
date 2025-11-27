@@ -297,6 +297,18 @@ deploy_backend() {
             echo -e "${RED}Terraform initialization failed. Exiting...${NC}"
             exit 1
         fi
+    else
+        # Check if terraform init needs to be run with --upgrade
+        echo -e "${BLUE}Checking Terraform provider versions...${NC}"
+        if ! terraform init -upgrade=false > /dev/null 2>&1; then
+            echo -e "${BLUE}Provider version mismatch detected. Running terraform init --upgrade...${NC}"
+            if ! terraform init -upgrade; then
+                echo -e "${RED}Terraform initialization with upgrade failed. Exiting...${NC}"
+                exit 1
+            fi
+        else
+            echo -e "${GREEN}Terraform providers are up to date.${NC}"
+        fi
     fi
 
     # Build terraform command with variables

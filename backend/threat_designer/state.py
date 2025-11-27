@@ -93,7 +93,7 @@ class ContinueThreatModeling(BaseModel):
     stop: Annotated[
         bool,
         Field(
-            description="Should continue evaluation further threats or the catalog is comprehensive and complete. The aim is to have a threat catalog with a rating of 9 at least"
+            description="Should stop threat generation (True) if catalog is comprehensive, or continue (False) if gaps remain."
         ),
     ]
     gap: Annotated[
@@ -103,14 +103,16 @@ class ContinueThreatModeling(BaseModel):
             Each gap must be maximum 40 words. \n
             Format as a bulleted list with each gap on a new line. \n
             Gaps should be actionable and specific. \n
-            Very important! When referencing threats, do not use abreviations. Instead you need to reference the full name of the threat, which is their unique identifier. \n
-            "Required only when 'stop' is False \n"""
+            Very important! When referencing threats, do not use abbreviations. Instead you need to reference the full name of the threat, which is their unique identifier. \n
+            Required only when 'stop' is False. \n"""
         ),
     ] = ""
     rating: Annotated[
         int,
         Field(
-            description="Rating of the gap analysis, 1-10, 10 being the most comprehensive and complete."
+            description="Overall quality rating of the threat catalog (1-10). 10 = comprehensive and high quality, 1 = significant gaps and issues.",
+            ge=1,
+            le=10,
         ),
     ]
 
@@ -212,12 +214,6 @@ class Threat(BaseModel):
             description="User-defined flag for prioritization or tracking. Ignored by automated threat modeling agents",
         ),
     ] = False
-    attack_tree_id: Annotated[
-        Optional[str],
-        Field(
-            description="Optional foreign key reference to an associated attack tree. Set when an attack tree is generated for this threat.",
-        ),
-    ] = None
 
 
 class ThreatsList(BaseModel):
@@ -267,13 +263,41 @@ class AgentState(TypedDict):
     traditional_acceptance_rates: Annotated[List[float], operator.add] = []
 
 
+def _add_or_overwrite(left, right):
+    """Reducer that adds deltas or replaces with Overwrite.
+
+    Tools send deltas (+1, +2) for increments, or Overwrite(value) for resets.
+    """
+    from langgraph.types import Overwrite
+
+    # If right is Overwrite, use its value (explicit replacement like reset to 0)
+    if isinstance(right, Overwrite):
+        return right.value
+    # If left is Overwrite, use right
+    if isinstance(left, Overwrite):
+        return right
+    # Otherwise add the delta
+    return left + right
+
+
+def _overwrite_or_last(left, right):
+    """Reducer for boolean flags that respects Overwrite."""
+    from langgraph.types import Overwrite
+
+    if isinstance(right, Overwrite):
+        return right.value
+    if isinstance(left, Overwrite):
+        return right
+    return right
+
+
 class ThreatState(MessagesState):
     """Container for the internal state of the subgraph."""
 
     threat_list: Annotated[ThreatsList, operator.add]
-    tool_use: int = 0
-    gap_tool_use: int = 0
-    gap_called_since_reset: bool = (
+    tool_use: Annotated[int, _add_or_overwrite] = 0
+    gap_tool_use: Annotated[int, _add_or_overwrite] = 0
+    gap_called_since_reset: Annotated[bool, _overwrite_or_last] = (
         False  # Tracks if gap_analysis has been called since last counter reset
     )
     assets: Optional[AssetsList] = None

@@ -793,6 +793,151 @@ paths:
         contentHandling: CONVERT_TO_TEXT
         passthroughBehavior: NEVER
 
+  "/threat-designer/download/batch":
+    post:
+      summary: Generate presigned URLs for multiple S3 locations
+      description: |
+        Generate presigned download URLs for multiple S3 locations in a single request.
+
+        This endpoint performs authorization checks for each S3 location, verifying that
+        the requesting user has at least READ_ONLY access to the associated threat model.
+
+        The response includes results for all requested locations, with presigned URLs
+        for authorized items and error indicators for unauthorized or invalid items.
+
+        Maximum batch size is 50 items.
+      tags:
+        - Security
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchDownloadRequest"
+            examples:
+              small_batch:
+                summary: Small batch request
+                value:
+                  s3_locations:
+                    - "550e8400-e29b-41d4-a716-446655440000"
+                    - "550e8400-e29b-41d4-a716-446655440001"
+                    - "550e8400-e29b-41d4-a716-446655440002"
+              max_batch:
+                summary: Maximum batch size (50 items)
+                value:
+                  s3_locations:
+                    - "550e8400-e29b-41d4-a716-446655440000"
+                    - "550e8400-e29b-41d4-a716-446655440001"
+      responses:
+        "200":
+          description: Batch request processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchDownloadResponse"
+              examples:
+                all_success:
+                  summary: All items authorized
+                  value:
+                    results:
+                      - s3_location: "550e8400-e29b-41d4-a716-446655440000"
+                        presigned_url: "https://s3.amazonaws.com/bucket/550e8400-e29b-41d4-a716-446655440000?..."
+                        success: true
+                      - s3_location: "550e8400-e29b-41d4-a716-446655440001"
+                        presigned_url: "https://s3.amazonaws.com/bucket/550e8400-e29b-41d4-a716-446655440001?..."
+                        success: true
+                partial_success:
+                  summary: Mixed authorized and unauthorized items
+                  value:
+                    results:
+                      - s3_location: "550e8400-e29b-41d4-a716-446655440000"
+                        presigned_url: "https://s3.amazonaws.com/bucket/550e8400-e29b-41d4-a716-446655440000?..."
+                        success: true
+                      - s3_location: "550e8400-e29b-41d4-a716-446655440001"
+                        error: "Unauthorized: You do not have access to this threat model"
+                        success: false
+                      - s3_location: "invalid-uuid"
+                        error: "Not Found: Threat model not found"
+                        success: false
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+        "400":
+          description: Bad Request - Invalid batch size or malformed request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                empty_batch:
+                  summary: Empty s3_locations array
+                  value:
+                    code: "BadRequest"
+                    message: "s3_locations array cannot be empty"
+                batch_too_large:
+                  summary: Batch size exceeds limit
+                  value:
+                    code: "BadRequest"
+                    message: "Batch size exceeds maximum of 50 items"
+                missing_field:
+                  summary: Missing required field
+                  value:
+                    code: "BadRequest"
+                    message: "Missing required field: s3_locations"
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+    options:
+      responses:
+        "200":
+          description: OK
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Credentials:
+              schema:
+                type: string
+      security: []
+      tags:
+        - CORS (Options)
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+
   "/threat-designer/upload":
     post:
       summary: Generates presigned-url
@@ -2980,6 +3125,25 @@ components:
           type: string
           description: S3 path to the object to download
 
+    BatchDownloadRequest:
+      type: object
+      required:
+        - s3_locations
+      properties:
+        s3_locations:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          maxItems: 50
+          description: |
+            Array of S3 locations (threat model UUIDs) to generate presigned URLs for.
+            Minimum 1 item, maximum 50 items.
+          example:
+            - "550e8400-e29b-41d4-a716-446655440000"
+            - "550e8400-e29b-41d4-a716-446655440001"
+            - "550e8400-e29b-41d4-a716-446655440002"
+
     # Response Schemas for Upload/Download Operations
     PresignedUrlResponse:
       type: object
@@ -2994,6 +3158,56 @@ components:
         name:
           type: string
           description: S3 object key
+
+    DownloadResult:
+      type: object
+      required:
+        - s3_location
+        - success
+      properties:
+        s3_location:
+          type: string
+          description: The S3 location from the request
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        presigned_url:
+          type: string
+          format: uri
+          description: |
+            Presigned URL for downloading the object.
+            Present only when success is true.
+          example: "https://s3.amazonaws.com/bucket/550e8400-e29b-41d4-a716-446655440000?AWSAccessKeyId=..."
+        error:
+          type: string
+          description: |
+            Error message explaining why the presigned URL could not be generated.
+            Present only when success is false.
+          example: "Unauthorized: You do not have access to this threat model"
+        success:
+          type: boolean
+          description: |
+            Indicates whether the presigned URL was successfully generated.
+            True if presigned_url is present, false if error is present.
+          example: true
+
+    BatchDownloadResponse:
+      type: object
+      required:
+        - results
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/DownloadResult"
+          description: |
+            Array of results, one for each S3 location in the request.
+            Results are returned in the same order as the input s3_locations array.
+          example:
+            - s3_location: "550e8400-e29b-41d4-a716-446655440000"
+              presigned_url: "https://s3.amazonaws.com/bucket/550e8400-e29b-41d4-a716-446655440000?..."
+              success: true
+            - s3_location: "550e8400-e29b-41d4-a716-446655440001"
+              error: "Unauthorized: You do not have access to this threat model"
+              success: false
 
     # Response Schemas for Threat Model Operations
     CreateThreatModelResponse:

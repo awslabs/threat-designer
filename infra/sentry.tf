@@ -34,6 +34,10 @@ resource "aws_bedrockagentcore_agent_runtime" "sentry" {
   request_header_configuration {
     request_header_allowlist = ["Authorization"]
   }
+  lifecycle_configuration {
+    idle_runtime_session_timeout = 3600
+    max_lifetime = 28800
+  }
   depends_on = [null_resource.docker_build_push]
 }
 

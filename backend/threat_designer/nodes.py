@@ -339,6 +339,8 @@ class GapAnalysisService:
             state.get("gap", []),
         )
 
+        logger.info("Gap analysis message prepared", job_id=state.get("job_id"))
+
         if state.get("replay") and state.get("instructions"):
             system_prompt = SystemMessage(content=gap_prompt(state.get("instructions")))
         else:

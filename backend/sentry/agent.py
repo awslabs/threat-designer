@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -12,34 +13,32 @@ from exceptions import MissingHeader
 from utils import logger, load_mcp_config
 from config import ALL_AVAILABLE_TOOLS
 from tools import add_threats, edit_threats, delete_threats
-from threading import Lock
-import time
-import asyncio
+import jwt
 
 
-# Track active invocation status
-invocation_lock = Lock()
-active_invocation = False
-last_known_status = None
-last_status_update_time = time.time()
-user_sub_cache = {}
+@lru_cache(maxsize=128)
+def decode_jwt_token(auth_header: str) -> str:
+    """
+    Decode JWT token and extract user sub claim.
+    Cached to avoid repeated decoding of the same token.
+    """
+    token = (
+        auth_header.replace("Bearer ", "")
+        if auth_header.startswith("Bearer ")
+        else auth_header
+    )
 
-
-async def reset_invocation_status():
-    """Reset invocation status every 15 minutes"""
-    global active_invocation
-    while True:
-        await asyncio.sleep(900)  # 15 minutes = 900 seconds
-        with invocation_lock:
-            if active_invocation:
-                logger.info("Resetting active invocation status to False (15min timer)")
-                active_invocation = False
+    try:
+        # Skip signature validation as agent runtime has already validated the token
+        claims = jwt.decode(token, options={"verify_signature": False})
+        return claims.get("sub")
+    except jwt.InvalidTokenError as e:
+        logger.error(f"Invalid JWT token: {e}")
+        raise MissingHeader
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global active_invocation
-
     try:
         mcp_config = load_mcp_config()
         mcp_tools = MultiServerMCPClient(mcp_config)
@@ -66,28 +65,12 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize default agent: {e}")
         raise
 
-    # Start the background task to reset invocation status
-    reset_task = asyncio.create_task(reset_invocation_status())
-    logger.info("Started background task to reset invocation status every 15 minutes")
-
     try:
         yield
     finally:
         logger.info("Shutting down...")
-
-        # Cancel the background task
-        reset_task.cancel()
-        try:
-            await reset_task
-        except asyncio.CancelledError:
-            logger.info("Background reset task cancelled")
-
         # Clear session cache
         session_manager.clear_cache()
-
-        # Reset invocation status on shutdown
-        with invocation_lock:
-            active_invocation = False
 
 
 # Initialize FastAPI app
@@ -99,15 +82,6 @@ app.add_middleware(
     allow_methods=["GET, POST, OPTIONS"],
     allow_headers=["*"],
 )
-
-
-def set_active_invocation():
-    """Helper function to set active invocation status"""
-    global active_invocation
-    with invocation_lock:
-        if not active_invocation:
-            logger.info("Setting active invocation status to True")
-        active_invocation = True
 
 
 @app.options("/invocations")
@@ -129,8 +103,6 @@ async def invoke(request: InvocationRequest, http_request: Request):
     if not http_request.headers.get("Authorization"):
         raise MissingHeader
 
-    global user_sub_cache
-
     # Parse session header format: threat_model_id/session_seed
     # Extract threat_model_id and discard the seed (seed is only for UI session management)
     if "/" in session_header:
@@ -147,31 +119,13 @@ async def invoke(request: InvocationRequest, http_request: Request):
 
     # Extract user sub from JWT token for multi-tenancy
     auth_header = http_request.headers.get("Authorization")
-
-    if not user_sub_cache.get(auth_header, None):
-        import jwt
-
-        token = (
-            auth_header.replace("Bearer ", "")
-            if auth_header.startswith("Bearer ")
-            else auth_header
-        )
-
-        try:
-            # Skip signature validation as agent runtime has already validated the token
-            claims = jwt.decode(token, options={"verify_signature": False})
-            user_sub_cache[auth_header] = claims.get("sub")
-        except jwt.InvalidTokenError as e:
-            logger.error(f"Invalid JWT token: {e}")
-            raise MissingHeader
+    user_sub = decode_jwt_token(auth_header)
 
     # Create composite session key: sub/threat_model_id
     # Note: We ignore the session seed - it's only used by the UI for session management
     # The backend session is tied to user + threat model, not browser tab
     composite_session_key = (
-        f"{user_sub_cache.get(auth_header)}/{threat_model_id}"
-        if user_sub_cache.get(auth_header)
-        else threat_model_id
+        f"{user_sub}/{threat_model_id}" if user_sub else threat_model_id
     )
 
     # Get or create session ID for this composite session key
@@ -180,7 +134,6 @@ async def invoke(request: InvocationRequest, http_request: Request):
     request_type = request.input.get("type")
 
     if (not request_type) or (request_type == "resume_interrupt"):
-        set_active_invocation()
         return await streaming_handler.handle_streaming_request(request, session_id)
 
     # Handle immediate response types with normal returns
@@ -191,40 +144,22 @@ async def invoke(request: InvocationRequest, http_request: Request):
         return await cancel_stream_async(session_id)
 
     if request_type == "tools":
-        set_active_invocation()
         return await handlers.handle_tools()
 
     if request_type == "history":
-        set_active_invocation()
         return await handlers.handle_history(session_id)
 
     if request_type == "delete_history":
         await cancel_stream_async(session_id)
-        set_active_invocation()
         return handlers.handle_delete_history(composite_session_key, session_id)
 
     if request_type == "prepare":
-        set_active_invocation()
         return await handlers.handle_prepare(request)
 
 
 @app.get("/ping")
 async def ping():
-    global active_invocations, last_known_status, last_status_update_time
-    with invocation_lock:
-        is_busy = active_invocation
-        if is_busy:
-            status = "HealthyBusy"
-        else:
-            status = "Healthy"
-
-        # Update timestamp only when status changes
-        if last_known_status != status:
-            last_known_status = status
-            last_status_update_time = time.time()
-        return JSONResponse(
-            {"status": status, "time_of_last_update": int(last_status_update_time)}
-        )
+    return JSONResponse({"status": "Healthy"})
 
 
 if __name__ == "__main__":

@@ -24,12 +24,16 @@ state_service = StateService(app_config.agent_state_table)
 # ============================================================================
 
 
-def _calculate_threat_kpis(threat_list: ThreatsList) -> Dict[str, Any]:
+def _calculate_threat_kpis(
+    threat_list: ThreatsList, assets=None, system_architecture=None
+) -> Dict[str, Any]:
     """
     Calculate Key Performance Indicators (KPIs) from the threat catalog.
 
     Args:
         threat_list: ThreatsList object containing all current threats
+        assets: Optional assets object to identify uncovered assets
+        system_architecture: Optional system architecture to identify uncovered threat sources
 
     Returns:
         Dictionary containing:
@@ -38,9 +42,11 @@ def _calculate_threat_kpis(threat_list: ThreatsList) -> Dict[str, Any]:
         - threats_by_stride: Count and percentage by STRIDE category
         - threats_by_source: Count by threat source category
         - threats_by_asset: Count by target asset
+        - uncovered_sources: List of threat sources without any threats
+        - uncovered_assets: List of assets without any threats
 
     Example:
-        >>> kpis = _calculate_threat_kpis(threat_list)
+        >>> kpis = _calculate_threat_kpis(threat_list, assets, system_architecture)
         >>> print(kpis['total_threats'])
         45
     """
@@ -59,6 +65,8 @@ def _calculate_threat_kpis(threat_list: ThreatsList) -> Dict[str, Any]:
             },
             "threats_by_source": {},
             "threats_by_asset": {},
+            "uncovered_sources": [],
+            "uncovered_assets": [],
         }
 
     threats = threat_list.threats
@@ -145,12 +153,28 @@ def _calculate_threat_kpis(threat_list: ThreatsList) -> Dict[str, Any]:
         sorted(asset_counter.items(), key=lambda x: x[1], reverse=True)
     )
 
+    # Identify uncovered threat sources
+    uncovered_sources = []
+    if system_architecture and system_architecture.threat_sources:
+        all_sources = {source.category for source in system_architecture.threat_sources}
+        covered_sources = set(source_counter.keys())
+        uncovered_sources = sorted(list(all_sources - covered_sources))
+
+    # Identify uncovered assets (filter only Asset type, exclude Entity type)
+    uncovered_assets = []
+    if assets and assets.assets:
+        all_assets = {asset.name for asset in assets.assets if asset.type == "Asset"}
+        covered_assets = set(asset_counter.keys())
+        uncovered_assets = sorted(list(all_assets - covered_assets))
+
     return {
         "total_threats": total_threats,
         "threats_by_likelihood": threats_by_likelihood,
         "threats_by_stride": threats_by_stride,
         "threats_by_source": threats_by_source,
         "threats_by_asset": threats_by_asset,
+        "uncovered_sources": uncovered_sources,
+        "uncovered_assets": uncovered_assets,
     }
 
 
@@ -211,9 +235,30 @@ No threats in catalog yet.
             output.append(f"- {source}: {count}")
         output.append("")
 
+    # Uncovered Threat Sources
+    if kpis.get("uncovered_sources"):
+        output.append("**⚠️ Threat Sources Without Coverage**:")
+        for source in kpis["uncovered_sources"]:
+            output.append(f"- {source}")
+        output.append("")
+
+    # Uncovered Assets
+    if kpis.get("uncovered_assets"):
+        output.append("**⚠️ Assets Without Threat Coverage**:")
+        for asset in kpis["uncovered_assets"]:
+            output.append(f"- {asset}")
+        output.append("")
+
     output.append("</threat_catalog_kpis>")
 
     return "\n".join(output)
+
+
+def _unwrap_value(value, default=None):
+    """Unwrap Overwrite objects to get the actual value."""
+    if isinstance(value, Overwrite):
+        return value.value
+    return value if value is not None else default
 
 
 @tool(
@@ -221,9 +266,11 @@ No threats in catalog yet.
     description=""" Used to add new threats to the existing catalog""",
 )
 def add_threats(threats: ThreatsList, runtime: ToolRuntime):
-    tool_use = runtime.state.get("tool_use", 0)
-    gap_tool_use = runtime.state.get("gap_tool_use", 0)
-    gap_called_since_reset = runtime.state.get("gap_called_since_reset", False)
+    tool_use = _unwrap_value(runtime.state.get("tool_use", 0), 0)
+    gap_tool_use = _unwrap_value(runtime.state.get("gap_tool_use", 0), 0)
+    gap_called_since_reset = _unwrap_value(
+        runtime.state.get("gap_called_since_reset", False), False
+    )
     job_id = runtime.state.get("job_id", "unknown")
 
     # Check limit
@@ -309,7 +356,8 @@ def add_threats(threats: ThreatsList, runtime: ToolRuntime):
 
     # Build response message
     if invalid_count == 0:
-        new_tool_use = tool_use + 1
+        tool_use_delta = 1  # Increment by 1
+        new_tool_use = tool_use + tool_use_delta
         response_msg = f"Successfully added: {valid_count} threats."
         logger.info(
             "Tool invoked successfully - all threats valid",
@@ -322,6 +370,7 @@ def add_threats(threats: ThreatsList, runtime: ToolRuntime):
         )
     else:
         # Format invalid threats for response
+        tool_use_delta = 0  # No increment if all threats invalid
         new_tool_use = tool_use
         invalid_details = []
         for invalid in invalid_threats:
@@ -355,8 +404,8 @@ Please ensure:
     return Command(
         update={
             "threat_list": valid_threats_list,
-            "tool_use": new_tool_use,
-            "gap_called_since_reset": True,
+            "tool_use": tool_use_delta,  # Send delta, not absolute value
+            "gap_called_since_reset": Overwrite(True),
             "messages": [
                 ToolMessage(
                     response_msg,
@@ -460,10 +509,41 @@ def read_threat_catalog(
 def gap_analysis(runtime: ToolRuntime) -> str:
     """Perform gap analysis on the current threat catalog."""
 
-    # Get current gap_tool_use counter
-    gap_tool_use = runtime.state.get("gap_tool_use", 0)
-    tool_use = runtime.state.get("tool_use", 0)
+    # Get current gap_tool_use counter (unwrap Overwrite if present)
+    gap_tool_use = _unwrap_value(runtime.state.get("gap_tool_use", 0), 0)
+    tool_use = _unwrap_value(runtime.state.get("tool_use", 0), 0)
     job_id = runtime.state.get("job_id", "unknown")
+
+    # Check if threat catalog has at least 25 threats
+    threat_list = runtime.state.get("threat_list")
+    threat_count = (
+        len(threat_list.threats) if threat_list and threat_list.threats else 0
+    )
+
+    if threat_count < 30:
+        error_msg = (
+            f"Gap analysis requires at least 30 threats in the catalog. "
+            f"Current count: {threat_count}. Please add more threats before performing gap analysis."
+        )
+        logger.warning(
+            "Gap analysis rejected - insufficient threats",
+            tool="gap_analysis",
+            current_threat_count=threat_count,
+            required_threat_count=30,
+            job_id=job_id,
+        )
+        # Reset tool_use counter so agent can continue adding threats
+        return Command(
+            update={
+                "tool_use": Overwrite(0),
+                "messages": [
+                    ToolMessage(
+                        error_msg,
+                        tool_call_id=runtime.tool_call_id,
+                    )
+                ],
+            }
+        )
 
     # Check limit
     if gap_tool_use >= MAX_GAP_ANALYSIS_USES:
@@ -519,7 +599,9 @@ def gap_analysis(runtime: ToolRuntime) -> str:
             job_id=job_id,
         )
 
-        kpis = _calculate_threat_kpis(threat_list)
+        kpis = _calculate_threat_kpis(
+            threat_list, state.get("assets"), state.get("system_architecture")
+        )
         kpis_str = _format_kpis_for_prompt(kpis)
 
         kpi_duration = time.time() - kpi_start_time
@@ -533,6 +615,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
             low_likelihood=kpis["threats_by_likelihood"]["Low"],
             unique_sources=len(kpis["threats_by_source"]),
             unique_assets=len(kpis["threats_by_asset"]),
+            kpis_string=kpis_str,
             job_id=job_id,
         )
     except Exception as e:
@@ -609,14 +692,15 @@ def gap_analysis(runtime: ToolRuntime) -> str:
         # Extract gap result
         gap_result = response["structured_response"]
 
-        # Update gap_tool_use counter
-        new_gap_tool_use = gap_tool_use + 1
+        # Increment gap_tool_use counter
+        gap_tool_use_delta = 1
+        new_gap_tool_use = gap_tool_use + gap_tool_use_delta
 
         # Prepare update dictionary
         update_dict = {
-            "gap_tool_use": new_gap_tool_use,
-            "tool_use": 0,
-            "gap_called_since_reset": False,
+            "gap_tool_use": gap_tool_use_delta,  # Send delta, not absolute value
+            "tool_use": Overwrite(0),
+            "gap_called_since_reset": Overwrite(False),
         }
 
         # Update gap in state

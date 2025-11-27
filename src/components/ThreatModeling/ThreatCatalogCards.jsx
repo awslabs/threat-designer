@@ -16,10 +16,15 @@ import {
   getThreatModelingStatus,
   getThreatModelingAllResults,
   deleteTm,
+  getDownloadUrlsBatch,
 } from "../../services/ThreatDesigner/stats";
 import SegmentedControl from "@cloudscape-design/components/segmented-control";
 import ThreatCatalogTable from "./ThreatCatalogTable";
 import { ChatSessionFunctionsContext } from "../Agent/ChatContext";
+import {
+  getCachedPresignedUrl,
+  setCachedPresignedUrl,
+} from "../../services/ThreatDesigner/presignedUrlCache";
 
 export const StatusIndicatorComponent = ({ status }) => {
   switch (status) {
@@ -72,6 +77,9 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const functions = useContext(ChatSessionFunctionsContext);
+  const [presignedUrlMap, setPresignedUrlMap] = useState({});
+  const [presignedUrlsLoading, setPresignedUrlsLoading] = useState(false);
+  const [batchLoadError, setBatchLoadError] = useState(null);
 
   const [viewMode, setViewMode] = useState(() => {
     try {
@@ -168,6 +176,74 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
     fetchAllResults();
   }, [user, pagination.pageSize, filterMode]);
 
+  // Batch load presigned URLs when results change
+  useEffect(() => {
+    const loadPresignedUrls = async () => {
+      if (results.length === 0) {
+        setPresignedUrlsLoading(false);
+        return;
+      }
+
+      // Collect all threat model IDs from visible threat models
+      const allThreatModelIds = results
+        .filter((item) => item.job_id && item.s3_location)
+        .map((item) => item.job_id);
+
+      if (allThreatModelIds.length === 0) {
+        setPresignedUrlsLoading(false);
+        return;
+      }
+
+      // Check cache first and separate cached vs uncached IDs
+      const urlMap = {};
+      const uncachedIds = [];
+
+      allThreatModelIds.forEach((id) => {
+        const cached = getCachedPresignedUrl(id);
+        if (cached) {
+          urlMap[id] = cached;
+        } else {
+          uncachedIds.push(id);
+        }
+      });
+
+      // If all URLs are cached, use them immediately
+      if (uncachedIds.length === 0) {
+        setPresignedUrlMap(urlMap);
+        setPresignedUrlsLoading(false);
+        return;
+      }
+
+      try {
+        setPresignedUrlsLoading(true);
+        setBatchLoadError(null);
+
+        // Call batch API only for uncached threat model IDs
+        const batchResults = await getDownloadUrlsBatch(uncachedIds);
+
+        // Process batch results and update cache
+        batchResults.forEach((result) => {
+          const data =
+            result.success && result.presigned_url
+              ? { url: result.presigned_url, success: true }
+              : { error: result.error || "Failed to load", success: false };
+
+          urlMap[result.threat_model_id] = data;
+          setCachedPresignedUrl(result.threat_model_id, data);
+        });
+
+        setPresignedUrlMap(urlMap);
+      } catch (error) {
+        console.error("Error loading presigned URLs in batch:", error);
+        setBatchLoadError("Failed to load architecture diagrams. Some images may not display.");
+      } finally {
+        setPresignedUrlsLoading(false);
+      }
+    };
+
+    loadPresignedUrls();
+  }, [results]);
+
   const handleDelete = async (id) => {
     setDeletingId(id);
     try {
@@ -249,145 +325,169 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
 
   const renderCardView = () => (
     <Grid gridDefinition={createGridDefinition()}>
-      {filteredResults.map((item) => (
-        <div key={item.job_id} style={{ height: 250 }}>
-          {deletingId === item.job_id ? (
-            <Container fitHeight>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  height: "100%",
-                }}
-              >
-                <Spinner size="large" />
-              </div>
-            </Container>
-          ) : (
-            <Container
-              key={item.job_id}
-              media={{
-                content: <S3DownloaderComponent fileName={item?.s3_location} />,
-                position: "side",
-                width: "40%",
-              }}
-              fitHeight
-              header={
-                <Header
-                  variant="h2"
-                  actions={
-                    <ButtonDropdown
-                      onItemClick={(itemClickDetails) => {
-                        if (itemClickDetails.detail.id === "delete") {
-                          handleDelete(item.job_id);
-                        }
-                      }}
-                      items={[{ id: "delete", text: "Delete", disabled: item.is_owner === false }]}
-                      variant="icon"
-                    />
-                  }
-                  style={{ width: "100%", overflow: "hidden" }}
+      {filteredResults.map((item) => {
+        const presignedData = presignedUrlMap[item?.job_id];
+        return (
+          <div key={item.job_id} style={{ height: 250 }}>
+            {deletingId === item.job_id ? (
+              <Container fitHeight>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    height: "100%",
+                  }}
                 >
-                  <SpaceBetween direction="horizontal" size="xs">
-                    <Link
-                      variant="primary"
-                      href={`/${item.job_id}`}
-                      fontSize="heading-m"
-                      onFollow={(event) => {
-                        event.preventDefault();
-                        navigate(`/${item.job_id}`);
-                      }}
-                    >
-                      {item?.title || "Untitled"}
-                    </Link>
-                    {item.is_owner === false && <Badge color="blue">Shared</Badge>}
-                  </SpaceBetween>
-                </Header>
-              }
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  height: "100%",
-                  justifyContent: "space-between",
+                  <Spinner size="large" />
+                </div>
+              </Container>
+            ) : (
+              <Container
+                key={item.job_id}
+                media={{
+                  content:
+                    presignedUrlsLoading || !presignedData ? (
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          height: 250,
+                          width: "100%",
+                          background: "#EEEEEE",
+                        }}
+                      >
+                        <Spinner size="large" />
+                      </div>
+                    ) : (
+                      <S3DownloaderComponent
+                        threatModelId={item?.job_id}
+                        presignedUrl={presignedData?.url}
+                      />
+                    ),
+                  position: "side",
+                  width: "40%",
                 }}
+                fitHeight
+                header={
+                  <Header
+                    variant="h2"
+                    actions={
+                      <ButtonDropdown
+                        onItemClick={(itemClickDetails) => {
+                          if (itemClickDetails.detail.id === "delete") {
+                            handleDelete(item.job_id);
+                          }
+                        }}
+                        items={[
+                          { id: "delete", text: "Delete", disabled: item.is_owner === false },
+                        ]}
+                        variant="icon"
+                      />
+                    }
+                    style={{ width: "100%", overflow: "hidden" }}
+                  >
+                    <SpaceBetween direction="horizontal" size="xs">
+                      <Link
+                        variant="primary"
+                        href={`/${item.job_id}`}
+                        fontSize="heading-m"
+                        onFollow={(event) => {
+                          event.preventDefault();
+                          navigate(`/${item.job_id}`);
+                        }}
+                      >
+                        {item?.title || "Untitled"}
+                      </Link>
+                      {item.is_owner === false && <Badge color="blue">Shared</Badge>}
+                    </SpaceBetween>
+                  </Header>
+                }
               >
                 <div
                   style={{
-                    flex: 1,
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "flex-start",
-                    padding: "0 0 10px 0",
+                    flexDirection: "column",
+                    height: "100%",
+                    justifyContent: "space-between",
                   }}
                 >
-                  <Box
-                    variant="small"
-                    color="text-body-secondary"
-                    style={{
-                      overflow: "hidden",
-                      display: "-webkit-box",
-                      WebkitLineClamp: 3,
-                      WebkitBoxOrient: "vertical",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {item?.summary || "No summary available"}
-                  </Box>
-                </div>
-
-                <div>
                   <div
                     style={{
+                      flex: 1,
                       display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      width: "100%",
+                      alignItems: "center",
+                      justifyContent: "flex-start",
+                      padding: "0 0 10px 0",
                     }}
                   >
-                    <div>
-                      <Box variant="awsui-key-label">Status</Box>
-                      <StatusComponponent id={item?.job_id} />
-                    </div>
-                    <div>
-                      <Box variant="awsui-key-label" textAlign="left">
-                        Threats
-                      </Box>
-                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                        <SpaceBetween direction="horizontal" size="xs">
-                          <Badge color="severity-high">
-                            {item?.threat_list?.threats
-                              ? item.threat_list.threats.filter(
-                                  (threat) => threat.likelihood === "High"
-                                ).length || "-"
-                              : "-"}
-                          </Badge>
-                          <Badge color="severity-medium">
-                            {item?.threat_list?.threats
-                              ? item.threat_list.threats.filter(
-                                  (threat) => threat.likelihood === "Medium"
-                                ).length || "-"
-                              : "-"}
-                          </Badge>
-                          <Badge color="severity-low">
-                            {item?.threat_list?.threats
-                              ? item.threat_list.threats.filter(
-                                  (threat) => threat.likelihood === "Low"
-                                ).length || "-"
-                              : "-"}
-                          </Badge>
-                        </SpaceBetween>
+                    <Box
+                      variant="small"
+                      color="text-body-secondary"
+                      style={{
+                        overflow: "hidden",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: "vertical",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {item?.summary || "No summary available"}
+                    </Box>
+                  </div>
+
+                  <div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        width: "100%",
+                      }}
+                    >
+                      <div>
+                        <Box variant="awsui-key-label">Status</Box>
+                        <StatusComponponent id={item?.job_id} />
+                      </div>
+                      <div>
+                        <Box variant="awsui-key-label" textAlign="left">
+                          Threats
+                        </Box>
+                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                          <SpaceBetween direction="horizontal" size="xs">
+                            <Badge color="severity-high">
+                              {item?.threat_list?.threats
+                                ? item.threat_list.threats.filter(
+                                    (threat) => threat.likelihood === "High"
+                                  ).length || "-"
+                                : "-"}
+                            </Badge>
+                            <Badge color="severity-medium">
+                              {item?.threat_list?.threats
+                                ? item.threat_list.threats.filter(
+                                    (threat) => threat.likelihood === "Medium"
+                                  ).length || "-"
+                                : "-"}
+                            </Badge>
+                            <Badge color="severity-low">
+                              {item?.threat_list?.threats
+                                ? item.threat_list.threats.filter(
+                                    (threat) => threat.likelihood === "Low"
+                                  ).length || "-"
+                                : "-"}
+                            </Badge>
+                          </SpaceBetween>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </Container>
-          )}
-        </div>
-      ))}
+              </Container>
+            )}
+          </div>
+        );
+      })}
     </Grid>
   );
 
@@ -435,6 +535,11 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
                     }
                   >
                     {error}
+                  </Alert>
+                )}
+                {batchLoadError && (
+                  <Alert type="warning" dismissible onDismiss={() => setBatchLoadError(null)}>
+                    {batchLoadError}
                   </Alert>
                 )}
                 {filteredResults.length > 0 ? (

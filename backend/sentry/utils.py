@@ -1,4 +1,4 @@
-from functools import wraps
+from functools import wraps, lru_cache
 import json
 import logging
 import traceback
@@ -20,8 +20,6 @@ import os
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 REGION = os.environ.get("REGION", "us-east-1")
-
-diagram_cache = {}
 
 
 def log_error(error: Exception, custom_message: str = None):
@@ -182,11 +180,13 @@ def get_diagram_hash(diagram_path: Optional[str]) -> str:
     return hashlib.md5(diagram_path.encode()).hexdigest()
 
 
-async def download_and_cache_diagram(
-    diagram_path: str, boto_client, s3_bucket: str, logger
+@lru_cache(maxsize=32)
+def _fetch_diagram_from_s3(
+    diagram_path: str, s3_bucket: str
 ) -> Optional[Dict[str, Any]]:
     """
-    Fetch diagram from S3, convert to base64, and cache it in image_url format.
+    Fetch diagram from S3 and convert to base64 format.
+    Cached to avoid repeated S3 fetches for the same diagram.
     Returns the formatted image data if successful, None otherwise.
     """
     if not s3_bucket:
@@ -196,15 +196,6 @@ async def download_and_cache_diagram(
     if not diagram_path:
         logger.warning("Empty diagram path provided")
         return None
-
-    # Generate cache key
-    cache_key = get_diagram_hash(diagram_path)
-
-    # Check if already cached
-    if cache_key in diagram_cache:
-        cached_data = diagram_cache[cache_key]
-        logger.info(f"Using cached diagram data for: {diagram_path}")
-        return cached_data
 
     try:
         # Create S3 client
@@ -259,17 +250,27 @@ async def download_and_cache_diagram(
             "image_url": {"url": f"data:{content_type};base64,{image_data}"},
         }
 
-        # Cache the formatted data
-        diagram_cache[cache_key] = cached_data
         logger.info(
-            f"Diagram cached successfully as base64 data (size: {len(file_content)} bytes, type: {content_type})"
+            f"Diagram fetched successfully as base64 data (size: {len(file_content)} bytes, type: {content_type})"
         )
 
         return cached_data
 
     except Exception as e:
-        logger.error(f"Failed to fetch and cache diagram from {diagram_path}: {e}")
+        logger.error(f"Failed to fetch diagram from {diagram_path}: {e}")
         return None
+
+
+async def download_and_cache_diagram(
+    diagram_path: str, boto_client, s3_bucket: str, logger
+) -> Optional[Dict[str, Any]]:
+    """
+    Fetch diagram from S3, convert to base64, and cache it in image_url format.
+    Returns the formatted image data if successful, None otherwise.
+
+    This is an async wrapper around the cached sync function.
+    """
+    return _fetch_diagram_from_s3(diagram_path, s3_bucket)
 
 
 def get_tools_for_preferences(
@@ -415,16 +416,10 @@ async def get_or_create_agent(
             if diagram_path:
                 logger.info(f"Processing diagram: {diagram_path}")
 
-                # First check if diagram is already in cache
-                cache_key = get_diagram_hash(diagram_path)
-                if cache_key in diagram_cache:
-                    diagram_data = diagram_cache[cache_key]
-                    logger.info(f"Using cached diagram data for: {diagram_path}")
-                else:
-                    # If not in cache, download and cache it
-                    diagram_data = await download_and_cache_diagram(
-                        diagram_path, boto_client, s3_bucket, logger
-                    )
+                # Fetch diagram (will use cache if available)
+                diagram_data = await download_and_cache_diagram(
+                    diagram_path, boto_client, s3_bucket, logger
+                )
 
                 if diagram_data:
                     # Just add a flag to context - the actual diagram data remains separate
@@ -470,9 +465,7 @@ async def get_or_create_agent(
         # Get current diagram data from cache if needed
         current_diagram_data = None
         if diagram_path:
-            cache_key = get_diagram_hash(diagram_path)
-            if cache_key in diagram_cache:
-                current_diagram_data = diagram_cache[cache_key]
+            current_diagram_data = _fetch_diagram_from_s3(diagram_path, s3_bucket)
 
         return (
             cached_agent,

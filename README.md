@@ -130,6 +130,7 @@ Threat Designer supports two AI providers. Choose one based on your preference:
 
 You must enable access to the following models in your AWS region:
 
+- **Claude 4.5 Opus**
 - **Claude 4.5 Sonnet**
 - **Claude 4.5 Haiku**
 
@@ -215,8 +216,7 @@ Select AI model provider:
 
 **Used Models:**
 
-- **Claude 4.5 Sonnet** - For complex reasoning tasks
-- **Claude 4.5 Haiku** - For faster, lighter tasks
+- **Claude 4.5 family models**
 
 **Key Characteristics:**
 

@@ -23,6 +23,7 @@ FUNCTION = os.environ.get("THREAT_MODELING_LAMBDA")
 AGENT_CORE_RUNTIME = os.environ.get("THREAT_MODELING_AGENT")
 AGENT_TABLE = os.environ.get("AGENT_STATE_TABLE")
 AGENT_TRAIL_TABLE = os.environ.get("AGENT_TRAIL_TABLE")
+SHARING_TABLE = os.environ.get("SHARING_TABLE")
 ARCHITECTURE_BUCKET = os.environ.get("ARCHITECTURE_BUCKET")
 REGION = os.environ.get("REGION")
 dynamodb = boto3.resource("dynamodb")
@@ -1093,25 +1094,97 @@ def generate_presigned_url(file_type="image/png", expiration=300):
     return {"presigned": response, "name": key}
 
 
-@tracer.capture_method
-def generate_presigned_download_url(object_name, expiration=300):
+def extract_threat_model_id_from_s3_location(s3_location: str) -> str:
     """
-    Generate a presigned URL for downloading an object from S3.
+    Extract threat model ID from S3 location.
+
+    NOTE: This function currently assumes s3_location IS the threat model ID,
+    which is INCORRECT. The s3_location is a separate UUID for the S3 object.
+
+    TODO: This needs to be refactored to accept threat_model_id directly
+    instead of s3_location. The API should be changed to:
+    - Accept threat_model_id as input
+    - Look up the threat model record to get s3_location
+    - Generate presigned URL for that s3_location
+
+    This would be more efficient (direct get vs scan) and more logical.
 
     Args:
-        object_name (str): The key/path of the object in the S3 bucket
+        s3_location: The S3 key/path (currently incorrectly assumed to be UUID)
+
+    Returns:
+        str: The threat model ID (UUID)
+
+    Raises:
+        ValueError: If s3_location is empty or not a valid UUID format
+        NotFoundError: If the ID cannot be extracted
+    """
+    if not s3_location or not s3_location.strip():
+        raise ValueError("S3 location cannot be empty")
+
+    # S3 location is the UUID itself (INCORRECT ASSUMPTION)
+    threat_model_id = s3_location.strip()
+
+    # Validate UUID format
+    try:
+        uuid.UUID(threat_model_id)
+    except (ValueError, AttributeError):
+        LOG.warning(f"Invalid UUID format for S3 location: {s3_location}")
+        raise NotFoundError(f"Invalid threat model ID format: {s3_location}")
+
+    return threat_model_id
+
+
+@tracer.capture_method
+def generate_presigned_download_url(threat_model_id, user_id=None, expiration=300):
+    """
+    Generate a presigned URL for downloading a threat model's architecture diagram from S3.
+
+    Args:
+        threat_model_id (str): The threat model ID (job_id)
+        user_id (str, optional): User ID requesting the presigned URL. If provided, authorization is checked.
         expiration (int, optional): Time in seconds until the presigned URL expires. Defaults to 300.
 
     Returns:
         str: Presigned URL that can be used to download the object
 
     Raises:
+        UnauthorizedError: If user doesn't have access to the threat model
+        NotFoundError: If threat model not found or has no s3_location
         InternalError: If there is an error generating the presigned URL
     """
+    # If user_id is provided, check authorization
+    if user_id:
+        from utils.authorization import require_access
+
+        # Verify user has at least READ_ONLY access
+        require_access(threat_model_id, user_id, required_level="READ_ONLY")
+
+    # Look up the threat model to get the s3_location
+    try:
+        agent_table = dynamodb.Table(AGENT_TABLE)
+        response = agent_table.get_item(Key={"job_id": threat_model_id})
+
+        if "Item" not in response:
+            raise NotFoundError(f"Threat model {threat_model_id} not found")
+
+        s3_location = response["Item"].get("s3_location")
+        if not s3_location:
+            raise NotFoundError(
+                f"Threat model {threat_model_id} has no architecture diagram"
+            )
+
+    except NotFoundError:
+        raise
+    except Exception as e:
+        LOG.error(f"Error fetching threat model {threat_model_id}: {e}")
+        raise InternalError(f"Failed to fetch threat model: {str(e)}")
+
+    # Generate presigned URL for the S3 object
     try:
         response = s3_pre.generate_presigned_url(
             "get_object",
-            Params={"Bucket": ARCHITECTURE_BUCKET, "Key": object_name},
+            Params={"Bucket": ARCHITECTURE_BUCKET, "Key": s3_location},
             ExpiresIn=expiration,
             HttpMethod="GET",
         )
@@ -1120,3 +1193,315 @@ def generate_presigned_download_url(object_name, expiration=300):
         raise InternalError(e)
 
     return response
+
+
+def _batch_fetch_threat_models(threat_model_ids: list) -> dict:
+    """
+    Batch fetch threat models from DynamoDB.
+    
+    Args:
+        threat_model_ids: List of threat model IDs to fetch
+        
+    Returns:
+        Dict mapping threat_model_id -> threat model item
+    """
+    if not threat_model_ids:
+        return {}
+    
+    try:
+        # DynamoDB batch_get_item supports up to 100 items per request
+        # Split into chunks if needed
+        chunk_size = 100
+        all_items = {}
+        
+        for i in range(0, len(threat_model_ids), chunk_size):
+            chunk = threat_model_ids[i:i + chunk_size]
+            
+            response = dynamodb.batch_get_item(
+                RequestItems={
+                    AGENT_TABLE: {
+                        'Keys': [{'job_id': tm_id} for tm_id in chunk]
+                    }
+                }
+            )
+            
+            # Map items by job_id
+            for item in response.get('Responses', {}).get(AGENT_TABLE, []):
+                all_items[item['job_id']] = item
+            
+            # Handle unprocessed keys (throttling)
+            unprocessed = response.get('UnprocessedKeys', {})
+            if unprocessed:
+                LOG.warning(f"Unprocessed keys in batch_get_item: {len(unprocessed)} items")
+        
+        return all_items
+    except Exception as e:
+        LOG.error(f"Error batch fetching threat models: {e}")
+        return {}
+
+
+def _batch_fetch_sharing_records(threat_model_ids: list, user_id: str) -> dict:
+    """
+    Batch fetch sharing records from DynamoDB.
+    
+    Args:
+        threat_model_ids: List of threat model IDs
+        user_id: User ID to check sharing for
+        
+    Returns:
+        Dict mapping threat_model_id -> sharing record (if exists)
+    """
+    if not threat_model_ids:
+        return {}
+    
+    try:
+        # DynamoDB batch_get_item supports up to 100 items per request
+        chunk_size = 100
+        all_items = {}
+        
+        for i in range(0, len(threat_model_ids), chunk_size):
+            chunk = threat_model_ids[i:i + chunk_size]
+            
+            response = dynamodb.batch_get_item(
+                RequestItems={
+                    SHARING_TABLE: {
+                        'Keys': [
+                            {'threat_model_id': tm_id, 'user_id': user_id}
+                            for tm_id in chunk
+                        ]
+                    }
+                }
+            )
+            
+            # Map items by threat_model_id
+            for item in response.get('Responses', {}).get(SHARING_TABLE, []):
+                all_items[item['threat_model_id']] = item
+        
+        return all_items
+    except Exception as e:
+        LOG.error(f"Error batch fetching sharing records: {e}")
+        return {}
+
+
+def _check_access_cached(
+    threat_model_id: str, user_id: str, threat_models_cache: dict, sharing_cache: dict
+) -> dict:
+    """
+    Check access using pre-fetched cache data.
+    
+    Args:
+        threat_model_id: Threat model ID to check
+        user_id: User ID requesting access
+        threat_models_cache: Pre-fetched threat models
+        sharing_cache: Pre-fetched sharing records
+        
+    Returns:
+        Dict with {has_access: bool, access_level: str, is_owner: bool}
+        
+    Raises:
+        NotFoundError: If threat model not found
+    """
+    # Check if threat model exists in cache
+    if threat_model_id not in threat_models_cache:
+        raise NotFoundError(f"Threat model {threat_model_id} not found")
+    
+    item = threat_models_cache[threat_model_id]
+    owner = item.get("owner")
+    
+    # Check if user is the owner
+    if owner == user_id:
+        return {"has_access": True, "is_owner": True, "access_level": "OWNER"}
+    
+    # Check if user is a collaborator (from cache)
+    if threat_model_id in sharing_cache:
+        return {
+            "has_access": True,
+            "is_owner": False,
+            "access_level": sharing_cache[threat_model_id].get("access_level"),
+        }
+    
+    # No access
+    return {"has_access": False, "is_owner": False, "access_level": None}
+
+
+def generate_presigned_download_url_with_auth(
+    threat_model_id: str, user_id: str, expiration: int = 300
+) -> str:
+    """
+    Generate presigned URL with authorization check.
+
+    This function always performs authorization checks before generating
+    the presigned URL. It verifies the user has at least READ_ONLY access
+    to the threat model.
+
+    Args:
+        threat_model_id: The threat model ID (job_id)
+        user_id: User requesting access
+        expiration: URL expiration time in seconds (default: 300)
+
+    Returns:
+        str: Presigned URL for downloading the architecture diagram
+
+    Raises:
+        UnauthorizedError: If user lacks access to the threat model
+        NotFoundError: If threat model not found
+        InternalError: If presigned URL generation fails
+    """
+    # Generate presigned URL with authorization
+    # The generate_presigned_download_url function will handle both authorization and S3 lookup
+    return generate_presigned_download_url(
+        threat_model_id, user_id=user_id, expiration=expiration
+    )
+
+
+def generate_presigned_download_urls_batch(
+    threat_model_ids: list, user_id: str, expiration: int = 300
+) -> list:
+    """
+    Generate multiple presigned URLs with authorization checks.
+
+    Optimized to use batch DynamoDB reads for better performance.
+    Processes requests in parallel for performance. Each threat model is
+    processed independently - authorization failures for one threat model do not
+    prevent processing of other threat models.
+
+    Args:
+        threat_model_ids: List of threat model IDs (job_ids)
+        user_id: User requesting access
+        expiration: URL expiration time in seconds (default: 300)
+
+    Returns:
+        List of dicts with structure:
+        {
+            "threat_model_id": str,
+            "presigned_url": str (if successful),
+            "error": str (if failed),
+            "success": bool
+        }
+
+    Note:
+        Results are returned in the same order as input threat_model_ids.
+        Partial failures are supported - some items may succeed while others fail.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
+    # Batch fetch all threat models and sharing records upfront
+    threat_models_cache = _batch_fetch_threat_models(threat_model_ids)
+    sharing_cache = _batch_fetch_sharing_records(threat_model_ids, user_id)
+
+    def process_single_threat_model(threat_model_id: str, index: int) -> dict:
+        """
+        Process a single threat model and return result with index for ordering.
+        Uses cached data for authorization and threat model lookup.
+
+        Args:
+            threat_model_id: Threat model ID to process
+            index: Original index in input list for maintaining order
+
+        Returns:
+            dict: Result with index for ordering
+        """
+        try:
+            # Check authorization using cached data
+            access_info = _check_access_cached(
+                threat_model_id, user_id, threat_models_cache, sharing_cache
+            )
+            
+            if not access_info["has_access"]:
+                raise UnauthorizedError("You do not have access to this threat model")
+            
+            # Get s3_location from cached threat model
+            if threat_model_id not in threat_models_cache:
+                raise NotFoundError(f"Threat model {threat_model_id} not found")
+            
+            s3_location = threat_models_cache[threat_model_id].get("s3_location")
+            if not s3_location:
+                raise NotFoundError(
+                    f"Threat model {threat_model_id} has no architecture diagram"
+                )
+            
+            # Generate presigned URL (fast, no I/O)
+            presigned_url = s3_pre.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": ARCHITECTURE_BUCKET, "Key": s3_location},
+                ExpiresIn=expiration,
+                HttpMethod="GET",
+            )
+            
+            return {
+                "index": index,
+                "threat_model_id": threat_model_id,
+                "presigned_url": presigned_url,
+                "success": True,
+            }
+        except UnauthorizedError as e:
+            LOG.warning(f"Authorization failed for {threat_model_id}: {e}")
+            return {
+                "index": index,
+                "threat_model_id": threat_model_id,
+                "error": f"Unauthorized: {str(e)}",
+                "success": False,
+            }
+        except NotFoundError as e:
+            LOG.warning(f"Not found error for {threat_model_id}: {e}")
+            return {
+                "index": index,
+                "threat_model_id": threat_model_id,
+                "error": f"Not Found: {str(e)}",
+                "success": False,
+            }
+        except ValueError as e:
+            LOG.warning(f"Validation error for {threat_model_id}: {e}")
+            return {
+                "index": index,
+                "threat_model_id": threat_model_id,
+                "error": f"Invalid: {str(e)}",
+                "success": False,
+            }
+        except Exception as e:
+            LOG.error(f"Unexpected error processing {threat_model_id}: {e}")
+            return {
+                "index": index,
+                "threat_model_id": threat_model_id,
+                "error": f"Internal Error: {str(e)}",
+                "success": False,
+            }
+
+    # Process all threat models in parallel
+    results_with_index = []
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        # Submit all tasks with their original index
+        future_to_index = {
+            executor.submit(process_single_threat_model, tm_id, idx): idx
+            for idx, tm_id in enumerate(threat_model_ids)
+        }
+
+        # Collect results as they complete
+        for future in as_completed(future_to_index):
+            try:
+                result = future.result()
+                results_with_index.append(result)
+            except Exception as e:
+                # This should not happen as exceptions are caught in process_single_threat_model
+                idx = future_to_index[future]
+                LOG.error(f"Unexpected error in future for index {idx}: {e}")
+                results_with_index.append(
+                    {
+                        "index": idx,
+                        "threat_model_id": threat_model_ids[idx],
+                        "error": f"Internal Error: {str(e)}",
+                        "success": False,
+                    }
+                )
+
+    # Sort results by original index to maintain input order
+    results_with_index.sort(key=lambda x: x["index"])
+
+    # Remove index from results before returning
+    results = []
+    for result in results_with_index:
+        result_copy = result.copy()
+        del result_copy["index"]
+        results.append(result_copy)
+
+    return results

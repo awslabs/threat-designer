@@ -8,6 +8,7 @@ from services.threat_designer_service import (
     fetch_all,
     fetch_results,
     generate_presigned_download_url,
+    generate_presigned_download_urls_batch,
     generate_presigned_url,
     invoke_lambda,
     restore,
@@ -255,10 +256,97 @@ def _upload():
 def _download():
     try:
         body = router.current_event.json_body
-        object = body.get("s3_location")
-        return generate_presigned_download_url(object)
+        threat_model_id = body.get("threat_model_id")
+
+        # Extract user_id from request context
+        user_id = router.current_event.request_context.authorizer.get("user_id")
+
+        # Generate presigned URL with authorization check
+        return generate_presigned_download_url(threat_model_id, user_id)
     except Exception as e:
         LOG.exception(e)
+        raise
+
+
+@router.post("/threat-designer/download/batch")
+def _download_batch():
+    """
+    Generate presigned URLs for multiple threat models with authorization.
+
+    Request Body:
+    {
+        "threat_model_ids": ["uuid1", "uuid2", ...]
+    }
+
+    Response:
+    {
+        "results": [
+            {
+                "threat_model_id": "uuid1",
+                "presigned_url": "https://...",
+                "success": true
+            },
+            {
+                "threat_model_id": "uuid2",
+                "error": "Unauthorized",
+                "success": false
+            }
+        ]
+    }
+    """
+    try:
+        from aws_lambda_powertools.event_handler import Response
+        from aws_lambda_powertools.event_handler.api_gateway import content_types
+        import json
+
+        # Extract user_id from request context
+        user_id = router.current_event.request_context.authorizer.get("user_id")
+
+        # Parse and validate request body
+        body = router.current_event.json_body
+
+        # Validate threat_model_ids field exists
+        if "threat_model_ids" not in body:
+            return Response(
+                status_code=400,
+                content_type=content_types.APPLICATION_JSON,
+                body=json.dumps({"error": "Missing required field: threat_model_ids"}),
+            )
+
+        threat_model_ids = body.get("threat_model_ids")
+
+        # Validate threat_model_ids is a list
+        if not isinstance(threat_model_ids, list):
+            return Response(
+                status_code=400,
+                content_type=content_types.APPLICATION_JSON,
+                body=json.dumps({"error": "threat_model_ids must be an array"}),
+            )
+
+        # Validate batch size (1-50 items)
+        if len(threat_model_ids) == 0:
+            return Response(
+                status_code=400,
+                content_type=content_types.APPLICATION_JSON,
+                body=json.dumps({"error": "threat_model_ids array cannot be empty"}),
+            )
+
+        if len(threat_model_ids) > 50:
+            return Response(
+                status_code=400,
+                content_type=content_types.APPLICATION_JSON,
+                body=json.dumps({"error": "Batch size cannot exceed 50 items"}),
+            )
+
+        # Call service layer to generate presigned URLs
+        results = generate_presigned_download_urls_batch(threat_model_ids, user_id)
+
+        # Return formatted response
+        return {"results": results}
+
+    except Exception as e:
+        LOG.exception(e)
+        raise
 
 
 # Collaboration endpoints

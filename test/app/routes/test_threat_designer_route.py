@@ -725,3 +725,96 @@ class TestErrorHandling:
 
         with pytest.raises(BadRequestError):
             _update_collaborator_access("test-job-123", "user-456")
+
+
+# ============================================================================
+# Batch Download Endpoint Tests
+# ============================================================================
+
+
+class TestBatchDownloadEndpoint:
+    """Tests for batch download route handler validation."""
+
+    @patch("routes.threat_designer_route.router")
+    def test_batch_download_returns_400_for_empty_batch(self, mock_router):
+        """Test _download_batch returns 400 for empty s3_locations array."""
+        mock_router.current_event.request_context.authorizer = {"user_id": "user-123"}
+        mock_router.current_event.json_body = {"s3_locations": []}
+
+        from routes.threat_designer_route import _download_batch
+
+        result = _download_batch()
+
+        assert result.status_code == 400
+        assert "s3_locations array cannot be empty" in result.body
+
+    @patch("routes.threat_designer_route.generate_presigned_download_urls_batch")
+    @patch("routes.threat_designer_route.router")
+    def test_batch_download_succeeds_with_50_items(
+        self, mock_router, mock_generate_batch
+    ):
+        """Test _download_batch succeeds with exactly 50 items."""
+        mock_router.current_event.request_context.authorizer = {"user_id": "user-123"}
+        s3_locations = [f"uuid-{i}" for i in range(50)]
+        mock_router.current_event.json_body = {"s3_locations": s3_locations}
+
+        # Mock successful batch response
+        mock_results = [
+            {
+                "s3_location": loc,
+                "presigned_url": f"https://s3.example.com/{loc}",
+                "success": True,
+            }
+            for loc in s3_locations
+        ]
+        mock_generate_batch.return_value = mock_results
+
+        from routes.threat_designer_route import _download_batch
+
+        result = _download_batch()
+
+        assert "results" in result
+        assert len(result["results"]) == 50
+        mock_generate_batch.assert_called_once_with(s3_locations, "user-123")
+
+    @patch("routes.threat_designer_route.router")
+    def test_batch_download_returns_400_for_51_items(self, mock_router):
+        """Test _download_batch returns 400 for batch size exceeding 50 items."""
+        mock_router.current_event.request_context.authorizer = {"user_id": "user-123"}
+        s3_locations = [f"uuid-{i}" for i in range(51)]
+        mock_router.current_event.json_body = {"s3_locations": s3_locations}
+
+        from routes.threat_designer_route import _download_batch
+
+        result = _download_batch()
+
+        assert result.status_code == 400
+        assert "Batch size cannot exceed 50 items" in result.body
+
+    @patch("routes.threat_designer_route.router")
+    def test_batch_download_returns_400_for_missing_s3_locations(self, mock_router):
+        """Test _download_batch returns 400 when s3_locations field is missing."""
+        mock_router.current_event.request_context.authorizer = {"user_id": "user-123"}
+        mock_router.current_event.json_body = {}
+
+        from routes.threat_designer_route import _download_batch
+
+        result = _download_batch()
+
+        assert result.status_code == 400
+        assert "Missing required field: s3_locations" in result.body
+
+    @patch("routes.threat_designer_route.router")
+    def test_batch_download_returns_400_for_invalid_request_body_format(
+        self, mock_router
+    ):
+        """Test _download_batch returns 400 when s3_locations is not an array."""
+        mock_router.current_event.request_context.authorizer = {"user_id": "user-123"}
+        mock_router.current_event.json_body = {"s3_locations": "not-an-array"}
+
+        from routes.threat_designer_route import _download_batch
+
+        result = _download_batch()
+
+        assert result.status_code == 400
+        assert "s3_locations must be an array" in result.body

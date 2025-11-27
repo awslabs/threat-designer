@@ -80,10 +80,10 @@ async function generateUrl(fileType) {
   return instance.post(statsPath, postData);
 }
 
-async function getDownloadUrl(fileName) {
+async function getDownloadUrl(threatModelId) {
   const downloadPath = "/download";
   const postData = {
-    s3_location: fileName,
+    threat_model_id: threatModelId,
   };
   try {
     const response = await instance.post(downloadPath, postData);
@@ -94,6 +94,19 @@ async function getDownloadUrl(fileName) {
     });
 
     return fileResponse.data;
+  } catch (error) {
+    return Promise.reject(error);
+  }
+}
+
+async function getDownloadUrlsBatch(threatModelIds) {
+  const downloadPath = "/download/batch";
+  const postData = {
+    threat_model_ids: threatModelIds,
+  };
+  try {
+    const response = await instance.post(downloadPath, postData);
+    return response.data.results;
   } catch (error) {
     return Promise.reject(error);
   }
@@ -140,6 +153,7 @@ export {
   generateUrl,
   updateTm,
   getDownloadUrl,
+  getDownloadUrlsBatch,
   deleteTm,
   getThreatModelingAllResults,
   getThreatModelingTrail,

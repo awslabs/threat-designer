@@ -4,6 +4,13 @@ import {
   getDownloadUrl,
   getThreatModelingTrail,
 } from "../../../services/ThreatDesigner/stats";
+import {
+  getCachedImageBlob,
+  setCachedImageBlob,
+  getCachedPresignedUrl,
+  setCachedPresignedUrl,
+} from "../../../services/ThreatDesigner/presignedUrlCache";
+import axios from "axios";
 
 /**
  * Convert blob to base64 format
@@ -234,7 +241,24 @@ export const useThreatModelData = (
     setLoading(true);
     try {
       const resultsResponse = await getThreatModelingResults(threatModelId);
-      const architectureDiagram = await getDownloadUrl(resultsResponse.data.item.s3_location);
+
+      // Check if image blob is already cached
+      let architectureDiagram;
+      const cachedBlobUrl = getCachedImageBlob(threatModelId);
+
+      if (cachedBlobUrl) {
+        // Convert cached blob URL back to blob for base64 conversion
+        const response = await fetch(cachedBlobUrl);
+        architectureDiagram = await response.blob();
+      } else {
+        // getDownloadUrl makes API call, gets presigned URL, and downloads blob
+        architectureDiagram = await getDownloadUrl(threatModelId);
+
+        // Cache the blob URL for future use
+        const objectUrl = URL.createObjectURL(architectureDiagram);
+        setCachedImageBlob(threatModelId, objectUrl);
+      }
+
       const base64Data = await blobToBase64(architectureDiagram);
 
       setBase64Content(base64Data);

@@ -53,7 +53,8 @@ variable "reasoning_models" {
     "us.anthropic.claude-opus-4-1-20250805-v1:0",
     "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
     "global.anthropic.claude-sonnet-4-20250514-v1:0",
-    "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+    "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "global.anthropic.claude-opus-4-5-20251101-v1:0"
   ]
 }
 
@@ -93,7 +94,7 @@ variable "model_main" {
   })
   default = {
     assets = {
-      id         = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+      id         = "global.anthropic.claude-opus-4-5-20251101-v1:0"
       max_tokens = 64000
       reasoning_budget = {
         "1" = 24000
@@ -102,7 +103,7 @@ variable "model_main" {
       }
     }
     flows = {
-      id         = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+      id         = "global.anthropic.claude-opus-4-5-20251101-v1:0"
       max_tokens = 64000
       reasoning_budget = {
         "1" = 24000
@@ -111,7 +112,7 @@ variable "model_main" {
       }
     }
     threats = {
-      id         = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+      id         = "global.anthropic.claude-opus-4-5-20251101-v1:0"
       max_tokens = 64000
       reasoning_budget = {
         "1" = 24000
@@ -120,7 +121,7 @@ variable "model_main" {
       }
     }
     threats_agent = {
-      id         = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+      id         = "global.anthropic.claude-opus-4-5-20251101-v1:0"
       max_tokens = 64000
       reasoning_budget = {
         "1" = 24000
@@ -129,7 +130,7 @@ variable "model_main" {
       }
     }
     gaps = {
-      id         = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+      id         = "global.anthropic.claude-opus-4-5-20251101-v1:0"
       max_tokens = 64000
       reasoning_budget = {
         "1" = 24000
@@ -138,7 +139,7 @@ variable "model_main" {
       }
     }
     attack_tree = {
-      id         = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+      id         = "global.anthropic.claude-opus-4-5-20251101-v1:0"
       max_tokens = 64000
       reasoning_budget = {
         "1" = 24000
@@ -151,7 +152,7 @@ variable "model_main" {
 
 variable "model_sentry" {
   type    = string
-  default = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  default = "global.anthropic.claude-opus-4-5-20251101-v1:0"
 }
 
 variable "model_struct" {

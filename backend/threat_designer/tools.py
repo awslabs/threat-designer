@@ -268,9 +268,6 @@ def _unwrap_value(value, default=None):
 def add_threats(threats: ThreatsList, runtime: ToolRuntime):
     tool_use = _unwrap_value(runtime.state.get("tool_use", 0), 0)
     gap_tool_use = _unwrap_value(runtime.state.get("gap_tool_use", 0), 0)
-    gap_called_since_reset = _unwrap_value(
-        runtime.state.get("gap_called_since_reset", False), False
-    )
     job_id = runtime.state.get("job_id", "unknown")
 
     # Check limit
@@ -288,7 +285,6 @@ def add_threats(threats: ThreatsList, runtime: ToolRuntime):
             tool="add_threats",
             current_usage=tool_use,
             max_usage=MAX_ADD_THREATS_USES,
-            gap_called_since_reset=gap_called_since_reset,
             gap_tool_use=gap_tool_use,
             job_id=job_id,
         )
@@ -405,7 +401,6 @@ Please ensure:
         update={
             "threat_list": valid_threats_list,
             "tool_use": tool_use_delta,  # Send delta, not absolute value
-            "gap_called_since_reset": Overwrite(True),
             "messages": [
                 ToolMessage(
                     response_msg,
@@ -700,7 +695,6 @@ def gap_analysis(runtime: ToolRuntime) -> str:
         update_dict = {
             "gap_tool_use": gap_tool_use_delta,  # Send delta, not absolute value
             "tool_use": Overwrite(0),
-            "gap_called_since_reset": Overwrite(False),
         }
 
         # Update gap in state

@@ -297,9 +297,6 @@ class ThreatState(MessagesState):
     threat_list: Annotated[ThreatsList, operator.add]
     tool_use: Annotated[int, _add_or_overwrite] = 0
     gap_tool_use: Annotated[int, _add_or_overwrite] = 0
-    gap_called_since_reset: Annotated[bool, _overwrite_or_last] = (
-        False  # Tracks if gap_analysis has been called since last counter reset
-    )
     assets: Optional[AssetsList] = None
     image_data: Optional[str] = None
     system_architecture: Optional[FlowsList] = None

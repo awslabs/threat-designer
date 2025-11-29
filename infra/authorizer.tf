@@ -43,12 +43,49 @@ resource "aws_lambda_alias" "authorizer_lambda_alias" {
   description      = "alias with provisioned concurrency"
   function_name    = aws_lambda_function.authorizer_lambda.arn
   function_version = aws_lambda_function.authorizer_lambda.version
+
 }
+
+
+# Wait for alias to stabilize and ensure no routing config
+resource "null_resource" "wait_for_alias_stabilization" {
+  triggers = {
+    alias_version = aws_lambda_alias.authorizer_lambda_alias.function_version
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      for i in {1..90}; do
+        ROUTING=$(aws lambda get-alias \
+          --function-name ${aws_lambda_function.authorizer_lambda.function_name} \
+          --name ${aws_lambda_alias.authorizer_lambda_alias.name} \
+          --query 'RoutingConfig.AdditionalVersionWeights' \
+          --output text)
+        
+        if [ "$ROUTING" == "None" ] || [ -z "$ROUTING" ]; then
+          echo "Alias stabilized, no routing config detected"
+          exit 0
+        fi
+        
+        echo "Waiting for routing config to clear... attempt $i"
+        sleep 2
+      done
+      
+      echo "Timeout waiting for alias to stabilize"
+      exit 1
+    EOT
+  }
+
+  depends_on = [aws_lambda_alias.authorizer_lambda_alias]
+}
+
 
 resource "aws_lambda_provisioned_concurrency_config" "authorizer_lambda_alias_provisioned_concurrency_config" {
   function_name                     = aws_lambda_alias.authorizer_lambda_alias.function_name
   provisioned_concurrent_executions = var.provisioned_lambda_concurrency
   qualifier                         = aws_lambda_alias.authorizer_lambda_alias.name
+  depends_on = [null_resource.wait_for_alias_stabilization]
+
 }
 
 

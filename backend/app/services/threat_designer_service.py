@@ -1198,42 +1198,42 @@ def generate_presigned_download_url(threat_model_id, user_id=None, expiration=30
 def _batch_fetch_threat_models(threat_model_ids: list) -> dict:
     """
     Batch fetch threat models from DynamoDB.
-    
+
     Args:
         threat_model_ids: List of threat model IDs to fetch
-        
+
     Returns:
         Dict mapping threat_model_id -> threat model item
     """
     if not threat_model_ids:
         return {}
-    
+
     try:
         # DynamoDB batch_get_item supports up to 100 items per request
         # Split into chunks if needed
         chunk_size = 100
         all_items = {}
-        
+
         for i in range(0, len(threat_model_ids), chunk_size):
-            chunk = threat_model_ids[i:i + chunk_size]
-            
+            chunk = threat_model_ids[i : i + chunk_size]
+
             response = dynamodb.batch_get_item(
                 RequestItems={
-                    AGENT_TABLE: {
-                        'Keys': [{'job_id': tm_id} for tm_id in chunk]
-                    }
+                    AGENT_TABLE: {"Keys": [{"job_id": tm_id} for tm_id in chunk]}
                 }
             )
-            
+
             # Map items by job_id
-            for item in response.get('Responses', {}).get(AGENT_TABLE, []):
-                all_items[item['job_id']] = item
-            
+            for item in response.get("Responses", {}).get(AGENT_TABLE, []):
+                all_items[item["job_id"]] = item
+
             # Handle unprocessed keys (throttling)
-            unprocessed = response.get('UnprocessedKeys', {})
+            unprocessed = response.get("UnprocessedKeys", {})
             if unprocessed:
-                LOG.warning(f"Unprocessed keys in batch_get_item: {len(unprocessed)} items")
-        
+                LOG.warning(
+                    f"Unprocessed keys in batch_get_item: {len(unprocessed)} items"
+                )
+
         return all_items
     except Exception as e:
         LOG.error(f"Error batch fetching threat models: {e}")
@@ -1243,40 +1243,40 @@ def _batch_fetch_threat_models(threat_model_ids: list) -> dict:
 def _batch_fetch_sharing_records(threat_model_ids: list, user_id: str) -> dict:
     """
     Batch fetch sharing records from DynamoDB.
-    
+
     Args:
         threat_model_ids: List of threat model IDs
         user_id: User ID to check sharing for
-        
+
     Returns:
         Dict mapping threat_model_id -> sharing record (if exists)
     """
     if not threat_model_ids:
         return {}
-    
+
     try:
         # DynamoDB batch_get_item supports up to 100 items per request
         chunk_size = 100
         all_items = {}
-        
+
         for i in range(0, len(threat_model_ids), chunk_size):
-            chunk = threat_model_ids[i:i + chunk_size]
-            
+            chunk = threat_model_ids[i : i + chunk_size]
+
             response = dynamodb.batch_get_item(
                 RequestItems={
                     SHARING_TABLE: {
-                        'Keys': [
-                            {'threat_model_id': tm_id, 'user_id': user_id}
+                        "Keys": [
+                            {"threat_model_id": tm_id, "user_id": user_id}
                             for tm_id in chunk
                         ]
                     }
                 }
             )
-            
+
             # Map items by threat_model_id
-            for item in response.get('Responses', {}).get(SHARING_TABLE, []):
-                all_items[item['threat_model_id']] = item
-        
+            for item in response.get("Responses", {}).get(SHARING_TABLE, []):
+                all_items[item["threat_model_id"]] = item
+
         return all_items
     except Exception as e:
         LOG.error(f"Error batch fetching sharing records: {e}")
@@ -1288,30 +1288,30 @@ def _check_access_cached(
 ) -> dict:
     """
     Check access using pre-fetched cache data.
-    
+
     Args:
         threat_model_id: Threat model ID to check
         user_id: User ID requesting access
         threat_models_cache: Pre-fetched threat models
         sharing_cache: Pre-fetched sharing records
-        
+
     Returns:
         Dict with {has_access: bool, access_level: str, is_owner: bool}
-        
+
     Raises:
         NotFoundError: If threat model not found
     """
     # Check if threat model exists in cache
     if threat_model_id not in threat_models_cache:
         raise NotFoundError(f"Threat model {threat_model_id} not found")
-    
+
     item = threat_models_cache[threat_model_id]
     owner = item.get("owner")
-    
+
     # Check if user is the owner
     if owner == user_id:
         return {"has_access": True, "is_owner": True, "access_level": "OWNER"}
-    
+
     # Check if user is a collaborator (from cache)
     if threat_model_id in sharing_cache:
         return {
@@ -1319,7 +1319,7 @@ def _check_access_cached(
             "is_owner": False,
             "access_level": sharing_cache[threat_model_id].get("access_level"),
         }
-    
+
     # No access
     return {"has_access": False, "is_owner": False, "access_level": None}
 
@@ -1384,7 +1384,7 @@ def generate_presigned_download_urls_batch(
         Partial failures are supported - some items may succeed while others fail.
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    
+
     # Batch fetch all threat models and sharing records upfront
     threat_models_cache = _batch_fetch_threat_models(threat_model_ids)
     sharing_cache = _batch_fetch_sharing_records(threat_model_ids, user_id)
@@ -1406,20 +1406,20 @@ def generate_presigned_download_urls_batch(
             access_info = _check_access_cached(
                 threat_model_id, user_id, threat_models_cache, sharing_cache
             )
-            
+
             if not access_info["has_access"]:
                 raise UnauthorizedError("You do not have access to this threat model")
-            
+
             # Get s3_location from cached threat model
             if threat_model_id not in threat_models_cache:
                 raise NotFoundError(f"Threat model {threat_model_id} not found")
-            
+
             s3_location = threat_models_cache[threat_model_id].get("s3_location")
             if not s3_location:
                 raise NotFoundError(
                     f"Threat model {threat_model_id} has no architecture diagram"
                 )
-            
+
             # Generate presigned URL (fast, no I/O)
             presigned_url = s3_pre.generate_presigned_url(
                 "get_object",
@@ -1427,7 +1427,7 @@ def generate_presigned_download_urls_batch(
                 ExpiresIn=expiration,
                 HttpMethod="GET",
             )
-            
+
             return {
                 "index": index,
                 "threat_model_id": threat_model_id,

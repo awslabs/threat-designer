@@ -69,19 +69,48 @@ resource "aws_iam_role_policy" "lambda_threat_designer_api_policy" {
   })
 }
 
-resource "aws_lambda_provisioned_concurrency_config" "backend" {
-  # depends_on = ["null_resource.alias_provisioned_concurrency_transition_delay"]
-  function_name                     = aws_lambda_alias.backend.function_name
-  provisioned_concurrent_executions = var.provisioned_lambda_concurrency
-  qualifier                         = aws_lambda_alias.backend.name
-}
-
-
 resource "aws_lambda_alias" "backend" {
   name             = "dev"
   description      = "provisioned concurrency"
   function_name    = aws_lambda_function.backend.arn
   function_version = aws_lambda_function.backend.version
+}
 
-  routing_config {}
+resource "null_resource" "wait_for_backend_alias_stabilization" {
+  triggers = {
+    alias_version = aws_lambda_alias.backend.function_version
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      for i in {1..90}; do
+        ROUTING=$(aws lambda get-alias \
+          --function-name ${aws_lambda_function.backend.function_name} \
+          --name ${aws_lambda_alias.backend.name} \
+          --query 'RoutingConfig.AdditionalVersionWeights' \
+          --output text)
+        
+        if [ "$ROUTING" == "None" ] || [ -z "$ROUTING" ]; then
+          echo "Backend alias stabilized, no routing config detected"
+          exit 0
+        fi
+        
+        echo "Waiting for backend routing config to clear... attempt $i"
+        sleep 2
+      done
+      
+      echo "Timeout waiting for backend alias to stabilize"
+      exit 1
+    EOT
+  }
+
+  depends_on = [aws_lambda_alias.backend]
+}
+
+resource "aws_lambda_provisioned_concurrency_config" "backend" {
+  function_name                     = aws_lambda_alias.backend.function_name
+  provisioned_concurrent_executions = var.provisioned_lambda_concurrency
+  qualifier                         = aws_lambda_alias.backend.name
+  
+  depends_on = [null_resource.wait_for_backend_alias_stabilization]
 }

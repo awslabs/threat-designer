@@ -91,17 +91,7 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
     }
   });
 
-  const [filterMode, setFilterMode] = useState(() => {
-    try {
-      const savedFilterMode = localStorage.getItem("threatCatalogFilterMode");
-      return savedFilterMode && ["all", "owned", "shared"].includes(savedFilterMode)
-        ? savedFilterMode
-        : "all";
-    } catch (error) {
-      console.error("Error reading from localStorage:", error);
-      return "all";
-    }
-  });
+  const [filterMode, setFilterMode] = useState("all");
 
   // Shared pagination state for both card and table views
   const [pagination, setPagination] = useState({
@@ -132,14 +122,6 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
       console.error("Error saving to localStorage:", error);
     }
   }, [viewMode]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("threatCatalogFilterMode", filterMode);
-    } catch (error) {
-      console.error("Error saving to localStorage:", error);
-    }
-  }, [filterMode]);
 
   const removeItem = (idToRemove) => {
     setResults(results.filter((item) => item.job_id !== idToRemove));

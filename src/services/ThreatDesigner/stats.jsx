@@ -13,6 +13,15 @@ instance.interceptors.request.use(async (config) => {
     const session = await fetchAuthSession();
     const token = session.tokens.idToken.toString();
     config.headers.Authorization = `Bearer ${token}`;
+
+    // Add cache-busting timestamp to GET requests to prevent browser caching
+    if (config.method === "get") {
+      config.params = {
+        ...config.params,
+        _t: Date.now(),
+      };
+    }
+
     return config;
   } catch (error) {
     return Promise.reject(error);

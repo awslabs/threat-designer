@@ -5,7 +5,7 @@
 /* Container and Layout */
 .attack-tree-container {
   width: 100%;
-  height: calc(100vh - 150px);
+  height: calc(100vh - 110px);
   position: relative;
   background: transparent;
   overflow: hidden;

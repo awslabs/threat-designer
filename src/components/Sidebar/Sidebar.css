@@ -215,8 +215,13 @@ div[role="menuitem"] {
   height: 1rem;
 }
 
-/* Text spacing when expanded */
-[data-sidebar="menu-button"] span {
+/* Text spacing when expanded - only for navigation buttons, not footer/avatar */
+[data-sidebar="group"] [data-sidebar="menu-button"] span {
+  margin-left: 0.5rem !important;
+}
+
+/* Reset spacing for footer/avatar text */
+[data-sidebar="footer"] [data-sidebar="menu-button"] span {
   margin-left: 0 !important;
 }
 

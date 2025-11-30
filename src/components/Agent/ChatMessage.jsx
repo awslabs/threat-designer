@@ -4,9 +4,10 @@ import ChatButtons from "./ChatButtons";
 import ContentResolver from "./ContentResolver";
 
 const ChatMessage = React.memo(({ message, streaming, isLast, scroll, isParentFirstMount }) => {
-  const [inputHeight, setInputHeight] = React.useState(330);
+  const [inputHeight, setInputHeight] = React.useState(300);
   const isEnd = message?.[message.length - 1]?.end === true;
   const hasScrolled = useRef(false);
+  const messageRef = useRef(null);
 
   // Measure the input area height dynamically
   useEffect(() => {
@@ -17,11 +18,11 @@ const ChatMessage = React.memo(({ message, streaming, isLast, scroll, isParentFi
         const height = inputContainer.offsetHeight;
         // The original was 330px, and input is ~162px, so we need ~168px padding
         // This accounts for margins, padding, and other UI elements
-        const totalHeight = height + 220;
+        const totalHeight = height + 180;
         setInputHeight(totalHeight);
       } else {
         // Fallback to original value if container not found
-        setInputHeight(330);
+        setInputHeight(300);
       }
     };
 
@@ -178,6 +179,7 @@ const ChatMessage = React.memo(({ message, streaming, isLast, scroll, isParentFi
       <MessageAvatar isUser={false} loading={streaming && !isEnd} />
 
       <div
+        ref={messageRef}
         style={{
           flex: 1,
           minWidth: 0,
@@ -188,19 +190,25 @@ const ChatMessage = React.memo(({ message, streaming, isLast, scroll, isParentFi
           style={{
             backgroundColor: "transparent",
             borderRadius: "8px",
-            marginTop: "-14px",
           }}
         >
-          {messageBlocks.map((block, index) => (
-            <div key={index} style={{ marginBottom: "2px" }}>
-              <ContentResolver
-                msg={block}
-                type={block.type}
-                isBlockComplete={block.isComplete}
-                isParentFirstMount={isParentFirstMount}
-              />
-            </div>
-          ))}
+          {messageBlocks.map((block, index) => {
+            const nextBlock = messageBlocks[index + 1];
+
+            // Add spacing between all blocks when there's a next block
+            const marginBottom = nextBlock ? "16px" : "2px";
+
+            return (
+              <div key={index} style={{ marginBottom }}>
+                <ContentResolver
+                  msg={block}
+                  type={block.type}
+                  isBlockComplete={block.isComplete}
+                  isParentFirstMount={isParentFirstMount}
+                />
+              </div>
+            );
+          })}
 
           {isEnd && <ChatButtons content={message} />}
         </div>

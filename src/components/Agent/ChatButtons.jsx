@@ -6,11 +6,11 @@ const ChatButtons = React.memo(({ content }) => {
   const [feedback, setFeedback] = useState("");
   const handleCopy = useCallback(async (contentArray) => {
     try {
-      // Filter for objects with type "text" and extract their text content
+      // Filter for objects with type "text" and extract their text content (raw markdown)
       const textContent = contentArray
         .filter((item) => item.type === "text")
         .map((item) => item.content)
-        .join("\n");
+        .join("\n\n");
 
       await navigator.clipboard.writeText(textContent);
     } catch (err) {

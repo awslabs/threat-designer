@@ -5,7 +5,7 @@ import { CodeRenderer, CustomTable } from "./MarkdownRenderers";
 import rehypeSanitize from "rehype-sanitize";
 
 const TextContent = ({ content }) => (
-  <div style={{ marginBottom: "16px" }}>
+  <div>
     <Markdown
       children={content}
       remarkPlugins={[remarkGfm]}

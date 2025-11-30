@@ -164,7 +164,7 @@ function AppLayoutMFE({ user }) {
     : [];
 
   return (
-    <div>
+    <div className="app-layout-container">
       {user && (
         <AppLayout
           disableContentPaddings={false}
@@ -187,7 +187,6 @@ function AppLayoutMFE({ user }) {
           content={<Main user={user} />}
           navigationHide={true}
           toolsHide
-          headerSelector={"#h"}
           ariaLabels={appLayoutLabels}
           navigationOpen={navOpen}
           onNavigationChange={() => setNavOpen(!navOpen)}

@@ -18,11 +18,11 @@ const ChatMessage = React.memo(({ message, streaming, isLast, scroll, isParentFi
         const height = inputContainer.offsetHeight;
         // The original was 330px, and input is ~162px, so we need ~168px padding
         // This accounts for margins, padding, and other UI elements
-        const totalHeight = height + 180;
+        const totalHeight = height + 170;
         setInputHeight(totalHeight);
       } else {
         // Fallback to original value if container not found
-        setInputHeight(300);
+        setInputHeight(290);
       }
     };
 
@@ -188,8 +188,7 @@ const ChatMessage = React.memo(({ message, streaming, isLast, scroll, isParentFi
       >
         <div
           style={{
-            backgroundColor: "transparent",
-            borderRadius: "8px",
+            backgroundColor: "",
           }}
         >
           {messageBlocks.map((block, index) => {
@@ -210,7 +209,7 @@ const ChatMessage = React.memo(({ message, streaming, isLast, scroll, isParentFi
             );
           })}
 
-          {isEnd && <ChatButtons content={message} />}
+          {isEnd && <ChatButtons content={message} messageRef={messageRef} />}
         </div>
       </div>
     </div>

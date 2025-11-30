@@ -1,6 +1,6 @@
 .tools-main-div {
   width: 100%;
-  height: calc(100vh - 60px);
+  height: calc(100vh - 55px);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -13,7 +13,7 @@
   margin-right: auto;
   margin-bottom: 0;
   margin-top: 20px;
-  height: calc(100vh - 60px);
+  height: calc(100vh - 55px);
   display: flex;
   flex-direction: column;
   position: relative;

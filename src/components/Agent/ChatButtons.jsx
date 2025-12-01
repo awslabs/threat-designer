@@ -2,15 +2,15 @@ import React, { useState, useCallback } from "react";
 import ButtonGroup from "@cloudscape-design/components/button-group";
 import StatusIndicator from "@cloudscape-design/components/status-indicator";
 
-const ChatButtons = React.memo(({ content }) => {
+const ChatButtons = React.memo(({ content, messageRef }) => {
   const [feedback, setFeedback] = useState("");
   const handleCopy = useCallback(async (contentArray) => {
     try {
-      // Filter for objects with type "text" and extract their text content (raw markdown)
+      // Filter for objects with type "text" and concatenate their content (raw markdown)
       const textContent = contentArray
         .filter((item) => item.type === "text")
-        .map((item) => item.content)
-        .join("\n\n");
+        .map((item) => item.content || "")
+        .join("");
 
       await navigator.clipboard.writeText(textContent);
     } catch (err) {

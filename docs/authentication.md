@@ -404,23 +404,23 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant User
-    participant Nav as TopNavigation
+    participant Sidebar as AppSidebar
     participant Auth as auth.js
     participant Amplify as Amplify SDK
     participant Cognito as Cognito User Pool
     participant Storage as Local Storage
     participant App as App.jsx
 
-    User->>Nav: Click sign out
-    Nav->>Auth: logOut()
+    User->>Sidebar: Click sign out
+    Sidebar->>Auth: logOut()
     Auth->>Amplify: signOut()
     Amplify->>Cognito: Invalidate session
     Cognito-->>Amplify: Success
     Amplify->>Storage: Clear tokens
     Storage-->>Amplify: Cleared
     Amplify-->>Auth: null
-    Auth-->>Nav: null
-    Nav->>App: checkAuthState()
+    Auth-->>Sidebar: null
+    Sidebar->>App: checkAuthState()
     App->>Amplify: getUser()
     Amplify-->>App: null
     App->>App: Render LoginForm
@@ -546,8 +546,10 @@ return (
       <AppRefreshManager>
         <ChatSessionProvider>
           <SplitPanelProvider>
-            <TopNavigationMFE user={authUser} />
-            <AppLayoutMFE user={authUser} />
+            <SidebarProvider>
+              <AppSidebar user={authUser} />
+              <AppLayoutMFE user={authUser} />
+            </SidebarProvider>
           </SplitPanelProvider>
         </ChatSessionProvider>
       </AppRefreshManager>
@@ -564,7 +566,7 @@ return (
 Once authenticated, the user object is passed down through the component tree:
 
 ```javascript
-<TopNavigationMFE user={authUser} setAuthUser={checkAuthState} />
+<AppSidebar user={authUser} setAuthUser={checkAuthState} />
 <AppLayoutMFE user={authUser} />
 ```
 

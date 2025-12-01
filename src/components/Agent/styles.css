@@ -1,6 +1,6 @@
 .tools-main-div {
   width: 100%;
-  height: calc(100vh - 120px);
+  height: calc(100vh - 55px);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -13,7 +13,7 @@
   margin-right: auto;
   margin-bottom: 0;
   margin-top: 20px;
-  height: calc(100vh - 100px);
+  height: calc(100vh - 55px);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -49,12 +49,12 @@ div[style="overflow: auto"]::-webkit-scrollbar {
 
 .stick-to-bottom {
   flex: 1;
-  overflow: auto; /* Only this element should scroll */
+  overflow: auto;
   display: flex;
   flex-direction: column;
   width: 100%;
   position: relative;
-  margin-bottom: 0px; /* Add spacing between content and input */
+  margin-bottom: 0;
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
 }
@@ -71,11 +71,11 @@ div[style="overflow: auto"]::-webkit-scrollbar {
   width: 100%;
   display: flex;
   flex-direction: column;
-  flex-shrink: 0; /* Prevent input from shrinking */
+  flex-shrink: 0;
   padding-top: 0 !important;
   margin-top: 0 !important;
   position: relative;
-  z-index: 5; /* Ensure input is above content */
+  z-index: 5;
 }
 
 .tools-suggest-view {
@@ -286,16 +286,6 @@ div[style="overflow: auto"]::-webkit-scrollbar {
   z-index: 1100;
 }
 
-.tools_input_textarea_div {
-  display: flex;
-  padding-top: 15px;
-  position: sticky;
-  flex-direction: column;
-  margin: auto 0 auto 0;
-  width: 100%;
-  bottom: 0;
-}
-
 .scroll-buttons-container {
   position: absolute;
   top: 50%;
@@ -321,13 +311,6 @@ div[style="overflow: auto"]::-webkit-scrollbar {
   z-index: 900;
   background-color: transparent;
   pointer-events: auto; /* Ensure the button is clickable */
-}
-
-/* You might also need to adjust the stick-to-bottom styles */
-.stick-to-bottom {
-  position: relative; /* Ensure relative positioning for absolute children */
-  width: 100%;
-  height: 100%;
 }
 
 .scroll-buttons-container.welcome {
@@ -419,10 +402,10 @@ div[style="overflow: auto"]::-webkit-scrollbar {
   border-radius: 0 0 3px 3px;
   min-width: 200px;
   width: 50%;
-  height: auto; /* Adjust this value as needed */
+  height: auto;
   position: relative;
   left: 0;
-  margin-bottom: -100px;
+  margin-bottom: 0;
   overflow-x: hidden;
 }
 

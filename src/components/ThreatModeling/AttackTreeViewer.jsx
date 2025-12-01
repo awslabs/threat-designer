@@ -267,7 +267,7 @@ const AttackTreeFlow = ({
   );
 
   return (
-    <div style={{ width: "100%", height: "calc(100vh - 150px)", position: "relative" }}>
+    <div style={{ width: "100%", height: "calc(100vh - 110px)", position: "relative" }}>
       <AttackTreeCanvas
         nodes={nodes}
         edges={edges}

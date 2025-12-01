@@ -11,7 +11,7 @@ const GenAiButton = ({ children, onClick, className = "", loading = false, disab
       loading || disabled
         ? "linear-gradient(90deg, #700080 0%, #3d1ab3 50%, #002baf 100%)"
         : "radial-gradient(circle farthest-corner at top right, #b8e7ff 0%, #0099ff 25%, #5c7fff 40% , #8575ff 60%, #962eff 80%)",
-    padding: "4px 20px 4px 20px",
+    padding: "6px 20px 6px 20px",
     border: "none",
     borderRadius: "10px",
     color: "white",

@@ -53,7 +53,7 @@ export const ReasoningComponent = ({ loading, onClick }) => {
   const containerStyle = {
     display: "flex",
     alignItems: "center",
-    paddingTop: "16px",
+    paddingTop: "4px",
     justifyContent: "flex-start",
     fontFamily: "Arial, sans-serif",
     color: getTextColor(),

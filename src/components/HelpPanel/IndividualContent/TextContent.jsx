@@ -5,14 +5,16 @@ import rehypeSanitize from "rehype-sanitize";
 import { CustomTable } from "./../MarkDownRenderers";
 
 const TextContent = ({ content }) => (
-  <Markdown
-    children={content}
-    remarkPlugins={[remarkGfm]}
-    rehypePlugins={rehypeSanitize}
-    components={{
-      table: CustomTable,
-    }}
-  />
+  <div className="markdown-content" style={{ marginTop: "1rem" }}>
+    <Markdown
+      children={content}
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={rehypeSanitize}
+      components={{
+        table: CustomTable,
+      }}
+    />
+  </div>
 );
 
 export default TextContent;

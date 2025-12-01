@@ -1,0 +1,594 @@
+@import "tailwindcss";
+
+@theme inline {
+  --radius: 0.5rem;
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  /* Light theme colors - mapped to Cloudscape theme tokens */
+  --color-background: #fafaf9;
+  --color-foreground: #18181b;
+  --color-card: #f5f5f4;
+  --color-card-foreground: #18181b;
+  --color-popover: #f5f5f4;
+  --color-popover-foreground: #18181b;
+  --color-primary: #858585;
+  --color-primary-foreground: #fafaf9;
+  --color-secondary: #f5f5f4;
+  --color-secondary-foreground: #18181b;
+  --color-muted: #f5f5f4;
+  --color-muted-foreground: #79716b;
+  --color-accent: #f5f5f4;
+  --color-accent-foreground: #18181b;
+  --color-destructive: hsl(0 84.2% 60.2%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-border: #e5e5e4;
+  --color-input: #e5e5e4;
+  --color-ring: #79716b;
+  --color-chart-1: hsl(12 76% 61%);
+  --color-chart-2: hsl(173 58% 39%);
+  --color-chart-3: hsl(197 37% 24%);
+  --color-chart-4: hsl(43 74% 66%);
+  --color-chart-5: hsl(27 87% 67%);
+
+  /* Sidebar light theme - mapped to Cloudscape container colors */
+  --color-sidebar-background: #f5f5f4;
+  --color-sidebar-foreground: #79716b;
+  --color-sidebar-primary: #858585;
+  --color-sidebar-primary-foreground: #fafaf9;
+  --color-sidebar-accent: #eeeeee;
+  --color-sidebar-accent-foreground: #14110f;
+  --color-sidebar-border: #e5e5e4;
+  --color-sidebar-ring: #858585;
+
+  /* Animation keyframes for tailwindcss-animate */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+}
+
+/* Dark theme colors - mapped to Cloudscape theme tokens */
+.dark {
+  --color-background: #18181b;
+  --color-foreground: #fafaf9;
+  --color-card: #1d1d20;
+  --color-card-foreground: #fafaf9;
+  --color-popover: #1d1d20;
+  --color-popover-foreground: #ffffff;
+  --color-primary: #949494;
+  --color-primary-foreground: #14110f;
+  --color-secondary: #1d1d20;
+  --color-secondary-foreground: #fafaf9;
+  --color-muted: #1d1d20;
+  --color-muted-foreground: #949495;
+  --color-accent: #2a2a2c;
+  --color-accent-foreground: #f4f4f5;
+  --color-destructive: hsl(0 62.8% 30.6%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-border: #2a2a2c;
+  --color-input: #222225;
+  --color-ring: #949495;
+  --color-chart-1: hsl(220 70% 50%);
+  --color-chart-2: hsl(160 60% 45%);
+  --color-chart-3: hsl(30 80% 55%);
+  --color-chart-4: hsl(280 65% 60%);
+  --color-chart-5: hsl(340 75% 55%);
+
+  /* Sidebar dark theme - mapped to Cloudscape container colors */
+  --color-sidebar-background: #1d1d20;
+  --color-sidebar-foreground: #949495;
+  --color-sidebar-primary: #949494;
+  --color-sidebar-primary-foreground: #14110f;
+  --color-sidebar-accent: #2a2a2c;
+  --color-sidebar-accent-foreground: #f4f4f5;
+  --color-sidebar-border: #2a2a2c;
+  --color-sidebar-ring: #949494;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  /* Exclude avatar components and sidebar menu buttons from border-border */
+  [data-radix-avatar-root],
+  [data-radix-avatar-fallback],
+  [data-radix-avatar-image],
+  [data-sidebar="menu-button"],
+  [data-sidebar="menu-button"] * {
+    border-color: transparent !important;
+    border: none !important;
+  }
+
+  /* Remove borders from avatar components */
+  [data-radix-avatar-root],
+  [data-radix-avatar-fallback],
+  [data-radix-avatar-image],
+  [data-sidebar="footer"] .rounded-lg,
+  [data-sidebar="footer"] .h-8.w-8,
+  [role="menu"] .rounded-lg,
+  [data-sidebar="footer"] [data-radix-avatar-root],
+  [data-sidebar="footer"] [data-radix-avatar-fallback],
+  [role="menu"] [data-radix-avatar-root],
+  [role="menu"] [data-radix-avatar-fallback] {
+    border: none !important;
+    border-width: 0 !important;
+    border-style: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  html {
+    @apply bg-background text-foreground;
+    min-height: 100vh;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    min-height: 100vh;
+  }
+
+  #root {
+    @apply bg-background;
+    min-height: 100vh;
+  }
+
+  /* Smooth theme transitions for sidebar */
+  [data-sidebar="sidebar"],
+  [data-sidebar="header"],
+  [data-sidebar="content"],
+  [data-sidebar="footer"],
+  [data-sidebar="menu-button"],
+  [data-sidebar="rail"] {
+    transition:
+      background-color 0.3s ease-in-out,
+      color 0.3s ease-in-out,
+      border-color 0.3s ease-in-out;
+  }
+}
+
+/* Sidebar CSS variables for Tailwind (without color- prefix) */
+:root {
+  --sidebar-background: 245 245 244;
+  --sidebar-foreground: 121 113 107;
+  --sidebar-primary: 20 17 15;
+  --sidebar-primary-foreground: 250 250 249;
+  --sidebar-accent: 238 238 238;
+  --sidebar-accent-foreground: 20 17 15;
+  --sidebar-border: 229 229 228;
+  --sidebar-ring: 0 108 224;
+  --sidebar-transition-duration: 400ms;
+  --sidebar-transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html.dark {
+  --sidebar-background: 29 29 32;
+  --sidebar-foreground: 148 148 149;
+  --sidebar-primary: 148 148 148;
+  --sidebar-primary-foreground: 20 17 15;
+  --sidebar-accent: 42 42 44;
+  --sidebar-accent-foreground: 244 244 245;
+  --sidebar-border: 42 42 44;
+  --sidebar-ring: 148 148 148;
+  --sidebar-transition-duration: 400ms;
+  --sidebar-transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Direct dark mode overrides for sidebar - ensures dark theme is applied */
+html.dark [data-sidebar="sidebar"] {
+  background-color: #1d1d20 !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+html.dark [data-sidebar="menu-button"] {
+  color: #ffffff !important;
+}
+
+html.dark [data-sidebar="menu-button"] svg {
+  color: #ffffff !important;
+}
+
+html.dark [data-sidebar="menu-button"]:hover {
+  background-color: #2a2a2c !important;
+  color: #ffffff !important;
+}
+
+html.dark [data-sidebar="menu-button"]:hover svg {
+  color: #ffffff !important;
+}
+
+/* Light mode button - pure black text and icons */
+[data-sidebar="menu-button"] {
+  color: #000000 !important;
+}
+
+[data-sidebar="menu-button"] svg {
+  color: #000000 !important;
+}
+
+[data-sidebar="menu-button"]:hover {
+  background-color: #e5e5e4 !important;
+  color: #000000 !important;
+}
+
+[data-sidebar="menu-button"]:hover svg {
+  color: #000000 !important;
+}
+
+html.dark [data-sidebar="menu-button"][data-active="true"] {
+  background-color: #2a2a2c !important;
+  color: #ffffff !important;
+}
+
+html.dark [data-sidebar="menu-button"][data-active="true"] svg {
+  color: #ffffff !important;
+}
+
+/* Light mode active button - pure black text and icons */
+[data-sidebar="menu-button"][data-active="true"] {
+  background-color: #e5e5e4 !important;
+  color: #000000 !important;
+}
+
+[data-sidebar="menu-button"][data-active="true"] svg {
+  color: #000000 !important;
+}
+
+/* Removed ::before pseudo-element that was creating black/white bar on active buttons */
+
+/* Sidebar layout - add margin to main content to account for fixed sidebar */
+.group\/sidebar-wrapper {
+  --sidebar-width: 18rem;
+  --sidebar-width-icon: 3.5rem;
+}
+
+/* Main content needs left margin to not be covered by fixed sidebar */
+.group\/sidebar-wrapper > main {
+  margin-left: var(--sidebar-width);
+  width: calc(100% - var(--sidebar-width));
+  /* No transition - content shifts immediately with sidebar */
+  padding: 0; /* Remove any padding that creates gap */
+}
+
+/* When sidebar is collapsed (icon mode), reduce the margin */
+.group\/sidebar-wrapper:has([data-state="collapsed"][data-collapsible="icon"]) > main {
+  margin-left: var(--sidebar-width-icon);
+  width: calc(100% - var(--sidebar-width-icon));
+}
+
+/* When sidebar is fully collapsed (offcanvas), no margin needed */
+.group\/sidebar-wrapper:has([data-state="collapsed"][data-collapsible="offcanvas"]) > main {
+  margin-left: 0;
+  width: 100%;
+}
+
+/* Remove gap/border between sidebar and content */
+/* When expanded (default state) - no data-state="collapsed" */
+.group\/sidebar-wrapper:not(:has([data-state="collapsed"])) > main.relative {
+  margin-left: var(--sidebar-width) !important;
+  padding-left: 0 !important;
+  border-left: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* When collapsed to icon mode */
+.group\/sidebar-wrapper:has([data-state="collapsed"]) > main.relative {
+  margin-left: var(--sidebar-width-icon) !important;
+  padding-left: 0 !important;
+  border-left: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove all borders and spacing from sidebar elements */
+.group\/sidebar-wrapper > .group.peer,
+.group\/sidebar-wrapper > .group.peer > div,
+.group\/sidebar-wrapper > .group.peer > div > div,
+.group\/sidebar-wrapper [data-sidebar="sidebar"] {
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Specifically target the fixed sidebar wrapper when expanded */
+.group\/sidebar-wrapper:not(:has([data-state="collapsed"])) > .group.peer > div.fixed {
+  width: 18rem !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Ensure no background gap shows through */
+.group\/sidebar-wrapper {
+  background: transparent !important;
+}
+
+/* Ensure the placeholder div background matches sidebar in collapsed state */
+[data-state="collapsed"] .group.peer > div:first-child {
+  background-color: hsl(var(--sidebar-background)) !important;
+}
+
+/* Animation keyframes */
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+/* Keep sidebar header content left-aligned during transitions */
+[data-collapsible="icon"] [data-sidebar="header"] {
+  justify-content: flex-start !important;
+}
+
+[data-collapsible="icon"] [data-sidebar="header"] > * {
+  justify-content: flex-start !important;
+}
+
+/* Force sidebar transition timing on all sidebar elements */
+.group\/sidebar-wrapper > .group.peer > div,
+.group\/sidebar-wrapper > .group.peer > div > div,
+.group\/sidebar-wrapper [data-sidebar="sidebar"],
+.group\/sidebar-wrapper > .group > div {
+  transition-duration: var(--sidebar-transition-duration) !important;
+  transition-timing-function: var(--sidebar-transition-easing) !important;
+}
+
+/* Ensure the fixed sidebar wrapper transitions properly */
+.group\/sidebar-wrapper > .group.peer > div.fixed {
+  transition: width var(--sidebar-transition-duration) var(--sidebar-transition-easing) !important;
+}
+
+/* Ensure background colors are applied in both light and dark modes */
+html,
+body,
+#root {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+html.dark,
+html.dark body,
+html.dark #root {
+  background-color: #18181b !important;
+  color: #fafaf9 !important;
+}
+
+/* Remove sidebar border completely */
+[data-sidebar="sidebar"] {
+  border: none !important;
+}
+
+/* Fix expand/collapse button (SidebarTrigger) hover to match other buttons */
+html.dark [data-sidebar="trigger"]:hover {
+  background-color: #2a2a2c !important;
+  color: #f4f4f5 !important;
+}
+
+[data-sidebar="trigger"]:hover {
+  background-color: #e5e5e4 !important;
+}
+
+/* Ensure sidebar and all wrapper elements match Cloudscape container background */
+[data-sidebar="sidebar"],
+.group\/sidebar-wrapper > .group.peer,
+.group\/sidebar-wrapper > .group.peer > div,
+.group\/sidebar-wrapper [data-sidebar="sidebar"] {
+  background-color: #f5f5f4 !important;
+}
+
+/* Also ensure dark mode background is applied to all wrapper elements */
+html.dark [data-sidebar="sidebar"],
+html.dark .group\/sidebar-wrapper > .group.peer,
+html.dark .group\/sidebar-wrapper > .group.peer > div,
+html.dark .group\/sidebar-wrapper [data-sidebar="sidebar"] {
+  background-color: #1d1d20 !important;
+}
+
+/* Markdown styles - scoped to chat content and general markdown content */
+.stick-to-bottom-content p,
+.markdown-content p {
+  margin-bottom: 1em;
+}
+
+.stick-to-bottom-content ul,
+.markdown-content ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin-bottom: 1em;
+}
+
+.stick-to-bottom-content ol,
+.markdown-content ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin-bottom: 1em;
+}
+
+.stick-to-bottom-content li,
+.markdown-content li {
+  margin-bottom: 0.25em;
+}
+
+.stick-to-bottom-content h1,
+.stick-to-bottom-content h2,
+.stick-to-bottom-content h3,
+.stick-to-bottom-content h4,
+.stick-to-bottom-content h5,
+.stick-to-bottom-content h6,
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+  font-weight: 600;
+}
+
+/* Remove top margin from first heading to align with avatar */
+.stick-to-bottom-content h1:first-child,
+.stick-to-bottom-content h2:first-child,
+.stick-to-bottom-content h3:first-child,
+.stick-to-bottom-content h4:first-child,
+.stick-to-bottom-content h5:first-child,
+.stick-to-bottom-content h6:first-child,
+.markdown-content h1:first-child,
+.markdown-content h2:first-child,
+.markdown-content h3:first-child,
+.markdown-content h4:first-child,
+.markdown-content h5:first-child,
+.markdown-content h6:first-child {
+  margin-top: 0 !important;
+}
+
+/* Also remove top margin from first child of any type in markdown */
+.stick-to-bottom-content > :first-child,
+.markdown-content > :first-child {
+  margin-top: 0 !important;
+}
+
+/* Remove top padding/margin from the markdown container itself */
+.stick-to-bottom-content {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+.stick-to-bottom-content strong,
+.markdown-content strong {
+  font-weight: 600;
+}
+
+.stick-to-bottom-content em,
+.markdown-content em {
+  font-style: italic;
+}
+
+.stick-to-bottom-content table {
+  margin-bottom: 1.5em;
+  margin-top: 1em;
+}
+
+.stick-to-bottom-content pre {
+  margin-bottom: 1em;
+  margin-top: 0.5em;
+  padding: 0 !important;
+}
+
+.stick-to-bottom-content pre code {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Reduce padding in Cloudscape CodeView - minimal padding like screenshot */
+.stick-to-bottom-content .ace-cloud_editor,
+.stick-to-bottom-content .ace-cloud_editor_dark {
+  padding: 0 !important;
+  line-height: 1 !important;
+  font-size: 13px !important;
+}
+
+.code-block-container pre {
+  padding: 0 !important;
+}
+
+/* Override AWS UI code table padding to reduce height - match screenshot */
+.stick-to-bottom-content [class*="awsui_code-table"] {
+  padding-block-start: 0px !important;
+  padding-block-end: 0px !important;
+  min-block-size: auto !important;
+}
+
+/* Reduce line height in code blocks to match screenshot */
+.stick-to-bottom-content .ace_line {
+  line-height: 1 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* Reduce spacing in code editor content */
+.stick-to-bottom-content .ace_content {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Target all ACE editor layers for minimal spacing */
+.stick-to-bottom-content .ace_layer {
+  padding: 0 !important;
+}
+
+.stick-to-bottom-content .ace_text-layer {
+  padding: 0 !important;
+}
+
+/* Override any AWS UI spacing on code wrapper */
+.stick-to-bottom-content [class*="awsui_code-view"] {
+  padding: 0 !important;
+}
+
+.stick-to-bottom-content code {
+  padding: 0.2em 0.4em;
+}
+
+/* Remove all borders from avatar components globally */
+[data-radix-avatar-fallback],
+[data-radix-avatar-fallback] *,
+.rounded-lg[class*="avatar"],
+.h-8.w-8[class*="avatar"] {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-width: 0 !important;
+}
+
+/* Ensure avatars have no borders in dark mode - COMPREHENSIVE */
+html.dark [data-radix-avatar-fallback],
+html.dark [data-radix-avatar-fallback] *,
+html.dark .rounded-lg,
+html.dark .h-8.w-8 {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-width: 0 !important;
+}
+
+/* DARK MODE AVATAR BORDER FIX - Most specific selectors */
+html.dark [data-sidebar="footer"] [data-radix-avatar-root],
+html.dark [data-sidebar="footer"] [data-radix-avatar-fallback],
+html.dark [data-sidebar="footer"] .rounded-lg,
+html.dark [data-sidebar="footer"] .h-8,
+html.dark [data-sidebar="footer"] .w-8,
+html.dark [data-sidebar="footer"] .h-8.w-8 {
+  border: 0 !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  outline: 0 !important;
+  outline-width: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Target all possible child elements */
+html.dark [data-sidebar="footer"] [data-radix-avatar-root] *,
+html.dark [data-sidebar="footer"] [data-radix-avatar-fallback] *,
+html.dark [data-sidebar="footer"] .rounded-lg *,
+html.dark [data-sidebar="footer"] .h-8.w-8 * {
+  border: 0 !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}

@@ -7,12 +7,19 @@ resource "random_id" "bucket_suffix" {
   byte_length = 4
 }
 
+locals {
+  # Hash authorization layer dependencies to detect actual changes
+  authorization_layer_hash = base64sha256(join("", [
+    filesha256("${path.module}/../backend/dependencies/requirements-authorizer.txt")
+  ]))
+}
+
 
 resource "aws_s3_object" "authorization_layer_zip" {
   bucket = aws_s3_bucket.lambda_artifacts.bucket
-  key    = "layers/authorization-${data.archive_file.lambda_layer_authorization.output_base64sha256}.zip"
+  key    = "layers/authorization-${local.authorization_layer_hash}.zip"
   source = data.archive_file.lambda_layer_authorization.output_path
-  etag   = data.archive_file.lambda_layer_authorization.output_md5
+  etag   = local.authorization_layer_hash
 
   depends_on = [data.archive_file.lambda_layer_authorization]
 }
@@ -22,8 +29,7 @@ resource "aws_s3_object" "authorization_layer_zip" {
 resource "aws_lambda_layer_version" "lambda_layer_authorization" {
   s3_bucket                = aws_s3_bucket.lambda_artifacts.bucket
   s3_key                   = aws_s3_object.authorization_layer_zip.key
-  s3_object_version        = aws_s3_object.authorization_layer_zip.version_id
-  source_code_hash         = data.archive_file.lambda_layer_authorization.output_base64sha256
+  source_code_hash         = local.authorization_layer_hash
   layer_name               = "${local.prefix}-authorization-layer"
   description              = "Authorization lambda layer"
   compatible_runtimes      = ["python3.12"]

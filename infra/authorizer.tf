@@ -1,6 +1,13 @@
+locals {
+  # Hash authorizer source files + requirements to detect actual code changes
+  authorizer_source_hash = base64sha256(join("", concat(
+    [for f in sort(fileset("${path.module}/../backend/authorizer", "**/*.py")) : filesha256("${path.module}/../backend/authorizer/${f}")]
+  )))
+}
+
 resource "aws_lambda_function" "authorizer_lambda" {
   filename                       = data.archive_file.authorizer_lambda_code_zip.output_path
-  source_code_hash               = data.archive_file.authorizer_lambda_code_zip.output_base64sha256
+  source_code_hash               = local.authorizer_source_hash
   handler                        = "index.lambda_handler"
   runtime                        = local.python_version
   reserved_concurrent_executions = var.lambda_concurrency

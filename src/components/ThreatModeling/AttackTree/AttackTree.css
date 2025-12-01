@@ -5,7 +5,7 @@
 /* Container and Layout */
 .attack-tree-container {
   width: 100%;
-  height: calc(100vh - 150px);
+  height: calc(100vh - 110px);
   position: relative;
   background: transparent;
   overflow: hidden;
@@ -110,11 +110,12 @@ defs marker {
   /* REMOVE padding from here */
   border-radius: 10px;
   border: 2px solid;
-  background: #FAFAF9;
+  background: #fafaf9;
   min-width: 220px;
   max-width: 320px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", sans-serif;
   position: relative; /* CRITICAL: Add this */
 }
 
@@ -181,7 +182,7 @@ defs marker {
 .root-goal-node {
   border-color: #d13212;
   border-width: 3px;
-  background: #FAFAF9;
+  background: #fafaf9;
   box-shadow: 0 4px 12px rgba(209, 50, 18, 0.15);
 }
 
@@ -205,7 +206,7 @@ defs marker {
 .and-gate-node {
   border-color: #7d3c98;
   border-width: 2.5px;
-  background: #FAFAF9;
+  background: #fafaf9;
   box-shadow: 0 3px 10px rgba(125, 60, 152, 0.12);
 }
 
@@ -244,7 +245,7 @@ defs marker {
 .or-gate-node {
   border-color: #0972d3;
   border-width: 2.5px;
-  background: #FAFAF9;
+  background: #fafaf9;
   box-shadow: 0 3px 10px rgba(9, 114, 211, 0.12);
 }
 
@@ -280,7 +281,7 @@ defs marker {
 .leaf-attack-node.severity-low,
 .leaf-attack-node.severity-green {
   border-color: #037f0c;
-  background: #FAFAF9;
+  background: #fafaf9;
   box-shadow: 0 3px 10px rgba(3, 127, 12, 0.1);
 }
 
@@ -292,7 +293,7 @@ defs marker {
 .leaf-attack-node.severity-medium,
 .leaf-attack-node.severity-yellow {
   border-color: #f89256;
-  background: #FAFAF9;
+  background: #fafaf9;
   box-shadow: 0 3px 10px rgba(248, 146, 86, 0.12);
 }
 
@@ -304,7 +305,7 @@ defs marker {
 .leaf-attack-node.severity-high,
 .leaf-attack-node.severity-orange {
   border-color: #ff9900;
-  background: #FAFAF9;
+  background: #fafaf9;
   box-shadow: 0 3px 10px rgba(255, 153, 0, 0.15);
 }
 
@@ -316,7 +317,7 @@ defs marker {
 .leaf-attack-node.severity-critical,
 .leaf-attack-node.severity-red {
   border-color: #d13212;
-  background: #FAFAF9;
+  background: #fafaf9;
   box-shadow: 0 3px 10px rgba(209, 50, 18, 0.15);
 }
 
@@ -412,7 +413,7 @@ defs marker {
 .countermeasure-node {
   border-color: #037f0c;
   border-width: 2.5px;
-  background: #FAFAF9;
+  background: #fafaf9;
   box-shadow: 0 3px 10px rgba(3, 127, 12, 0.12);
 }
 
@@ -456,18 +457,13 @@ defs marker {
 }
 
 .progress-fill::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.3),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
   animation: shimmer 2s infinite;
 }
 
@@ -516,7 +512,7 @@ defs marker {
     max-width: 280px;
     padding: 12px;
   }
-  
+
   .gate-indicator {
     padding: 8px;
     font-size: 14px;
@@ -527,32 +523,33 @@ defs marker {
   .attack-tree-container {
     height: 500px;
   }
-  
-  .custom-node {
-    min-width: 160px;
-    max-width: 240px;
-    padding: 10px;
-  }
-  
-  .node-header {
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-  
-  .node-content {
-    gap: 8px;
-  }
-  
-  .gate-indicator {
-    padding: 6px;
-    font-size: 12px;
-  }
-  
-  .attack-metrics {
-    padding: 8px;
-    gap: 4px;
-  }
-  
+}
+
+.custom-node {
+  min-width: 160px;
+  max-width: 240px;
+  padding: 10px;
+}
+
+.node-header {
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.node-content {
+  gap: 8px;
+}
+
+.gate-indicator {
+  padding: 6px;
+  font-size: 12px;
+}
+
+.attack-metrics {
+  padding: 8px;
+  gap: 4px;
+}
+
 .node-handle {
   width: 10px;
   height: 10px;
@@ -568,7 +565,7 @@ defs marker {
 .countermeasure-node {
   position: relative; /* CRITICAL */
 }
-  
+
 .node-handle:hover {
   width: 12px;
   height: 12px;
@@ -580,14 +577,14 @@ defs marker {
   .attack-tree-container {
     height: 400px;
   }
-  
+
   .custom-node {
     min-width: 140px;
     max-width: 200px;
     padding: 8px;
     font-size: 12px;
   }
-  
+
   .gate-indicator {
     padding: 4px;
     font-size: 11px;
@@ -611,11 +608,11 @@ defs marker {
   .custom-node {
     border-width: 3px;
   }
-  
+
   .react-flow__edge {
     stroke-width: 3px !important;
   }
-  
+
   .node-handle {
     border-width: 4px;
   }
@@ -632,7 +629,7 @@ defs marker {
     transition: none;
     animation: none;
   }
-  
+
   .progress-fill::after {
     animation: none;
   }
@@ -644,53 +641,53 @@ defs marker {
   .react-flow {
     background: transparent !important;
   }
-  
+
   .react-flow__pane {
     background: transparent !important;
   }
-  
+
   /* Dark mode dot pattern */
   .react-flow__background {
     background: transparent !important;
   }
-  
+
   .react-flow__background circle {
     fill: #555 !important;
   }
-  
+
   .react-flow__controls {
     background: #3a3a3a !important;
     border-color: #555 !important;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
   }
-  
+
   .react-flow__controls button {
     background: #3a3a3a !important;
     border-color: #555 !important;
     color: #e0e0e0 !important;
   }
-  
+
   .react-flow__controls button:hover {
     background: #4a4a4a !important;
     border-color: #666 !important;
   }
-  
+
   .react-flow__controls button svg {
     fill: #e0e0e0 !important;
   }
-  
+
   .react-flow__minimap {
     background: #2a2a2a !important;
   }
-  
+
   .react-flow__edge-path {
     /* Allow custom edge colors from edge definitions */
   }
-  
+
   .react-flow__handle {
     background: #888 !important;
   }
-  
+
   /* Attack tree container - transparent to show parent background */
   .attack-tree-container {
     background: transparent !important;
@@ -699,122 +696,122 @@ defs marker {
 
 @media (prefers-color-scheme: dark) {
   .custom-node {
-    background: #18181B;
+    background: #18181b;
     color: #e0e0e0;
     border-color: #555;
   }
-  
+
   .node-status {
     background: rgba(255, 255, 255, 0.05);
     color: #e0e0e0;
   }
-  
+
   .attack-metrics {
     background: rgba(255, 255, 255, 0.03);
   }
-  
+
   .metric-label {
     color: #b0b0b0;
   }
-  
+
   .metric-value {
     background: rgba(255, 255, 255, 0.1);
     color: #e0e0e0;
   }
-  
+
   /* Root node dark mode */
   .root-goal-node {
-    background: #18181B;
+    background: #18181b;
     border-color: #d13212;
   }
-  
+
   /* AND gate dark mode */
   .and-gate-node {
-    background: #18181B;
+    background: #18181b;
     border-color: #7d3c98;
   }
-  
+
   /* OR gate dark mode */
   .or-gate-node {
-    background: #18181B;
+    background: #18181b;
     border-color: #0972d3;
   }
-  
+
   /* Leaf attack nodes dark mode */
   .leaf-attack-node.severity-low,
   .leaf-attack-node.severity-green {
-    background: #18181B;
+    background: #18181b;
     border-color: #037f0c;
   }
-  
+
   .leaf-attack-node.severity-medium,
   .leaf-attack-node.severity-yellow {
-    background: #18181B;
+    background: #18181b;
     border-color: #f89256;
   }
-  
+
   .leaf-attack-node.severity-high,
   .leaf-attack-node.severity-orange {
-    background: #18181B;
+    background: #18181b;
     border-color: #ff9900;
   }
-  
+
   .leaf-attack-node.severity-critical,
   .leaf-attack-node.severity-red {
-    background: #18181B;
+    background: #18181b;
     border-color: #d13212;
   }
-  
+
   /* Countermeasure dark mode */
   .countermeasure-node {
-    background: #18181B;
+    background: #18181b;
     border-color: #037f0c;
   }
-  
+
   /* Progress bar dark mode */
   .progress-bar {
     background: #1a1a1a;
   }
-  
+
   /* Mitigation indicators dark mode */
   .mitigation-indicator.none {
     background: rgba(209, 50, 18, 0.2);
     color: #ff6b6b;
     border-color: #d13212;
   }
-  
+
   .mitigation-indicator.partial {
     background: rgba(248, 146, 86, 0.2);
     color: #ffb366;
     border-color: #f89256;
   }
-  
+
   .mitigation-indicator.complete {
     background: rgba(3, 127, 12, 0.2);
     color: #66ff66;
     border-color: #037f0c;
   }
-  
+
   /* React Flow elements dark mode */
   .react-flow__edge-path {
     stroke: #888;
   }
-  
+
   .react-flow__background {
     background: #1a1a1a;
   }
-  
+
   .react-flow__controls {
     background: #2a2a2a;
     border-color: #444;
   }
-  
+
   .react-flow__controls button {
     background: #2a2a2a;
     border-color: #444;
     color: #e0e0e0;
   }
-  
+
   .react-flow__controls button:hover {
     background: #3a3a3a;
   }
@@ -828,16 +825,16 @@ defs marker {
     height: auto;
     page-break-inside: avoid;
   }
-  
+
   .custom-node {
     box-shadow: none;
     border-width: 2px;
   }
-  
+
   .react-flow__edge {
     stroke-width: 1.5px !important;
   }
-  
+
   /* Hide interactive controls when printing */
   .react-flow__controls,
   .react-flow__minimap {

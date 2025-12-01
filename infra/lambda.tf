@@ -1,9 +1,17 @@
 #======================== Backend Lambda ======================
 
+locals {
+  # Hash backend source files + requirements to detect actual code changes
+  backend_source_hash = base64sha256(join("", concat(
+    [for f in sort(fileset("${path.module}/../backend/app", "**/*.py")) : filesha256("${path.module}/../backend/app/${f}")],
+    [filesha256("${path.module}/../backend/app/requirements.txt")]
+  )))
+}
+
 resource "aws_lambda_function" "backend" {
   description                    = "Lambda function for threat designer api"
   filename                       = data.archive_file.backend_lambda_code_zip.output_path
-  source_code_hash               = data.archive_file.backend_lambda_code_zip.output_base64sha256
+  source_code_hash               = local.backend_source_hash
   function_name                  = "${local.prefix}-lambda-backend"
   handler                        = "index.lambda_handler"
   memory_size                    = 512

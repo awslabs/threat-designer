@@ -8,7 +8,7 @@
     border-color 0.3s ease;
   width: 200px;
   margin-bottom: 16px;
-  margin-top: 16px;
+  margin-top: 0px;
   backdrop-filter: blur(4px);
 
   background-color: rgba(255, 255, 255, 0.15);

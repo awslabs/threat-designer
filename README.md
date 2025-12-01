@@ -59,17 +59,17 @@ Lightning Mode provides:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/insights_dark.png">
-  <img alt="sentry" src="./assets/insights.png">
+  <img alt="sentry" src="./assets/insights.png" style="margin-bottom: 20px;">
 </picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/attack_tree_dark.png">
-  <img alt="sentry" src="./assets/attack_tree.png">
+  <img alt="sentry" src="./assets/attack_tree.png" style="margin-bottom: 20px;">
 </picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/sentry_dark.png">
-  <img alt="sentry" src="./assets/sentry.png">
+  <img alt="sentry" src="./assets/sentry.png" style="margin-bottom: 20px;">
 </picture>
 
 <picture>

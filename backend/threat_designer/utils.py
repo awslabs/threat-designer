@@ -137,6 +137,25 @@ def update_job_state(
 
     with operation_context("update_job_state", context_id):
         try:
+            dynamodb = boto3.resource(AWS_SERVICE_DYNAMODB, region_name=REGION)
+            table = dynamodb.Table(JOB_STATUS_TABLE)
+
+            # Check if session was cancelled - skip update and reset flag if so
+            current_item = table.get_item(Key={DB_FIELD_ID: job_id})
+            if current_item.get("Item", {}).get("cancelled"):
+                logger.info(
+                    "Skipping state update - session was cancelled, resetting flag",
+                    job_id=job_id,
+                    requested_state=state,
+                )
+                # Reset the cancelled flag so it doesn't block future operations
+                table.update_item(
+                    Key={DB_FIELD_ID: job_id},
+                    UpdateExpression="REMOVE #cancelled",
+                    ExpressionAttributeNames={"#cancelled": "cancelled"},
+                )
+                return None
+
             logger.info(
                 "Updating job state",
                 job_id=job_id,
@@ -144,9 +163,6 @@ def update_job_state(
                 retry=retry,
                 table=JOB_STATUS_TABLE,
             )
-
-            dynamodb = boto3.resource(AWS_SERVICE_DYNAMODB, region_name=REGION)
-            table = dynamodb.Table(JOB_STATUS_TABLE)
 
             current_utc = datetime.now(timezone.utc).isoformat()
 

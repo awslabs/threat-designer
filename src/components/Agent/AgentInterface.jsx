@@ -297,7 +297,7 @@ function ChatInterface({ user, inTools }) {
           {chatTurns.length === 0 ? (
             <AgentLogo />
           ) : (
-            <div className="stick-to-bottom-content" style={{ padding: '8px'}}>
+            <div className="stick-to-bottom-content" style={{ padding: "8px" }}>
               <ChatContent
                 chatTurns={chatTurns}
                 user={user}

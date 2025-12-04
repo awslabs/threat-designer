@@ -26,6 +26,7 @@ import {
  * @param {Function} config.setProcessing - Function to set processing state
  * @param {Function} config.setResults - Function to set results state
  * @param {Function} config.setisVisible - Function to set Sentry visibility
+ * @param {Function} config.setStopping - Function to set stopping state (for loading indicator)
  *
  * @returns {Object} Action handlers
  */
@@ -45,6 +46,7 @@ export const useThreatModelActions = ({
   setProcessing,
   setResults,
   setisVisible,
+  setStopping,
 }) => {
   /**
    * Handle save operation with version conflict detection
@@ -150,10 +152,13 @@ export const useThreatModelActions = ({
    */
   const handleStop = useCallback(async () => {
     try {
+      setStopping?.(true);
       const stopResponse = await stopTm(threatModelId, sessionId);
       hideAlert();
 
       if (stopResponse.data.state === "Restored") {
+        // Don't set stopping to false here - let the data refresh handle the state transition
+        // This prevents a brief flash of old content before the new data loads
         setTrigger(Math.floor(Math.random() * 100) + 1);
       } else if (stopResponse.data.state === "Deleted") {
         // Release lock before navigating
@@ -162,9 +167,14 @@ export const useThreatModelActions = ({
         }
         clearSession(response?.job_id);
         navigate("/");
+        // No need to set stopping to false - we're navigating away
+      } else {
+        // Unknown state - reset stopping
+        setStopping?.(false);
       }
     } catch (error) {
       console.error("Error stopping threat modeling:", error);
+      setStopping?.(false);
     }
   }, [
     threatModelId,
@@ -175,6 +185,7 @@ export const useThreatModelActions = ({
     clearSession,
     response,
     navigate,
+    setStopping,
   ]);
 
   /**

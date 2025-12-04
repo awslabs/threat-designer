@@ -99,6 +99,17 @@ class LockManager {
    * Checks every 30 seconds if the lock has been released
    */
   startPolling() {
+    // Don't start polling if manager is destroyed or we already have the lock
+    if (this.isDestroyed) {
+      console.log(`[Polling] Manager destroyed, skipping polling for ${this.threatModelId}`);
+      return;
+    }
+
+    if (this.isLocked && this.lockToken) {
+      console.log(`[Polling] Skipping polling for ${this.threatModelId}, we already have the lock`);
+      return;
+    }
+
     if (this.pollInterval) {
       console.log(`[Polling] Already polling for ${this.threatModelId}`);
       return;
@@ -106,9 +117,24 @@ class LockManager {
 
     console.log(`[Polling] Starting lock availability polling for ${this.threatModelId}`);
     this.pollInterval = setInterval(async () => {
+      // Stop polling if manager is destroyed or we already have the lock
+      if (this.isDestroyed || (this.isLocked && this.lockToken)) {
+        console.log(
+          `[Polling] Stopping polling for ${this.threatModelId} (destroyed or have lock)`
+        );
+        this.stopPolling();
+        return;
+      }
+
       try {
         console.log(`[Polling] Checking lock status for ${this.threatModelId}`);
         const status = await this.checkLockStatus();
+
+        // Check again after async operation
+        if (this.isDestroyed || (this.isLocked && this.lockToken)) {
+          this.stopPolling();
+          return;
+        }
 
         if (!status.locked) {
           console.log(

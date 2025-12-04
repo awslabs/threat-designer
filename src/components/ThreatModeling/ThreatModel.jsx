@@ -1,5 +1,5 @@
 // React imports
-import { useEffect, useState, useCallback, useMemo, useContext, useRef } from "react";
+import { useEffect, useReducer, useCallback, useMemo, useContext, useRef } from "react";
 
 // Third-party imports
 import { useParams, useNavigate } from "react-router";
@@ -30,6 +30,63 @@ import { clearThreatModelCache } from "../../services/ThreatDesigner/attackTreeC
 
 // Styles
 import "./ThreatModeling.css";
+
+// UI State Action Types
+const UI_ACTIONS = {
+  SET_PROCESSING: "SET_PROCESSING",
+  STATUS_COMPLETE: "STATUS_COMPLETE",
+  STATUS_FAILED: "STATUS_FAILED",
+  SET_STOPPING: "SET_STOPPING",
+  START_DASHBOARD_TRANSITION: "START_DASHBOARD_TRANSITION",
+  FINISH_DASHBOARD_TRANSITION: "FINISH_DASHBOARD_TRANSITION",
+  OPEN_MODAL: "OPEN_MODAL",
+  CLOSE_MODAL: "CLOSE_MODAL",
+  SET_CONFLICT: "SET_CONFLICT",
+};
+
+// Initial UI state
+const initialUiState = {
+  processing: false,
+  results: false,
+  stopping: false,
+  showDashboard: false,
+  isTransitioning: false,
+  replayModalVisible: false,
+  deleteModalVisible: false,
+  sharingModalVisible: false,
+  conflictModalVisible: false,
+  conflictData: null,
+};
+
+// UI State Reducer
+function uiReducer(state, action) {
+  switch (action.type) {
+    case UI_ACTIONS.SET_PROCESSING:
+      return { ...state, processing: action.value, results: !action.value };
+    case UI_ACTIONS.STATUS_COMPLETE:
+      return { ...state, processing: false, stopping: false, results: true };
+    case UI_ACTIONS.STATUS_FAILED:
+      return { ...state, processing: false, stopping: false, results: false };
+    case UI_ACTIONS.SET_STOPPING:
+      return { ...state, stopping: action.value };
+    case UI_ACTIONS.START_DASHBOARD_TRANSITION:
+      return { ...state, isTransitioning: true };
+    case UI_ACTIONS.FINISH_DASHBOARD_TRANSITION:
+      return { ...state, showDashboard: action.value, isTransitioning: false };
+    case UI_ACTIONS.OPEN_MODAL:
+      return { ...state, [action.modal]: true };
+    case UI_ACTIONS.CLOSE_MODAL:
+      return {
+        ...state,
+        [action.modal]: false,
+        ...(action.modal === "conflictModalVisible" ? { conflictData: null } : {}),
+      };
+    case UI_ACTIONS.SET_CONFLICT:
+      return { ...state, conflictData: action.data, conflictModalVisible: true };
+    default:
+      return state;
+  }
+}
 
 /**
  * ThreatModel Component
@@ -87,60 +144,30 @@ export const ThreatModel = () => {
   // If response changes after dismissal, we should show the alert again
   const dismissedResponseSnapshot = useRef(null);
 
-  // Consolidated UI state for component rendering and modal visibility
-  // Using a single state object reduces re-renders and simplifies state management
-  const [uiState, setUiState] = useState({
-    processing: false, // True when threat model is being generated/processed
-    results: false, // True when threat model results are loaded and displayed
-    replayModalVisible: false, // Controls replay modal visibility
-    deleteModalVisible: false, // Controls delete confirmation modal visibility
-    sharingModalVisible: false, // Controls sharing modal visibility
-    conflictModalVisible: false, // Controls conflict resolution modal visibility
-  });
-
-  // Dashboard view state
-  const [showDashboard, setShowDashboard] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  // UI state managed by reducer for predictable state transitions
+  const [uiState, dispatch] = useReducer(uiReducer, initialUiState);
 
   // Handle dashboard toggle with transition delay
   const handleToggleDashboard = useCallback((newValue) => {
-    setIsTransitioning(true);
-    // Small delay to show spinner and allow smooth transition
+    dispatch({ type: UI_ACTIONS.START_DASHBOARD_TRANSITION });
     setTimeout(() => {
-      setShowDashboard(newValue);
-      setIsTransitioning(false);
+      dispatch({ type: UI_ACTIONS.FINISH_DASHBOARD_TRANSITION, value: newValue });
     }, 300);
   }, []);
 
-  // Conflict state for version conflict resolution
-  const [conflictData, setConflictData] = useState(null);
-
   // Memoized callback for polling status changes
-  // This prevents the polling hook from restarting on every render
   const handleStatusChange = useCallback(
-    async (status, statusData) => {
+    async (status) => {
       if (status === "COMPLETE") {
         try {
           await fetchThreatModelData();
-          setUiState((prevState) => ({
-            ...prevState,
-            processing: false,
-            results: true,
-          }));
+          dispatch({ type: UI_ACTIONS.STATUS_COMPLETE });
         } catch (error) {
           console.error("Error getting threat modeling results:", error);
-          setUiState((prevState) => ({
-            ...prevState,
-            processing: false,
-            results: false,
-          }));
+          dispatch({ type: UI_ACTIONS.STATUS_FAILED });
         }
       } else if (status === "FAILED") {
-        setUiState((prevState) => ({
-          ...prevState,
-          processing: false,
-          results: false,
-        }));
+        dispatch({ type: UI_ACTIONS.STATUS_FAILED });
         showAlert("ErrorThreatModeling");
       }
     },
@@ -149,8 +176,10 @@ export const ThreatModel = () => {
 
   // Polling hook with status change callback
   // Continuously checks threat model processing status and triggers data refresh on completion
-  const { tmStatus, tmDetail, sessionId, iteration, loading, trigger, setTrigger } =
-    useThreatModelPolling(id, handleStatusChange);
+  const { tmStatus, tmDetail, sessionId, iteration, loading, setTrigger } = useThreatModelPolling(
+    id,
+    handleStatusChange
+  );
   const navigate = useNavigate();
   const { setTrail, handleHelpButtonClick, setSplitPanelOpen } = useSplitPanel();
 
@@ -184,23 +213,19 @@ export const ThreatModel = () => {
     handleSendMessage
   );
 
-  // Helper function to set processing state
-  const setProcessing = useCallback((value) => {
-    setUiState((prevState) => ({
-      ...prevState,
-      processing: value,
-      results: !value,
-    }));
-  }, []);
-
-  // Helper function to set results state
-  const setResultsState = useCallback((value) => {
-    setUiState((prevState) => ({
-      ...prevState,
-      results: value,
-      processing: !value,
-    }));
-  }, []);
+  // Helper functions for state updates - passed to actions hook
+  const setProcessing = useCallback(
+    (value) => dispatch({ type: UI_ACTIONS.SET_PROCESSING, value }),
+    []
+  );
+  const setResultsState = useCallback(
+    (value) => dispatch({ type: UI_ACTIONS.SET_PROCESSING, value: !value }),
+    []
+  );
+  const setStopping = useCallback(
+    (value) => dispatch({ type: UI_ACTIONS.SET_STOPPING, value }),
+    []
+  );
 
   // Helper function to check for changes
   const checkChanges = useCallback(() => {
@@ -226,30 +251,25 @@ export const ThreatModel = () => {
 
   // Actions hook - encapsulates all user action handlers
   // Provides handlers for save, delete, replay, stop, restore, and conflict resolution
-  const {
-    handleSave,
-    handleDelete,
-    handleReplay,
-    handleStop,
-    handleRestore,
-    handleReloadServerVersion,
-  } = useThreatModelActions({
-    threatModelId: id,
-    response,
-    sessionId,
-    lockManagerRef,
-    navigate,
-    showAlert,
-    hideAlert,
-    setTrigger,
-    clearSession: functions.clearSession,
-    lastKnownServerTimestamp,
-    previousResponse,
-    checkChanges,
-    setProcessing,
-    setResults: setResultsState,
-    setisVisible: functions.setisVisible,
-  });
+  const { handleSave, handleDelete, handleReplay, handleStop, handleRestore } =
+    useThreatModelActions({
+      threatModelId: id,
+      response,
+      sessionId,
+      lockManagerRef,
+      navigate,
+      showAlert,
+      hideAlert,
+      setTrigger,
+      clearSession: functions.clearSession,
+      lastKnownServerTimestamp,
+      previousResponse,
+      checkChanges,
+      setProcessing,
+      setResults: setResultsState,
+      setisVisible: functions.setisVisible,
+      setStopping,
+    });
 
   // Download hook - handles document generation and export
   const { handleDownload } = useThreatModelDownload(response, base64Content);
@@ -257,10 +277,7 @@ export const ThreatModel = () => {
   // Replay handler - closes modal and initiates replay with specified parameters
   const handleReplayThreatModeling = useCallback(
     async (iteration, reasoning, instructions) => {
-      setUiState((prevState) => ({
-        ...prevState,
-        replayModalVisible: false,
-      }));
+      dispatch({ type: UI_ACTIONS.CLOSE_MODAL, modal: "replayModalVisible" });
       await handleReplay(iteration, reasoning, instructions);
     },
     [handleReplay]
@@ -280,57 +297,26 @@ export const ThreatModel = () => {
     [lockManagerRef, navigate]
   );
 
-  // Modal visibility handlers - memoized to prevent unnecessary re-renders
   // Custom dismiss handler for change alert
   const handleDismissChangeAlert = useCallback(() => {
-    // Save a snapshot of the current response state
-    // If the response changes after this, we'll show the alert again
     dismissedResponseSnapshot.current = JSON.stringify(response);
     hideAlert();
   }, [hideAlert, response]);
 
-  const handleReplayModalChange = useCallback((visible) => {
-    setUiState((prevState) => ({
-      ...prevState,
-      replayModalVisible: visible,
-    }));
-  }, []);
-
-  const handleDeleteModalChange = useCallback((visible) => {
-    setUiState((prevState) => ({
-      ...prevState,
-      deleteModalVisible: visible,
-    }));
-  }, []);
-
-  const handleSharingModalChange = useCallback((visible) => {
-    setUiState((prevState) => ({
-      ...prevState,
-      sharingModalVisible: visible,
-    }));
-  }, []);
-
-  const handleConflictModalChange = useCallback((visible) => {
-    setUiState((prevState) => ({
-      ...prevState,
-      conflictModalVisible: visible,
-    }));
-    if (!visible) {
-      setConflictData(null);
-    }
+  // Generic modal visibility handler
+  const handleModalChange = useCallback((modalKey, visible) => {
+    dispatch({
+      type: visible ? UI_ACTIONS.OPEN_MODAL : UI_ACTIONS.CLOSE_MODAL,
+      modal: modalKey,
+    });
   }, []);
 
   // Wrapper for handleSave that shows conflict modal if needed
   const handleSaveWithConflictDetection = useCallback(
     async (viaAlert = false) => {
       const result = await handleSave(viaAlert);
-      // Check if save resulted in a conflict
       if (result && !result.success && result.conflict) {
-        setConflictData(result.conflictData);
-        setUiState((prevState) => ({
-          ...prevState,
-          conflictModalVisible: true,
-        }));
+        dispatch({ type: UI_ACTIONS.SET_CONFLICT, data: result.conflictData });
       }
       return result;
     },
@@ -338,62 +324,28 @@ export const ThreatModel = () => {
   );
 
   // Action click handler - dispatches button dropdown actions to appropriate handlers
-  // Handles save, share, delete, stop, replay, trail, and download actions
   const onActionClick = useCallback(
     async (actionId) => {
-      switch (actionId) {
-        case "sv":
-          await handleSaveWithConflictDetection();
-          break;
-        case "sh":
-          setUiState((prevState) => ({
-            ...prevState,
-            sharingModalVisible: true,
-          }));
-          break;
-        case "rm":
-          setUiState((prevState) => ({
-            ...prevState,
-            deleteModalVisible: true,
-          }));
-          break;
-        case "st":
-          handleStop();
-          break;
-        case "re":
-          setUiState((prevState) => ({
-            ...prevState,
-            replayModalVisible: true,
-          }));
-          break;
-        case "tr":
-          handleHelpButtonClick(<InfoContent context={"All"} />);
-          break;
-        case "cp-doc":
-          handleDownload("docx");
-          break;
-        case "cp-pdf":
-          handleDownload("pdf");
-          break;
-        case "cp-json":
-          handleDownload("json");
-          break;
-        default:
-          break;
-      }
+      const actions = {
+        sv: () => handleSaveWithConflictDetection(),
+        sh: () => dispatch({ type: UI_ACTIONS.OPEN_MODAL, modal: "sharingModalVisible" }),
+        rm: () => dispatch({ type: UI_ACTIONS.OPEN_MODAL, modal: "deleteModalVisible" }),
+        st: () => handleStop(),
+        re: () => dispatch({ type: UI_ACTIONS.OPEN_MODAL, modal: "replayModalVisible" }),
+        tr: () => handleHelpButtonClick(<InfoContent context={"All"} />),
+        "cp-doc": () => handleDownload("docx"),
+        "cp-pdf": () => handleDownload("pdf"),
+        "cp-json": () => handleDownload("json"),
+      };
+      await actions[actionId]?.();
     },
     [handleSaveWithConflictDetection, handleStop, handleDownload, handleHelpButtonClick]
   );
 
   // Update processing state based on tmStatus changes
-  // Sets processing=true for any status except COMPLETE or FAILED
   useEffect(() => {
     if (tmStatus && tmStatus !== "COMPLETE" && tmStatus !== "FAILED") {
-      setUiState((prevState) => ({
-        ...prevState,
-        processing: true,
-        results: false,
-      }));
+      dispatch({ type: UI_ACTIONS.SET_PROCESSING, value: true });
     }
   }, [tmStatus]);
 
@@ -432,12 +384,12 @@ export const ThreatModel = () => {
           title={response?.item?.title}
           tmStatus={tmStatus}
           showResults={uiState.results}
-          showProcessing={uiState.processing}
+          showProcessing={uiState.processing || uiState.stopping}
           isReadOnly={isReadOnly}
           isOwner={isOwner}
           onBreadcrumbClick={onBreadcrumbsClick}
           onActionClick={onActionClick}
-          showDashboard={showDashboard}
+          showDashboard={uiState.showDashboard}
           onToggleDashboard={handleToggleDashboard}
         />
         <ThreatModelAlerts
@@ -451,9 +403,9 @@ export const ThreatModel = () => {
           loading={false}
         />
         <ThreatModelContent
-          loading={dataLoading || loading}
-          processing={uiState.processing}
-          results={uiState.results}
+          loading={dataLoading || loading || uiState.stopping}
+          processing={uiState.processing || uiState.stopping}
+          results={uiState.results && !uiState.stopping}
           error={alert.visible && alert.state === "ErrorThreatModeling"}
           tmStatus={tmStatus}
           iteration={iteration}
@@ -469,16 +421,16 @@ export const ThreatModel = () => {
           alertMessages={alertMessages}
           onRestore={handleRestore}
           replayModalVisible={uiState.replayModalVisible}
-          onReplayModalChange={handleReplayModalChange}
+          onReplayModalChange={(v) => handleModalChange("replayModalVisible", v)}
           onReplay={handleReplayThreatModeling}
           setSplitPanelOpen={setSplitPanelOpen}
           deleteModalVisible={uiState.deleteModalVisible}
-          onDeleteModalChange={handleDeleteModalChange}
+          onDeleteModalChange={(v) => handleModalChange("deleteModalVisible", v)}
           onDelete={handleDelete}
           sharingModalVisible={uiState.sharingModalVisible}
-          onSharingModalChange={handleSharingModalChange}
-          showDashboard={showDashboard}
-          isTransitioning={isTransitioning}
+          onSharingModalChange={(v) => handleModalChange("sharingModalVisible", v)}
+          showDashboard={uiState.showDashboard}
+          isTransitioning={uiState.isTransitioning}
         />
       </SpaceBetween>
 
@@ -486,24 +438,21 @@ export const ThreatModel = () => {
       <ConflictResolutionModal
         visible={uiState.conflictModalVisible}
         onDismiss={() => {
-          handleConflictModalChange(false);
-          hideAlert(); // Hide the loading alert when canceling
+          handleModalChange("conflictModalVisible", false);
+          hideAlert();
         }}
-        conflictData={conflictData}
+        conflictData={uiState.conflictData}
         localChanges={response?.item}
         onReload={async () => {
-          // Reload server version
           await fetchThreatModelData();
-          handleConflictModalChange(false);
+          handleModalChange("conflictModalVisible", false);
           hideAlert();
         }}
         onOverride={async () => {
-          // Force save by updating timestamp to bypass conflict check
-          lastKnownServerTimestamp.current = conflictData.server_timestamp;
+          lastKnownServerTimestamp.current = uiState.conflictData.server_timestamp;
           const result = await handleSave();
           if (result && result.success) {
-            handleConflictModalChange(false);
-            // Success alert is shown by handleSave - don't hide it
+            handleModalChange("conflictModalVisible", false);
           }
         }}
       />

@@ -5,6 +5,7 @@ import decimal
 import hashlib
 import json
 import os
+import time
 import uuid
 import boto3
 from aws_lambda_powertools import Logger, Tracer
@@ -263,7 +264,20 @@ def invoke_lambda(owner, payload):
     LOG.info(f"Agent invoked with session: {session_id}")
 
     try:
-        # If this is a replay, create backup BEFORE starting the agent
+        # Step 1: Reset any cancelled flag and set state to START
+        current_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        state_item = {
+            "id": id,
+            "state": "START",
+            "owner": owner,
+            "session_id": session_id,
+            "execution_owner": owner,
+            "updated_at": current_time,
+        }
+        table.put_item(Item=state_item)
+        LOG.info(f"State initialized to START for job {id}")
+
+        # Step 2: If this is a replay, create backup BEFORE starting the agent
         if is_replay:
             agent_table = dynamodb.Table(AGENT_TABLE)
 
@@ -288,6 +302,7 @@ def invoke_lambda(owner, payload):
             else:
                 LOG.warning(f"Item not found for backup during replay: {id}")
 
+        # Step 3: Invoke the agent
         agent_core_client.invoke_agent_runtime(
             agentRuntimeArn=AGENT_CORE_RUNTIME,
             runtimeSessionId=session_id,
@@ -320,19 +335,27 @@ def invoke_lambda(owner, payload):
         if not is_replay:
             create_dynamodb_item(agent_state, AGENT_TABLE)
 
-        # Store execution_owner to track who initiated this execution
-        item = {
-            "id": id,
-            "state": "START",
-            "owner": owner,
-            "session_id": session_id,
-            "execution_owner": owner,
-        }
-        table.put_item(Item=item)
-
         return {"id": id}
     except Exception as e:
         LOG.error(e)
+        # Update state to FAILED on error
+        try:
+            current_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            table.update_item(
+                Key={"id": id},
+                UpdateExpression="SET #state = :state, #updated_at = :updated_at",
+                ExpressionAttributeNames={
+                    "#state": "state",
+                    "#updated_at": "updated_at",
+                },
+                ExpressionAttributeValues={
+                    ":state": "FAILED",
+                    ":updated_at": current_time,
+                },
+            )
+            LOG.info(f"State updated to FAILED for job {id}")
+        except Exception as update_error:
+            LOG.error(f"Failed to update state to FAILED: {update_error}")
         raise InternalError(e)
 
 
@@ -594,9 +617,11 @@ def restore(job_id, owner):
                 "owner": actual_owner,
                 "retry": retry,
                 "state": "COMPLETE",
+                "cancelled": True,
                 "updated_at": current_time,
             }
         )
+        LOG.info(f"Restore completed for job {job_id} with cancelled flag set")
 
         return True
     except Exception as e:
@@ -1065,6 +1090,9 @@ def delete_session(job_id, session_id, owner, override_execution_owner=False):
                 raise InternalError()
             delete_dynamodb_item(agent_table, key, owner)
             delete_s3_object(object_key)
+            # Also delete from state table
+            state_table.delete_item(Key={"id": job_id})
+            LOG.info(f"State table item deleted for job_id: {job_id}")
             return {"job_id": job_id, "state": "Deleted"}
         restore(job_id, owner)
         return {"job_id": job_id, "state": "Restored"}

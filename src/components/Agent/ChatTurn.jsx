@@ -12,7 +12,7 @@ const ChatTurn = React.memo(function ChatTurn({
   isParentFirstMount,
 }) {
   return (
-    <div style={{ paddingTop: '10px'}}>
+    <div style={{ paddingTop: "10px" }}>
       <UserChatMessage message={userMessage} user={user} isUser={true} />
       <ChatMessage
         message={aiMessage}

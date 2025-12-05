@@ -6,7 +6,6 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { NavGuides } from "./NavGuides";
 
 /**
  * NavMain component renders the main navigation items in the sidebar.
@@ -61,7 +60,6 @@ export function NavMain({ items }) {
               </SidebarMenuItem>
             );
           })}
-          <NavGuides />
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>

@@ -8,6 +8,39 @@
  * - 5.3: Style expand/collapse transitions
  */
 
+/* ===== Hover Zone for Expanding Collapsed Sidebar ===== */
+
+/* Hover zone that covers the sidebar when collapsed */
+.sidebar-hover-zone {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  /* Custom cursor using "|→" expand icon - 20x24 size (taller), black with white border for light mode */
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='24' viewBox='0 0 20 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23ffffff' stroke-width='3'%3E%3Cline x1='4' y1='3' x2='4' y2='21'/%3E%3Cline x1='8' y1='12' x2='15' y2='12'/%3E%3Cpolyline points='12 9 15 12 12 15'/%3E%3C/g%3E%3Cg stroke='%23000000' stroke-width='1.5'%3E%3Cline x1='4' y1='3' x2='4' y2='21'/%3E%3Cline x1='8' y1='12' x2='15' y2='12'/%3E%3Cpolyline points='12 9 15 12 12 15'/%3E%3C/g%3E%3C/svg%3E")
+      10 12,
+    e-resize;
+}
+
+/* Dark mode cursor - white icon with dark border */
+html.dark .sidebar-hover-zone,
+:root.dark .sidebar-hover-zone,
+.dark .sidebar-hover-zone {
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='24' viewBox='0 0 20 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23000000' stroke-width='3'%3E%3Cline x1='4' y1='3' x2='4' y2='21'/%3E%3Cline x1='8' y1='12' x2='15' y2='12'/%3E%3Cpolyline points='12 9 15 12 12 15'/%3E%3C/g%3E%3Cg stroke='%23ffffff' stroke-width='1.5'%3E%3Cline x1='4' y1='3' x2='4' y2='21'/%3E%3Cline x1='8' y1='12' x2='15' y2='12'/%3E%3Cpolyline points='12 9 15 12 12 15'/%3E%3C/g%3E%3C/svg%3E")
+      10 12,
+    e-resize !important;
+}
+
+/* Ensure hover zone doesn't block button clicks - buttons should be above */
+[data-sidebar="sidebar"] [data-sidebar="menu-button"],
+[data-sidebar="sidebar"] [data-sidebar="trigger"],
+[data-sidebar="sidebar"] [data-sidebar="header"],
+[data-sidebar="sidebar"] [data-sidebar="footer"] {
+  position: relative;
+  z-index: 10;
+}
+
 /* ===== Global Icon Stroke Width ===== */
 
 /* Make all SVG icons in sidebar have thinner strokes */
@@ -233,7 +266,7 @@ div[role="menuitem"] {
 /* Position the Avatar wrapper (h-8 w-8) absolutely to keep it fixed */
 [data-sidebar="footer"] [data-sidebar="menu-button"] > .h-8.w-8 {
   position: absolute;
-  left: 0.6rem;
+  left: calc(0.6rem - 1px);
   top: 50%;
   transform: translateY(-50%);
   transition: none !important; /* No transition */
@@ -269,7 +302,7 @@ div[role="menuitem"] {
 
 /* Avatar stays in same position when collapsed */
 [data-state="collapsed"] [data-sidebar="footer"] [data-sidebar="menu-button"] > .h-8.w-8 {
-  left: 0.6rem !important; /* Same position as expanded */
+  left: calc(0.6rem - 1px) !important; /* Same position as expanded */
   top: 50% !important;
   transform: translateY(-50%) !important; /* Only vertical centering */
   transition: none !important; /* No transition */
@@ -283,8 +316,12 @@ div[role="menuitem"] {
   display: none;
 }
 
-/* Hide the chevron icon when collapsed */
-[data-state="collapsed"] [data-sidebar="footer"] [data-sidebar="menu-button"] > svg {
+/* Hide the chevron icon when collapsed - only for user menu (last menu in footer) */
+[data-state="collapsed"]
+  [data-sidebar="footer"]
+  [data-sidebar="menu"]:last-child
+  [data-sidebar="menu-button"]
+  > svg {
   display: none;
 }
 
@@ -322,9 +359,11 @@ div[role="menuitem"] {
   overflow-x: hidden !important;
 }
 
-/* Add spacing between header and navigation content */
-[data-sidebar="group"] {
-  margin-top: 1.5rem !important;
+/* Spacing between header and first navigation group (New/Threat Catalog) - 1 button height */
+[data-sidebar="content"] > [data-sidebar="group"]:first-child {
+  margin-top: 2.25rem !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
 }
 
 /* Increase spacing between navigation menu items - higher specificity to override Tailwind */
@@ -332,22 +371,89 @@ div[role="menuitem"] {
   gap: 0.1rem;
 }
 
-/* Hide Guides collapsible button when sidebar is collapsed */
-[data-state="collapsed"] .guides-collapsible-trigger {
-  display: none !important;
+/* Guides button - ensure it matches other navigation buttons */
+.nav-guides-button {
+  height: 2.25rem !important;
+  min-height: 2.25rem !important;
+  max-height: 2.25rem !important;
+  padding-left: 2rem !important;
+  position: relative !important;
 }
 
-/* Ensure chevron in Guides button doesn't overlap icon */
-.guides-collapsible-trigger {
+.nav-guides-icon {
+  position: absolute !important;
+  left: 0.6rem !important;
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+}
+
+.nav-guides-button span {
+  margin-left: 0.5rem !important;
+}
+
+/* Ensure chevron in Threat Models button doesn't overlap icon */
+.threat-models-collapsible-trigger {
   display: flex !important;
   align-items: center !important;
   gap: 0.5rem !important;
 }
 
-.guides-collapsible-trigger > svg:last-child {
+.threat-models-collapsible-trigger > svg:last-child {
   margin-left: auto !important;
   position: relative !important;
   left: auto !important;
+}
+
+/* Submenu list items (guides and threat models) - smaller height and consistent text color */
+.threat-model-item,
+.guide-item {
+  height: 1.75rem !important;
+  min-height: 1.75rem !important;
+  max-height: 1.75rem !important;
+  padding: 0.25rem 0.5rem !important;
+  font-size: 0.8125rem !important;
+  color: var(--color-sidebar-accent-foreground) !important;
+  background-color: transparent !important;
+}
+
+.threat-model-item:hover,
+.guide-item:hover,
+[data-sidebar="menu-button"].threat-model-item:hover,
+[data-sidebar="menu-button"].guide-item:hover {
+  background-color: var(--color-sidebar-accent) !important;
+  color: var(--color-sidebar-accent-foreground) !important;
+}
+
+.threat-model-item[data-active="true"],
+.guide-item[data-active="true"],
+[data-sidebar="menu-button"].threat-model-item[data-active="true"],
+[data-sidebar="menu-button"].guide-item[data-active="true"] {
+  background-color: var(--color-sidebar-accent) !important;
+  color: var(--color-sidebar-accent-foreground) !important;
+  font-weight: 400 !important;
+}
+
+/* Remove absolute positioning for icons in submenu items */
+.threat-model-item svg,
+.guide-item svg {
+  position: relative !important;
+  left: auto !important;
+}
+
+/* Animation for newly added threat model */
+@keyframes slideInNew {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.threat-model-new-item {
+  animation: slideInNew 0.25s ease-out;
 }
 
 /* Collapsible content animations */
@@ -627,6 +733,12 @@ html.dark [data-radix-avatar-fallback] {
   height: 1.25rem !important;
 }
 
+/* Small chevron for Recently viewed header */
+[data-sidebar="sidebar"] svg.recently-viewed-chevron {
+  width: 14px !important;
+  height: 14px !important;
+}
+
 /* Smaller text in menu buttons with fixed line height */
 [data-sidebar="sidebar"] [data-sidebar="menu-button"] span {
   font-size: 0.8125rem;
@@ -718,7 +830,7 @@ html.dark [data-radix-avatar-fallback] {
 /* Move sidebar header (logo and button) higher and reduce spacing */
 [data-sidebar="header"] {
   margin-top: -0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
   padding: 0.5rem;
 }
 
@@ -822,4 +934,50 @@ html.dark [role="menu"] .rounded-lg.h-8.w-8 {
   border-color: transparent !important;
   outline: 0 !important;
   box-shadow: none !important;
+}
+
+/* ===== NAV GUIDES FOOTER STYLES ===== */
+/* Guides button in footer - ensure icon is visible */
+[data-sidebar="footer"] [data-sidebar="menu"]:first-child [data-sidebar="menu-button"] {
+  padding-left: 2rem !important;
+  position: relative !important;
+}
+
+/* Position the BookOpen icon absolutely like other nav icons */
+[data-sidebar="footer"] [data-sidebar="menu"]:first-child [data-sidebar="menu-button"] svg {
+  position: absolute !important;
+  left: 0.6rem !important;
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+}
+
+/* Add spacing for Documentation text to match other nav buttons */
+[data-sidebar="footer"] [data-sidebar="menu"]:first-child [data-sidebar="menu-button"] span {
+  margin-left: 0.7rem !important;
+}
+
+/* Collapsed state - keep icon visible */
+[data-state="collapsed"]
+  [data-sidebar="footer"]
+  [data-sidebar="menu"]:first-child
+  [data-sidebar="menu-button"] {
+  padding-left: 2rem !important;
+  justify-content: flex-start !important;
+}
+
+/* Ensure icon stays visible when collapsed */
+[data-state="collapsed"]
+  [data-sidebar="footer"]
+  [data-sidebar="menu"]:first-child
+  [data-sidebar="menu-button"]
+  svg {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* ===== FOOTER GAP OVERRIDE ===== */
+/* Reduce gap between Guides and User buttons in footer to 1px */
+[data-sidebar="footer"] {
+  gap: 1px !important;
 }

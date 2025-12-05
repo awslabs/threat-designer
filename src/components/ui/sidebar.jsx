@@ -126,7 +126,14 @@ const Sidebar = React.forwardRef(
     },
     ref
   ) => {
-    const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+    const { isMobile, state, openMobile, setOpenMobile, setOpen } = useSidebar();
+
+    // Handle click to expand when collapsed
+    const handleClick = React.useCallback(() => {
+      if (state === "collapsed") {
+        setOpen(true);
+      }
+    }, [state, setOpen]);
 
     if (collapsible === "none") {
       return (
@@ -194,6 +201,22 @@ const Sidebar = React.forwardRef(
         >
           {children}
         </div>
+        {/* Click zone to expand sidebar when collapsed */}
+        {state === "collapsed" && (
+          <div
+            data-sidebar="hover-zone"
+            className="sidebar-hover-zone"
+            onClick={handleClick}
+            aria-label="Expand sidebar"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                handleClick();
+              }
+            }}
+          />
+        )}
       </div>
     );
   }

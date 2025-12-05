@@ -10,7 +10,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  SidebarFooter,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
@@ -66,15 +65,39 @@ export function NavUser({ user, colorMode, setThemeMode, onLogout }) {
   };
 
   return (
-    <SidebarFooter className="mt-auto !pb-3 !px-1.5">
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <SidebarMenuButton
-                size="lg"
-                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton
+              size="lg"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+            >
+              <Avatar
+                className="h-8 w-8 rounded-lg !border-0"
+                style={{ border: "none", borderWidth: 0, outline: "none" }}
               >
+                <AvatarFallback
+                  className="rounded-lg !border-0 !bg-sidebar-primary"
+                  style={{ border: "none", borderWidth: 0, outline: "none" }}
+                >
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-semibold">{displayName}</span>
+              </div>
+              <ChevronsUpDown className="ml-auto size-4" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            side={isMobile ? "bottom" : "right"}
+            align="end"
+            sideOffset={state === "collapsed" ? 14 : 14}
+          >
+            <DropdownMenuLabel className="p-0 font-normal">
+              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar
                   className="h-8 w-8 rounded-lg !border-0"
                   style={{ border: "none", borderWidth: 0, outline: "none" }}
@@ -89,65 +112,37 @@ export function NavUser({ user, colorMode, setThemeMode, onLogout }) {
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{displayName}</span>
                 </div>
-                <ChevronsUpDown className="ml-auto size-4" />
-              </SidebarMenuButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-              side={isMobile ? "bottom" : "right"}
-              align="end"
-              sideOffset={state === "collapsed" ? 14 : 14}
-            >
-              <DropdownMenuLabel className="p-0 font-normal">
-                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                  <Avatar
-                    className="h-8 w-8 rounded-lg !border-0"
-                    style={{ border: "none", borderWidth: 0, outline: "none" }}
-                  >
-                    <AvatarFallback
-                      className="rounded-lg !border-0 !bg-sidebar-primary"
-                      style={{ border: "none", borderWidth: 0, outline: "none" }}
-                    >
-                      {getInitials()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{displayName}</span>
-                  </div>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuLabel className="text-xs text-muted-foreground">
-                  Theme
-                </DropdownMenuLabel>
-                {themeOptions.map((option) => {
-                  const Icon = option.icon;
-                  const isActive = colorMode === option.id;
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Theme</DropdownMenuLabel>
+              {themeOptions.map((option) => {
+                const Icon = option.icon;
+                const isActive = colorMode === option.id;
 
-                  return (
-                    <DropdownMenuItem
-                      key={option.id}
-                      onClick={() => handleThemeChange(option.id)}
-                      className="cursor-pointer"
-                    >
-                      <Icon className="mr-2 size-4" />
-                      <span>{option.label}</span>
-                      {isActive && <Check className="ml-auto size-4" />}
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
-                <LogOut className="mr-2 size-4" />
-                <span>Sign out</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    </SidebarFooter>
+                return (
+                  <DropdownMenuItem
+                    key={option.id}
+                    onClick={() => handleThemeChange(option.id)}
+                    className="cursor-pointer"
+                  >
+                    <Icon className="mr-2 size-4" />
+                    <span>{option.label}</span>
+                    {isActive && <Check className="ml-auto size-4" />}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+              <LogOut className="mr-2 size-4" />
+              <span>Sign out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
   );
 }
 

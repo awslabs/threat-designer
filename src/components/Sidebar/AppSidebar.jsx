@@ -1,5 +1,6 @@
+import * as React from "react";
 import { PlusCircle, LayoutGrid } from "lucide-react";
-import { Sidebar, SidebarContent } from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarFooter } from "@/components/ui/sidebar";
 import { SidebarHeader } from "./SidebarHeader";
 import { NavMain } from "./NavMain";
 import { NavGuides } from "./NavGuides";
@@ -24,6 +25,7 @@ import "./Sidebar.css";
  * @param {string} props.effectiveTheme - Effective theme ('light' or 'dark')
  * @param {Function} props.setThemeMode - Function to set theme mode
  * @param {Function} props.setAuthUser - Function to update auth state (for logout)
+ * @param {Function} props.onThreatModelsRefresh - Callback that receives the refresh function for threat models list
  */
 export function AppSidebar({
   user,
@@ -60,15 +62,18 @@ export function AppSidebar({
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader />
-      <SidebarContent>
+      <SidebarContent className="flex flex-col">
         <NavMain items={navItems} />
       </SidebarContent>
-      <NavUser
-        user={user}
-        colorMode={colorMode}
-        setThemeMode={setThemeMode}
-        onLogout={handleLogout}
-      />
+      <SidebarFooter className="!p-2">
+        <NavGuides />
+        <NavUser
+          user={user}
+          colorMode={colorMode}
+          setThemeMode={setThemeMode}
+          onLogout={handleLogout}
+        />
+      </SidebarFooter>
     </Sidebar>
   );
 }

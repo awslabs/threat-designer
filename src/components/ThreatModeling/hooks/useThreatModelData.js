@@ -7,10 +7,7 @@ import {
 import {
   getCachedImageBlob,
   setCachedImageBlob,
-  getCachedPresignedUrl,
-  setCachedPresignedUrl,
 } from "../../../services/ThreatDesigner/presignedUrlCache";
-import axios from "axios";
 
 /**
  * Convert blob to base64 format

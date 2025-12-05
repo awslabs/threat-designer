@@ -1,17 +1,19 @@
-import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { BookOpen, ChevronDown } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import {
-  SidebarGroup,
-  SidebarGroupContent,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarMenuSub,
-  SidebarMenuSubItem,
-  SidebarMenuSubButton,
+  useSidebar,
 } from "@/components/ui/sidebar";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const guides = [
   { title: "Quick Start", slug: "quick-start" },
@@ -26,7 +28,7 @@ const guides = [
 export function NavGuides() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isOpen, setIsOpen] = useState(false);
+  const { isMobile, state } = useSidebar();
 
   const isGuideActive = location.pathname.startsWith("/guides");
 
@@ -35,41 +37,46 @@ export function NavGuides() {
   };
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+    <SidebarMenu>
       <SidebarMenuItem>
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton
-            tooltip="Guides"
-            isActive={isGuideActive}
-            className="guides-collapsible-trigger"
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton
+              tooltip="Guides"
+              isActive={isGuideActive}
+              className="cursor-pointer data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+            >
+              <BookOpen className="size-4 shrink-0" />
+              {state !== "collapsed" && <span className="ml-2">Documentation</span>}
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className="w-56 rounded-lg"
+            side={isMobile ? "bottom" : "right"}
+            align="end"
+            sideOffset={state === "collapsed" ? 14 : 14}
           >
-            <BookOpen className="size-4" />
-            <span>Guides</span>
-            <ChevronDown
-              className={`size-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
-              style={{ marginLeft: "auto", position: "relative" }}
-            />
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="overflow-hidden transition-all data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
-          <SidebarMenuSub>
-            {guides.map((guide) => {
-              const isActive = location.pathname === `/guides/${guide.slug}`;
-              return (
-                <SidebarMenuSubItem key={guide.slug}>
-                  <SidebarMenuSubButton
-                    isActive={isActive}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                Quick Guides
+              </DropdownMenuLabel>
+              {guides.map((guide) => {
+                const isActive = location.pathname === `/guides/${guide.slug}`;
+                return (
+                  <DropdownMenuItem
+                    key={guide.slug}
                     onClick={() => handleGuideClick(guide.slug)}
+                    className={`cursor-pointer ${isActive ? "bg-accent" : ""}`}
                   >
                     <span>{guide.title}</span>
-                  </SidebarMenuSubButton>
-                </SidebarMenuSubItem>
-              );
-            })}
-          </SidebarMenuSub>
-        </CollapsibleContent>
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SidebarMenuItem>
-    </Collapsible>
+    </SidebarMenu>
   );
 }
 

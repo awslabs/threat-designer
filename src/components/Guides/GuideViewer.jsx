@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
-import { CodeRenderer, CustomTable } from "@/components/Agent/MarkdownRenderers";
+import { CodeRenderer, CustomTable } from "@/components/Agent/MarkDownRenderers";
 import { getGuide } from "@/data/guides";
 import "./GuideViewer.css";
 

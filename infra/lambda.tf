@@ -98,7 +98,7 @@ resource "null_resource" "wait_for_backend_alias_stabilization" {
           --query 'RoutingConfig.AdditionalVersionWeights' \
           --output text)
         
-        if [ "$ROUTING" == "None" ] || [ -z "$ROUTING" ]; then
+        if [ "$ROUTING" = "None" ] || [ -z "$ROUTING" ]; then
           echo "Backend alias stabilized, no routing config detected"
           exit 0
         fi

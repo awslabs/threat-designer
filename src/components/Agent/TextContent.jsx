@@ -1,7 +1,7 @@
 import React from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { CodeRenderer, CustomTable } from "./MarkdownRenderers";
+import { CodeRenderer, CustomTable } from "./MarkDownRenderers";
 import rehypeSanitize from "rehype-sanitize";
 
 const TextContent = ({ content }) => (

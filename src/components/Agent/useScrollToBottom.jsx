@@ -90,5 +90,5 @@ export function useScrollToBottom(ref) {
     };
   }, [checkScrollPosition, ref.current]); // Add ref.current as dependency
 
-  return { showButton, scrollToBottom, setShowButton };
+  return { showButton, scrollToBottom, setShowButton, checkScrollPosition };
 }

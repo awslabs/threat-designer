@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { flattenMarkdownTokens, parseTableCellMarkdown, parseMarkdown } from "./markdownParser";
 import {
   SECTION_TITLES,
@@ -389,7 +389,7 @@ const renderFormattedText = (doc, segments, startY, margin, textWidth, pageHeigh
           }
         }
 
-        doc.autoTable({
+        autoTable(doc, {
           startY: yPos,
           head: [tableHeaders],
           body: tableRows,
@@ -592,7 +592,7 @@ export const createThreatModelingPDF = async (
         }
       }
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: yPos,
         styles: {
           fontSize: 8,
@@ -688,7 +688,7 @@ export const createThreatModelingPDF = async (
         }
       }
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: yPos,
         styles: {
           fontSize: 9,

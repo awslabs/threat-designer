@@ -257,23 +257,23 @@ variable "openai_model_main" {
   description = "OpenAI model configurations for main workflow stages"
   default = {
     assets = {
-      id         = "gpt-5.1-2025-11-13"
-      max_tokens = 64000
-      reasoning_effort = {
-        "0" = "none"
-        "1" = "medium"
-        "2" = "high"
-        "3" = "high"
-      }
-    }
-    flows = {
-      id         = "gpt-5.1-2025-11-13"
+      id         = "gpt-5.2-2025-12-11"
       max_tokens = 64000
       reasoning_effort = {
         "0" = "none"
         "1" = "low"
-        "2" = "low"
-        "3" = "medium"
+        "2" = "medium"
+        "3" = "high"
+      }
+    }
+    flows = {
+      id         = "gpt-5.2-2025-12-11"
+      max_tokens = 64000
+      reasoning_effort = {
+        "0" = "none"
+        "1" = "low"
+        "2" = "medium"
+        "3" = "high"
       }
     }
     threats = {
@@ -287,7 +287,7 @@ variable "openai_model_main" {
       }
     }
     threats_agent = {
-      id         = "gpt-5.1-2025-11-13"
+      id         = "gpt-5.2-2025-12-11"
       max_tokens = 128000
       reasoning_effort = {
         "0" = "none"
@@ -297,7 +297,7 @@ variable "openai_model_main" {
       }
     }
     gaps = {
-      id         = "gpt-5.1-2025-11-13"
+      id         = "gpt-5.2-2025-12-11"
       max_tokens = 64000
       reasoning_effort = {
         "0" = "none"
@@ -307,7 +307,7 @@ variable "openai_model_main" {
       }
     }
     attack_tree = {
-      id         = "gpt-5.1-2025-11-13"
+      id         = "gpt-5.2-2025-12-11"
       max_tokens = 128000
       reasoning_effort = {
         "0" = "none"
@@ -346,11 +346,11 @@ variable "openai_model_summary" {
 variable "openai_reasoning_models" {
   type        = list(string)
   description = "List of OpenAI GPT-5 models that support reasoning"
-  default     = ["gpt-5.1-2025-11-13", "gpt-5-2025-08-07", "gpt-5-mini-2025-08-07"]
+  default     = ["gpt-5.2-2025-12-11", "gpt-5.1-2025-11-13", "gpt-5-2025-08-07", "gpt-5-mini-2025-08-07"]
 }
 
 variable "openai_sentry_model_id" {
   type        = string
   description = "OpenAI model ID for Sentry assistant"
-  default     = "gpt-5.1-2025-11-13"
+  default     = "gpt-5.2-2025-12-11"
 }

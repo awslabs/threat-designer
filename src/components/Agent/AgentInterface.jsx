@@ -20,7 +20,8 @@ const TOOLS_CONFIG_KEY = "toolsConfig";
 
 function ChatInterface({ user, inTools }) {
   const chatContainerRef = useRef(null);
-  const { showButton, scrollToBottom, setShowButton } = useScrollToBottom(chatContainerRef);
+  const { showButton, scrollToBottom, setShowButton, checkScrollPosition } =
+    useScrollToBottom(chatContainerRef);
 
   const isFirstMount = useRef(true);
   const [isFirstMountComplete, setIsFirstMountComplete] = useState(false);
@@ -331,6 +332,7 @@ function ChatInterface({ user, inTools }) {
             sessionId={sessionId}
             onToggleButton={handleToggleButton}
             onDropdownClick={handleDropdownClick}
+            onHeightChange={checkScrollPosition}
           />
         </div>
       </div>

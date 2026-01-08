@@ -147,14 +147,31 @@ class ModelService:
 
     def extract_reasoning_content(self, response: AIMessage) -> Optional[str]:
         """Extract reasoning content from model response (provider-agnostic)."""
-        # Bedrock format: reasoning_content in content array
         if response.content and len(response.content) > 0:
-            if isinstance(response.content[0], dict):
-                reasoning = response.content[0].get("reasoning_content", {})
-                if reasoning:
-                    return reasoning.get("text", None)
+            reasoning_texts = []
+            for content_block in response.content:
+                if isinstance(content_block, dict):
+                    # Bedrock format: {"type": "reasoning_content", "reasoning_content": {"text": "..."}}
+                    if content_block.get("type") == "reasoning_content":
+                        reasoning = content_block.get("reasoning_content", {})
+                        if isinstance(reasoning, dict) and reasoning.get("text"):
+                            reasoning_texts.append(reasoning.get("text"))
+                    # OpenAI GPT-5 format: {"type": "reasoning", "summary": [{"type": "summary_text", "text": "..."}]}
+                    elif content_block.get("type") == "reasoning":
+                        summary = content_block.get("summary", [])
+                        if isinstance(summary, list):
+                            for summary_item in summary:
+                                if (
+                                    isinstance(summary_item, dict)
+                                    and summary_item.get("type") == "summary_text"
+                                ):
+                                    text = summary_item.get("text", "")
+                                    if text:
+                                        reasoning_texts.append(text.strip())
+            if reasoning_texts:
+                return "\n\n".join(reasoning_texts)
 
-        # OpenAI format: reasoning_content in additional_kwargs
+        # Fallback: OpenAI format in additional_kwargs
         if hasattr(response, "additional_kwargs"):
             reasoning = response.additional_kwargs.get("reasoning_content")
             if reasoning:

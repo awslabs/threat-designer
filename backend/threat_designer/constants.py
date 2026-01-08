@@ -245,6 +245,7 @@ OPENAI_REASONING_EFFORT_MAP_STANDARD: Dict[int, str] = {
 
 # Known GPT-5 family models that support reasoning
 OPENAI_GPT5_FAMILY_MODELS: List[str] = [
+    "gpt-5.2-2025-12-11",
     "gpt-5.1-2025-11-13",
     "gpt-5-2025-08-07",
     "gpt-5-mini-2025-08-07",

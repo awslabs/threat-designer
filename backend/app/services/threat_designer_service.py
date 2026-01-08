@@ -251,6 +251,7 @@ def invoke_lambda(owner, payload):
     reasoning = payload.get("reasoning", 0)
     instructions = payload.get("instructions", None)
     is_replay = payload.get("replay", False)
+    image_type = payload.get("image_type", None)
 
     if is_replay:
         id = payload.get("id")
@@ -319,6 +320,7 @@ def invoke_lambda(owner, payload):
                         "title": title,
                         "replay": is_replay,
                         "instructions": instructions,
+                        "image_type": image_type,
                     }
                 }
             ),

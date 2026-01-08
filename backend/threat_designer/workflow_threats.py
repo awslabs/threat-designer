@@ -41,6 +41,7 @@ def create_agent_human_message(state: ThreatState) -> HumanMessage:
         state.get("image_data"),
         state.get("description", ""),
         list_to_string(state.get("assumptions", [])),
+        state.get("image_type"),
     )
 
     # Check for starred threats in replay mode

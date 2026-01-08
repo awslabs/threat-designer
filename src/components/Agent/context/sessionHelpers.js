@@ -20,6 +20,7 @@ export const getSessionRefs = (sessionId, sessionRefs) => {
       eventSource: null,
       buffer: [],
       bufferTimeout: null,
+      rafId: null,
     });
   }
   return sessionRefs.current.get(sessionId);
@@ -71,6 +72,21 @@ export const flushBuffer = (sessionId, sessionRefs, setSessions) => {
   });
 };
 
+export const scheduleBufferFlush = (sessionId, sessionRefs, setSessions, flushBufferFn) => {
+  const refs = getSessionRefs(sessionId, sessionRefs);
+
+  // Cancel any previously scheduled animation frame for this session
+  if (refs.rafId !== null) {
+    cancelAnimationFrame(refs.rafId);
+  }
+
+  // Schedule new animation frame
+  refs.rafId = requestAnimationFrame(() => {
+    refs.rafId = null;
+    flushBufferFn(sessionId, sessionRefs, setSessions);
+  });
+};
+
 export const addAiMessage = (sessionId, message, sessionRefs, setSessions, flushBufferFn) => {
   // Filter out empty objects
   if (message && typeof message === "object" && Object.keys(message).length === 0) {
@@ -96,16 +112,21 @@ export const addAiMessage = (sessionId, message, sessionRefs, setSessions, flush
 
   refs.buffer.push(message);
 
-  if (refs.bufferTimeout) {
-    clearTimeout(refs.bufferTimeout);
-  }
-
   const messageType = message.type || "text";
-  const delay = messageType === "text" || messageType === "think" ? BUFFER_DELAY_MS : 2;
 
-  refs.bufferTimeout = setTimeout(() => {
-    flushBufferFn(sessionId, sessionRefs, setSessions);
-  }, delay);
+  // Use requestAnimationFrame for text/think messages for smooth rendering
+  // Use setTimeout with 2ms delay for tool messages for immediate feedback
+  if (messageType === "text" || messageType === "think") {
+    scheduleBufferFlush(sessionId, sessionRefs, setSessions, flushBufferFn);
+  } else {
+    // Tool messages: use setTimeout with minimal delay
+    if (refs.bufferTimeout) {
+      clearTimeout(refs.bufferTimeout);
+    }
+    refs.bufferTimeout = setTimeout(() => {
+      flushBufferFn(sessionId, sessionRefs, setSessions);
+    }, BUFFER_DELAY_MS);
+  }
 };
 
 export const cleanupSSE = (sessionId, sessionRefs, setSessions, flushBufferFn) => {
@@ -116,9 +137,19 @@ export const cleanupSSE = (sessionId, sessionRefs, setSessions, flushBufferFn) =
     refs.eventSource = null;
   }
 
+  // Flush any remaining buffered tokens before cleanup
+  flushBufferFn(sessionId, sessionRefs, setSessions);
+
+  // Cancel any pending setTimeout for tool messages
   if (refs.bufferTimeout) {
     clearTimeout(refs.bufferTimeout);
-    flushBufferFn(sessionId, sessionRefs, setSessions);
+    refs.bufferTimeout = null;
+  }
+
+  // Cancel any pending requestAnimationFrame
+  if (refs.rafId !== null) {
+    cancelAnimationFrame(refs.rafId);
+    refs.rafId = null;
   }
 
   updateSession(sessionId, setSessions, { isStreaming: false });

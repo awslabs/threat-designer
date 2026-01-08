@@ -21,18 +21,9 @@ const ThinkingContent = ({ content, onToggle, thinkingLoading, isParentFirstMoun
   }, [expanded, onToggle]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const wasLoading = prevThinkingLoading.current;
-      const isNowNotLoading = !thinkingLoading;
-
-      if (wasLoading && isNowNotLoading && !wasFirstMountRef.current) {
-        setExpanded(true);
-      }
-
-      prevThinkingLoading.current = thinkingLoading;
-    }, 1);
-
-    return () => clearTimeout(timer);
+    // Track loading state changes but don't auto-expand
+    // Users can manually expand thinking blocks by clicking
+    prevThinkingLoading.current = thinkingLoading;
   }, [thinkingLoading]);
 
   const getTextColor = () => {

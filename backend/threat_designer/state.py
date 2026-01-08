@@ -244,6 +244,7 @@ class AgentState(TypedDict):
     summary: Optional[str] = None
     assets: Optional[AssetsList] = None
     image_data: Optional[str] = None
+    image_type: Optional[str] = None
     system_architecture: Optional[FlowsList] = None
     description: Optional[str] = None
     assumptions: Optional[List[str]] = None
@@ -299,6 +300,7 @@ class ThreatState(MessagesState):
     gap_tool_use: Annotated[int, _add_or_overwrite] = 0
     assets: Optional[AssetsList] = None
     image_data: Optional[str] = None
+    image_type: Optional[str] = None
     system_architecture: Optional[FlowsList] = None
     description: Optional[str] = None
     assumptions: Optional[List[str]] = None

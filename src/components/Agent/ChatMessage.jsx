@@ -4,7 +4,7 @@ import ChatButtons from "./ChatButtons";
 import ContentResolver from "./ContentResolver";
 
 const ChatMessage = React.memo(({ message, streaming, isLast, scroll, isParentFirstMount }) => {
-  const [inputHeight, setInputHeight] = React.useState(280);
+  const [inputHeight, setInputHeight] = React.useState(275);
   const isEnd = message?.[message.length - 1]?.end === true;
   const hasScrolled = useRef(false);
   const messageRef = useRef(null);

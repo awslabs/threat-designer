@@ -449,6 +449,7 @@ def create_dynamodb_item(
                 "description": agent_state.get("description"),
                 "assumptions": agent_state.get("assumptions"),
                 "s3_location": agent_state["s3_location"],
+                "image_type": agent_state.get("image_type"),
                 "title": agent_state.get("title"),
                 "owner": agent_state.get("owner"),
                 "retry": agent_state.get("retry"),

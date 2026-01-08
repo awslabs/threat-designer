@@ -56,6 +56,7 @@ class SummaryService:
                 state["image_data"],
                 state.get("description", ""),
                 list_to_string(state.get("assumptions", [])),
+                state.get("image_type"),
             )
             message = msg_builder.create_summary_message(
                 self.config.summary_max_words,
@@ -99,6 +100,7 @@ class AssetDefinitionService:
             state["image_data"],
             state.get("description", ""),
             list_to_string(state.get("assumptions", [])),
+            state.get("image_type"),
         )
 
         human_message = msg_builder.create_asset_message()
@@ -147,6 +149,7 @@ class FlowDefinitionService:
             state["image_data"],
             state.get("description", ""),
             list_to_string(state.get("assumptions", [])),
+            state.get("image_type"),
         )
         human_message = msg_builder.create_system_flows_message(assets=state["assets"])
         system_prompt = SystemMessage(content=flow_prompt())
@@ -235,6 +238,7 @@ class ThreatDefinitionService:
             state["image_data"],
             state.get("description", ""),
             list_to_string(state.get("assumptions", [])),
+            state.get("image_type"),
         )
 
         if retry_count > 1 or len(threats) > 0:
@@ -330,6 +334,7 @@ class GapAnalysisService:
             state["image_data"],
             state.get("description", ""),
             list_to_string(state.get("assumptions", [])),
+            state.get("image_type"),
         )
 
         human_message = msg_builder.create_gap_analysis_message(

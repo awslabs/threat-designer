@@ -272,6 +272,7 @@ def _handle_replay_state(state: AgentState, job_id: str) -> AgentState:
                 "threat_list": threat_list,
                 "retry": 1,
                 "image_data": parse_s3_image_to_base64(S3_BUCKET, item["s3_location"]),
+                "image_type": item.get("image_type"),
                 "description": item.get("description", ""),
                 "assumptions": item.get("assumptions", []),
                 "title": item.get("title"),
@@ -318,6 +319,7 @@ def _handle_new_state(state: AgentState, event: Dict[str, Any]) -> AgentState:
         state.update(
             {
                 "image_data": parse_s3_image_to_base64(S3_BUCKET, event["s3_location"]),
+                "image_type": event.get("image_type"),
                 "description": event.get("description", " "),
                 "assumptions": event.get("assumptions", []),
                 "s3_location": event["s3_location"],

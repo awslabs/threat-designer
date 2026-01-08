@@ -32,7 +32,11 @@ export default function ThreatModeling() {
         reasoning,
         title,
         description,
-        assumptions
+        assumptions,
+        false, // replay
+        null, // id
+        null, // instructions
+        base64Content?.type // imageType
       );
       setLoading(false);
       setId(response.data.id);

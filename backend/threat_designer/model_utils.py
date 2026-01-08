@@ -474,7 +474,7 @@ def _create_openai_model(
         # Convert reasoning level to string for map lookup
         # If reasoning=0, use "minimal" as default since GPT-5 always has reasoning on
         if reasoning == 0:
-            if "gpt-5.1" in model_id:
+            if "gpt-5.1" in model_id or "gpt-5.2" in model_id:
                 reasoning_effort = "none"
             else:
                 reasoning_effort = "minimal"

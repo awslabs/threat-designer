@@ -21,6 +21,7 @@ const ChatInput = ({
   thinkingBudget = 0,
   onToggleButton = () => {},
   onDropdownClick = () => {},
+  onHeightChange = () => {},
 }) => {
   const [message, setMessage] = useState("");
   const [toggleStates, setToggleStates] = useState({});
@@ -335,8 +336,10 @@ const ChatInput = ({
       textarea.style.height = "auto";
       const newHeight = Math.min(textarea.scrollHeight, maxHeight);
       textarea.style.height = `${newHeight}px`;
+      // Notify parent that height changed so it can recalculate scroll button visibility
+      onHeightChange();
     }
-  }, [maxHeight]);
+  }, [maxHeight, onHeightChange]);
 
   useEffect(() => {
     adjustTextareaHeight();

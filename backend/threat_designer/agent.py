@@ -83,7 +83,7 @@ def _run_agent_async(state: Dict, config: Dict, job_id: str, agent_config: Dict)
 
                 # Attack tree always uses reasoning with fixed budget
                 # For Bedrock (Claude): 48000 tokens
-                # For OpenAI (GPT-5.1): "medium" effort
+                # For OpenAI (GPT-5.2): "medium" effort
                 # This is hardcoded and not user-configurable
                 ATTACK_TREE_REASONING_LEVEL = (
                     2  # Maps to 48000 for Bedrock, "medium" for OpenAI

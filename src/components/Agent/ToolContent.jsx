@@ -6,21 +6,17 @@ import { useTheme } from "../ThemeContext";
 const ToolContent = React.memo(
   ({
     state: propState,
-    expanded,
     onExpand,
     text: propText,
     children: propChildren,
-    isParentFirstMount,
   }) => {
     const { effectiveTheme } = useTheme();
     const [isExpanded, setIsExpanded] = useState(false);
     const [showExpandButton, setShowExpandButton] = useState(false);
     const [prevState, setPrevState] = useState("loading");
-    const [hasAutoExpanded, setHasAutoExpanded] = useState(false);
     const [showContent, setShowContent] = useState(false);
     const [shouldExpandWidth, setShouldExpandWidth] = useState(false);
     const containerRef = useRef(null);
-    const wasFirstMountRef = useRef(isParentFirstMount);
 
     const state = propState || "loading";
     const text = propText || "";
@@ -43,21 +39,7 @@ const ToolContent = React.memo(
           // Show button after width starts expanding
           setTimeout(() => {
             setShowExpandButton(true);
-
-            // Auto-expand content if needed - use captured initial value
-            const shouldAutoExpand = !wasFirstMountRef.current && expanded;
-
-            if (shouldAutoExpand && !hasAutoExpanded) {
-              setTimeout(() => {
-                setIsExpanded(true);
-                // Another frame for the content animation
-                requestAnimationFrame(() => {
-                  setShowContent(true);
-                });
-                setHasAutoExpanded(true);
-                onExpand?.(true);
-              }, 200); // Wait for button to appear
-            }
+            // Don't auto-expand - users can manually expand tool responses by clicking
           }, 200); // Wait for width animation to start
         });
       } else if (state === "loading") {
@@ -69,7 +51,7 @@ const ToolContent = React.memo(
       }
 
       setPrevState(state);
-    }, [state, prevState, hasChildren, expanded, hasAutoExpanded]);
+    }, [state, prevState, hasChildren]);
 
     const handleExpand = () => {
       if (!isExpanded) {

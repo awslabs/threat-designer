@@ -6,6 +6,8 @@
  * - 5.1: Style collapsed state icon-only view
  * - 5.2: Ensure tooltips appear correctly when collapsed
  * - 5.3: Style expand/collapse transitions
+ * - 6.1: Use design tokens for colors and spacing
+ * - 8.1: Use CSS variables instead of hardcoded colors
  */
 
 /* ===== Hover Zone for Expanding Collapsed Sidebar ===== */
@@ -23,9 +25,7 @@
 }
 
 /* Dark mode cursor - white icon with dark border */
-html.dark .sidebar-hover-zone,
-:root.dark .sidebar-hover-zone,
-.dark .sidebar-hover-zone {
+html.dark .sidebar-hover-zone {
   cursor:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='24' viewBox='0 0 20 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23000000' stroke-width='3'%3E%3Cline x1='4' y1='3' x2='4' y2='21'/%3E%3Cline x1='8' y1='12' x2='15' y2='12'/%3E%3Cpolyline points='12 9 15 12 12 15'/%3E%3C/g%3E%3Cg stroke='%23ffffff' stroke-width='1.5'%3E%3Cline x1='4' y1='3' x2='4' y2='21'/%3E%3Cline x1='8' y1='12' x2='15' y2='12'/%3E%3Cpolyline points='12 9 15 12 12 15'/%3E%3C/g%3E%3C/svg%3E")
       10 12,
@@ -53,7 +53,7 @@ html.dark .sidebar-hover-zone,
 /* Icon-only view when collapsed */
 [data-state="collapsed"] [data-sidebar="menu-button"] {
   justify-content: flex-start;
-  padding-left: 2rem;
+  padding-left: var(--spacing-2xl);
 }
 
 [data-state="collapsed"] [data-sidebar="menu-button"] span:last-child {
@@ -82,7 +82,7 @@ html.dark .sidebar-hover-zone,
 
 /* Left border indicator for active item - DISABLED to remove bar */
 [data-sidebar="menu-button"][data-active="true"]::before {
-  content: none; /* Remove the bar completely */
+  content: none;
   display: none;
 }
 
@@ -99,14 +99,12 @@ html.dark .sidebar-hover-zone,
   background-color: var(--color-popover);
   color: var(--color-popover-foreground);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md, 6px);
-  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
   font-size: 0.875rem;
-  box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  animation: tooltip-fade-in 0.15s ease-out;
-  margin-left: 1rem !important; /* Add more spacing from sidebar */
+  box-shadow: var(--token-shadow-md);
+  animation: tooltip-fade-in var(--transition-fast);
+  margin-left: var(--spacing-lg) !important;
 }
 
 @keyframes tooltip-fade-in {
@@ -133,7 +131,7 @@ html.dark .sidebar-hover-zone,
 
 [data-sidebar="rail"] {
   opacity: 0;
-  transition: opacity 0.2s ease-in-out;
+  transition: opacity var(--transition-normal);
 }
 
 [data-sidebar="rail"]:hover,
@@ -149,8 +147,8 @@ html.dark .sidebar-hover-zone,
 
 /* Fix SidebarTrigger hover background in dark mode */
 html.dark [data-sidebar="trigger"]:hover {
-  background-color: #2a2a2c !important;
-  color: #f4f4f5 !important;
+  background-color: var(--token-bg-hover) !important;
+  color: var(--token-text-primary) !important;
 }
 
 /* ===== User Section Styles ===== */
@@ -171,12 +169,7 @@ html.dark [data-sidebar="trigger"]:hover {
 }
 
 /* Prevent avatar background from changing on hover */
-[data-sidebar="footer"] [data-sidebar="menu-button"]:hover .rounded-lg {
-  background-color: var(--color-sidebar-primary);
-  color: #ffffff;
-}
-
-/* Prevent avatar background from changing when dropdown is open */
+[data-sidebar="footer"] [data-sidebar="menu-button"]:hover .rounded-lg,
 [data-sidebar="footer"] [data-sidebar="menu-button"][data-state="open"] .rounded-lg {
   background-color: var(--color-sidebar-primary);
   color: #ffffff;
@@ -200,14 +193,14 @@ html.dark [role="menu"] .rounded-lg {
 /* Reduce dropdown menu item padding to match sidebar buttons */
 [data-radix-dropdown-menu-item],
 div[role="menuitem"] {
-  padding-top: 0.25rem;
-  padding-bottom: 0.25rem;
+  padding-top: var(--spacing-xs);
+  padding-bottom: var(--spacing-xs);
 }
 
 /* Make dropdown menu label (header with avatar) more compact */
 [data-radix-dropdown-menu-label] {
-  padding-top: 0.375rem;
-  padding-bottom: 0.375rem;
+  padding-top: var(--spacing-sm);
+  padding-bottom: var(--spacing-sm);
 }
 
 /* Reduce avatar size in dropdown header */
@@ -231,11 +224,11 @@ div[role="menuitem"] {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  transition: background-color 0.15s ease-in-out;
+  transition: background-color var(--transition-fast);
   overflow: hidden;
   box-sizing: border-box;
-  padding: 0.125rem 0.5rem;
-  padding-left: 2rem;
+  padding: 0.125rem var(--spacing-sm);
+  padding-left: var(--spacing-2xl);
   position: relative;
 }
 
@@ -250,7 +243,7 @@ div[role="menuitem"] {
 
 /* Text spacing when expanded - only for navigation buttons, not footer/avatar */
 [data-sidebar="group"] [data-sidebar="menu-button"] span {
-  margin-left: 0.5rem !important;
+  margin-left: var(--spacing-sm) !important;
 }
 
 /* Reset spacing for footer/avatar text */
@@ -260,7 +253,7 @@ div[role="menuitem"] {
 
 /* User section - use absolute positioning for avatar like navigation icons */
 [data-sidebar="footer"] [data-sidebar="menu-button"] {
-  padding-left: 2rem;
+  padding-left: var(--spacing-2xl);
 }
 
 /* Position the Avatar wrapper (h-8 w-8) absolutely to keep it fixed */
@@ -269,7 +262,7 @@ div[role="menuitem"] {
   left: calc(0.6rem - 1px);
   top: 50%;
   transform: translateY(-50%);
-  transition: none !important; /* No transition */
+  transition: none !important;
 }
 
 /* Ensure avatar fallback content is centered */
@@ -283,7 +276,7 @@ div[role="menuitem"] {
 [data-sidebar="footer"] [data-sidebar="menu-button"] > div.grid {
   position: relative !important;
   z-index: 1 !important;
-  margin-left: 2.25rem !important; /* Add extra margin to push text past avatar */
+  margin-left: 2.25rem !important;
 }
 
 /* Chevron icon should use normal flow and stay on the right */
@@ -294,18 +287,18 @@ div[role="menuitem"] {
 
 /* User section collapsed state - keep avatar in same position */
 [data-state="collapsed"] [data-sidebar="footer"] [data-sidebar="menu-button"] {
-  padding: 0.25rem 0.5rem !important;
-  padding-left: 2.25rem !important; /* Same padding to keep avatar fixed */
+  padding: var(--spacing-xs) var(--spacing-sm) !important;
+  padding-left: 2.25rem !important;
   justify-content: flex-start !important;
   height: 2rem !important;
 }
 
 /* Avatar stays in same position when collapsed */
 [data-state="collapsed"] [data-sidebar="footer"] [data-sidebar="menu-button"] > .h-8.w-8 {
-  left: calc(0.6rem - 1px) !important; /* Same position as expanded */
+  left: calc(0.6rem - 1px) !important;
   top: 50% !important;
-  transform: translateY(-50%) !important; /* Only vertical centering */
-  transition: none !important; /* No transition */
+  transform: translateY(-50%) !important;
+  transition: none !important;
 }
 
 /* Hide text content in user section when collapsed */
@@ -338,7 +331,7 @@ div[role="menuitem"] {
 [data-sidebar="footer"] .rounded-lg {
   height: 2rem !important;
   width: 2rem !important;
-  font-size: 0.75rem !important; /* Smaller font for initials */
+  font-size: 0.75rem !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -376,7 +369,7 @@ div[role="menuitem"] {
   height: 2.25rem !important;
   min-height: 2.25rem !important;
   max-height: 2.25rem !important;
-  padding-left: 2rem !important;
+  padding-left: var(--spacing-2xl) !important;
   position: relative !important;
 }
 
@@ -388,14 +381,14 @@ div[role="menuitem"] {
 }
 
 .nav-guides-button span {
-  margin-left: 0.5rem !important;
+  margin-left: var(--spacing-sm) !important;
 }
 
 /* Ensure chevron in Threat Models button doesn't overlap icon */
 .threat-models-collapsible-trigger {
   display: flex !important;
   align-items: center !important;
-  gap: 0.5rem !important;
+  gap: var(--spacing-sm) !important;
 }
 
 .threat-models-collapsible-trigger > svg:last-child {
@@ -410,7 +403,7 @@ div[role="menuitem"] {
   height: 1.75rem !important;
   min-height: 1.75rem !important;
   max-height: 1.75rem !important;
-  padding: 0.25rem 0.5rem !important;
+  padding: var(--spacing-xs) var(--spacing-sm) !important;
   font-size: 0.8125rem !important;
   color: var(--color-sidebar-accent-foreground) !important;
   background-color: transparent !important;
@@ -476,33 +469,33 @@ div[role="menuitem"] {
 }
 
 .animate-collapsible-down {
-  animation: collapsible-down 0.3s ease-out;
+  animation: collapsible-down var(--transition-slow);
 }
 
 .animate-collapsible-up {
-  animation: collapsible-up 0.3s ease-out;
+  animation: collapsible-up var(--transition-slow);
 }
 
 /* Style guide submenu items */
 [data-sidebar="menu-sub"] {
-  padding-left: 1rem !important;
-  margin-top: 0.5rem !important;
+  padding-left: var(--spacing-lg) !important;
+  margin-top: var(--spacing-sm) !important;
   overflow: hidden;
 }
 
 [data-sidebar="menu-sub-button"] {
-  padding: 0.375rem 0.5rem !important;
+  padding: var(--spacing-sm) var(--spacing-sm) !important;
   font-size: 0.8125rem !important;
   color: var(--color-sidebar-foreground) !important;
-  border-radius: 4px !important;
+  border-radius: var(--radius-sm) !important;
   transition:
-    background-color 0.15s ease-in-out,
-    opacity 0.2s ease-in-out,
-    transform 0.2s ease-in-out !important;
+    background-color var(--transition-fast),
+    opacity var(--transition-normal),
+    transform var(--transition-normal) !important;
   cursor: pointer !important;
   opacity: 0;
   transform: translateY(-4px);
-  animation: slideInSubmenu 0.2s ease-out forwards;
+  animation: slideInSubmenu var(--transition-normal) forwards;
 }
 
 @keyframes slideInSubmenu {
@@ -516,27 +509,21 @@ div[role="menuitem"] {
 [data-sidebar="menu-sub-button"]:nth-child(1) {
   animation-delay: 0.05s;
 }
-
 [data-sidebar="menu-sub-button"]:nth-child(2) {
   animation-delay: 0.1s;
 }
-
 [data-sidebar="menu-sub-button"]:nth-child(3) {
   animation-delay: 0.15s;
 }
-
 [data-sidebar="menu-sub-button"]:nth-child(4) {
   animation-delay: 0.2s;
 }
-
 [data-sidebar="menu-sub-button"]:nth-child(5) {
   animation-delay: 0.25s;
 }
-
 [data-sidebar="menu-sub-button"]:nth-child(6) {
   animation-delay: 0.3s;
 }
-
 [data-sidebar="menu-sub-button"]:nth-child(7) {
   animation-delay: 0.35s;
 }
@@ -581,99 +568,90 @@ div[role="menuitem"] {
   outline-offset: -2px;
 }
 
-/* ===== Dropdown Menu Styles ===== */
+/* ===== Dropdown Menu Styles - Light Mode ===== */
 
-/* Light mode hover styles */
 [data-radix-dropdown-menu-item]:hover,
 [data-radix-dropdown-menu-item][data-highlighted],
 div[role="menuitem"]:hover,
 div[role="menuitem"][data-highlighted] {
-  background-color: #e5e5e4;
-  color: #18181b;
+  background-color: var(--token-bg-hover);
+  color: var(--token-text-primary);
 }
 
-/* ===== Dropdown Menu Dark Mode Fixes ===== */
+/* ===== Dropdown Menu Dark Mode ===== */
+/* Consolidated dark mode dropdown styles using design tokens */
 
-/* Fix dropdown menus in dark mode - comprehensive targeting */
-
-/* Target by data attributes */
 html.dark [data-radix-dropdown-menu-content],
 html.dark [data-radix-popper-content-wrapper] > div[role="menu"] {
-  background-color: #1d1d20 !important;
-  color: #fafaf9 !important;
-  border-color: #2a2a2c !important;
+  background-color: var(--token-bg-secondary) !important;
+  color: var(--token-text-primary) !important;
+  border-color: var(--token-border-primary) !important;
 }
 
 html.dark [data-radix-dropdown-menu-item],
 html.dark div[role="menuitem"] {
-  color: #fafaf9 !important;
+  color: var(--token-text-primary) !important;
 }
 
 html.dark [data-radix-dropdown-menu-item]:hover,
 html.dark [data-radix-dropdown-menu-item][data-highlighted],
 html.dark div[role="menuitem"]:hover,
 html.dark div[role="menuitem"][data-highlighted] {
-  background-color: #2a2a2c !important;
-  color: #f4f4f5 !important;
+  background-color: var(--token-bg-hover) !important;
+  color: var(--token-text-primary) !important;
 }
 
 html.dark [data-radix-dropdown-menu-separator],
 html.dark div[role="separator"] {
-  background-color: #2a2a2c !important;
+  background-color: var(--token-border-primary) !important;
 }
 
 html.dark [data-radix-dropdown-menu-label] {
-  color: #fafaf9 !important;
+  color: var(--token-text-primary) !important;
 }
 
 /* Target by Tailwind classes used in dropdown-menu.jsx */
 html.dark .bg-popover {
-  background-color: #1d1d20 !important;
+  background-color: var(--token-bg-secondary) !important;
 }
 
 html.dark .text-popover-foreground {
-  color: #fafaf9 !important;
+  color: var(--token-text-primary) !important;
 }
 
 html.dark .bg-accent {
-  background-color: #2a2a2c !important;
+  background-color: var(--token-bg-hover) !important;
 }
 
 html.dark .text-accent-foreground {
-  color: #f4f4f5 !important;
+  color: var(--token-text-primary) !important;
 }
 
 html.dark .bg-muted {
-  background-color: #2a2a2c !important;
+  background-color: var(--token-bg-hover) !important;
 }
 
 html.dark .text-muted-foreground {
-  color: #949495 !important;
+  color: var(--token-text-muted) !important;
 }
 
 /* Also target tooltips in dark mode */
 html.dark [role="tooltip"] {
-  background-color: #1d1d20 !important;
-  color: #fafaf9 !important;
-  border-color: #2a2a2c !important;
+  background-color: var(--token-bg-secondary) !important;
+  color: var(--token-text-primary) !important;
+  border-color: var(--token-border-primary) !important;
 }
 
 /* Fix dropdown trigger button in open state for dark mode */
 html.dark [data-sidebar="footer"] [data-sidebar="menu-button"][data-state="open"] {
-  background-color: #2a2a2c !important;
-  color: #f4f4f5 !important;
+  background-color: var(--token-bg-hover) !important;
+  color: var(--token-text-primary) !important;
 }
 
-/* Ensure the avatar stays consistent in dark mode when dropdown is open */
-html.dark [data-sidebar="footer"] [data-sidebar="menu-button"][data-state="open"] .rounded-lg {
-  background-color: var(--color-sidebar-primary);
-  color: #ffffff;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
+/* ===== Avatar Border Removal ===== */
+/* Consolidated avatar border removal for both light and dark modes */
 
-/* Prevent avatar background from changing on hover in dark mode */
+html.dark [data-sidebar="footer"] [data-sidebar="menu-button"][data-state="open"] .rounded-lg,
 html.dark [data-sidebar="footer"] [data-sidebar="menu-button"]:hover .rounded-lg {
   background-color: var(--color-sidebar-primary);
   color: #ffffff;
@@ -682,36 +660,37 @@ html.dark [data-sidebar="footer"] [data-sidebar="menu-button"]:hover .rounded-lg
   box-shadow: none !important;
 }
 
-/* Remove all borders from avatar in dark mode - comprehensive targeting */
+/* Remove all borders from avatar elements */
 html.dark [data-sidebar="footer"] .rounded-lg,
-html.dark [data-sidebar="footer"] .rounded-lg *,
-html.dark [data-sidebar="footer"] [data-radix-avatar-fallback],
+html.dark [data-sidebar="footer"] .h-8,
+html.dark [data-sidebar="footer"] .w-8,
 html.dark [data-sidebar="footer"] .h-8.w-8,
-html.dark [data-sidebar="footer"] .h-8.w-8 * {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  border-width: 0 !important;
-}
-
-/* Remove borders from avatar in dropdown menu in dark mode */
+html.dark [data-sidebar="footer"] [data-radix-avatar-root],
+html.dark [data-sidebar="footer"] [data-radix-avatar-fallback],
 html.dark [role="menu"] .rounded-lg,
-html.dark [role="menu"] .rounded-lg *,
-html.dark [role="menu"] [data-radix-avatar-fallback],
 html.dark [role="menu"] .h-8.w-8,
-html.dark [role="menu"] .h-8.w-8 * {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  border-width: 0 !important;
-}
-
-/* Remove borders from all avatar elements in dark mode */
+html.dark [role="menu"] [data-radix-avatar-root],
+html.dark [role="menu"] [data-radix-avatar-fallback],
+html.dark [data-radix-avatar-root],
 html.dark [data-radix-avatar-fallback] {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
   border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+}
+
+/* Target all child elements of avatar */
+html.dark [data-sidebar="footer"] .rounded-lg > *,
+html.dark [data-sidebar="footer"] .h-8.w-8 > *,
+html.dark [role="menu"] .rounded-lg > *,
+html.dark [role="menu"] .h-8.w-8 > * {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-width: 0 !important;
+  border-style: none !important;
 }
 
 /* ===== Cursor Styles ===== */
@@ -722,9 +701,11 @@ html.dark [data-radix-avatar-fallback] {
   cursor: pointer !important;
 }
 
+/* ===== Font and Icon Sizes ===== */
+
 /* Increase font and icon sizes for better visual balance */
 [data-sidebar="sidebar"] {
-  font-size: 1rem !important; /* Increase base font size */
+  font-size: 1rem !important;
 }
 
 /* Larger icons in sidebar */
@@ -766,10 +747,10 @@ html.dark [data-radix-avatar-fallback] {
 [data-sidebar="footer"] .rounded-lg {
   height: 1.5rem !important;
   width: 1.5rem !important;
-  font-size: 0.375rem !important; /* Smaller initials */
-  font-weight: 400 !important; /* Not bold */
-  border-radius: 50% !important; /* Make it circular */
-  flex-shrink: 0 !important; /* Prevent avatar from shrinking */
+  font-size: 0.375rem !important;
+  font-weight: 400 !important;
+  border-radius: 50% !important;
+  flex-shrink: 0 !important;
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
@@ -796,7 +777,7 @@ html.dark [data-radix-avatar-fallback] {
 
 /* Make user button same size as navigation buttons - fixed height to prevent vertical movement */
 [data-sidebar="footer"] [data-sidebar="menu-button"] {
-  padding: 0.125rem 0.5rem;
+  padding: 0.125rem var(--spacing-sm);
   height: 2.25rem;
   min-height: 2.25rem;
   max-height: 2.25rem;
@@ -831,7 +812,7 @@ html.dark [data-radix-avatar-fallback] {
 [data-sidebar="header"] {
   margin-top: -0.5rem;
   margin-bottom: 0;
-  padding: 0.5rem;
+  padding: var(--spacing-sm);
 }
 
 /* Collapse button should be below logo */
@@ -851,95 +832,10 @@ html.dark [data-radix-avatar-fallback] {
   transition-duration: 600ms !important;
 }
 
-/* ===== COMPREHENSIVE AVATAR BORDER REMOVAL FOR DARK MODE ===== */
-
-/* Remove all possible borders from avatar elements in dark mode */
-html.dark [data-sidebar="footer"] .rounded-lg,
-html.dark [data-sidebar="footer"] .h-8,
-html.dark [data-sidebar="footer"] .w-8,
-html.dark [data-sidebar="footer"] .h-8.w-8,
-html.dark [data-sidebar="footer"] [data-radix-avatar-root],
-html.dark [data-sidebar="footer"] [data-radix-avatar-fallback] {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  border-width: 0 !important;
-  border-style: none !important;
-  border-color: transparent !important;
-}
-
-/* Target all child elements of avatar in dark mode */
-html.dark [data-sidebar="footer"] .rounded-lg > *,
-html.dark [data-sidebar="footer"] .h-8.w-8 > * {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  border-width: 0 !important;
-  border-style: none !important;
-}
-
-/* Remove borders from dropdown menu avatars in dark mode */
-html.dark [role="menu"] .rounded-lg,
-html.dark [role="menu"] .h-8,
-html.dark [role="menu"] .w-8,
-html.dark [role="menu"] .h-8.w-8,
-html.dark [role="menu"] [data-radix-avatar-root],
-html.dark [role="menu"] [data-radix-avatar-fallback] {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  border-width: 0 !important;
-  border-style: none !important;
-  border-color: transparent !important;
-}
-
-/* Target all Radix UI avatar components in dark mode */
-html.dark [data-radix-avatar-root],
-html.dark [data-radix-avatar-fallback],
-html.dark [data-radix-avatar-image] {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  border-width: 0 !important;
-  border-style: none !important;
-  border-color: transparent !important;
-}
-
-/* ===== FINAL DARK MODE AVATAR BORDER FIX ===== */
-/* Ultra-specific selectors to override any border in dark mode */
-html.dark [data-sidebar="footer"] [data-radix-avatar-root],
-html.dark [data-sidebar="footer"] [data-radix-avatar-fallback],
-html.dark [data-sidebar="footer"] span[data-radix-avatar-fallback],
-html.dark [data-sidebar="footer"] .h-8.w-8.rounded-lg,
-html.dark [data-sidebar="footer"] .rounded-lg.h-8.w-8 {
-  border: 0 !important;
-  border-width: 0 !important;
-  border-style: none !important;
-  border-color: transparent !important;
-  outline: 0 !important;
-  outline-width: 0 !important;
-  outline-style: none !important;
-  box-shadow: none !important;
-}
-
-/* Also target in dropdown menu */
-html.dark [role="menu"] [data-radix-avatar-root],
-html.dark [role="menu"] [data-radix-avatar-fallback],
-html.dark [role="menu"] span[data-radix-avatar-fallback],
-html.dark [role="menu"] .h-8.w-8.rounded-lg,
-html.dark [role="menu"] .rounded-lg.h-8.w-8 {
-  border: 0 !important;
-  border-width: 0 !important;
-  border-style: none !important;
-  border-color: transparent !important;
-  outline: 0 !important;
-  box-shadow: none !important;
-}
-
 /* ===== NAV GUIDES FOOTER STYLES ===== */
 /* Guides button in footer - ensure icon is visible */
 [data-sidebar="footer"] [data-sidebar="menu"]:first-child [data-sidebar="menu-button"] {
-  padding-left: 2rem !important;
+  padding-left: var(--spacing-2xl) !important;
   position: relative !important;
 }
 
@@ -961,7 +857,7 @@ html.dark [role="menu"] .rounded-lg.h-8.w-8 {
   [data-sidebar="footer"]
   [data-sidebar="menu"]:first-child
   [data-sidebar="menu-button"] {
-  padding-left: 2rem !important;
+  padding-left: var(--spacing-2xl) !important;
   justify-content: flex-start !important;
 }
 

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./styles/design-tokens.css";
 
 @theme inline {
   --radius: 0.5rem;

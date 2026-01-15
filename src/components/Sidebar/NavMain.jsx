@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
+import { useCallback } from "react";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -31,13 +32,17 @@ export function NavMain({ items }) {
    * Determines if a navigation item is active based on current route.
    * For the home route ("/"), only exact match is considered active.
    * For other routes, checks if current path starts with the item's url.
+   * Memoized to prevent recalculation on every render.
    */
-  const isItemActive = (itemUrl) => {
-    if (itemUrl === "/") {
-      return location.pathname === "/";
-    }
-    return location.pathname.startsWith(itemUrl);
-  };
+  const isItemActive = useCallback(
+    (itemUrl) => {
+      if (itemUrl === "/") {
+        return location.pathname === "/";
+      }
+      return location.pathname.startsWith(itemUrl);
+    },
+    [location.pathname]
+  );
 
   return (
     <SidebarGroup>

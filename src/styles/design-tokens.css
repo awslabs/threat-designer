@@ -1,0 +1,131 @@
+/**
+ * Design Tokens
+ * 
+ * Centralized design system values for consistent styling across the application.
+ * These tokens define spacing, colors, typography, and other design primitives.
+ * 
+ * Requirements: 8.1, 8.3, 8.4
+ */
+
+:root {
+  /* ===== Spacing Scale ===== */
+  /* Consistent spacing values for padding, margin, and gap */
+  --spacing-xs: 0.25rem; /* 4px */
+  --spacing-sm: 0.5rem; /* 8px */
+  --spacing-md: 0.75rem; /* 12px */
+  --spacing-lg: 1rem; /* 16px */
+  --spacing-xl: 1.5rem; /* 24px */
+  --spacing-2xl: 2rem; /* 32px */
+
+  /* ===== Border Radius ===== */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+
+  /* ===== Transitions ===== */
+  --transition-fast: 0.15s ease-in-out;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s ease-out;
+
+  /* ===== Colors - Light Mode ===== */
+
+  /* Background colors */
+  --token-bg-primary: #ffffff;
+  --token-bg-secondary: #f5f5f4;
+  --token-bg-tertiary: #eeeeee;
+  --token-bg-hover: #e5e5e4;
+  --token-bg-active: #e5e5e4;
+
+  /* Text colors */
+  --token-text-primary: #18181b;
+  --token-text-secondary: #666666;
+  --token-text-muted: #999999;
+  --token-text-placeholder: #999999;
+
+  /* Border colors */
+  --token-border-primary: #e0e0e0;
+  --token-border-secondary: #d0d0d0;
+
+  /* Accent colors */
+  --token-accent-primary: #006ce0;
+  --token-accent-primary-hover: #0056b3;
+  --token-accent-bg: #f1faff;
+  --token-accent-bg-hover: #e1f3ff;
+  --token-accent-separator: rgba(0, 108, 224, 0.3);
+
+  /* Interactive element colors */
+  --token-button-bg: #14110f;
+  --token-button-bg-hover: #312c2b;
+  --token-button-text: #ffffff;
+  --token-button-secondary-bg: #f5f5f5;
+  --token-button-secondary-bg-hover: #f0f0f0;
+  --token-button-secondary-text: #666666;
+  --token-button-secondary-text-hover: #333333;
+
+  /* Dropdown/Popover colors */
+  --token-dropdown-bg: #ffffff;
+  --token-dropdown-border: none;
+  --token-dropdown-item-hover: #e5e5e4;
+  --token-dropdown-item-text: #18181b;
+
+  /* Scrollbar colors */
+  --token-scrollbar-thumb: #ccc;
+  --token-scrollbar-thumb-hover: #bbb;
+
+  /* Shadow values */
+  --token-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --token-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --token-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== Colors - Dark Mode ===== */
+html.dark {
+  /* Background colors */
+  --token-bg-primary: #18181b;
+  --token-bg-secondary: #1d1d20;
+  --token-bg-tertiary: #222225;
+  --token-bg-hover: #2a2a2c;
+  --token-bg-active: #2a2a2c;
+
+  /* Text colors */
+  --token-text-primary: #fafaf9;
+  --token-text-secondary: #e0e0e0;
+  --token-text-muted: #a0a0a0;
+  --token-text-placeholder: #6b6b6b;
+
+  /* Border colors */
+  --token-border-primary: #2a2a2c;
+  --token-border-secondary: #333333;
+
+  /* Accent colors */
+  --token-accent-primary: #42b4ff;
+  --token-accent-primary-hover: #5bc0ff;
+  --token-accent-bg: #252e36;
+  --token-accent-bg-hover: #2a3540;
+  --token-accent-separator: rgba(66, 180, 255, 0.3);
+
+  /* Interactive element colors */
+  --token-button-bg: #3a3a3a;
+  --token-button-bg-hover: #4a4a4a;
+  --token-button-text: #d0d0d0;
+  --token-button-secondary-bg: transparent;
+  --token-button-secondary-bg-hover: #333;
+  --token-button-secondary-text: #a0a0a0;
+  --token-button-secondary-text-hover: #d0d0d0;
+
+  /* Dropdown/Popover colors */
+  --token-dropdown-bg: #18181b;
+  --token-dropdown-border: none;
+  --token-dropdown-item-hover: #2a2a2c;
+  --token-dropdown-item-text: #f4f4f5;
+
+  /* Scrollbar colors */
+  --token-scrollbar-thumb: #555;
+  --token-scrollbar-thumb-hover: #666;
+
+  /* Shadow values */
+  --token-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
+  --token-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --token-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.3);
+}

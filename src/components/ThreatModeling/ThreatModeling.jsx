@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import { SubmissionComponent } from "./SubmissionForm";
 import { Modal } from "@cloudscape-design/components";
@@ -50,7 +50,7 @@ export default function ThreatModeling() {
     if (id) {
       navigate(`/${id}`);
     }
-  }, [id]);
+  }, [id, navigate]);
 
   return (
     <SpaceBetween size="s">

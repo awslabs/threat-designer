@@ -95,7 +95,7 @@ export default function Processing({ status, iteration, id, detail }) {
   }, [status, options]);
 
   return (
-    <>
+    <div role="status" aria-live="polite" aria-atomic="true">
       {currentOption && !viewport.isMobile && !viewport.isTablet && (
         <div
           style={{
@@ -123,6 +123,6 @@ export default function Processing({ status, iteration, id, detail }) {
           id={id}
         />
       </div>
-    </>
+    </div>
   );
 }

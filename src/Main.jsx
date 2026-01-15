@@ -1,4 +1,3 @@
-import React from "react";
 import { Route, Routes, useParams } from "react-router-dom";
 import ThreatModeling from "./pages/ThreatDesigner/ThreatModeling.jsx";
 import ThreatModelResult from "./pages/ThreatDesigner/ThreatModelResult.jsx";

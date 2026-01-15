@@ -47,7 +47,12 @@ const ThreatModelAlerts = React.memo(
     };
 
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div
+        style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+        role="status"
+        aria-live="polite"
+        aria-atomic="false"
+      >
         {/* Change alert with save button */}
         {alert.visible && alert.state !== "ErrorThreatModeling" && (
           <Alert

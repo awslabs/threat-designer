@@ -1,4 +1,3 @@
-import * as React from "react";
 import { PlusCircle, LayoutGrid } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter } from "@/components/ui/sidebar";
 import { SidebarHeader } from "./SidebarHeader";

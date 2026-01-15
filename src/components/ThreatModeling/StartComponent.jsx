@@ -2,9 +2,9 @@ import React, { useState } from "react";
 import FileUpload from "@cloudscape-design/components/file-upload";
 
 // Validation constants
-export const ALLOWED_EXTENSIONS = ['.png', '.jpeg', '.jpg'];
+export const ALLOWED_EXTENSIONS = [".png", ".jpeg", ".jpg"];
 export const MAX_FILE_SIZE_BYTES = 3.75 * 1024 * 1024; // 3.75 MB
-export const MAX_FILE_SIZE_DISPLAY = '3.75 MB';
+export const MAX_FILE_SIZE_DISPLAY = "3.75 MB";
 
 /**
  * Validates a file for format and size constraints.
@@ -15,10 +15,10 @@ export function validateFile(file) {
   const errors = [];
 
   // Check file extension
-  const fileName = file.name || '';
-  const lastDotIndex = fileName.lastIndexOf('.');
-  const extension = lastDotIndex !== -1 ? fileName.slice(lastDotIndex).toLowerCase() : '';
-  
+  const fileName = file.name || "";
+  const lastDotIndex = fileName.lastIndexOf(".");
+  const extension = lastDotIndex !== -1 ? fileName.slice(lastDotIndex).toLowerCase() : "";
+
   if (!ALLOWED_EXTENSIONS.includes(extension)) {
     errors.push(`File format not supported. Accepted formats: PNG, JPEG`);
   }
@@ -40,10 +40,10 @@ export default function StartComponent({ onBase64Change, value, setValue, error,
 
     if (detail.value.length > 0) {
       const file = detail.value[0];
-      
+
       // Validate the file and update errors state
       const validationErrors = validateFile(file);
-      
+
       // Only set fileErrors if there are actual errors, otherwise clear them
       // fileErrors format: array of arrays, one per file
       if (validationErrors.length > 0) {
@@ -54,11 +54,11 @@ export default function StartComponent({ onBase64Change, value, setValue, error,
         onBase64Change(null);
         return;
       }
-      
+
       // Clear errors and error state when file is valid
       setFileErrors([]);
       setError(false);
-      
+
       const reader = new FileReader();
 
       reader.onload = (e) => {
@@ -108,7 +108,11 @@ export default function StartComponent({ onBase64Change, value, setValue, error,
       showFileSize
       showFileThumbnail
       tokenLimit={1}
-      errorText={error && fileErrors.length === 0 && "You must upload an architecture diagram before moving to the next step"}
+      errorText={
+        error &&
+        fileErrors.length === 0 &&
+        "You must upload an architecture diagram before moving to the next step"
+      }
     />
   );
 }

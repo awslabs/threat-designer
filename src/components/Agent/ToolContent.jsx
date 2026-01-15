@@ -4,12 +4,7 @@ import StatusIndicator from "@cloudscape-design/components/status-indicator";
 import { useTheme } from "../ThemeContext";
 
 const ToolContent = React.memo(
-  ({
-    state: propState,
-    onExpand,
-    text: propText,
-    children: propChildren,
-  }) => {
+  ({ state: propState, onExpand, text: propText, children: propChildren }) => {
     const { effectiveTheme } = useTheme();
     const [isExpanded, setIsExpanded] = useState(false);
     const [showExpandButton, setShowExpandButton] = useState(false);

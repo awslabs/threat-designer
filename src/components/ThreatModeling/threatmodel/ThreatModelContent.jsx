@@ -9,6 +9,7 @@ import Processing from "../ProcessingComponent";
 import { ReplayModalComponent } from "../ReplayModal";
 import DeleteModal from "../DeleteModal";
 import SharingModal from "../SharingModal";
+import { useThreatModelContext } from "../ThreatModelContext";
 
 /**
  * ThreatModelContent - Presentational component for rendering the main content area
@@ -20,65 +21,53 @@ import SharingModal from "../SharingModal";
  * - Error alert when processing fails
  * - Modal components for replay, delete, and sharing actions
  *
+ * Now uses ThreatModelContext to access shared state, reducing prop drilling.
+ *
  * @param {Object} props - Component props
  * @param {boolean} props.loading - Whether data is currently loading
- * @param {boolean} props.processing - Whether threat model is being processed
- * @param {boolean} props.results - Whether results are available to display
- * @param {boolean} props.error - Whether an error occurred
  * @param {string} props.tmStatus - Current threat model status
  * @param {number} props.iteration - Current iteration number
  * @param {string} props.tmDetail - Status detail message
  * @param {string} props.threatModelId - The threat model ID
  * @param {Object} props.response - Threat model response data
  * @param {Object} props.base64Content - Architecture diagram base64 content
- * @param {boolean} props.isReadOnly - Whether the threat model is in read-only mode
- * @param {boolean} props.isOwner - Whether the current user is the owner
  * @param {Function} props.updateThreatModeling - Function to update threat model data
  * @param {Function} props.refreshTrail - Function to refresh the trail
  * @param {Object} props.alert - Alert state object
  * @param {Object} props.alertMessages - Alert message templates
  * @param {Function} props.onRestore - Handler for restore action
- * @param {boolean} props.replayModalVisible - Whether replay modal is visible
- * @param {Function} props.onReplayModalChange - Handler for replay modal visibility change
  * @param {Function} props.onReplay - Handler for replay action
  * @param {Function} props.setSplitPanelOpen - Function to control split panel
- * @param {boolean} props.deleteModalVisible - Whether delete modal is visible
+ * @param {Function} props.onReplayModalChange - Handler for replay modal visibility change
  * @param {Function} props.onDeleteModalChange - Handler for delete modal visibility change
  * @param {Function} props.onDelete - Handler for delete action
- * @param {boolean} props.sharingModalVisible - Whether sharing modal is visible
  * @param {Function} props.onSharingModalChange - Handler for sharing modal visibility change
  */
 const ThreatModelContent = React.memo(
   ({
     loading,
-    processing,
-    results,
-    error,
     tmStatus,
     iteration,
     tmDetail,
     threatModelId,
     response,
     base64Content,
-    isReadOnly,
-    isOwner,
     updateThreatModeling,
     refreshTrail,
     alert,
     alertMessages,
     onRestore,
-    replayModalVisible,
-    onReplayModalChange,
     onReplay,
     setSplitPanelOpen,
-    deleteModalVisible,
+    onReplayModalChange,
     onDeleteModalChange,
     onDelete,
-    sharingModalVisible,
     onSharingModalChange,
-    showDashboard,
-    isTransitioning,
   }) => {
+    // Get shared state from context
+    const { state } = useThreatModelContext();
+    const { processing, results, isReadOnly, isOwner, showDashboard, isTransitioning, modals } =
+      state;
     // Extract threat catalog data from response with memoization
     // This ensures the array reference only changes when the actual threat data changes
     const threatCatalogData = useMemo(() => {
@@ -195,14 +184,14 @@ const ThreatModelContent = React.memo(
         {/* Replay Modal */}
         <ReplayModalComponent
           handleReplay={onReplay}
-          visible={replayModalVisible}
+          visible={modals.replay}
           setVisible={onReplayModalChange}
           setSplitPanelOpen={setSplitPanelOpen}
         />
 
         {/* Delete Modal */}
         <DeleteModal
-          visible={deleteModalVisible}
+          visible={modals.delete}
           setVisible={onDeleteModalChange}
           handleDelete={onDelete}
           title={response?.item?.title}
@@ -210,7 +199,7 @@ const ThreatModelContent = React.memo(
 
         {/* Sharing Modal */}
         <SharingModal
-          visible={sharingModalVisible}
+          visible={modals.sharing}
           setVisible={onSharingModalChange}
           threatModelId={threatModelId}
           isOwner={isOwner}
@@ -221,26 +210,17 @@ const ThreatModelContent = React.memo(
   (prevProps, nextProps) => {
     // Custom comparison function to prevent unnecessary re-renders
     // Only re-render if these specific props change
+    // Note: Context state changes will trigger re-renders automatically
     return (
       prevProps.loading === nextProps.loading &&
-      prevProps.processing === nextProps.processing &&
-      prevProps.results === nextProps.results &&
-      prevProps.error === nextProps.error &&
       prevProps.tmStatus === nextProps.tmStatus &&
       prevProps.iteration === nextProps.iteration &&
       prevProps.tmDetail === nextProps.tmDetail &&
       prevProps.threatModelId === nextProps.threatModelId &&
-      prevProps.isReadOnly === nextProps.isReadOnly &&
-      prevProps.isOwner === nextProps.isOwner &&
-      prevProps.replayModalVisible === nextProps.replayModalVisible &&
-      prevProps.deleteModalVisible === nextProps.deleteModalVisible &&
-      prevProps.sharingModalVisible === nextProps.sharingModalVisible &&
       prevProps.alert.visible === nextProps.alert.visible &&
       prevProps.alert.state === nextProps.alert.state &&
       prevProps.response === nextProps.response &&
-      prevProps.base64Content === nextProps.base64Content &&
-      prevProps.showDashboard === nextProps.showDashboard &&
-      prevProps.isTransitioning === nextProps.isTransitioning
+      prevProps.base64Content === nextProps.base64Content
     );
   }
 );

@@ -249,7 +249,7 @@ const SharingModal = ({ visible, setVisible, threatModelId, isOwner }) => {
       size="large"
       footer={
         <Box float="right">
-          <Button variant="primary" onClick={handleClose}>
+          <Button variant="primary" onClick={handleClose} ariaLabel="Close collaborators modal">
             Close
           </Button>
         </Box>
@@ -293,6 +293,7 @@ const SharingModal = ({ visible, setVisible, threatModelId, isOwner }) => {
               onClick={handleAddCollaborator}
               loading={loading}
               disabled={!selectedUser}
+              ariaLabel="Add selected user as collaborator"
             >
               Add
             </Button>

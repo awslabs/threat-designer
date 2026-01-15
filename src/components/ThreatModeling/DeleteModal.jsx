@@ -1,4 +1,3 @@
-import React from "react";
 import Modal from "@cloudscape-design/components/modal";
 import { Button, SpaceBetween, Box } from "@cloudscape-design/components";
 import Alert from "@cloudscape-design/components/alert";
@@ -17,6 +16,7 @@ const DeleteModalComponent = ({ handleDelete, title, visible, setVisible }) => {
               onClick={() => {
                 setVisible(false);
               }}
+              ariaLabel="Cancel delete threat model"
             >
               Cancel
             </Button>
@@ -26,6 +26,7 @@ const DeleteModalComponent = ({ handleDelete, title, visible, setVisible }) => {
                 setVisible(false);
               }}
               variant="primary"
+              ariaLabel="Confirm delete threat model"
             >
               Confirm
             </Button>

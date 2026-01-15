@@ -3,8 +3,75 @@ import MessageAvatar from "./MessageAvatar";
 import ChatButtons from "./ChatButtons";
 import ContentResolver from "./ContentResolver";
 
+/**
+ * Custom comparison function for ChatMessage memoization.
+ * Prevents re-renders when message array reference changes but content is the same.
+ *
+ * @param {Object} prevProps - Previous props
+ * @param {Object} nextProps - Next props
+ * @returns {boolean} - True if props are equal (should NOT re-render)
+ */
+const arePropsEqual = (prevProps, nextProps) => {
+  // Always re-render if streaming state changes
+  if (prevProps.streaming !== nextProps.streaming) {
+    return false;
+  }
+
+  // Always re-render if isLast changes
+  if (prevProps.isLast !== nextProps.isLast) {
+    return false;
+  }
+
+  // Always re-render if isParentFirstMount changes
+  if (prevProps.isParentFirstMount !== nextProps.isParentFirstMount) {
+    return false;
+  }
+
+  // Compare message content deeply
+  const prevMessage = prevProps.message;
+  const nextMessage = nextProps.message;
+
+  // If both are null/undefined, they're equal
+  if (!prevMessage && !nextMessage) {
+    return true;
+  }
+
+  // If one is null/undefined and the other isn't, they're different
+  if (!prevMessage || !nextMessage) {
+    return false;
+  }
+
+  // If lengths differ, they're different
+  if (prevMessage.length !== nextMessage.length) {
+    return false;
+  }
+
+  // Compare each message item
+  for (let i = 0; i < prevMessage.length; i++) {
+    const prev = prevMessage[i];
+    const next = nextMessage[i];
+
+    // Compare all relevant properties
+    if (
+      prev.type !== next.type ||
+      prev.content !== next.content ||
+      prev.id !== next.id ||
+      prev.tool_name !== next.tool_name ||
+      prev.tool_start !== next.tool_start ||
+      prev.tool_update !== next.tool_update ||
+      prev.error !== next.error ||
+      prev.end !== next.end
+    ) {
+      return false;
+    }
+  }
+
+  // Messages are equal, don't re-render
+  return true;
+};
+
 const ChatMessage = React.memo(({ message, streaming, isLast, scroll, isParentFirstMount }) => {
-  const [inputHeight, setInputHeight] = React.useState(275);
+  const [inputHeight] = React.useState(275);
   const isEnd = message?.[message.length - 1]?.end === true;
   const hasScrolled = useRef(false);
   const messageRef = useRef(null);
@@ -178,6 +245,8 @@ const ChatMessage = React.memo(({ message, streaming, isLast, scroll, isParentFi
       </div>
     </div>
   );
-});
+}, arePropsEqual);
+
+ChatMessage.displayName = "ChatMessage";
 
 export default ChatMessage;

@@ -203,18 +203,12 @@ const Sidebar = React.forwardRef(
         </div>
         {/* Click zone to expand sidebar when collapsed */}
         {state === "collapsed" && (
-          <div
+          <button
+            type="button"
             data-sidebar="hover-zone"
             className="sidebar-hover-zone"
             onClick={handleClick}
             aria-label="Expand sidebar"
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                handleClick();
-              }
-            }}
           />
         )}
       </div>

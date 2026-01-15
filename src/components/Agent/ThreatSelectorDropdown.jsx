@@ -55,6 +55,23 @@ const ThreatSelectorDropdown = ({
     };
   }, [onClose]);
 
+  // Handle Escape key to close dropdown
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
   // Scroll focused option into view
   useEffect(() => {
     if (focusedIndex >= 0 && optionRefs.current[focusedIndex]) {

@@ -42,7 +42,7 @@ variable "lambda_concurrency" {
 variable "provisioned_lambda_concurrency" {
   type        = number
   description = "Provision concurrency setting for the lambda"
-  default     = 4
+  default     = 16
 }
 
 variable "reasoning_models" {

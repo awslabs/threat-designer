@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import ButtonDropdown from "@cloudscape-design/components/button-dropdown";
 import ToggleButton from "@cloudscape-design/components/toggle-button";
 import SpaceBetween from "@cloudscape-design/components/space-between";
@@ -31,71 +31,73 @@ const ThreatModelActions = React.memo(
     showDashboard,
     onToggleDashboard,
   }) => {
+    // Build action items array based on state - memoized to prevent recreation on every render
+    const actionItems = useMemo(() => {
+      return [
+        {
+          text: "Save",
+          id: "sv",
+          disabled: !showResults || isReadOnly,
+        },
+        // Only show Share and Delete for owners
+        ...(isOwner
+          ? [
+              {
+                text: "Share",
+                id: "sh",
+                disabled: !showResults,
+              },
+              {
+                text: "Delete",
+                id: "rm",
+                disabled: !showResults,
+              },
+            ]
+          : []),
+        {
+          text: "Replay",
+          id: "re",
+          disabled: !showResults || isReadOnly,
+        },
+        {
+          text: "Trail",
+          id: "tr",
+          disabled: !showResults,
+        },
+        {
+          text: "Stop",
+          id: "st",
+          disabled: !showProcessing,
+        },
+        {
+          text: "Download",
+          id: "download",
+          disabled: !showResults,
+          items: [
+            {
+              text: "PDF",
+              id: "cp-pdf",
+              disabled: !showResults,
+            },
+            {
+              text: "DOCX",
+              id: "cp-doc",
+              disabled: !showResults,
+            },
+            {
+              text: "JSON",
+              id: "cp-json",
+              disabled: !showResults,
+            },
+          ],
+        },
+      ];
+    }, [showResults, showProcessing, isReadOnly, isOwner]);
+
     // Don't show actions if status is FAILED
     if (tmStatus === "FAILED") {
       return null;
     }
-
-    // Build action items array based on state
-    const actionItems = [
-      {
-        text: "Save",
-        id: "sv",
-        disabled: !showResults || isReadOnly,
-      },
-      // Only show Share and Delete for owners
-      ...(isOwner
-        ? [
-            {
-              text: "Share",
-              id: "sh",
-              disabled: !showResults,
-            },
-            {
-              text: "Delete",
-              id: "rm",
-              disabled: !showResults,
-            },
-          ]
-        : []),
-      {
-        text: "Replay",
-        id: "re",
-        disabled: !showResults || isReadOnly,
-      },
-      {
-        text: "Trail",
-        id: "tr",
-        disabled: !showResults,
-      },
-      {
-        text: "Stop",
-        id: "st",
-        disabled: !showProcessing,
-      },
-      {
-        text: "Download",
-        id: "download",
-        disabled: !showResults,
-        items: [
-          {
-            text: "PDF",
-            id: "cp-pdf",
-            disabled: !showResults,
-          },
-          {
-            text: "DOCX",
-            id: "cp-doc",
-            disabled: !showResults,
-          },
-          {
-            text: "JSON",
-            id: "cp-json",
-            disabled: !showResults,
-          },
-        ],
-      },
-    ];
 
     return (
       <SpaceBetween direction="horizontal" size="xs">

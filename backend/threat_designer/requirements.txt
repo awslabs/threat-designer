@@ -1,10 +1,8 @@
 
-langgraph==1.0.2
-langchain-aws==1.0.0
-langchain-openai==1.0.0
-langchain==1.0.3
-langchain-community==0.4.1
-faiss-cpu==1.9.0
+langgraph==1.0.6
+langchain-aws==1.2.1
+langchain-openai==1.1.7
+langchain==1.2.3
 uv==0.9.6
 uvicorn[standard]==0.37.0
 fastapi==0.116.1

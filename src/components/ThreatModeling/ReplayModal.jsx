@@ -26,6 +26,7 @@ export const ReplayModalComponent = ({ handleReplay, visible, setVisible, setSpl
                 handleReplay(iteration?.value, reasoning, text);
               }}
               variant="primary"
+              ariaLabel="Start threat catalog replay"
             >
               Replay
             </Button>

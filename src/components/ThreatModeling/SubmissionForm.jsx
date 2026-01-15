@@ -17,7 +17,7 @@ import FileTokenGroup from "@cloudscape-design/components/file-token-group";
 import Textarea from "@cloudscape-design/components/textarea";
 
 function convertArrayToObjects(arr) {
-  return arr.map((item, index) => ({
+  return arr.map((item) => ({
     label: item,
     dismissLabel: `Remove ${item}`,
   }));
@@ -28,7 +28,6 @@ export const SubmissionComponent = ({
   base64Content,
   iteration,
   setIteration,
-  setVisible,
   handleStart,
   loading,
   reasoning,
@@ -58,7 +57,7 @@ export const SubmissionComponent = ({
       i18nStrings={{
         stepNumberLabel: (stepNumber) => `Step ${stepNumber}`,
         collapsedStepsLabel: (stepNumber, stepsCount) => `Step ${stepNumber} of ${stepsCount}`,
-        skipToButtonLabel: (step, stepNumber) => `Skip to ${step.title}`,
+        skipToButtonLabel: (step) => `Skip to ${step.title}`,
         navigationAriaLabel: "Steps",
         previousButton: "Previous",
         nextButton: "Next",
@@ -196,12 +195,16 @@ export const SubmissionComponent = ({
                     onChange={({ detail }) => setNewAssumption(detail.value)}
                     placeholder="Type new assumption"
                   />
-                  <Button onClick={handleAddAssumption} disabled={!newAssumption.trim()}>
+                  <Button
+                    onClick={handleAddAssumption}
+                    disabled={!newAssumption.trim()}
+                    ariaLabel="Add new assumption"
+                  >
                     Add
                   </Button>
                 </Grid>
                 <TokenGroup
-                  items={assumptions.map((item, index) => ({
+                  items={assumptions.map((item) => ({
                     label: item,
                     dismissLabel: `Remove ${item}`,
                     disabled: false,
@@ -224,7 +227,11 @@ export const SubmissionComponent = ({
                   <SpaceBetween size="xs">
                     <Header
                       variant="h3"
-                      actions={<Button onClick={() => setActiveStepIndex(0)}>Edit</Button>}
+                      actions={
+                        <Button onClick={() => setActiveStepIndex(0)} ariaLabel="Edit title">
+                          Edit
+                        </Button>
+                      }
                     >
                       Step 1: Title
                     </Header>
@@ -239,7 +246,14 @@ export const SubmissionComponent = ({
                   <SpaceBetween size="xs">
                     <Header
                       variant="h3"
-                      actions={<Button onClick={() => setActiveStepIndex(1)}>Edit</Button>}
+                      actions={
+                        <Button
+                          onClick={() => setActiveStepIndex(1)}
+                          ariaLabel="Edit architecture diagram"
+                        >
+                          Edit
+                        </Button>
+                      }
                     >
                       Step 2: Architecture diagram
                     </Header>
@@ -267,7 +281,11 @@ export const SubmissionComponent = ({
                   <SpaceBetween size="xs">
                     <Header
                       variant="h3"
-                      actions={<Button onClick={() => setActiveStepIndex(2)}>Edit</Button>}
+                      actions={
+                        <Button onClick={() => setActiveStepIndex(2)} ariaLabel="Edit description">
+                          Edit
+                        </Button>
+                      }
                     >
                       Step 3: Description
                     </Header>
@@ -283,7 +301,11 @@ export const SubmissionComponent = ({
                   <SpaceBetween size="xs">
                     <Header
                       variant="h3"
-                      actions={<Button onClick={() => setActiveStepIndex(3)}>Edit</Button>}
+                      actions={
+                        <Button onClick={() => setActiveStepIndex(3)} ariaLabel="Edit iterations">
+                          Edit
+                        </Button>
+                      }
                     >
                       Step 4: Iterations
                     </Header>
@@ -327,7 +349,11 @@ export const SubmissionComponent = ({
                   <SpaceBetween size="xs">
                     <Header
                       variant="h3"
-                      actions={<Button onClick={() => setActiveStepIndex(4)}>Edit</Button>}
+                      actions={
+                        <Button onClick={() => setActiveStepIndex(4)} ariaLabel="Edit assumptions">
+                          Edit
+                        </Button>
+                      }
                     >
                       Step 5: Assumptions
                     </Header>

@@ -488,13 +488,23 @@ const ConflictResolutionModal = ({
       footer={
         <Box float="right">
           <SpaceBetween direction="horizontal" size="xs">
-            <Button variant="link" onClick={onDismiss}>
+            <Button variant="link" onClick={onDismiss} ariaLabel="Cancel conflict resolution">
               Cancel
             </Button>
-            <Button variant="normal" onClick={handleReload} loading={loading}>
+            <Button
+              variant="normal"
+              onClick={handleReload}
+              loading={loading}
+              ariaLabel="Use server version and discard local changes"
+            >
               Use Server Version
             </Button>
-            <Button variant="primary" onClick={handleOverride} loading={loading}>
+            <Button
+              variant="primary"
+              onClick={handleOverride}
+              loading={loading}
+              ariaLabel="Use my version and overwrite server changes"
+            >
               Use My Version
             </Button>
           </SpaceBetween>

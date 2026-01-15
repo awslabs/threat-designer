@@ -19,7 +19,7 @@ export function useSessionPreparation({ sessionId, tools, thinkingBudget }) {
 
     const uuid = crypto.randomUUID();
     const timestamp = Date.now().toString(36);
-    const randomSuffix = Math.random().toString(36).substring(2);
+    const randomSuffix = crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
     return `${uuid}-${timestamp}-${randomSuffix}`;
   });
 

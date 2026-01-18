@@ -16,6 +16,7 @@ from langchain_core.tools import BaseTool
 from langchain_core.tools.base import ToolException
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END, MessagesState
+from langgraph.errors import GraphBubbleUp
 from langgraph_checkpoint_aws.async_saver import AsyncBedrockSessionSaver
 import json
 import logging
@@ -156,19 +157,48 @@ class ReactAgent:
                 tool_result = await self.tools_by_name[tool_call["name"]].ainvoke(
                     tool_call["args"]
                 )
+                # Handle the result - ensure it's JSON serializable
+                if isinstance(tool_result, Exception):
+                    # Tool returned an exception object
+                    content = json.dumps({"error": str(tool_result)})
+                    status = "error"
+                elif isinstance(tool_result, str):
+                    content = tool_result
+                    status = getattr(tool_result, "status", "success")
+                else:
+                    try:
+                        content = json.dumps(tool_result)
+                        status = getattr(tool_result, "status", "success")
+                    except (TypeError, ValueError):
+                        # If result can't be serialized, convert to string
+                        content = json.dumps(
+                            {"error": f"Result not serializable: {str(tool_result)}"}
+                        )
+                        status = "error"
+
                 outputs.append(
                     ToolMessage(
-                        content=json.dumps(tool_result)
-                        if not isinstance(tool_result, str)
-                        else tool_result,
+                        content=content,
                         name=tool_call["name"],
                         tool_call_id=tool_call["id"],
-                        status=tool_result.status
-                        if hasattr(tool_result, "status")
-                        else "success",
+                        status=status,
                     )
                 )
             except ToolException as e:
+                outputs.append(
+                    ToolMessage(
+                        content=json.dumps({"error": str(e)}),
+                        name=tool_call["name"],
+                        status="error",
+                        tool_call_id=tool_call["id"],
+                    )
+                )
+            except Exception as e:
+                # Re-raise interrupt exceptions - they must propagate for human-in-the-loop
+                if isinstance(e, GraphBubbleUp):
+                    raise
+                # Catch any other exceptions (API errors, network issues, etc.)
+                logger.error(f"Tool {tool_call['name']} failed with error: {str(e)}")
                 outputs.append(
                     ToolMessage(
                         content=json.dumps({"error": str(e)}),

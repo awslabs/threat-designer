@@ -29,18 +29,18 @@ class MessageBuilder:
 
     def _get_mime_type(self) -> str:
         """Determine MIME type from image_type parameter.
-        
+
         Returns:
             str: The MIME type string ('image/png' or 'image/jpeg')
         """
         if self.image_type:
             image_type_lower = self.image_type.lower()
-            if 'png' in image_type_lower:
-                return 'image/png'
-            elif 'jpeg' in image_type_lower or 'jpg' in image_type_lower:
-                return 'image/jpeg'
+            if "png" in image_type_lower:
+                return "image/png"
+            elif "jpeg" in image_type_lower or "jpg" in image_type_lower:
+                return "image/jpeg"
         # Default to JPEG for backward compatibility
-        return 'image/jpeg'
+        return "image/jpeg"
 
     def _format_asset_list(self, assets) -> str:
         """Helper function to format asset names as a bulleted list."""
@@ -75,7 +75,7 @@ class MessageBuilder:
     ) -> List[Dict[str, Any]]:
         """Base message for all messages."""
         mime_type = self._get_mime_type()
-        
+
         base_message = [
             {"type": "text", "text": "<architecture_diagram>"},
             {

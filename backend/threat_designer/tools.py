@@ -484,7 +484,10 @@ def read_threat_catalog(
 
     if verbose:
         output += json.dumps(
-            [threat.model_dump() for threat in current_threat_list.threats],
+            [
+                threat.model_dump(exclude={"notes"})
+                for threat in current_threat_list.threats
+            ],
             indent=2,
         )
     else:
@@ -578,7 +581,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
     threat_list_str = ""
     if threat_list and threat_list.threats:
         threat_list_str = json.dumps(
-            [threat.model_dump() for threat in threat_list.threats],
+            [threat.model_dump(exclude={"notes"}) for threat in threat_list.threats],
             indent=2,
         )
 

@@ -22,6 +22,9 @@ REGION = os.environ.get("REGION", "us-east-1")
 MODEL_PROVIDER = os.environ.get("MODEL_PROVIDER", "bedrock")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
+# Tavily Configuration
+TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY")
+
 # OpenAI reasoning effort mapping (same as Threat Designer)
 OPENAI_REASONING_EFFORT_MAP = {0: "none", 1: "low", 2: "medium", 3: "high"}
 

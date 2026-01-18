@@ -1,0 +1,195 @@
+/* Citation Label Styles */
+.citation-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+  max-width: 140px;
+  vertical-align: baseline;
+  position: relative;
+  top: -1px;
+  margin: 0 1px;
+}
+
+.citation-label-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Web Search Citation Styles - Blue themed */
+.web-citation-label {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+}
+
+.web-citation-label:hover {
+  background: rgba(59, 130, 246, 0.22);
+  color: #2563eb;
+}
+
+/* Dark mode support */
+html.dark .web-citation-label,
+html.awsui-dark-mode .web-citation-label {
+  background: rgba(96, 165, 250, 0.18);
+  color: #60a5fa;
+}
+
+html.dark .web-citation-label:hover,
+html.awsui-dark-mode .web-citation-label:hover {
+  background: rgba(96, 165, 250, 0.28);
+  color: #93c5fd;
+}
+
+.citation-extra-count {
+  font-size: 9px;
+  font-weight: 600;
+  margin-left: 2px;
+  opacity: 0.75;
+}
+
+/* Hover Card Container */
+.hover-card-container {
+  position: relative;
+  display: inline;
+}
+
+/* Hover Card Content - Custom Popover */
+.hover-card-content {
+  position: absolute;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+
+/* Position variants */
+.hover-card-content.position-top {
+  bottom: calc(100% + 6px);
+}
+
+.hover-card-content.position-bottom {
+  top: calc(100% + 6px);
+}
+
+.hover-card-content.align-left {
+  left: 0;
+}
+
+.hover-card-content.align-right {
+  right: 0;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Citation Popover */
+.citation-popover {
+  background: var(--token-dropdown-bg, #ffffff);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  box-shadow: var(--token-shadow-sm);
+  min-width: 220px;
+  max-width: 320px;
+  overflow: hidden;
+}
+
+html.dark .citation-popover,
+html.awsui-dark-mode .citation-popover {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.citation-popover-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+html.dark .citation-popover-header,
+html.awsui-dark-mode .citation-popover-header {
+  color: #9ca3af;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.citation-popover-list {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+
+/* Citation Link Item */
+.citation-link-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #374151;
+  transition: background 0.12s ease;
+}
+
+.citation-link-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+html.dark .citation-link-item,
+html.awsui-dark-mode .citation-link-item {
+  color: #d1d5db;
+}
+
+html.dark .citation-link-item:hover,
+html.awsui-dark-mode .citation-link-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.citation-link-icon {
+  flex-shrink: 0;
+  color: #3b82f6;
+}
+
+html.dark .citation-link-icon,
+html.awsui-dark-mode .citation-link-icon {
+  color: #60a5fa;
+}
+
+.citation-link-domain {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.citation-external-icon {
+  flex-shrink: 0;
+  color: #9ca3af;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+html.dark .citation-external-icon,
+html.awsui-dark-mode .citation-external-icon {
+  color: #6b7280;
+}
+
+.citation-link-item:hover .citation-external-icon {
+  opacity: 1;
+}

@@ -9,7 +9,91 @@ except ImportError:
     MODEL_PROVIDER = os.environ.get("MODEL_PROVIDER", "bedrock")
 
 
-def system_prompt(context):
+# Web search behavior prompt - included only when Tavily tools are enabled
+web_search_prompt = """
+<web_search_behaviors>
+Web search should be used conservatively and focused on security-related topics. Follow these principles:
+
+**When to search:**
+- Current security vulnerabilities, CVEs, or active exploits that may have emerged after the knowledge cutoff
+- Recent security advisories, patches, or threat intelligence updates
+- New attack techniques, malware variants, or threat actor campaigns
+- Technical security research on emerging technologies or frameworks you lack knowledge about
+- Verification of current security tool versions, configurations, or best practices that may have changed
+- Compliance or regulatory updates affecting security requirements
+
+**When NOT to search:**
+- Well-established security concepts, methodologies (STRIDE, OWASP, etc.), or fundamental principles
+- Historical vulnerabilities or attack patterns that are well-documented
+- Information about people, organizations, or public figures (even security researchers)
+- General biographical or company information
+- Topics unrelated to security or threat modeling
+- Questions you can answer reliably from existing knowledge
+
+**Search guidelines:**
+- Prefer answering from knowledge when the information is stable and well-established
+- Only search when recency matters or when you genuinely lack knowledge on a technical security topic
+- Use 1-2 searches for simple factual verification
+- Use 3-5 searches for comprehensive security research or threat analysis
+- Don't mention knowledge cutoffs or lack of real-time data to the user
+</web_search_behaviors>
+"""
+
+# Citation instructions prompt - included only when Tavily tools are enabled
+citation_prompt = """
+<citation_instructions>
+If Sentry's response is based on content returned by the tavily_search or tavily_extract tools, Sentry must always appropriately cite its response using index-based citations.
+
+**Citation Format:**
+Citations use the format [X:Y] where:
+- X = the search/extract call number (1 for first call, 2 for second call, etc.)
+- Y = the result index within that call (1 for first result, 2 for second result, etc.)
+
+**Single citation:** [1:1]
+**Multiple citations:** [1:1, 1:2] or [1:1, 2:3]
+
+**Examples:**
+- [1:1] = First result from the first web search
+- [1:3] = Third result from the first web search
+- [2:1] = First result from the second web search
+- [1:1, 1:2] = First and second results from the first search
+- [1:2, 2:1] = Second result from first search and first result from second search
+
+**Rules:**
+1. EVERY specific claim based on search results should be cited immediately after the claim
+2. ALWAYS add a space between the text and the citation bracket
+3. Use the minimum number of citations necessary to support the claim
+4. Combine multiple citations in a single bracket when they support the same claim: [1:1, 1:2]
+5. Track which search call returned which results to use correct indices
+6. Claims must be in your own words, never exact quoted text
+
+**Correct formatting:**
+- "The vulnerability was discovered in March 2024 [1:2]" ✓ (space before citation)
+- "The vulnerability was discovered in March 2024[1:2]" ✗ (no space)
+
+**Example Usage:**
+After performing a web search that returns 5 results, if you use information from the 2nd result:
+"The vulnerability was first discovered in March 2024 [1:2] and has since been patched."
+
+If multiple sources support the same claim:
+"The attack has been attributed to multiple threat actors [1:1, 1:3, 2:2]."
+
+If the search results do not contain any information relevant to the query, politely inform the user that the answer cannot be found in the search results, and make no use of citations.
+</citation_instructions>
+"""
+
+
+def system_prompt(context, tavily_enabled=False):
+    """
+    Generate the system prompt for Sentry.
+
+    Args:
+        context: The threat modeling context
+        tavily_enabled: Whether Tavily tools are available
+
+    Returns:
+        SystemMessage with conditional web search/citation instructions
+    """
     current_date = datetime.now().strftime("%B %d, %Y")
 
     main_prompt = f"""
@@ -269,6 +353,11 @@ Sentry acts as a trusted security advisor where every recommendation enhances th
 
     if MODEL_PROVIDER == "bedrock":
         content.append({"cachePoint": {"type": "default"}})
+
+    # Conditionally include web search and citation prompts when Tavily is enabled
+    if tavily_enabled:
+        content.append({"type": "text", "text": web_search_prompt})
+        content.append({"type": "text", "text": citation_prompt})
 
     content.append({"type": "text", "text": context_prompt})
 

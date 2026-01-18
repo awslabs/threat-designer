@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, validator
-from typing import Literal, List, Annotated
+from typing import Literal, List, Annotated, Optional
 from enum import Enum
 
 

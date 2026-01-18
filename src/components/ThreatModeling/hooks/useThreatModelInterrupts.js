@@ -1,5 +1,5 @@
-import { useRef, useEffect, useCallback } from "react";
-import { useEventReceiver } from "../../Agent/useEventReceiver";
+import { useRef, useEffect, useCallback, useContext } from "react";
+import { ChatSessionDataContext, ChatSessionFunctionsContext } from "../../Agent/ChatContext";
 
 /**
  * Custom hook for handling real-time interrupt events from Sentry agent
@@ -32,12 +32,20 @@ export const useThreatModelInterrupts = (
   setResponse,
   sendMessage
 ) => {
+  // Get session data and functions from context to watch for pending interrupts
+  const sessionData = useContext(ChatSessionDataContext);
+  const sessionFunctions = useContext(ChatSessionFunctionsContext);
+
   // Queue for storing interrupt events that arrive before data is loaded
   const pendingInterrupts = useRef([]);
+
+  // Track processed interrupt timestamps to prevent duplicate processing
+  const processedInterrupts = useRef(new Set());
 
   // Reset pending interrupts when threatModelId changes
   useEffect(() => {
     pendingInterrupts.current = [];
+    processedInterrupts.current = new Set();
   }, [threatModelId]);
 
   /**
@@ -69,13 +77,19 @@ export const useThreatModelInterrupts = (
         case "edit_threats":
           // EDIT OPERATION: Replace existing threats by matching their names
           // Threats are identified by their 'name' property which acts as a unique key
+          // IMPORTANT: Preserve user-only fields (like 'notes') that the LLM cannot see
           threatsPayload.forEach((newThreat) => {
             const existingIndex = updatedThreats.findIndex(
               (existingThreat) => existingThreat.name === newThreat.name
             );
             if (existingIndex !== -1) {
-              // Found matching threat - replace it with the updated version
-              updatedThreats[existingIndex] = newThreat;
+              // Found matching threat - merge with existing to preserve user-only fields
+              // The 'notes' field is excluded from LLM context, so we must preserve it
+              const existingThreat = updatedThreats[existingIndex];
+              updatedThreats[existingIndex] = {
+                ...newThreat,
+                notes: existingThreat.notes, // Preserve user notes from existing threat
+              };
               console.log(`Updated threat: ${newThreat.name}`);
             } else {
               // Threat name not found - this could indicate a sync issue
@@ -128,7 +142,17 @@ export const useThreatModelInterrupts = (
   const processInterruptEvent = useCallback(
     (event) => {
       const { interruptMessage, source } = event.payload;
-      console.log(`Processing interrupt from ${source}:`, interruptMessage);
+
+      // Create a unique key for this interrupt to prevent duplicate processing
+      const interruptKey = `${interruptMessage?.content?.tool_name}_${JSON.stringify(interruptMessage?.content?.payload || {}).slice(0, 100)}`;
+
+      // Check if we've already processed this interrupt
+      if (processedInterrupts.current.has(interruptKey)) {
+        return;
+      }
+
+      // Mark as processed
+      processedInterrupts.current.add(interruptKey);
 
       const payload = interruptMessage.content.payload;
       const toolName = interruptMessage.content.tool_name;
@@ -148,31 +172,13 @@ export const useThreatModelInterrupts = (
    * Main event handler for interrupt events
    * Queues events if data is not loaded, otherwise processes immediately
    *
-   * INTERRUPT EVENT QUEUING LOGIC:
-   * Interrupt events can arrive at any time, including before the threat model data
-   * has finished loading. To handle this race condition, we implement a queuing mechanism:
-   *
-   * 1. If data is not yet loaded: Queue the event in pendingInterrupts ref
-   * 2. If data is loaded: Process the event immediately
-   * 3. When data loads: Process all queued events in order (see useEffect below)
-   *
-   * This ensures no interrupt events are lost and they are applied in the correct order.
-   *
    * @param {Object} event - The interrupt event received from event bus
    */
   const handleInterruptEvent = useCallback(
     (event) => {
-      console.log(`Interrupt event received for id: ${threatModelId}`);
-
       // Check if response data is available by verifying the threats array exists
-      // This is the critical data structure needed to process threat updates
       if (!response?.item?.threat_list?.threats) {
-        console.log(
-          "Interrupt event received but threat model data not loaded yet - queuing for later processing"
-        );
-
-        // QUEUING: Store the event in a ref (not state) to avoid triggering re-renders
-        // The ref persists across renders and will be processed once data loads
+        // Queue the event for later processing
         pendingInterrupts.current.push(event);
         return;
       }
@@ -180,43 +186,49 @@ export const useThreatModelInterrupts = (
       // Data is available - process the event immediately
       processInterruptEvent(event);
     },
-    [response, processInterruptEvent, threatModelId]
+    [response, processInterruptEvent]
   );
 
   /**
    * Process pending interrupts when response data becomes available
-   *
-   * PENDING INTERRUPT PROCESSING:
-   * This effect monitors the response data and pending interrupts queue.
-   * When data becomes available and there are queued events, it processes them all.
-   *
-   * Key considerations:
-   * - Clear the queue BEFORE processing to prevent infinite loops
-   * - Process events in the order they were received (FIFO)
-   * - Each event will trigger state updates that may cause this effect to run again
    */
   useEffect(() => {
-    // Only process if we have both data and pending interrupts
     if (response?.item?.threat_list?.threats && pendingInterrupts.current.length > 0) {
-      console.log(`Processing ${pendingInterrupts.current.length} pending interrupt(s)`);
-
-      // Create a copy of the pending interrupts array
       const interruptsToProcess = [...pendingInterrupts.current];
-
-      // IMPORTANT: Clear the queue FIRST to prevent infinite loops
-      // If we cleared after processing, new state updates could trigger this effect again
-      // before we finish processing, causing the same events to be processed multiple times
       pendingInterrupts.current = [];
 
-      // Process each queued event in order (FIFO - First In, First Out)
       interruptsToProcess.forEach((event) => {
         processInterruptEvent(event);
       });
     }
   }, [response, processInterruptEvent]);
 
-  // Register the event receiver for CHAT_INTERRUPT events
-  useEventReceiver("CHAT_INTERRUPT", threatModelId, handleInterruptEvent);
+  /**
+   * Watch for pending interrupts in session state
+   * When a pendingInterrupt is set on the session, process it and clear it
+   */
+  useEffect(() => {
+    if (!sessionData?.sessions || !threatModelId) return;
+
+    const session = sessionData.sessions.get(threatModelId);
+    if (!session?.pendingInterrupt) return;
+
+    const { interruptMessage, source } = session.pendingInterrupt;
+
+    const event = {
+      payload: {
+        interruptMessage,
+        source,
+      },
+    };
+
+    // Clear the interrupt from session state first to prevent re-processing
+    if (sessionFunctions?.clearInterrupt) {
+      sessionFunctions.clearInterrupt(threatModelId);
+    }
+
+    handleInterruptEvent(event);
+  }, [sessionData?.sessions, threatModelId, handleInterruptEvent, sessionFunctions]);
 
   return {
     handleInterruptEvent,

@@ -139,6 +139,29 @@ get_openai_api_key() {
     done
 }
 
+# Function to get Tavily API key (optional)
+get_tavily_api_key() {
+    echo -e "${BLUE}Enter your Tavily API key (optional, press Enter to skip):${NC}"
+    echo -e "${BLUE}(Enables web search and content extraction in Sentry assistant)${NC}"
+    read -rs TAVILY_API_KEY  # -s flag hides input
+    echo ""  # New line after hidden input
+    if [ -n "$TAVILY_API_KEY" ]; then
+        # Basic validation - Tavily keys start with 'tvly-'
+        if [[ ! $TAVILY_API_KEY =~ ^tvly- ]]; then
+            echo -e "${RED}Warning: Tavily API keys typically start with 'tvly-'${NC}"
+            while true; do
+                echo -e "${BLUE}Continue anyway? (y/n)${NC}"
+                read -r confirm
+                case $confirm in
+                    [Yy]* ) break;;
+                    [Nn]* ) TAVILY_API_KEY=""; break;;
+                    * ) echo -e "${RED}Please answer y or n${NC}";;
+                esac
+            done
+        fi
+    fi
+}
+
 # Function to get deployment type
 get_deployment_type() {
     while true; do
@@ -218,6 +241,11 @@ if [ "$USE_EXISTING" = false ]; then
                 get_openai_api_key
             fi
             
+            # Get Tavily API key (optional, for web search in Sentry)
+            if [ "$ENABLE_SENTRY" = "true" ]; then
+                get_tavily_api_key
+            fi
+            
             # Get user inputs
             get_input "Enter username:" USERNAME
             # Email validation
@@ -243,6 +271,11 @@ if [ "$USE_EXISTING" = false ]; then
                 echo -e "OpenAI API Key: ${BLUE}****** (hidden)${NC}"
             fi
             echo -e "Sentry Enabled: ${BLUE}$ENABLE_SENTRY${NC}"
+            if [ "$ENABLE_SENTRY" = "true" ] && [ -n "$TAVILY_API_KEY" ]; then
+                echo -e "Tavily API Key: ${BLUE}****** (hidden)${NC}"
+            elif [ "$ENABLE_SENTRY" = "true" ]; then
+                echo -e "Tavily API Key: ${BLUE}(not configured)${NC}"
+            fi
             echo -e "Username: ${BLUE}$USERNAME${NC}"
             echo -e "Given Name: ${BLUE}$GIVEN_NAME${NC}"
             echo -e "Family Name: ${BLUE}$FAMILY_NAME${NC}"
@@ -276,6 +309,11 @@ else
         # Get OpenAI API key if provider is OpenAI
         if [ "$MODEL_PROVIDER" = "openai" ]; then
             get_openai_api_key
+        fi
+        
+        # Get Tavily API key (optional, for web search in Sentry)
+        if [ "$ENABLE_SENTRY" = "true" ]; then
+            get_tavily_api_key
         fi
     fi
 fi
@@ -325,16 +363,23 @@ deploy_backend() {
         TF_VARS="$TF_VARS -var=openai_api_key=$OPENAI_API_KEY"
     fi
     
+    # Add Tavily API key if provided
+    if [ -n "$TAVILY_API_KEY" ]; then
+        TF_VARS="$TF_VARS -var=tavily_api_key=$TAVILY_API_KEY"
+    fi
+    
     # Run terraform apply with variables and capture the exit status
     if ! terraform apply -auto-approve $TF_VARS; then
         echo -e "${RED}Terraform apply failed. Exiting...${NC}"
         # Clear sensitive data
         unset OPENAI_API_KEY
+        unset TAVILY_API_KEY
         exit 1
     fi
     
     # Clear sensitive data from memory after terraform apply
     unset OPENAI_API_KEY
+    unset TAVILY_API_KEY
 
     # Extract values from terraform output
     if ! APP_ID=$(terraform output -raw amplify_app_id) || \

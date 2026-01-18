@@ -1,54 +1,25 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 export function useScrollToBottom(ref) {
   const [showButton, setShowButton] = useState(false);
-  const isAnimatingRef = useRef(false);
 
   const scrollToBottom = useCallback(() => {
     const container = ref.current;
-    if (!container || isAnimatingRef.current) return;
+    if (!container) return;
 
     try {
-      // Get start and target positions
-      const startPosition = container.scrollTop;
       const targetPosition = container.scrollHeight - container.clientHeight;
 
-      // Skip animation if already at bottom
-      if (Math.abs(startPosition - targetPosition) < 5) return;
+      // Skip if already at bottom
+      if (Math.abs(container.scrollTop - targetPosition) < 5) {
+        setShowButton(false);
+        return;
+      }
 
-      // Animation parameters
-      const duration = 500; // milliseconds
-      const startTime = performance.now();
-      isAnimatingRef.current = true;
-
-      // Animation function with easing
-      const animateScroll = (currentTime) => {
-        const elapsed = currentTime - startTime;
-
-        if (elapsed >= duration) {
-          // Animation complete
-          container.scrollTop = targetPosition;
-          isAnimatingRef.current = false;
-          return;
-        }
-
-        // Calculate progress with cubic ease-in-out
-        const progress = elapsed / duration;
-        const easedProgress =
-          progress < 0.5
-            ? 4 * progress * progress * progress
-            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-
-        // Apply new position
-        container.scrollTop = startPosition + (targetPosition - startPosition) * easedProgress;
-
-        // Continue animation
-        requestAnimationFrame(animateScroll);
-      };
-
-      requestAnimationFrame(animateScroll);
+      // Instant scroll
+      container.scrollTop = targetPosition;
+      setShowButton(false);
     } catch (err) {
-      isAnimatingRef.current = false;
       console.error("Error scrolling:", err);
     }
   }, [ref]);
@@ -70,23 +41,17 @@ export function useScrollToBottom(ref) {
     const container = ref.current;
     if (!container) return;
 
-    // Attach scroll listener
+    // Attach scroll listener - only show button when user scrolls up
     const handleScroll = () => checkScrollPosition();
     container.addEventListener("scroll", handleScroll, { passive: true });
 
-    // Observe content changes
-    const observer = new MutationObserver(() => {
-      setTimeout(checkScrollPosition, 50);
+    // Initial check after a brief delay to let content render
+    requestAnimationFrame(() => {
+      checkScrollPosition();
     });
-
-    observer.observe(container, { childList: true, subtree: true });
-
-    // Initial check
-    setTimeout(checkScrollPosition, 100);
 
     return () => {
       container.removeEventListener("scroll", handleScroll);
-      observer.disconnect();
     };
   }, [checkScrollPosition, ref.current]); // Add ref.current as dependency
 

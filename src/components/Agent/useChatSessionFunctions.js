@@ -8,13 +8,15 @@ import {
   stopAPI,
 } from "./context/api";
 import {
-  emitInterruptEvent,
+  setPendingInterrupt,
+  clearPendingInterrupt,
   getSessionRefs,
   updateSession,
   setSessionLoading,
   flushBuffer,
   addAiMessage,
   cleanupSSE,
+  groupMessages,
 } from "./context/sessionHelpers";
 import { SENTRY_ENABLED } from "./context/constants";
 
@@ -30,7 +32,6 @@ export const useChatSessionFunctions = (props) => {
     setAvailableTools,
     setToolsLoading,
     setToolsError,
-    eventBus,
     checkForInterruptInChatTurns,
   } = props;
 
@@ -200,11 +201,7 @@ export const useChatSessionFunctions = (props) => {
         });
 
         if (!sessionRefs.current.has(sessionId)) {
-          sessionRefs.current.set(sessionId, {
-            eventSource: null,
-            buffer: [],
-            bufferTimeout: null,
-          });
+          getSessionRefs(sessionId, sessionRefs);
         }
 
         initializedSessions.current.add(sessionId);
@@ -238,11 +235,22 @@ export const useChatSessionFunctions = (props) => {
           }
 
           if (chatTurns !== null) {
+            // Pre-compute messageBlocks for restored turns
+            const turnsWithBlocks = chatTurns.map((turn) => {
+              const isEnd =
+                turn.aiMessage?.length > 0 &&
+                turn.aiMessage[turn.aiMessage.length - 1]?.end === true;
+              return {
+                ...turn,
+                messageBlocks: groupMessages(turn.aiMessage || [], isEnd),
+              };
+            });
+
             setSessions((prev) => {
               const newSessions = new Map(prev);
               newSessions.set(sessionId, {
                 id: sessionId,
-                chatTurns: chatTurns,
+                chatTurns: turnsWithBlocks,
                 isStreaming: false,
                 error: null,
                 restoredFromBackend: true,
@@ -257,15 +265,11 @@ export const useChatSessionFunctions = (props) => {
                 `Interrupt found in session ${sessionId} loaded from memory:`,
                 interruptMessage
               );
-              emitInterruptEvent(sessionId, interruptMessage, "memory", eventBus);
+              setPendingInterrupt(sessionId, interruptMessage, "memory", setSessions);
             }
 
             if (!sessionRefs.current.has(sessionId)) {
-              sessionRefs.current.set(sessionId, {
-                eventSource: null,
-                buffer: [],
-                bufferTimeout: null,
-              });
+              getSessionRefs(sessionId, sessionRefs);
             }
 
             initializedSessions.current.add(sessionId);
@@ -294,11 +298,7 @@ export const useChatSessionFunctions = (props) => {
           });
 
           if (!sessionRefs.current.has(sessionId)) {
-            sessionRefs.current.set(sessionId, {
-              eventSource: null,
-              buffer: [],
-              bufferTimeout: null,
-            });
+            getSessionRefs(sessionId, sessionRefs);
           }
 
           initializedSessions.current.add(sessionId);
@@ -409,7 +409,7 @@ export const useChatSessionFunctions = (props) => {
       if (!interrupt) {
         cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
 
-        const turnId = `turn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const turnId = `turn_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
         const newTurn = {
           id: turnId,
@@ -474,7 +474,7 @@ export const useChatSessionFunctions = (props) => {
 
                     if (data.type === "interrupt") {
                       console.log(`Interrupt received for session ${sessionId}:`, data.content);
-                      emitInterruptEvent(sessionId, data, "sse", eventBus);
+                      setPendingInterrupt(sessionId, data, "sse", setSessions);
                       return;
                     }
 
@@ -505,7 +505,7 @@ export const useChatSessionFunctions = (props) => {
                   const data = JSON.parse(jsonStr);
                   if (data.type === "interrupt") {
                     console.log(`Interrupt received for session ${sessionId}:`, data.content);
-                    emitInterruptEvent(sessionId, data, "sse", eventBus);
+                    setPendingInterrupt(sessionId, data, "sse", setSessions);
                   } else {
                     addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
                   }
@@ -549,7 +549,7 @@ export const useChatSessionFunctions = (props) => {
                         processingToolUpdate = false;
 
                         if (data.type === "interrupt") {
-                          emitInterruptEvent(sessionId, data, "sse", eventBus);
+                          setPendingInterrupt(sessionId, data, "sse", setSessions);
                           return;
                         }
 
@@ -586,7 +586,7 @@ export const useChatSessionFunctions = (props) => {
                   }
 
                   if (data.type === "interrupt") {
-                    emitInterruptEvent(sessionId, data, "sse", eventBus);
+                    setPendingInterrupt(sessionId, data, "sse", setSessions);
                     return;
                   }
 
@@ -721,6 +721,11 @@ export const useChatSessionFunctions = (props) => {
       return prepareSession(...args);
     };
 
+    // Clear pending interrupt for a session
+    const clearInterrupt = (sessionId) => {
+      clearPendingInterrupt(sessionId, setSessions);
+    };
+
     return {
       initializeSession,
       prepareSession: prepareSessionWrapper,
@@ -736,6 +741,7 @@ export const useChatSessionFunctions = (props) => {
       removeSession,
       flushAllSessions,
       handleAuthChange,
+      clearInterrupt,
     };
   }, []);
 };

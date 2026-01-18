@@ -88,10 +88,13 @@ export const useThreatModelData = (
         return acc;
       }, {});
 
+      // Strip notes field from threats to reduce payload size
+      const threatsWithoutNotes = threats.map(({ notes, ...threat }) => threat);
+
       const sessionContext = {
         diagram: threatModelData.s3_location,
         threatModel: {
-          threats: threats,
+          threats: threatsWithoutNotes,
           summary: threatModelData.summary,
           assumptions: threatModelData.assumptions,
           system_architecture: threatModelData.system_architecture,

@@ -61,6 +61,7 @@ const VirtualizedThreatList = memo(function VirtualizedThreatList({
           "vector",
           "prerequisites",
           "mitigations",
+          "notes",
         ]}
         isReadOnly={isReadOnly}
         onOpenAttackTree={onOpenAttackTree}

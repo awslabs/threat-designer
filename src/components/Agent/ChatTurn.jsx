@@ -5,6 +5,8 @@ import UserChatMessage from "./UserChatMessage";
 const ChatTurn = React.memo(function ChatTurn({
   userMessage,
   aiMessage,
+  messageBlocks,
+  webSearchResults,
   user,
   isLast,
   scroll,
@@ -16,6 +18,8 @@ const ChatTurn = React.memo(function ChatTurn({
       <UserChatMessage message={userMessage} user={user} isUser={true} />
       <ChatMessage
         message={aiMessage}
+        messageBlocks={messageBlocks}
+        webSearchResults={webSearchResults}
         user={user}
         isUser={false}
         streaming={streaming}

@@ -392,6 +392,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
           "vector",
           "prerequisites",
           "mitigations",
+          "notes",
         ]}
         data={[]}
         visible={openModal}
@@ -403,7 +404,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
         hasColumn={true}
         columnConfig={{
           left: ["name", "description", "likelihood", "stride_category", "impact", "target"],
-          right: ["source", "vector", "prerequisites", "mitigations"],
+          right: ["source", "vector", "prerequisites", "mitigations", "notes"],
         }}
       />
     </div>

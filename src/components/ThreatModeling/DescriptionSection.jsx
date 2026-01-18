@@ -27,49 +27,51 @@ const DescriptionSection = memo(({ description, updateTM }) => {
 
   return (
     <div>
-      <SpaceBetween direction="horizontal" size="m">
-        <Header>Description</Header>
-        <ButtonGroup
-          onItemClick={({ detail }) => {
-            if (detail.id === "edit") {
-              handleEdit();
+      <div style={{ marginBottom: "10px" }}>
+        <SpaceBetween direction="horizontal" size="m">
+          <Header>Description</Header>
+          <ButtonGroup
+            onItemClick={({ detail }) => {
+              if (detail.id === "edit") {
+                handleEdit();
+              }
+              if (detail.id === "confirm") {
+                handleConfirm();
+              }
+              if (detail.id === "cancel") {
+                handleCancel();
+              }
+            }}
+            ariaLabel="actions"
+            items={
+              editMode
+                ? [
+                    {
+                      type: "icon-button",
+                      id: "confirm",
+                      iconName: "check",
+                      text: "Confirm",
+                    },
+                    {
+                      type: "icon-button",
+                      id: "cancel",
+                      iconName: "close",
+                      text: "Cancel",
+                    },
+                  ]
+                : [
+                    {
+                      type: "icon-button",
+                      id: "edit",
+                      iconName: "edit",
+                      text: "Edit",
+                    },
+                  ]
             }
-            if (detail.id === "confirm") {
-              handleConfirm();
-            }
-            if (detail.id === "cancel") {
-              handleCancel();
-            }
-          }}
-          ariaLabel="actions"
-          items={
-            editMode
-              ? [
-                  {
-                    type: "icon-button",
-                    id: "confirm",
-                    iconName: "check",
-                    text: "Confirm",
-                  },
-                  {
-                    type: "icon-button",
-                    id: "cancel",
-                    iconName: "close",
-                    text: "Cancel",
-                  },
-                ]
-              : [
-                  {
-                    type: "icon-button",
-                    id: "edit",
-                    iconName: "edit",
-                    text: "Edit",
-                  },
-                ]
-          }
-          variant="icon"
-        />
-      </SpaceBetween>
+            variant="icon"
+          />
+        </SpaceBetween>
+      </div>
       {!editMode ? (
         <Container disableHeaderPaddings disableContentPaddings>
           <div style={{ marginLeft: "24px", marginRight: "24px" }}>

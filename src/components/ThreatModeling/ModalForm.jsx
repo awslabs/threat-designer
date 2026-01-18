@@ -66,6 +66,10 @@ export const ModalComponent = ({
   const validateForm = (formData) => {
     return headers.every((header) => {
       const key = header.toLowerCase();
+      // Notes field is optional - skip validation
+      if (key === "notes") {
+        return true;
+      }
       if (key === "mitigations") {
         return formData.mitigations && formData.mitigations.length > 0;
       }
@@ -219,6 +223,20 @@ export const ModalComponent = ({
               }}
             />
           </SpaceBetween>
+        </FormField>
+      );
+    }
+
+    // Special handling for notes field - use Textarea (optional field)
+    if (key === "notes") {
+      return (
+        <FormField key={key} label={label}>
+          <Textarea
+            onChange={({ detail }) => handleInputChange(key, detail.value)}
+            value={tempFormData[key] || ""}
+            placeholder="Add your notes here..."
+            rows={3}
+          />
         </FormField>
       );
     }

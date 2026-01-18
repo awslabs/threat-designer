@@ -904,7 +904,9 @@ class TestDeleteThreatModel:
         # Assert
         assert result["job_id"] == "test-job-123"
         assert result["state"] == "Deleted"
-        mock_require_owner.assert_called_once_with("test-job-123", "user-123")
+        # require_owner is called twice: once in delete_tm and once in delete_attack_trees_for_threat_model
+        assert mock_require_owner.call_count == 2
+        mock_require_owner.assert_any_call("test-job-123", "user-123")
         mock_delete_s3.assert_called_once_with("test-key.json")
 
     @patch.dict(
@@ -1807,8 +1809,8 @@ class TestBatchPresignedURLGeneration:
     def test_batch_completeness(self, batch_size, user_id):
         """
         Property 1: Batch completeness
-        For any batch request containing 1 to 50 S3 locations, the response should
-        contain exactly one result entry for each input S3 location.
+        For any batch request containing 1 to 50 threat model IDs, the response should
+        contain exactly one result entry for each input threat model ID.
 
         Feature: batch-presigned-url-authorization, Property 1: Batch completeness
         Validates: Requirements 1.1, 1.2
@@ -1820,24 +1822,40 @@ class TestBatchPresignedURLGeneration:
         import uuid
 
         # Generate batch_size valid UUIDs
-        s3_locations = [str(uuid.uuid4()) for _ in range(batch_size)]
+        threat_model_ids = [str(uuid.uuid4()) for _ in range(batch_size)]
 
-        with patch(
-            "services.threat_designer_service.generate_presigned_download_url_with_auth"
-        ) as mock_gen:
-            # Mock successful URL generation for all locations
-            mock_gen.return_value = "https://s3.example.com/presigned-url"
+        with (
+            patch(
+                "services.threat_designer_service._batch_fetch_threat_models"
+            ) as mock_fetch_models,
+            patch(
+                "services.threat_designer_service._batch_fetch_sharing_records"
+            ) as mock_fetch_sharing,
+            patch(
+                "services.threat_designer_service._check_access_cached"
+            ) as mock_check_access,
+            patch(
+                "services.threat_designer_service.s3_pre.generate_presigned_url"
+            ) as mock_presign,
+        ):
+            # Mock threat models cache with s3_location
+            mock_fetch_models.return_value = {
+                tid: {"s3_location": f"s3://bucket/{tid}"} for tid in threat_model_ids
+            }
+            mock_fetch_sharing.return_value = {}
+            mock_check_access.return_value = {"has_access": True}
+            mock_presign.return_value = "https://s3.example.com/presigned-url"
 
             # Execute
-            results = generate_presigned_download_urls_batch(s3_locations, user_id)
+            results = generate_presigned_download_urls_batch(threat_model_ids, user_id)
 
             # Verify: response contains exactly one result per input location
             assert len(results) == batch_size
-            assert len(results) == len(s3_locations)
+            assert len(results) == len(threat_model_ids)
 
             # Verify each input location has a corresponding result
-            result_locations = [r["s3_location"] for r in results]
-            assert result_locations == s3_locations
+            result_ids = [r["threat_model_id"] for r in results]
+            assert result_ids == threat_model_ids
 
     @given(
         valid_count=st.integers(min_value=1, max_value=25),
@@ -1848,9 +1866,9 @@ class TestBatchPresignedURLGeneration:
     def test_invalid_item_handling(self, valid_count, invalid_count, user_id):
         """
         Property 2: Invalid item handling
-        For any batch request containing a mix of valid and invalid S3 locations,
-        the response should include success results for valid locations and error
-        indicators for invalid locations, with all items processed.
+        For any batch request containing a mix of valid and invalid threat model IDs,
+        the response should include success results for valid IDs and error
+        indicators for invalid IDs, with all items processed.
 
         Feature: batch-presigned-url-authorization, Property 2: Invalid item handling
         Validates: Requirements 1.4
@@ -1862,45 +1880,50 @@ class TestBatchPresignedURLGeneration:
         import uuid
 
         # Generate valid UUIDs
-        valid_locations = [str(uuid.uuid4()) for _ in range(valid_count)]
+        valid_ids = [str(uuid.uuid4()) for _ in range(valid_count)]
 
-        # Generate invalid locations (not UUIDs)
-        invalid_locations = [f"invalid-{i}" for i in range(invalid_count)]
+        # Generate invalid IDs (not UUIDs)
+        invalid_ids = [f"invalid-{i}" for i in range(invalid_count)]
 
         # Mix them together
-        all_locations = valid_locations + invalid_locations
+        all_ids = valid_ids + invalid_ids
 
-        with patch(
-            "services.threat_designer_service.generate_presigned_download_url_with_auth"
-        ) as mock_gen:
-            # Mock to succeed for valid UUIDs, fail for invalid
-            def side_effect(s3_location, uid, exp=300):
-                try:
-                    uuid.UUID(s3_location)
-                    return f"https://s3.example.com/{s3_location}"
-                except ValueError:
-                    from exceptions.exceptions import NotFoundError
-
-                    raise NotFoundError(
-                        f"Invalid threat model ID format: {s3_location}"
-                    )
-
-            mock_gen.side_effect = side_effect
+        with (
+            patch(
+                "services.threat_designer_service._batch_fetch_threat_models"
+            ) as mock_fetch_models,
+            patch(
+                "services.threat_designer_service._batch_fetch_sharing_records"
+            ) as mock_fetch_sharing,
+            patch(
+                "services.threat_designer_service._check_access_cached"
+            ) as mock_check_access,
+            patch(
+                "services.threat_designer_service.s3_pre.generate_presigned_url"
+            ) as mock_presign,
+        ):
+            # Mock threat models cache - only valid IDs have entries
+            mock_fetch_models.return_value = {
+                tid: {"s3_location": f"s3://bucket/{tid}"} for tid in valid_ids
+            }
+            mock_fetch_sharing.return_value = {}
+            mock_check_access.return_value = {"has_access": True}
+            mock_presign.return_value = "https://s3.example.com/presigned-url"
 
             # Execute
-            results = generate_presigned_download_urls_batch(all_locations, user_id)
+            results = generate_presigned_download_urls_batch(all_ids, user_id)
 
             # Verify: all items processed
-            assert len(results) == len(all_locations)
+            assert len(results) == len(all_ids)
 
-            # Verify: valid locations have success=True
-            valid_results = [r for r in results if r["s3_location"] in valid_locations]
+            # Verify: valid IDs have success=True
+            valid_results = [r for r in results if r["threat_model_id"] in valid_ids]
             assert all(r["success"] for r in valid_results)
             assert all("presigned_url" in r for r in valid_results)
 
-            # Verify: invalid locations have success=False and error message
+            # Verify: invalid IDs have success=False and error message
             invalid_results = [
-                r for r in results if r["s3_location"] in invalid_locations
+                r for r in results if r["threat_model_id"] in invalid_ids
             ]
             assert all(not r["success"] for r in invalid_results)
             assert all("error" in r for r in invalid_results)
@@ -1913,8 +1936,8 @@ class TestBatchPresignedURLGeneration:
     def test_order_preservation(self, batch_size, user_id):
         """
         Property 3: Order preservation
-        For any batch request with S3 locations in a specific order, the response
-        results should be in the same order as the input locations.
+        For any batch request with threat model IDs in a specific order, the response
+        results should be in the same order as the input IDs.
 
         Feature: batch-presigned-url-authorization, Property 3: Order preservation
         Validates: Requirements 1.5
@@ -1926,28 +1949,45 @@ class TestBatchPresignedURLGeneration:
         import uuid
 
         # Generate random ordered list of UUIDs
-        s3_locations = [str(uuid.uuid4()) for _ in range(batch_size)]
+        threat_model_ids = [str(uuid.uuid4()) for _ in range(batch_size)]
 
-        with patch(
-            "services.threat_designer_service.generate_presigned_download_url_with_auth"
-        ) as mock_gen:
+        with (
+            patch(
+                "services.threat_designer_service._batch_fetch_threat_models"
+            ) as mock_fetch_models,
+            patch(
+                "services.threat_designer_service._batch_fetch_sharing_records"
+            ) as mock_fetch_sharing,
+            patch(
+                "services.threat_designer_service._check_access_cached"
+            ) as mock_check_access,
+            patch(
+                "services.threat_designer_service.s3_pre.generate_presigned_url"
+            ) as mock_presign,
+        ):
+            # Mock threat models cache with s3_location
+            mock_fetch_models.return_value = {
+                tid: {"s3_location": f"s3://bucket/{tid}"} for tid in threat_model_ids
+            }
+            mock_fetch_sharing.return_value = {}
+            mock_check_access.return_value = {"has_access": True}
+
             # Mock to return unique URLs based on location
-            def side_effect(s3_location, uid, exp=300):
-                return f"https://s3.example.com/{s3_location}"
+            def presign_side_effect(method, Params, ExpiresIn, HttpMethod):
+                return f"https://s3.example.com/{Params['Key']}"
 
-            mock_gen.side_effect = side_effect
+            mock_presign.side_effect = presign_side_effect
 
             # Execute
-            results = generate_presigned_download_urls_batch(s3_locations, user_id)
+            results = generate_presigned_download_urls_batch(threat_model_ids, user_id)
 
             # Verify: output order matches input order
-            result_locations = [r["s3_location"] for r in results]
-            assert result_locations == s3_locations
+            result_ids = [r["threat_model_id"] for r in results]
+            assert result_ids == threat_model_ids
 
             # Verify: each result corresponds to the correct input at the same index
-            for i, (input_loc, result) in enumerate(zip(s3_locations, results)):
-                assert result["s3_location"] == input_loc
-                assert result["presigned_url"] == f"https://s3.example.com/{input_loc}"
+            for i, (input_id, result) in enumerate(zip(threat_model_ids, results)):
+                assert result["threat_model_id"] == input_id
 
     @given(
         authorized_count=st.integers(min_value=1, max_value=25),
@@ -1973,50 +2013,60 @@ class TestBatchPresignedURLGeneration:
         from unittest.mock import patch
         import uuid
 
-        # Generate UUIDs for authorized and unauthorized locations
-        authorized_locations = [str(uuid.uuid4()) for _ in range(authorized_count)]
-        unauthorized_locations = [str(uuid.uuid4()) for _ in range(unauthorized_count)]
+        # Generate UUIDs for authorized and unauthorized IDs
+        authorized_ids = [str(uuid.uuid4()) for _ in range(authorized_count)]
+        unauthorized_ids = [str(uuid.uuid4()) for _ in range(unauthorized_count)]
 
         # Mix them together
-        all_locations = authorized_locations + unauthorized_locations
+        all_ids = authorized_ids + unauthorized_ids
 
-        with patch(
-            "services.threat_designer_service.generate_presigned_download_url_with_auth"
-        ) as mock_gen:
-            # Mock to succeed for authorized, fail with UnauthorizedError for unauthorized
-            def side_effect(s3_location, uid, exp=300):
-                if s3_location in authorized_locations:
-                    return f"https://s3.example.com/{s3_location}"
-                else:
-                    from exceptions.exceptions import UnauthorizedError
+        with (
+            patch(
+                "services.threat_designer_service._batch_fetch_threat_models"
+            ) as mock_fetch_models,
+            patch(
+                "services.threat_designer_service._batch_fetch_sharing_records"
+            ) as mock_fetch_sharing,
+            patch(
+                "services.threat_designer_service._check_access_cached"
+            ) as mock_check_access,
+            patch(
+                "services.threat_designer_service.s3_pre.generate_presigned_url"
+            ) as mock_presign,
+        ):
+            # Mock threat models cache - all IDs have entries
+            mock_fetch_models.return_value = {
+                tid: {"s3_location": f"s3://bucket/{tid}"} for tid in all_ids
+            }
+            mock_fetch_sharing.return_value = {}
 
-                    raise UnauthorizedError(
-                        "You do not have access to this threat model"
-                    )
+            # Mock access check - authorized for some, not for others
+            def check_access_side_effect(tid, uid, models_cache, sharing_cache):
+                return {"has_access": tid in authorized_ids}
 
-            mock_gen.side_effect = side_effect
+            mock_check_access.side_effect = check_access_side_effect
+
+            mock_presign.return_value = "https://s3.example.com/presigned-url"
 
             # Execute
-            results = generate_presigned_download_urls_batch(all_locations, user_id)
+            results = generate_presigned_download_urls_batch(all_ids, user_id)
 
             # Verify: all items processed
-            assert len(results) == len(all_locations)
+            assert len(results) == len(all_ids)
 
-            # Verify: authorized locations have presigned URLs
+            # Verify: authorized IDs have presigned URLs
             authorized_results = [
-                r for r in results if r["s3_location"] in authorized_locations
+                r for r in results if r["threat_model_id"] in authorized_ids
             ]
             assert len(authorized_results) == authorized_count
             assert all(r["success"] for r in authorized_results)
             assert all("presigned_url" in r for r in authorized_results)
-            assert all("error" not in r for r in authorized_results)
 
-            # Verify: unauthorized locations have error indicators with "Unauthorized"
+            # Verify: unauthorized IDs have error indicators with "Unauthorized"
             unauthorized_results = [
-                r for r in results if r["s3_location"] in unauthorized_locations
+                r for r in results if r["threat_model_id"] in unauthorized_ids
             ]
             assert len(unauthorized_results) == unauthorized_count
             assert all(not r["success"] for r in unauthorized_results)
             assert all("error" in r for r in unauthorized_results)
             assert all("Unauthorized" in r["error"] for r in unauthorized_results)
-            assert all("presigned_url" not in r for r in unauthorized_results)

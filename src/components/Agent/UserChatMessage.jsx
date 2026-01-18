@@ -66,6 +66,7 @@ const UserChatMessage = React.memo(({ message, user }) => {
             type="text"
             thinkingLoading={false}
             isBlockComplete={true}
+            disableMarkdown={true}
           />
         </div>
       </div>

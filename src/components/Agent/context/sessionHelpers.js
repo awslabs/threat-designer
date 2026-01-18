@@ -1,17 +1,147 @@
-import { BUFFER_DELAY_MS } from "./constants";
+/**
+ * Groups raw message array into blocks for rendering.
+ * Consecutive text/think messages are merged, tools are tracked by ID.
+ * This runs in the buffering layer so grouping happens once when messages arrive,
+ * not during every render.
+ *
+ * @param {Array} messages - Raw message array from aiMessage
+ * @param {boolean} isEnd - Whether the message stream has ended
+ * @returns {Array} - Grouped message blocks ready for rendering
+ */
+export const groupMessages = (messages, isEnd = false) => {
+  if (!messages || messages.length === 0) return [];
 
-export const emitInterruptEvent = (sessionId, interruptMessage, source = "unknown", eventBus) => {
-  eventBus.emit(
-    "CHAT_INTERRUPT",
-    {
-      sessionId,
-      interruptMessage,
-      source,
-      timestamp: Date.now(),
-    },
-    sessionId,
-    `interrupt_${sessionId}_${Date.now()}`
-  );
+  const blocks = [];
+  let currentBlock = null;
+
+  for (let i = 0; i < messages.length; i++) {
+    const item = messages[i];
+
+    // Skip interrupt messages - they don't influence block calculation
+    if (item.type === "interrupt") {
+      continue;
+    }
+
+    // Skip empty text messages
+    if (item.type === "text" && item.content === "[empty]") {
+      continue;
+    }
+
+    if (item.type === "tool") {
+      // Mark previous non-tool block as complete when transitioning to tool
+      if (currentBlock && currentBlock.type !== "tool") {
+        currentBlock.isComplete = true;
+      }
+
+      // Find existing tool block with the same id
+      const existingBlockIndex = blocks.findIndex(
+        (block) => block.type === "tool" && block.id === item.id
+      );
+
+      if (existingBlockIndex !== -1) {
+        const existingBlock = blocks[existingBlockIndex];
+
+        if (item.tool_update) {
+          existingBlock.input = item.content;
+          existingBlock.items.push(item);
+        } else if (!item.tool_start) {
+          existingBlock.content = item.content;
+          existingBlock.isComplete = true;
+          existingBlock.error = item.error;
+          existingBlock.items.push(item);
+        } else if (item.tool_start) {
+          existingBlock.isComplete = true;
+          existingBlock.interrupted = true;
+
+          blocks.push({
+            type: "tool",
+            id: item.id,
+            toolName: item.tool_name,
+            content: item.content,
+            isComplete: false,
+            error: item.error,
+            items: [item],
+          });
+        }
+      } else {
+        blocks.push({
+          type: "tool",
+          id: item.id,
+          toolName: item.tool_name,
+          content: item.content,
+          isComplete: !item.tool_start,
+          error: item.error,
+          items: [item],
+        });
+      }
+      currentBlock = null;
+    } else if ((item.type === "text" || item.type === "think") && item.content != null) {
+      if (currentBlock && currentBlock.type === item.type) {
+        currentBlock.content += item.content;
+        currentBlock.items.push(item);
+      } else {
+        if (currentBlock) {
+          currentBlock.isComplete = true;
+        }
+
+        currentBlock = {
+          type: item.type,
+          content: item.content,
+          isComplete: false,
+          items: [item],
+        };
+        blocks.push(currentBlock);
+      }
+    }
+  }
+
+  // Mark all blocks as complete when message ends
+  if (isEnd) {
+    blocks.forEach((block) => {
+      block.isComplete = true;
+    });
+  }
+
+  return blocks;
+};
+
+/**
+ * Set pending interrupt on session state
+ * Components can react to this via normal React context updates
+ */
+export const setPendingInterrupt = (sessionId, interruptMessage, source, setSessions) => {
+  setSessions((prev) => {
+    const newSessions = new Map(prev);
+    const session = newSessions.get(sessionId);
+    if (session) {
+      newSessions.set(sessionId, {
+        ...session,
+        pendingInterrupt: {
+          interruptMessage,
+          source,
+          timestamp: Date.now(),
+        },
+      });
+    }
+    return newSessions;
+  });
+};
+
+/**
+ * Clear pending interrupt after it has been handled
+ */
+export const clearPendingInterrupt = (sessionId, setSessions) => {
+  setSessions((prev) => {
+    const newSessions = new Map(prev);
+    const session = newSessions.get(sessionId);
+    if (session && session.pendingInterrupt) {
+      newSessions.set(sessionId, {
+        ...session,
+        pendingInterrupt: null,
+      });
+    }
+    return newSessions;
+  });
 };
 
 export const getSessionRefs = (sessionId, sessionRefs) => {
@@ -62,9 +192,22 @@ export const flushBuffer = (sessionId, sessionRefs, setSessions) => {
     if (session && session.chatTurns.length > 0) {
       const updatedTurns = [...session.chatTurns];
       const lastTurnIndex = updatedTurns.length - 1;
+      const lastTurn = updatedTurns[lastTurnIndex];
+
+      // Merge new messages with existing
+      const newAiMessage = [...lastTurn.aiMessage, ...bufferedMessages];
+
+      // Check if stream has ended (last message has end: true)
+      const isEnd =
+        bufferedMessages.length > 0 && bufferedMessages[bufferedMessages.length - 1]?.end === true;
+
+      // Pre-compute message blocks during buffering, not during render
+      const messageBlocks = groupMessages(newAiMessage, isEnd);
+
       updatedTurns[lastTurnIndex] = {
-        ...updatedTurns[lastTurnIndex],
-        aiMessage: [...updatedTurns[lastTurnIndex].aiMessage, ...bufferedMessages],
+        ...lastTurn,
+        aiMessage: newAiMessage,
+        messageBlocks, // Store pre-grouped blocks
       };
       newSessions.set(sessionId, { ...session, chatTurns: updatedTurns });
     }
@@ -112,21 +255,9 @@ export const addAiMessage = (sessionId, message, sessionRefs, setSessions, flush
 
   refs.buffer.push(message);
 
-  const messageType = message.type || "text";
-
-  // Use requestAnimationFrame for text/think messages for smooth rendering
-  // Use setTimeout with 2ms delay for tool messages for immediate feedback
-  if (messageType === "text" || messageType === "think") {
-    scheduleBufferFlush(sessionId, sessionRefs, setSessions, flushBufferFn);
-  } else {
-    // Tool messages: use setTimeout with minimal delay
-    if (refs.bufferTimeout) {
-      clearTimeout(refs.bufferTimeout);
-    }
-    refs.bufferTimeout = setTimeout(() => {
-      flushBufferFn(sessionId, sessionRefs, setSessions);
-    }, BUFFER_DELAY_MS);
-  }
+  // Use requestAnimationFrame for all message types for smooth, unified rendering
+  // RAF batches updates to the next frame (~16ms at 60fps), preventing jank
+  scheduleBufferFlush(sessionId, sessionRefs, setSessions, flushBufferFn);
 };
 
 export const cleanupSSE = (sessionId, sessionRefs, setSessions, flushBufferFn) => {

@@ -15,6 +15,9 @@ resource "aws_bedrockagentcore_agent_runtime" "sentry" {
     var.model_provider == "openai" ? {
       OPENAI_API_KEY = var.openai_api_key,
       MODEL_ID       = var.openai_sentry_model_id
+    } : {},
+    var.tavily_api_key != "" ? {
+      TAVILY_API_KEY = var.tavily_api_key
     } : {}
   )
   authorizer_configuration {

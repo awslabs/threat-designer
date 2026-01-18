@@ -250,6 +250,41 @@ To switch between Amazon Bedrock and OpenAI:
 
 > **Important:** Existing conversation sessions from one provider cannot be continued with a different provider. You'll need to start new threat modeling sessions after switching.
 
+### Web Search Integration (Optional Feature)
+
+Sentry can perform real-time web searches to research CVEs, vulnerabilities, and security topics using [Tavily](https://tavily.com/). This feature is **optional** and requires a Tavily API key.
+
+#### Enabling Web Search
+
+During deployment, you will be prompted:
+
+```
+Enter your Tavily API key (optional, press Enter to skip):
+(Enables web search and content extraction in Sentry assistant)
+```
+
+- **With API key**: Sentry gains access to `tavily_search` and `tavily_extract` tools for real-time security research
+- **Without API key**: Sentry works normally but cannot perform web searches
+
+#### Getting a Tavily API Key
+
+1. Sign up at [tavily.com](https://tavily.com/)
+2. Navigate to your dashboard to get your API key
+3. Keys start with `tvly-` prefix
+
+#### Web Search Capabilities
+
+When enabled, Sentry can:
+
+- Search for CVEs and vulnerability information
+- Research threat intelligence and attack techniques
+- Look up technical security documentation
+- Extract content from security advisories and research papers
+
+Web search is focused on security-related topics and will not search for general information, people, or organizations.
+
+---
+
 ### Sentry AI Assistant (Optional Feature)
 
 Sentry is an AI-powered assistant that helps you analyze and explore threat models through conversational interaction. This feature is **optional** and can be enabled or disabled during deployment.

@@ -431,7 +431,66 @@ class Threat(BaseModel):
     vector: str                  # Attack pathway
 ```
 
-### 4.2 MCP (Model Context Protocol) Integration
+### 4.2 Web Search Tools (Optional)
+
+Sentry supports real-time web search capabilities through Tavily integration. These tools are **optional** and only available when a Tavily API key is configured during deployment.
+
+**tavily_search**
+
+- Performs security-focused web searches
+- Returns up to 10 results with titles, URLs, and content snippets
+- Optimized for CVEs, vulnerabilities, and security research
+- Results displayed in expandable UI panel
+
+**tavily_extract**
+
+- Extracts content from specific URLs
+- Reads security advisories, documentation, and research papers
+- Returns structured content for analysis
+- Useful for deep-diving into search results
+
+**Search Response Format:**
+
+```json
+{
+  "results": [
+    {
+      "title": "CVE-2024-XXXX - Security Advisory",
+      "url": "https://example.com/advisory",
+      "content": "Detailed vulnerability description...",
+      "score": 0.95
+    }
+  ],
+  "query": "original search query"
+}
+```
+
+**Extract Response Format:**
+
+```json
+{
+  "results": [
+    {
+      "url": "https://example.com/page",
+      "raw_content": "Full extracted content..."
+    }
+  ]
+}
+```
+
+**Citation System:**
+
+When Sentry uses web search results, it cites sources using index-based references:
+
+- Format: `[X:Y]` where X = search call number, Y = result index (1-indexed)
+- Multiple citations: `[1:1, 1:2, 2:3]`
+- UI renders citations as clickable links to original sources
+
+**Configuration:**
+
+Web search tools are automatically enabled when `TAVILY_API_KEY` environment variable is set. The tools are registered alongside native and MCP tools during agent initialization.
+
+### 4.3 MCP (Model Context Protocol) Integration
 
 MCP (Model Context Protocol) extends Sentry's capabilities by allowing integration of external tools beyond the native threat modeling tools. This enables the agent to access additional resources like documentation, APIs, or specialized services.
 
@@ -462,7 +521,7 @@ To add or modify external tools, update this configuration file with the appropr
 5. Merge with native tools
 6. Register in tool registry
 
-### 4.3 Tool Preferences
+### 4.4 Tool Preferences
 
 **Preference Modes:**
 
@@ -481,7 +540,7 @@ else:
     return filter_tools(preferences, all_tools)
 ```
 
-### 4.4 Interrupt Mechanism
+### 4.5 Interrupt Mechanism
 
 The native threat modeling tools (see **Section 4.1**) use LangGraph interrupts for UI interaction:
 

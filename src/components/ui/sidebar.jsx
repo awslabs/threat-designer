@@ -190,7 +190,7 @@ const Sidebar = React.forwardRef(
               : state === "collapsed" && collapsible === "offcanvas"
                 ? "0"
                 : "var(--sidebar-width)",
-          transition: "width 500ms cubic-bezier(0.4, 0, 0.2, 1)",
+          transition: "width 200ms cubic-bezier(0.4, 0, 0.2, 1)",
           overflow: "hidden",
         }}
         {...props}
@@ -279,7 +279,7 @@ const SidebarInset = React.forwardRef(({ className, ...props }, ref) => {
       )}
       style={{
         marginLeft: state === "collapsed" ? "0" : "var(--sidebar-width)",
-        transition: "margin-left 500ms cubic-bezier(0.4, 0, 0.2, 1)",
+        transition: "margin-left 200ms cubic-bezier(0.4, 0, 0.2, 1)",
       }}
       {...props}
     />

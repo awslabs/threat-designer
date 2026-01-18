@@ -42,7 +42,7 @@ variable "lambda_concurrency" {
 variable "provisioned_lambda_concurrency" {
   type        = number
   description = "Provision concurrency setting for the lambda"
-  default     = 16
+  default     = 12
 }
 
 variable "reasoning_models" {
@@ -353,4 +353,11 @@ variable "openai_sentry_model_id" {
   type        = string
   description = "OpenAI model ID for Sentry assistant"
   default     = "gpt-5.2-2025-12-11"
+}
+
+variable "tavily_api_key" {
+  type        = string
+  description = "Tavily API key for web search and content extraction (optional)"
+  default     = ""
+  sensitive   = true
 }

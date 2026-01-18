@@ -214,6 +214,13 @@ class Threat(BaseModel):
             description="User-defined flag for prioritization or tracking. Ignored by automated threat modeling agents",
         ),
     ] = False
+    notes: Annotated[
+        Optional[str],
+        Field(
+            description="Reserved for user annotations. Do not read or write this field.",
+            default=None,
+        ),
+    ] = None
 
 
 class ThreatsList(BaseModel):

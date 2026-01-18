@@ -14,6 +14,7 @@ import Box from "@cloudscape-design/components/box";
 import { ModalComponent } from "./ModalForm.jsx";
 import ToggleButton from "@cloudscape-design/components/toggle-button";
 import AttackTreeButton from "./AttackTreeButton.jsx";
+import NotesSection from "./NotesSection.jsx";
 
 export const ThreatComponent = React.memo((props) => {
   const [items, setItems] = React.useState([]);
@@ -139,7 +140,7 @@ export const ThreatComponent = React.memo((props) => {
         >
           <div style={{ marginTop: 5 }}>{props?.data?.description}</div>
           <SpaceBetween>
-            <Header variant="h3">Mitigations:</Header>
+            <Header variant="h3">Mitigations</Header>
             <TokenGroup
               onDismiss={({ detail: { itemIndex } }) => {
                 setItems([...items.slice(0, itemIndex), ...items.slice(itemIndex + 1)]);
@@ -174,6 +175,16 @@ export const ThreatComponent = React.memo((props) => {
                     <strong>Prerequisites:</strong>{" "}
                     {props?.data?.prerequisites?.join(", ") || "None"}
                   </div>
+                  <NotesSection
+                    notes={props?.data?.notes}
+                    onSave={(newNotes) =>
+                      props?.updateData(props?.type, props?.index, {
+                        ...props?.data,
+                        notes: newNotes,
+                      })
+                    }
+                    isReadOnly={props?.isReadOnly}
+                  />
                 </SpaceBetween>
               </Box>
             </div>
@@ -192,7 +203,7 @@ export const ThreatComponent = React.memo((props) => {
         hasColumn={true}
         columnConfig={{
           left: ["name", "description", "likelihood", "stride_category", "impact", "target"],
-          right: ["source", "vector", "prerequisites", "mitigations"],
+          right: ["source", "vector", "prerequisites", "mitigations", "notes"],
         }}
       />
     </>

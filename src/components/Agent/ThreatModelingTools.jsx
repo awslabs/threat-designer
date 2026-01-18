@@ -2,6 +2,7 @@ import React from "react";
 import ToolContent from "./ToolContent";
 import List from "@cloudscape-design/components/list";
 import { CodeBlock } from "./CodeBlock";
+import WebSearchTool from "./WebSearchTool";
 
 const ListComponent = ({ threats }) => {
   if (!threats || threats.length === 0) {
@@ -67,6 +68,24 @@ const toolConfig = (toolName, state, msg) => {
 
 const ThreatModelingTools = React.memo(
   ({ toolName, content, toolStart, error, isParentFirstMount }) => {
+    // Check if this is a web search tool
+    const isWebSearchTool = toolName === "tavily_search";
+    const isExtractTool = toolName === "tavily_extract";
+
+    // Handle web search tool separately
+    if (isWebSearchTool) {
+      return (
+        <WebSearchTool content={content} isLoading={toolStart} error={error} toolType="search" />
+      );
+    }
+
+    // Handle extract tool separately
+    if (isExtractTool) {
+      return (
+        <WebSearchTool content={content} isLoading={toolStart} error={error} toolType="extract" />
+      );
+    }
+
     // Check if this is a known threat modeling tool
     const isKnownTool = ["add_threats", "edit_threats", "delete_threats"].includes(toolName);
 

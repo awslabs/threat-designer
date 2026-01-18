@@ -142,6 +142,42 @@ Get context-specific guidance:
 - "What are the encryption options for RDS in my region?"
 - "How should I configure S3 bucket policies for this data flow?"
 
+### Web Search Integration (Optional)
+
+If configured with a Tavily API key during deployment, Sentry can perform **real-time web searches** for security research:
+
+**Security-Focused Search**  
+Sentry can search for:
+
+- CVEs and vulnerability details (e.g., "Search for CVE-2024-XXXX")
+- Threat intelligence and attack techniques
+- Security advisories and patches
+- Technical security research and documentation
+
+**Content Extraction**  
+Sentry can read and extract information from:
+
+- Security advisories and bulletins
+- Vulnerability databases
+- Technical blog posts and research papers
+- Official security documentation
+
+**Example queries:**
+
+- "Search for recent vulnerabilities affecting Apache Log4j"
+- "Find information about OWASP Top 10 2024 changes"
+- "Look up best practices for JWT token security"
+- "Research attack techniques for API authentication bypass"
+
+**How it works:**
+
+1. Sentry searches using Tavily's security-focused search
+2. Results appear in an expandable "Searched X sources" panel
+3. Sentry cites sources using numbered references like `[1:1]`, `[1:2]`
+4. Click citations to open the original source
+
+**Note:** Web search is intentionally conservative and focused on security topics. Sentry will not search for general information, people, or organizations.
+
 ### Change Management
 
 When Sentry makes modifications:
@@ -312,6 +348,16 @@ Then drill into specific areas Sentry identifies as needing attention.
 **Goal**: Focus remediation efforts
 
 "Help me prioritize my threat catalog. Which threats pose the highest risk given that this is a public-facing application handling sensitive health data?"
+
+### Scenario 7: Security Research (Requires Tavily API Key)
+
+**Goal**: Research specific vulnerabilities or attack techniques
+
+"Search for recent CVEs affecting the version of OpenSSL we're using"
+
+Then follow up with:
+
+"Based on those vulnerabilities, add any relevant threats to my catalog"
 
 ## Tips for Success
 

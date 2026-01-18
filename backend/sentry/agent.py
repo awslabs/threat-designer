@@ -13,6 +13,7 @@ from exceptions import MissingHeader
 from utils import logger, load_mcp_config
 from config import ALL_AVAILABLE_TOOLS
 from tools import add_threats, edit_threats, delete_threats
+from tavily_tools import get_tavily_tools
 import jwt
 
 
@@ -59,6 +60,16 @@ async def lifespan(app: FastAPI):
     try:
         ALL_AVAILABLE_TOOLS.clear()
         ALL_AVAILABLE_TOOLS.extend(filtered_mcp_tools)
+
+        # Load Tavily tools if configured
+        tavily_tools = get_tavily_tools()
+
+        if tavily_tools:
+            logger.info(
+                f"Loaded {len(tavily_tools)} Tavily tools: {[t.name for t in tavily_tools]}"
+            )
+            ALL_AVAILABLE_TOOLS.extend(tavily_tools)
+
         ALL_AVAILABLE_TOOLS.extend([add_threats, edit_threats, delete_threats])
         await agent_manager.initialize_default_agent()
     except Exception as e:

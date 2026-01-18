@@ -59,6 +59,11 @@
   width: 100%;
 }
 
+.status-main.clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
 .status-indicator {
   display: flex;
   align-items: center;

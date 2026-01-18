@@ -427,13 +427,24 @@ async def get_or_create_agent(
                 else:
                     logger.warning(f"Failed to retrieve diagram data: {diagram_path}")
 
+            # Check if Tavily tools are in the selected tools
+            tavily_enabled = any(
+                tool.name in ("tavily_search", "tavily_extract") for tool in new_tools
+            )
+
             # Generate system prompt with enhanced context
             if context:
-                prompt = system_prompt(context)
-                logger.info("Using context-based system prompt")
+                prompt = system_prompt(context, tavily_enabled=tavily_enabled)
+                logger.info(
+                    f"Using context-based system prompt (tavily_enabled={tavily_enabled})"
+                )
             else:
-                prompt = system_prompt({})  # Default empty context
-                logger.info("Using default system prompt (empty context)")
+                prompt = system_prompt(
+                    {}, tavily_enabled=tavily_enabled
+                )  # Default empty context
+                logger.info(
+                    f"Using default system prompt (empty context, tavily_enabled={tavily_enabled})"
+                )
 
             # Create new agent
             new_agent = create_react_agent(

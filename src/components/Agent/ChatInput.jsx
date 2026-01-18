@@ -121,8 +121,10 @@ const ChatInput = ({
       };
 
       if (selectedThreat) {
+        // Strip notes from threat_in_focus to reduce payload
+        const { notes, ...threatWithoutNotes } = selectedThreat;
         messageData.context = {
-          threat_in_focus: selectedThreat,
+          threat_in_focus: threatWithoutNotes,
         };
       }
 

@@ -91,7 +91,12 @@ const ToolContent = React.memo(
         ref={containerRef}
         className={`status-container ${config.className} ${effectiveTheme} ${isExpanded ? "expanded" : ""} ${!hasChildren ? "no-children" : ""} ${shouldExpandWidth ? "width-expanded" : ""}`}
       >
-        <div className="status-main">
+        <div
+          className={`status-main ${showExpandButton && hasChildren && state !== "loading" ? "clickable" : ""}`}
+          onClick={
+            showExpandButton && hasChildren && state !== "loading" ? handleExpand : undefined
+          }
+        >
           <div className="status-indicator">
             {config.icon}
             <span className="status-text">{text}</span>
@@ -101,7 +106,6 @@ const ToolContent = React.memo(
             {showExpandButton && hasChildren && state !== "loading" && (
               <button
                 className={`expand-button ${effectiveTheme}`}
-                onClick={handleExpand}
                 aria-label={isExpanded ? "Collapse" : "Expand"}
               >
                 <svg

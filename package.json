@@ -68,7 +68,7 @@
     "dompurify": "^3.2.4",
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.7",
-    "lodash": "^4.17.21",
+    "lodash": "^4.17.23",
     "lucide-react": "^0.539.0",
     "marked": "^16.3.0",
     "mdast-util-to-hast": "^13.2.1",

@@ -91,7 +91,7 @@
 .chat-textarea {
   width: 100%;
   background: transparent;
-  font-size: 16px;
+  font-size: var(--font-size-base, 14px);
   line-height: 1.5;
   padding: var(--spacing-sm) 0;
   resize: none;
@@ -110,7 +110,7 @@
 
 .chat-textarea::placeholder {
   color: var(--token-text-placeholder);
-  font-size: 14px;
+  font-size: var(--font-size-base, 14px);
 }
 
 .chat-textarea::-webkit-scrollbar {
@@ -139,7 +139,7 @@
   background: transparent;
   padding: var(--spacing-sm);
   border-radius: var(--radius-lg);
-  font-size: 14px;
+  font-size: var(--font-size-base, 14px);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -256,7 +256,7 @@
 .button-label {
   font-weight: 500;
   margin-left: var(--spacing-xs);
-  font-size: 14px;
+  font-size: var(--font-size-base, 14px);
 }
 
 .action-button:not(.toggle-button) .button-main-content {

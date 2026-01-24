@@ -2,10 +2,10 @@
 .citation-label {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  font-size: 11px;
+  gap: 2px;
+  font-size: var(--font-size-sm, 12px);
   font-weight: 500;
-  padding: 1px 6px;
+  padding: 0px 4px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -192,4 +192,30 @@ html.awsui-dark-mode .citation-external-icon {
 
 .citation-link-item:hover .citation-external-icon {
   opacity: 1;
+}
+
+
+/* Citation Loading Placeholder - shown during streaming */
+.citation-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--font-size-sm, 12px);
+  font-weight: 500;
+  padding: 0px 4px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.1);
+  vertical-align: text-bottom;
+  position: relative;
+  top: -1px;
+  margin: 0 1px;
+  width: 50px;
+  height: 18px;
+  max-width: 140px;
+}
+
+/* Dark mode support for loading placeholder */
+html.dark .citation-loading,
+html.awsui-dark-mode .citation-loading {
+  background: rgba(96, 165, 250, 0.12);
 }

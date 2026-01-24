@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import MessageAvatar from "./MessageAvatar";
 import ChatButtons from "./ChatButtons";
 import ContentResolver from "./ContentResolver";
+import WebSearchToolGroup from "./WebSearchToolGroup";
 
 /**
  * Custom comparison function for ChatMessage memoization.
@@ -78,13 +79,65 @@ const arePropsEqual = (prevProps, nextProps) => {
 
 const ChatMessage = React.memo(
   ({ message, messageBlocks, webSearchResults, streaming, isLast, scroll, isParentFirstMount }) => {
-    const [inputHeight] = React.useState(275);
+    const [inputHeight] = React.useState(270);
     const isEnd = message?.[message.length - 1]?.end === true;
     const hasScrolled = useRef(false);
     const messageRef = useRef(null);
 
     // Use pre-computed blocks from buffering layer, fallback to empty array
     const blocks = messageBlocks || [];
+
+    // Group consecutive web search tools into single UI elements
+    // Only group same tool types together (search with search, extract with extract)
+    const groupedBlocks = useMemo(() => {
+      const result = [];
+      let currentSearchGroup = [];
+      let currentGroupType = null; // 'search' or 'extract'
+
+      const getToolType = (block) => {
+        if (block.type !== "tool") return null;
+        if (block.toolName === "tavily_search") return "search";
+        if (block.toolName === "tavily_extract") return "extract";
+        return null;
+      };
+
+      const flushSearchGroup = (followedByNonSearch = false) => {
+        if (currentSearchGroup.length > 0) {
+          result.push({
+            type: "search_group",
+            toolType: currentGroupType, // 'search' or 'extract'
+            blocks: [...currentSearchGroup],
+            id: `search_group_${currentSearchGroup[0].id || result.length}`,
+            // Group is complete if followed by non-search block OR stream ended
+            isGroupComplete: followedByNonSearch || isEnd,
+          });
+          currentSearchGroup = [];
+          currentGroupType = null;
+        }
+      };
+
+      blocks.forEach((block) => {
+        const toolType = getToolType(block);
+        
+        if (toolType) {
+          // If switching tool types, flush the current group first
+          if (currentGroupType && currentGroupType !== toolType) {
+            flushSearchGroup(true);
+          }
+          currentGroupType = toolType;
+          currentSearchGroup.push(block);
+        } else {
+          // Flush with followedByNonSearch = true since we hit a non-search block
+          flushSearchGroup(true);
+          result.push(block);
+        }
+      });
+
+      // Trailing search tools - only complete if stream ended
+      flushSearchGroup(false);
+
+      return result;
+    }, [blocks, isEnd]);
 
     useEffect(() => {
       if (isLast && !hasScrolled.current) {
@@ -120,11 +173,24 @@ const ChatMessage = React.memo(
               backgroundColor: "",
             }}
           >
-            {blocks.map((block, index) => {
-              const nextBlock = blocks[index + 1];
+            {groupedBlocks.map((block, index) => {
+              const nextBlock = groupedBlocks[index + 1];
 
               // Add spacing between all blocks when there's a next block
               const marginBottom = nextBlock ? "16px" : "2px";
+
+              // Handle grouped search tools
+              if (block.type === "search_group") {
+                return (
+                  <div key={block.id} style={{ marginBottom }}>
+                    <WebSearchToolGroup 
+                      blocks={block.blocks} 
+                      isGroupComplete={block.isGroupComplete}
+                      toolType={block.toolType}
+                    />
+                  </div>
+                );
+              }
 
               return (
                 <div key={index} style={{ marginBottom }}>

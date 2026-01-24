@@ -299,18 +299,17 @@ div[style="overflow: auto"]::-webkit-scrollbar {
 
 .scroll-view {
   position: absolute;
-  bottom: 0; /* Adjust as needed */
-  margin-bottom: 5px;
+  bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   justify-content: center;
-  align-items: center; /* Changed from align-content for better centering */
+  align-items: center;
   border: none;
   cursor: pointer;
-  z-index: 900;
+  z-index: 100;
   background-color: transparent;
-  pointer-events: auto; /* Ensure the button is clickable */
+  pointer-events: auto;
 }
 
 .scroll-buttons-container.welcome {
@@ -436,10 +435,29 @@ div[style="overflow: auto"]::-webkit-scrollbar {
   overflow-x: hidden !important;
   scrollbar-width: none !important; /* Firefox */
   -ms-overflow-style: none !important; /* Internet Explorer and Edge */
+  /* Smooth appearance to prevent flash during streaming */
+  min-height: 40px;
+  animation: codeBlockFadeIn 0.1s ease-out;
+}
+
+@keyframes codeBlockFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Hide scrollbars on code blocks - CSS-only solution */
+pre.ace-cloud_editor {
+  overflow-x: scroll !important;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE/Edge */
 }
 
 pre.ace-cloud_editor::-webkit-scrollbar {
-  display: none !important;
+  display: none !important; /* Chrome, Safari, Opera */
 }
 
 .knowledgebase-input-fixed {
@@ -481,4 +499,14 @@ pre.ace-cloud_editor::-webkit-scrollbar {
 
 .code-block-container .ace-cloud_editor_dark {
   background-color: #171717 !important;
+}
+
+/* Inline code styling */
+.inline-code {
+  background-color: rgba(135, 131, 120, 0.15);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.875em;
+  white-space: nowrap;
 }

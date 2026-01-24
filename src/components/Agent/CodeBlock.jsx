@@ -9,9 +9,13 @@ export const CodeBlock = React.memo(({ code, language, width = "95%" }) => {
   const codeBlockRef = useRef(null);
 
   useEffect(() => {
+    // Apply styles only to code blocks within this component's container
+    // This runs once on mount and when the container changes
+    if (!codeBlockRef.current) return;
+
     const applyStyles = () => {
-      const codeBlocks = document.querySelectorAll("pre.ace-cloud_editor");
-      codeBlocks.forEach((el) => {
+      const codeBlocks = codeBlockRef.current?.querySelectorAll("pre.ace-cloud_editor");
+      codeBlocks?.forEach((el) => {
         Object.assign(el.style, {
           overflowX: "scroll",
           scrollbarWidth: "none",
@@ -20,11 +24,18 @@ export const CodeBlock = React.memo(({ code, language, width = "95%" }) => {
       });
     };
 
-    applyStyles();
+    // Apply styles once after a short delay to ensure CodeView has rendered
+    const timeoutId = setTimeout(applyStyles, 50);
+
+    // Only observe this specific container, not the entire document
     const observer = new MutationObserver(applyStyles);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, []);
+    observer.observe(codeBlockRef.current, { childList: true, subtree: true });
+
+    return () => {
+      clearTimeout(timeoutId);
+      observer.disconnect();
+    };
+  }, [code]); // Re-run when code changes
 
   return (
     <div ref={codeBlockRef} className="code-block-container" style={{ width: width }}>

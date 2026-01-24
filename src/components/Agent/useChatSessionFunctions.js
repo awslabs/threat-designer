@@ -261,10 +261,6 @@ export const useChatSessionFunctions = (props) => {
 
             const interruptMessage = checkForInterruptInChatTurns(chatTurns);
             if (interruptMessage) {
-              console.log(
-                `Interrupt found in session ${sessionId} loaded from memory:`,
-                interruptMessage
-              );
               setPendingInterrupt(sessionId, interruptMessage, "memory", setSessions);
             }
 
@@ -473,7 +469,6 @@ export const useChatSessionFunctions = (props) => {
                     const data = JSON.parse(jsonStr);
 
                     if (data.type === "interrupt") {
-                      console.log(`Interrupt received for session ${sessionId}:`, data.content);
                       setPendingInterrupt(sessionId, data, "sse", setSessions);
                       return;
                     }
@@ -504,7 +499,6 @@ export const useChatSessionFunctions = (props) => {
                 if (jsonStr) {
                   const data = JSON.parse(jsonStr);
                   if (data.type === "interrupt") {
-                    console.log(`Interrupt received for session ${sessionId}:`, data.content);
                     setPendingInterrupt(sessionId, data, "sse", setSessions);
                   } else {
                     addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);

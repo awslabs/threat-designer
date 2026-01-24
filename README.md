@@ -134,7 +134,7 @@ You must enable access to the following models in your AWS region:
 - **Claude 4.5 Sonnet**
 - **Claude 4.5 Haiku**
 
-To enable Claude models, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
+To enable Claude models, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html). Make sure you are already subscribed to the models otherwise you will receive an ```AccessDeniedException``` exception whe using the application.
 
 > **Note:** If deploying in a non-US region, verify the inference profile ID for your region. See [Supported Regions and models for inference profiles](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html).
 

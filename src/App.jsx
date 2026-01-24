@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import AppLayoutMFE from "./components/AppLayoutMFE/AppLayoutMFE";
 import LoginPageInternal from "./pages/Landingpage/Landingpage";
 import { Spinner } from "@cloudscape-design/components";
-import { getUser } from "./services/Auth/auth";
+import { getUser, logOut } from "./services/Auth/auth";
 import { SpaceBetween } from "@cloudscape-design/components";
 import { SplitPanelProvider } from "./SplitPanelContext";
 import customTheme from "./customTheme";
@@ -116,11 +116,21 @@ const App = () => {
       console.log(error);
       setAuthUser(null);
     } finally {
-      setTimeout(() => {
-        setLoading(false);
-      }, 2000);
+      setLoading(false);
     }
   };
+
+  const handleLogout = useCallback(async () => {
+    setLoading(true);
+    try {
+      await logOut();
+      setAuthUser(null);
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   return (
     <div>
@@ -145,7 +155,7 @@ const App = () => {
                     colorMode={colorMode}
                     effectiveTheme={effectiveTheme}
                     setThemeMode={setThemeMode}
-                    setAuthUser={checkAuthState}
+                    onLogout={handleLogout}
                   />
                   <SidebarInset>
                     <AppLayoutMFE

@@ -154,17 +154,17 @@ const ThreatModelingTools = React.memo(
 
     // Render appropriate child component based on tool type
     const renderContent = () => {
-      // Handle errors for known threat modeling tools
-      if (isKnownTool && error) {
-        return <span style={{ fontSize: "14px" }}>{parsedContent?.response || parsedContent}</span>;
+      // Handle errors - return null to hide dropdown
+      if (currentState === "error") {
+        return null;
       }
 
       // Handle content for known threat modeling tools
-      if (isKnownTool && !error) {
+      if (isKnownTool) {
         return <ListComponent threats={threats} />;
       }
 
-      // For unknown tools, always render JSON in CodeBlock (including errors)
+      // For unknown tools, render JSON in CodeBlock
       return <CodeBlock code={getCodeBlockContent()} language={"json"} width={"100%"} />;
     };
 

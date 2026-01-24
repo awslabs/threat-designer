@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { ExternalLink, Globe } from "lucide-react";
 import StatusIndicator from "@cloudscape-design/components/status-indicator";
 import { useTheme } from "../ThemeContext";
@@ -43,13 +43,11 @@ const Favicon = ({ url, size = 16, className = "" }) => {
 /**
  * Stacked favicons component showing overlapping icons
  */
-const StackedFavicons = ({ urls, maxShow = 5 }) => {
-  const displayUrls = urls.slice(0, maxShow);
-
+const StackedFavicons = ({ urls }) => {
   return (
     <div className="stacked-favicons">
-      {displayUrls.map((url, index) => (
-        <div key={index} className="stacked-favicon" style={{ zIndex: maxShow - index }}>
+      {urls.map((url, index) => (
+        <div key={index} className="stacked-favicon" style={{ zIndex: urls.length - index }}>
           <Favicon url={url} size={18} />
         </div>
       ))}
@@ -58,28 +56,9 @@ const StackedFavicons = ({ urls, maxShow = 5 }) => {
 };
 
 /**
- * Single search result item (for tavily_search)
+ * Single search result item
  */
 const SearchResultItem = ({ result }) => {
-  return (
-    <a href={result.url} target="_blank" rel="noopener noreferrer" className="search-result-item">
-      <div className="search-result-favicon">
-        <Favicon url={result.url} size={16} />
-      </div>
-      <div className="search-result-content">
-        <div className="search-result-title">{result.title}</div>
-        <div className="search-result-snippet">{result.content}</div>
-      </div>
-      <ExternalLink size={12} className="search-result-external" />
-    </a>
-  );
-};
-
-/**
- * Single extract result item (for tavily_extract) - shows only URL/title, no content
- */
-const ExtractResultItem = ({ result }) => {
-  // Extract domain from URL for display
   let displayUrl = result.url;
   try {
     const urlObj = new URL(result.url);
@@ -93,13 +72,14 @@ const ExtractResultItem = ({ result }) => {
       href={result.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="search-result-item extract-item"
+      className="search-result-item"
     >
       <div className="search-result-favicon">
         <Favicon url={result.url} size={16} />
       </div>
       <div className="search-result-content">
-        <div className="search-result-title">{displayUrl}</div>
+        <div className="search-result-title">{result.title || displayUrl}</div>
+        {result.content && <div className="search-result-snippet">{result.content}</div>}
       </div>
       <ExternalLink size={12} className="search-result-external" />
     </a>
@@ -107,85 +87,96 @@ const ExtractResultItem = ({ result }) => {
 };
 
 /**
- * Web Search Tool component - handles both tavily_search and tavily_extract
+ * WebSearchToolGroup - Groups multiple consecutive search tools into one UI element
+ * isGroupComplete is determined by parent: true when followed by non-search block or stream ended
+ * toolType is 'search' or 'extract' - groups are homogeneous (same type only)
  */
-const WebSearchTool = ({ content, isLoading, error, toolType = "search" }) => {
+const WebSearchToolGroup = ({ blocks, isGroupComplete, toolType }) => {
   const { effectiveTheme } = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showContent, setShowContent] = useState(false);
   const [shouldExpandWidth, setShouldExpandWidth] = useState(false);
   const [showExtras, setShowExtras] = useState(false);
-  const [prevLoading, setPrevLoading] = useState(true);
   const containerRef = useRef(null);
+  const wasCompleteRef = useRef(false);
 
   const isExtract = toolType === "extract";
 
-  // Parse content
-  const parsedContent = React.useMemo(() => {
-    if (!content) return null;
-    if (typeof content !== "string") return content;
-    try {
-      return JSON.parse(content);
-    } catch {
-      return null;
-    }
-  }, [content]);
+  // Parse and combine all results from all blocks
+  const { allResults, hasAnyError } = useMemo(() => {
+    const results = [];
+    let anyError = false;
 
-  // Get results based on tool type
-  const results = React.useMemo(() => {
-    if (!parsedContent) return [];
-    if (isExtract) {
-      return parsedContent?.results || [];
-    }
-    return parsedContent?.results || [];
-  }, [parsedContent, isExtract]);
-
-  const hasResults = results.length > 0;
-  const isComplete = !isLoading && hasResults;
-
-  // Handle state transitions - same pattern as ToolContent
-  useEffect(() => {
-    if (!isLoading && prevLoading && hasResults) {
-      // Force a reflow to ensure transition triggers
-      if (containerRef.current) {
-        containerRef.current.offsetHeight; // Force reflow
+    blocks.forEach((block) => {
+      if (block.error) {
+        anyError = true;
       }
 
-      // Delay the width expansion to trigger animation
+      if (block.content) {
+        try {
+          const parsed =
+            typeof block.content === "string" ? JSON.parse(block.content) : block.content;
+          if (parsed?.results && Array.isArray(parsed.results)) {
+            results.push(...parsed.results);
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    });
+
+    return {
+      allResults: results,
+      hasAnyError: anyError,
+    };
+  }, [blocks]);
+
+  const hasResults = allResults.length > 0;
+  const isComplete = isGroupComplete && hasResults;
+
+  // Handle transition when group becomes complete
+  useEffect(() => {
+    if (isGroupComplete && !wasCompleteRef.current && hasResults) {
+      wasCompleteRef.current = true;
+      
       requestAnimationFrame(() => {
         setShouldExpandWidth(true);
-
-        // Show extras (favicons, button) after width starts expanding
         setTimeout(() => {
           setShowExtras(true);
         }, 200);
       });
-    } else if (isLoading) {
-      // Reset everything when going back to loading
-      setShouldExpandWidth(false);
-      setShowExtras(false);
-      setIsExpanded(false);
-      setShowContent(false);
     }
+  }, [isGroupComplete, hasResults]);
 
-    setPrevLoading(isLoading);
-  }, [isLoading, prevLoading, hasResults]);
+  // Get unique URLs by hostname for stacked favicons (one per domain)
+  const uniqueDomainUrls = useMemo(() => {
+    const seenHostnames = new Set();
+    return allResults
+      .map((r) => r.url)
+      .filter((url) => {
+        try {
+          const hostname = new URL(url).hostname;
+          if (seenHostnames.has(hostname)) return false;
+          seenHostnames.add(hostname);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+  }, [allResults]);
 
-  // Get URLs for stacked favicons
-  const urls = results.map((r) => r.url);
-
-  // Get status text based on tool type and state
+  // Get status text based on tool type
   const getStatusText = () => {
-    if (isLoading) {
+    if (!isGroupComplete) {
       return isExtract ? "Reading from sources" : "Searching the web";
     }
-    if (error) {
-      return isExtract ? "Read failed" : "Search failed";
+    if (hasAnyError && !hasResults) {
+      return isExtract ? "Reading failed" : "Search failed";
     }
-    if (isExtract) {
-      return `Read from ${results.length} source${results.length !== 1 ? "s" : ""}`;
-    }
-    return "Search completed";
+    const sourceCount = allResults.length;
+    return isExtract 
+      ? `Read ${sourceCount} source${sourceCount !== 1 ? "s" : ""}`
+      : `Searched ${sourceCount} source${sourceCount !== 1 ? "s" : ""}`;
   };
 
   const handleToggle = () => {
@@ -209,9 +200,9 @@ const WebSearchTool = ({ content, isLoading, error, toolType = "search" }) => {
     >
       <div className={`web-search-header ${isComplete ? "clickable" : ""}`} onClick={handleToggle}>
         <div className="web-search-status">
-          {isLoading ? (
+          {!isGroupComplete ? (
             <StatusIndicator type="loading" />
-          ) : error ? (
+          ) : hasAnyError && !hasResults ? (
             <StatusIndicator type="error" />
           ) : (
             <StatusIndicator type="success" />
@@ -220,7 +211,7 @@ const WebSearchTool = ({ content, isLoading, error, toolType = "search" }) => {
 
           {showExtras && isComplete && (
             <div className="web-search-favicons">
-              <StackedFavicons urls={urls} />
+              <StackedFavicons urls={uniqueDomainUrls} />
             </div>
           )}
         </div>
@@ -251,13 +242,9 @@ const WebSearchTool = ({ content, isLoading, error, toolType = "search" }) => {
       {isExpanded && hasResults && (
         <div className={`web-search-results ${showContent ? "show" : ""}`}>
           <div className="web-search-results-inner">
-            {results.map((result, index) =>
-              isExtract ? (
-                <ExtractResultItem key={index} result={result} />
-              ) : (
-                <SearchResultItem key={index} result={result} />
-              )
-            )}
+            {allResults.map((result, index) => (
+              <SearchResultItem key={index} result={result} />
+            ))}
           </div>
         </div>
       )}
@@ -265,4 +252,4 @@ const WebSearchTool = ({ content, isLoading, error, toolType = "search" }) => {
   );
 };
 
-export default WebSearchTool;
+export default WebSearchToolGroup;

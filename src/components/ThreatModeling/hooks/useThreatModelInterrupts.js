@@ -59,7 +59,12 @@ export const useThreatModelInterrupts = (
     (toolName, threatsPayload) => {
       // Validate payload format before processing
       if (!Array.isArray(threatsPayload)) {
-        console.error("Invalid threat payload format - expected array");
+        console.error("Invalid threat payload format - expected array, got:", typeof threatsPayload);
+        return;
+      }
+
+      if (!response?.item?.threat_list?.threats) {
+        console.error("Cannot update threats - response data not available");
         return;
       }
 
@@ -71,7 +76,6 @@ export const useThreatModelInterrupts = (
           // ADD OPERATION: Append new threats to the end of the existing list
           // This preserves the order of existing threats while adding new ones
           updatedThreats = [...updatedThreats, ...threatsPayload];
-          console.log(`Added ${threatsPayload.length} new threats`);
           break;
 
         case "edit_threats":
@@ -90,10 +94,9 @@ export const useThreatModelInterrupts = (
                 ...newThreat,
                 notes: existingThreat.notes, // Preserve user notes from existing threat
               };
-              console.log(`Updated threat: ${newThreat.name}`);
             } else {
               // Threat name not found - this could indicate a sync issue
-              console.warn(`Threat not found for editing: ${newThreat.name}`);
+              console.warn("Threat not found for editing:", newThreat.name);
             }
           });
           break;
@@ -102,17 +105,15 @@ export const useThreatModelInterrupts = (
           // DELETE OPERATION: Remove threats by filtering out matching names
           // Extract all threat names to delete for efficient filtering
           const threatNamesToDelete = threatsPayload.map((threat) => threat.name);
-          const originalCount = updatedThreats.length;
 
           // Filter keeps only threats whose names are NOT in the delete list
           updatedThreats = updatedThreats.filter(
             (existingThreat) => !threatNamesToDelete.includes(existingThreat.name)
           );
-          console.log(`Deleted ${originalCount - updatedThreats.length} threats`);
           break;
 
         default:
-          console.warn(`Unknown threat operation: ${toolName}`);
+          console.warn("Unknown threat operation:", toolName);
           return;
       }
 
@@ -141,18 +142,26 @@ export const useThreatModelInterrupts = (
    */
   const processInterruptEvent = useCallback(
     (event) => {
-      const { interruptMessage, source } = event.payload;
+      const { interruptMessage, source, timestamp } = event.payload;
 
-      // Create a unique key for this interrupt to prevent duplicate processing
-      const interruptKey = `${interruptMessage?.content?.tool_name}_${JSON.stringify(interruptMessage?.content?.payload || {}).slice(0, 100)}`;
-
-      // Check if we've already processed this interrupt
-      if (processedInterrupts.current.has(interruptKey)) {
+      // Use timestamp as the unique key for duplicate detection
+      // The timestamp is set when the interrupt is first received (in setPendingInterrupt)
+      // This allows sequential operations on the same element (different timestamps)
+      // while preventing the same interrupt from being processed twice (same timestamp)
+      if (timestamp && processedInterrupts.current.has(timestamp)) {
         return;
       }
 
-      // Mark as processed
-      processedInterrupts.current.add(interruptKey);
+      // Mark as processed using timestamp
+      if (timestamp) {
+        processedInterrupts.current.add(timestamp);
+        
+        // Clean up old entries to prevent memory leak (keep last 50)
+        if (processedInterrupts.current.size > 50) {
+          const entries = Array.from(processedInterrupts.current);
+          entries.slice(0, entries.length - 50).forEach(key => processedInterrupts.current.delete(key));
+        }
+      }
 
       const payload = interruptMessage.content.payload;
       const toolName = interruptMessage.content.tool_name;
@@ -208,17 +217,23 @@ export const useThreatModelInterrupts = (
    * When a pendingInterrupt is set on the session, process it and clear it
    */
   useEffect(() => {
-    if (!sessionData?.sessions || !threatModelId) return;
+    if (!sessionData?.sessions || !threatModelId) {
+      return;
+    }
 
     const session = sessionData.sessions.get(threatModelId);
-    if (!session?.pendingInterrupt) return;
+    
+    if (!session?.pendingInterrupt) {
+      return;
+    }
 
-    const { interruptMessage, source } = session.pendingInterrupt;
+    const { interruptMessage, source, timestamp } = session.pendingInterrupt;
 
     const event = {
       payload: {
         interruptMessage,
         source,
+        timestamp,
       },
     };
 

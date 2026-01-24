@@ -8,16 +8,18 @@ import { ExternalLink, Globe } from "lucide-react";
 import "./CitationStyles.css";
 
 /**
- * Custom sanitize schema that extends the default to allow <cite> tags with data-urls attribute.
+ * Custom sanitize schema that extends the default to allow <cite> tags with data-urls attribute
+ * and <span> tags with class attribute for loading placeholders.
  * This provides XSS protection while preserving citation functionality.
  * Note: In hast (the AST format), data-urls becomes dataUrls (camelCase).
  */
 const sanitizeSchema = {
   ...defaultSchema,
-  tagNames: [...(defaultSchema.tagNames || []), "cite"],
+  tagNames: [...(defaultSchema.tagNames || []), "cite", "span"],
   attributes: {
     ...defaultSchema.attributes,
     cite: ["dataUrls"],
+    span: [...(defaultSchema.attributes?.span || []), "className", "class"],
   },
 };
 
@@ -275,24 +277,31 @@ const parseMultipleCitations = (citationContent, webSearchResults) => {
 };
 
 /**
- * Preprocess content to convert index-based citations to URL-based citations
- * Format: [X:Y] or [X:Y, Z:W] where X/Z = search number, Y/W = result index
+ * Placeholder for loading citation during streaming
+ */
+const CITATION_PLACEHOLDER = '<span class="citation-loading"></span>';
+
+/**
+ * Preprocess content to convert XML-style citations to URL-based citations
+ * Format: <cite ref="X:Y" /> or <cite ref="X:Y,Z:W" />
  * Converted to: <cite data-urls="resolved_url1,resolved_url2"></cite>
+ * 
+ * Also shows a loading placeholder for incomplete citations during streaming
+ * and hides incomplete code fences to prevent flash
  */
 const preprocessCitations = (content, webSearchResults) => {
   if (!content) return content;
 
   let processed = content;
 
-  // Convert index-based citations [X:Y] or [X:Y, Z:W, ...] to URL-based citations
-  // Match patterns like [1:1], [1:2, 2:1], [1:1, 1:2, 2:3], etc.
-  processed = processed.replace(/\[([\d:,\s]+)\]/g, (match, citationContent) => {
+  // Convert XML-style citations <cite ref="X:Y" /> or <cite ref="X:Y,Z:W" />
+  processed = processed.replace(/<cite\s+ref="([^"]+)"\s*\/>/gi, (match, refContent) => {
     // Check if this looks like a citation (contains X:Y pattern)
-    if (!/\d+:\d+/.test(citationContent)) {
+    if (!/\d+:\d+/.test(refContent)) {
       return match; // Not a citation, keep original
     }
 
-    const urls = parseMultipleCitations(citationContent, webSearchResults);
+    const urls = parseMultipleCitations(refContent, webSearchResults);
     if (urls.length > 0) {
       return `<cite data-urls="${urls.join(",")}"></cite>`;
     }
@@ -300,28 +309,24 @@ const preprocessCitations = (content, webSearchResults) => {
     return match;
   });
 
-  // Also support legacy format: <cite urls=[...]></cite>
-  processed = processed.replace(
-    /<cite\s+urls=\[([^\]]*)\]><\/cite>/gi,
-    (_, urls) => `<cite data-urls="${urls}"></cite>`
-  );
-
-  // Handle self-closing or unclosed variants
-  processed = processed.replace(
-    /<cite\s+urls=\[([^\]]*)\]\s*>/gi,
-    (_, urls) => `<cite data-urls="${urls}"></cite>`
-  );
-
-  // Hide incomplete citation patterns during streaming
-  processed = processed.replace(
-    /<cite(?:\s+u(?:r(?:l(?:s)?)?)?)?(?:\s*=)?(?:\s*\[)?[^\]>]*$/gi,
-    ""
-  );
+  // Replace incomplete citation patterns with a loading placeholder
+  // This handles all streaming states: <c, <ci, <cit, <cite, <cite , <cite r, <cite ref, <cite ref=, <cite ref="..., etc.
+  // Match incomplete <cite tags that haven't been closed with />
+  processed = processed.replace(/<cite(?:\s+ref(?:="[^"]*)?)?(?:\s*)$/gi, CITATION_PLACEHOLDER);
+  
+  // Also catch partial tag starts like <c, <ci, <cit at the end
+  processed = processed.replace(/<cit?e?$/gi, CITATION_PLACEHOLDER);
+  processed = processed.replace(/<ci$/gi, CITATION_PLACEHOLDER);
+  processed = processed.replace(/<c$/gi, CITATION_PLACEHOLDER);
+  
+  // Hide lone < at the end (could be start of any tag)
   processed = processed.replace(/<$/g, "");
-  processed = processed.replace(/<cite\s+urls=\[[^\]]*(?:$|(?=[^>\]]))/gi, "");
 
-  // Hide incomplete index citations during streaming (e.g., [1: or [1:1, 2)
-  processed = processed.replace(/\[[\d:,\s]*$/g, "");
+  // Hide incomplete code fences during streaming to prevent flash
+  // Matches trailing ``` or ```language at end of content without closing fence
+  processed = processed.replace(/```[a-zA-Z]*\s*$/g, "");
+  // Also catch partial backticks at the very end
+  processed = processed.replace(/`{1,2}$/g, "");
 
   return processed;
 };
@@ -345,11 +350,11 @@ const TextContent = ({ content, webSearchResults, disableMarkdown }) => {
 
   // For user messages, render as plain text without markdown
   if (disableMarkdown) {
-    return <div style={{ lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{content}</div>;
+    return <div style={{ fontSize: "var(--font-size-base, 14px)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{content}</div>;
   }
 
   return (
-    <div style={{ lineHeight: 1.5 }}>
+    <div style={{ fontSize: "var(--font-size-base, 14px)", lineHeight: 1.5 }}>
       <Markdown
         children={processedContent}
         remarkPlugins={[remarkGfm]}

@@ -89,7 +89,7 @@ const VirtualizedThreatList = memo(function VirtualizedThreatList({
       items={threatCatalogData}
       renderItem={renderThreat}
       estimatedItemHeight={400}
-      rootMargin="1000px"
+      rootMargin="3000px"
       itemKey="id"
     />
   );

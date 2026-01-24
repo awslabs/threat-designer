@@ -122,11 +122,13 @@
   html {
     @apply bg-background text-foreground;
     min-height: 100vh;
+    font-size: var(--font-size-base, 14px);
   }
 
   body {
     @apply bg-background text-foreground;
     min-height: 100vh;
+    font-size: var(--font-size-base, 14px);
   }
 
   #root {

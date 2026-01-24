@@ -8,12 +8,12 @@ import { memo, useState, useEffect, useRef } from "react";
  *
  * @param {ReactNode} children - Content to lazy load
  * @param {Number} estimatedHeight - Estimated height of content for placeholder (default: 500px)
- * @param {String} rootMargin - Root margin for intersection observer (default: "800px")
+ * @param {String} rootMargin - Root margin for intersection observer (default: "1200px")
  */
 const LazySection = memo(function LazySection({
   children,
   estimatedHeight = 500,
-  rootMargin = "800px",
+  rootMargin = "1500px",
 }) {
   const [isVisible, setIsVisible] = useState(false);
   const [hasBeenVisible, setHasBeenVisible] = useState(false);
@@ -27,10 +27,10 @@ const LazySection = memo(function LazySection({
             setIsVisible(true);
             setHasBeenVisible(true);
           } else {
-            // Only unload if far from viewport
+            // Only unload if far from viewport (5x screen heights away)
             if (
-              entry.boundingClientRect.top > window.innerHeight * 2 ||
-              entry.boundingClientRect.bottom < -window.innerHeight * 2
+              entry.boundingClientRect.top > window.innerHeight * 3 ||
+              entry.boundingClientRect.bottom < -window.innerHeight * 3
             ) {
               setIsVisible(false);
             }

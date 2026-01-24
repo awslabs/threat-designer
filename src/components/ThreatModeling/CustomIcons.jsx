@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
-import debounce from "lodash/debounce";
+import debounce from "lodash.debounce";
 import "./stepper.css";
 import { colorBackgroundLayoutMain } from "@cloudscape-design/design-tokens/index.js";
 

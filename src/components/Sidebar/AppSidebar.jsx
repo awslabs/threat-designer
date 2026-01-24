@@ -4,7 +4,6 @@ import { SidebarHeader } from "./SidebarHeader";
 import { NavMain } from "./NavMain";
 import { NavGuides } from "./NavGuides";
 import { NavUser } from "./NavUser";
-import { logOut } from "@/services/Auth/auth";
 import "./Sidebar.css";
 
 /**
@@ -23,7 +22,7 @@ import "./Sidebar.css";
  * @param {string} props.colorMode - Current color mode ('system', 'light', 'dark')
  * @param {string} props.effectiveTheme - Effective theme ('light' or 'dark')
  * @param {Function} props.setThemeMode - Function to set theme mode
- * @param {Function} props.setAuthUser - Function to update auth state (for logout)
+ * @param {Function} props.onLogout - Function to handle logout with loading state
  * @param {Function} props.onThreatModelsRefresh - Callback that receives the refresh function for threat models list
  */
 export function AppSidebar({
@@ -31,7 +30,7 @@ export function AppSidebar({
   colorMode,
   effectiveTheme,
   setThemeMode,
-  setAuthUser,
+  onLogout,
   ...props
 }) {
   // Navigation items configuration
@@ -48,16 +47,6 @@ export function AppSidebar({
     },
   ];
 
-  // Handle logout
-  const handleLogout = async () => {
-    try {
-      await logOut();
-      setAuthUser(null);
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
-
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader />
@@ -70,7 +59,7 @@ export function AppSidebar({
           user={user}
           colorMode={colorMode}
           setThemeMode={setThemeMode}
-          onLogout={handleLogout}
+          onLogout={onLogout}
         />
       </SidebarFooter>
     </Sidebar>

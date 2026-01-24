@@ -1,10 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { getThreatModelingStatus } from "../../../services/ThreatDesigner/stats";
 
+// Polling interval in milliseconds (5 seconds)
+const POLLING_INTERVAL_MS = 5000;
+
 /**
  * Custom hook for polling threat model status
  *
- * Polls the threat model status at 1-second intervals and handles status transitions.
+ * Polls the threat model status at 5-second intervals and handles status transitions.
+ * Automatically pauses polling when the browser tab is in the background and resumes
+ * when the user returns to the tab.
  * Supports manual refresh triggering and calls a callback when status changes.
  *
  * @param {string} threatModelId - The ID of the threat model to poll
@@ -39,23 +44,31 @@ export const useThreatModelPolling = (threatModelId, onStatusChange) => {
 
   // Use ref to track if we've already processed a terminal state
   const hasProcessedTerminalState = useRef(false);
+  // Ref to store interval ID for cleanup across visibility changes
+  const intervalRef = useRef(null);
+  // Ref to track if polling should be active (not in terminal state)
+  const shouldPollRef = useRef(true);
 
   useEffect(() => {
     // Reset terminal state flag when threatModelId or trigger changes
     hasProcessedTerminalState.current = false;
+    shouldPollRef.current = true;
   }, [threatModelId, trigger]);
 
   /**
    * POLLING EFFECT
    *
    * This effect implements a polling mechanism to check threat model processing status.
-   * It runs continuously at 1-second intervals until a terminal state is reached.
+   * It runs continuously at 5-second intervals until a terminal state is reached.
+   * Polling is paused when the browser tab is hidden and resumed when visible again.
    *
    * POLLING LIFECYCLE:
    * 1. Initial check immediately on mount
-   * 2. Set up 1-second interval for continuous polling
-   * 3. Stop polling when COMPLETE or FAILED state is reached
-   * 4. Clean up interval on unmount or when dependencies change
+   * 2. Set up 5-second interval for continuous polling
+   * 3. Pause polling when tab becomes hidden (visibilitychange event)
+   * 4. Resume polling immediately when tab becomes visible again
+   * 5. Stop polling when COMPLETE or FAILED state is reached
+   * 6. Clean up interval on unmount or when dependencies change
    *
    * TRIGGER MECHANISM:
    * The 'trigger' dependency allows manual refresh by changing its value.
@@ -107,7 +120,9 @@ export const useThreatModelPolling = (threatModelId, onStatusChange) => {
          * duplicate data fetches if the effect runs multiple times.
          */
         if (currentStatus === "COMPLETE") {
+          shouldPollRef.current = false;
           clearInterval(intervalId);
+          intervalRef.current = null;
           setTmStatus(currentStatus);
           setLoading(false);
 
@@ -134,7 +149,9 @@ export const useThreatModelPolling = (threatModelId, onStatusChange) => {
            * Note: Status is set to null instead of "FAILED" to trigger
            * the error alert display in the parent component.
            */
+          shouldPollRef.current = false;
           clearInterval(intervalId);
+          intervalRef.current = null;
           setTmStatus(null);
           setLoading(false);
 
@@ -175,25 +192,82 @@ export const useThreatModelPolling = (threatModelId, onStatusChange) => {
       } catch (error) {
         // Network or server error during polling
         console.error("Error checking threat modeling status:", error);
+        shouldPollRef.current = false;
         clearInterval(intervalId);
+        intervalRef.current = null;
         setTmStatus(null);
         setLoading(false);
       }
     };
 
-    if (threatModelId) {
-      // Perform initial status check immediately
+    /**
+     * Start the polling interval
+     * Only starts if polling should be active (not in terminal state)
+     */
+    const startPolling = () => {
+      if (!threatModelId || !shouldPollRef.current) return;
+
+      // Clear any existing interval first
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+
+      // Perform immediate status check when starting/resuming
       checkStatus();
 
-      // Set up polling interval (1000ms = 1 second)
-      // This provides near real-time updates without overwhelming the server
-      intervalId = setInterval(checkStatus, 1000);
+      // Set up polling interval (5000ms = 5 seconds)
+      intervalId = setInterval(checkStatus, POLLING_INTERVAL_MS);
+      intervalRef.current = intervalId;
+    };
+
+    /**
+     * Stop the polling interval
+     * Called when tab becomes hidden or component unmounts
+     */
+    const stopPolling = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+
+    /**
+     * VISIBILITY CHANGE HANDLER
+     *
+     * Handles browser tab visibility changes to optimize resource usage.
+     * - When tab is hidden: Stop polling to save resources
+     * - When tab is visible: Resume polling immediately with a fresh status check
+     *
+     * This prevents unnecessary API calls when the user isn't viewing the page
+     * while ensuring they get up-to-date information when they return.
+     */
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab is now hidden - stop polling
+        stopPolling();
+      } else {
+        // Tab is now visible - resume polling if not in terminal state
+        if (shouldPollRef.current && threatModelId) {
+          startPolling();
+        }
+      }
+    };
+
+    if (threatModelId) {
+      // Start polling initially
+      startPolling();
+
+      // Listen for visibility changes
+      document.addEventListener("visibilitychange", handleVisibilityChange);
     }
 
     /**
      * CLEANUP FUNCTION
      *
-     * Clears the polling interval when:
+     * Clears the polling interval and removes event listeners when:
      * - Component unmounts
      * - threatModelId changes (switching threat models)
      * - trigger changes (manual refresh requested)
@@ -201,9 +275,8 @@ export const useThreatModelPolling = (threatModelId, onStatusChange) => {
      * This prevents memory leaks and unnecessary API calls.
      */
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [threatModelId, trigger]);
 

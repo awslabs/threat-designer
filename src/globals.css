@@ -50,7 +50,7 @@
 
 /* Dark theme colors - mapped to Cloudscape theme tokens */
 .dark {
-  --color-background: #18181b;
+  --color-background: #101012;
   --color-foreground: #fafaf9;
   --color-card: #1d1d20;
   --color-card-foreground: #fafaf9;
@@ -148,6 +148,14 @@
       color 0.3s ease-in-out,
       border-color 0.3s ease-in-out;
   }
+}
+
+/* Force 14px font size on sidebar elements - outside @layer for higher specificity */
+[data-sidebar="sidebar"] [data-sidebar="menu-button"],
+[data-sidebar="sidebar"] [data-sidebar="menu-sub-button"],
+[data-sidebar="sidebar"] [data-sidebar="group-content"],
+[data-sidebar] [data-sidebar="menu-button"] {
+  font-size: 14px !important;
 }
 
 /* Sidebar CSS variables for Tailwind (without color- prefix) */
@@ -365,7 +373,7 @@ body,
 html.dark,
 html.dark body,
 html.dark #root {
-  background-color: #18181b !important;
+  background-color: #101012 !important;
   color: #fafaf9 !important;
 }
 

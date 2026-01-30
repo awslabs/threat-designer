@@ -52,11 +52,30 @@ div[style="overflow: auto"]::-webkit-scrollbar {
   overflow: auto;
   display: flex;
   flex-direction: column;
-  width: 100%;
+  width: 95%;
+  margin-left: 10px;
   position: relative;
   margin-bottom: 0;
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
+}
+
+/* Fade overlay container - needs to be a sibling, not pseudo-element */
+.stick-to-bottom-fade {
+  position: absolute;
+  bottom: 0;
+  left: 10px;
+  right: 0;
+  height: 25px;
+  background: linear-gradient(to bottom, transparent, rgba(245, 245, 244, 0.9));
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Dark mode fade effect */
+html.dark .stick-to-bottom-fade {
+  height: 30px;
+  background: linear-gradient(to bottom, transparent, rgba(29, 29, 32, 1));
 }
 
 .stick-to-bottom::-webkit-scrollbar {
@@ -65,6 +84,7 @@ div[style="overflow: auto"]::-webkit-scrollbar {
 
 .stick-to-bottom-content {
   padding: 16px;
+  font-size: 14px;
 }
 
 .tools_input_textarea_div {
@@ -244,6 +264,7 @@ div[style="overflow: auto"]::-webkit-scrollbar {
   overflow-y: scroll;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* Internet Explorer 10+ */
+  font-size: 14px;
 }
 .chat_container:last-child {
   height: 70vh; /* Creates space below the newest message */
@@ -268,6 +289,7 @@ div[style="overflow: auto"]::-webkit-scrollbar {
   overflow-y: scroll;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* Internet Explorer 10+ */
+  font-size: 14px;
 }
 
 .tools_chat_container::-webkit-scrollbar {

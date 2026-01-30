@@ -79,7 +79,7 @@ const arePropsEqual = (prevProps, nextProps) => {
 
 const ChatMessage = React.memo(
   ({ message, messageBlocks, webSearchResults, streaming, isLast, scroll, isParentFirstMount }) => {
-    const [inputHeight] = React.useState(270);
+    const [inputHeight] = React.useState(260);
     const isEnd = message?.[message.length - 1]?.end === true;
     const hasScrolled = useRef(false);
     const messageRef = useRef(null);
@@ -142,10 +142,12 @@ const ChatMessage = React.memo(
     useEffect(() => {
       if (isLast && !hasScrolled.current) {
         hasScrolled.current = true;
-        // Immediate scroll without delay
-        scroll();
+        // Use instant scroll on initial page load (Requirement 2.3)
+        // Use smooth scroll for new messages added after initial mount (Requirement 1.1)
+        const useSmooth = !isParentFirstMount;
+        scroll(useSmooth);
       }
-    }, [isLast, scroll]);
+    }, [isLast, scroll, isParentFirstMount]);
 
     return (
       <div

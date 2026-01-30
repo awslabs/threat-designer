@@ -46,7 +46,7 @@ export function NavGuides() {
               isActive={isGuideActive}
               className="cursor-pointer data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <BookOpen className="size-4 shrink-0" />
+              <BookOpen className="size-5 shrink-0" />
               {state !== "collapsed" && <span className="ml-2">Documentation</span>}
             </SidebarMenuButton>
           </DropdownMenuTrigger>

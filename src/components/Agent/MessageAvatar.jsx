@@ -14,10 +14,10 @@ const MessageAvatar = ({ isUser, firstName, surname, loading }) => {
     />
   ) : (
     <Avatar
-      ariaLabel="Avatar of generative AI assistant"
+      ariaLabel="Avatar of Sentry"
       color="gen-ai"
       iconName="gen-ai"
-      tooltipText="Generative AI assistant"
+      tooltipText="Sentry"
       loading={loading}
     />
   );

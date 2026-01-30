@@ -17,7 +17,6 @@
 }
 
 .dropdown-content {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   background-color: #ffffff;
   border: 1px solid #e9ecef;
   border-radius: 8px;
@@ -25,7 +24,6 @@
 
 .awsui-dark-mode .dropdown-content {
   background-color: #18181b;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   border: 1px solid #3f3f46;
 }
 

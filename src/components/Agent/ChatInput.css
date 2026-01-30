@@ -9,6 +9,7 @@
 .chat-input-wrapper {
   position: relative;
   width: 100%;
+  z-index: 10;
 }
 
 .dropdown-content-container {
@@ -16,6 +17,7 @@
   bottom: 100%;
   left: 0;
   right: 0;
+  margin-left: 5px;
   margin-bottom: var(--spacing-sm);
   z-index: 1000;
   animation: slideUp var(--transition-slow);
@@ -31,7 +33,6 @@
   background: var(--token-dropdown-bg);
   border: var(--token-dropdown-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--token-shadow-lg);
   overflow-y: auto;
   overflow-x: hidden;
   max-height: 350px;
@@ -40,6 +41,17 @@
   /* Hide scrollbar - all browsers */
   scrollbar-width: none;
   -ms-overflow-style: none;
+  /* Text size for dropdown items */
+  font-size: 14px;
+}
+
+/* Override Cloudscape List component text size in dropdowns */
+.dropdown-content [class*="awsui_list-item"] {
+  font-size: 14px !important;
+}
+
+.dropdown-content [class*="awsui_content"] {
+  font-size: 14px !important;
 }
 
 .dropdown-content::-webkit-scrollbar {
@@ -76,16 +88,16 @@
 }
 
 .chat-input-container {
-  width: 100%;
-  border-radius: var(--radius-xl);
+  width: calc(100% - 8px);
+  border-radius: 16px;
   padding: 10px 14px;
   display: flex;
   flex-direction: column;
   gap: 5px;
-  margin: 0 auto;
+  margin: 0 auto; /* Horizontal centering only */
   transition: all var(--transition-normal);
-  background: var(--token-bg-primary);
-  box-shadow: var(--token-shadow-sm);
+  background: var(--token-bg-chat);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 2px 2px rgba(0, 0, 0, 0.05);
 }
 
 .chat-textarea {
@@ -137,18 +149,19 @@
 
 .action-button {
   background: transparent;
-  padding: var(--spacing-sm);
-  border-radius: var(--radius-lg);
-  font-size: var(--font-size-base, 14px);
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: 4px;
   position: relative;
   font-weight: 500;
-  min-height: 36px;
+  min-height: 34px;
   border: none;
   color: var(--token-button-secondary-text);
+  transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
 .action-button:hover:not(:disabled) {
@@ -172,10 +185,11 @@
   display: flex;
   align-items: stretch;
   flex-direction: row;
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
   border: none;
   background: transparent;
+  transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
 .action-button.toggle-button:hover:not(:disabled) {
@@ -185,10 +199,10 @@
 .action-button.toggle-button .button-main-content {
   display: flex;
   align-items: center;
-  gap: 0px;
-  transition: all var(--transition-normal);
+  gap: 6px;
+  transition: color var(--transition-normal);
   flex: 1;
-  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
   background: transparent;
 }
 
@@ -197,7 +211,7 @@
   display: inline-block;
   width: 1px;
   padding: 0;
-  height: 24px;
+  height: 20px;
   background-color: rgba(255, 255, 255, 0.2);
   margin: 0;
   align-self: center;
@@ -209,9 +223,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-sm) 10px var(--spacing-sm) var(--spacing-xs);
+  padding: 6px 8px 6px 6px;
   cursor: pointer;
-  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
   background: transparent;
 }
 
@@ -223,7 +237,7 @@
 .action-button.toggle-button.toggled {
   background: var(--token-accent-bg);
   color: var(--token-accent-primary);
-  padding: 0px 0px 0px var(--spacing-sm);
+  padding: 0px 0px 0px 6px;
   gap: 6px;
 }
 
@@ -244,8 +258,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 
 .action-icon svg {
@@ -255,23 +269,22 @@
 
 .button-label {
   font-weight: 500;
-  margin-left: var(--spacing-xs);
-  font-size: var(--font-size-base, 14px);
+  font-size: 14px;
 }
 
 .action-button:not(.toggle-button) .button-main-content {
   display: flex;
   align-items: center;
-  gap: 0px;
+  gap: 6px;
 }
 
 /* Send and Stop buttons */
 .send-button,
 .stop-button {
   border: none;
-  border-radius: var(--radius-lg);
-  width: 36px;
-  height: 36px;
+  border-radius: var(--radius-md);
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -299,8 +312,8 @@
 
 .send-button svg,
 .stop-button svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   color: var(--token-button-text);
 }
 
@@ -327,4 +340,21 @@
   .chat-textarea::-webkit-scrollbar-thumb:hover {
     background: var(--token-scrollbar-thumb-hover);
   }
+}
+
+
+/* Dark mode send/stop button - active state with light color */
+html.dark .send-button:not(:disabled),
+html.dark .stop-button:not(:disabled) {
+  background: #FAFAF9;
+}
+
+html.dark .send-button:not(:disabled) svg,
+html.dark .stop-button:not(:disabled) svg {
+  color: #000000;
+}
+
+html.dark .send-button:hover:not(:disabled),
+html.dark .stop-button:hover:not(:disabled) {
+  background: #e5e5e4;
 }

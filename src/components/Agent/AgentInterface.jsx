@@ -149,7 +149,9 @@ function ChatInterface({ user, inTools }) {
   const handleSendMessage = useCallback(
     async ({ message, sessionId, context }) => {
       // sendMessage signature: (sessionId, userMessage, interrupt, interruptResponse, context)
-      await functions.sendMessage(sessionId, message, false, null, context);
+      // Note: ChatMessage component handles scrolling via its useEffect when isLast changes
+      // We don't need to call scrollToBottom here as it would race with ChatMessage's scroll
+      functions.sendMessage(sessionId, message, false, null, context);
     },
     [functions]
   );
@@ -189,8 +191,9 @@ function ChatInterface({ user, inTools }) {
         label: "Think",
         icon: (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 6v6l4 2" />
+            <path d="M9 18h6" />
+            <path d="M10 22h4" />
+            <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
           </svg>
         ),
         // For OpenAI, make it non-toggleable (always active)
@@ -211,10 +214,7 @@ function ChatInterface({ user, inTools }) {
         label: "Tools",
         icon: (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="3" width="7" height="7" />
-            <rect x="14" y="3" width="7" height="7" />
-            <rect x="14" y="14" width="7" height="7" />
-            <rect x="3" y="14" width="7" height="7" />
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
           </svg>
         ),
         isToggle: false,
@@ -283,15 +283,18 @@ function ChatInterface({ user, inTools }) {
           )}
         </div>
 
+        {/* Fade overlay at bottom of chat */}
+        {chatTurns.length > 0 && <div className="stick-to-bottom-fade" />}
+
         {showButton && (
-          <ScrollToBottomButton scroll={scrollToBottom} className="scroll-to-bottom-button" />
+          <ScrollToBottomButton scroll={() => scrollToBottom(true)} className="scroll-to-bottom-button" />
         )}
       </div>
 
       <div>
         {error && <ErrorContent message={error} dismiss={handleDismissError} />}
 
-        <div style={{ padding: "5px" }}>
+        <div style={{ paddingBottom: "5px" }}>
           <ChatInput
             onSendMessage={handleSendMessage}
             onStopStreaming={handleStopStreaming}

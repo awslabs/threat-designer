@@ -59,7 +59,7 @@ export function NavMain({ items }) {
                   isActive={isActive}
                   onClick={() => handleNavigation(item.url)}
                 >
-                  {Icon && <Icon className="size-4" />}
+                  {Icon && <Icon className="size-5" />}
                   <span>{item.title}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>

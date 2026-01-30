@@ -10,7 +10,7 @@ const ToolsConfig = React.memo(({ items, setItems }) => {
   };
 
   return (
-    <div style={{ padding: "8px", paddingRight: "20px", paddingLeft: "12px", minWidth: "300px" }}>
+    <div style={{ padding: "6px", paddingRight: "16px", paddingLeft: "10px", minWidth: "250px", fontSize: "14px" }}>
       <List
         ariaLabel="List with tools"
         sortable

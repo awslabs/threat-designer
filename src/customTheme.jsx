@@ -1,7 +1,7 @@
 const customTheme = {
   tokens: {
     colorBackgroundLayoutMain: {
-      dark: "#18181B",
+      dark: "#101012",
       light: "#FAFAF9",
     },
     colorBackgroundContainerContent: {

@@ -101,7 +101,7 @@ html.dark .sidebar-hover-zone {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--spacing-sm) var(--spacing-md);
-  font-size: 0.875rem;
+  font-size: 14px;
   box-shadow: var(--token-shadow-md);
   animation: tooltip-fade-in var(--transition-fast);
   margin-left: var(--spacing-lg) !important;
@@ -212,15 +212,15 @@ div[role="menuitem"] {
 
 /* Reduce text size in dropdown header */
 [role="menu"] [data-radix-dropdown-menu-label] .font-semibold {
-  font-size: 0.8125rem;
+  font-size: 14px;
   line-height: 1.25rem;
 }
 
 /* Keep consistent button height in both collapsed and expanded states - only inside sidebar */
 [data-sidebar="sidebar"] [data-sidebar="menu-button"] {
-  height: 2.25rem;
-  min-height: 2.25rem;
-  max-height: 2.25rem;
+  height: 2.5rem;
+  min-height: 2.5rem;
+  max-height: 2.5rem;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -259,7 +259,7 @@ div[role="menuitem"] {
 /* Position the Avatar wrapper (h-8 w-8) absolutely to keep it fixed */
 [data-sidebar="footer"] [data-sidebar="menu-button"] > .h-8.w-8 {
   position: absolute;
-  left: calc(0.6rem - 1px);
+  left: 0.25rem;
   top: 50%;
   transform: translateY(-50%);
   transition: none !important;
@@ -276,7 +276,7 @@ div[role="menuitem"] {
 [data-sidebar="footer"] [data-sidebar="menu-button"] > div.grid {
   position: relative !important;
   z-index: 1 !important;
-  margin-left: 2.25rem !important;
+  margin-left: 2.5rem !important;
 }
 
 /* Chevron icon should use normal flow and stay on the right */
@@ -290,12 +290,12 @@ div[role="menuitem"] {
   padding: var(--spacing-xs) var(--spacing-sm) !important;
   padding-left: 2.25rem !important;
   justify-content: flex-start !important;
-  height: 2rem !important;
+  height: 2.5rem !important;
 }
 
 /* Avatar stays in same position when collapsed */
 [data-state="collapsed"] [data-sidebar="footer"] [data-sidebar="menu-button"] > .h-8.w-8 {
-  left: calc(0.6rem - 1px) !important;
+  left: 0.25rem !important;
   top: 50% !important;
   transform: translateY(-50%) !important;
   transition: none !important;
@@ -329,9 +329,9 @@ div[role="menuitem"] {
 
 /* Keep avatar size consistent */
 [data-sidebar="footer"] .rounded-lg {
-  height: 2rem !important;
-  width: 2rem !important;
-  font-size: 0.75rem !important;
+  height: 2.25rem !important;
+  width: 2.25rem !important;
+  font-size: 0.875rem !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -354,7 +354,7 @@ div[role="menuitem"] {
 
 /* Spacing between header and first navigation group (New/Threat Catalog) - 1 button height */
 [data-sidebar="content"] > [data-sidebar="group"]:first-child {
-  margin-top: 2.25rem !important;
+  margin-top: 2.5rem !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
 }
@@ -366,9 +366,9 @@ div[role="menuitem"] {
 
 /* Guides button - ensure it matches other navigation buttons */
 .nav-guides-button {
-  height: 2.25rem !important;
-  min-height: 2.25rem !important;
-  max-height: 2.25rem !important;
+  height: 2.5rem !important;
+  min-height: 2.5rem !important;
+  max-height: 2.5rem !important;
   padding-left: var(--spacing-2xl) !important;
   position: relative !important;
 }
@@ -376,8 +376,8 @@ div[role="menuitem"] {
 .nav-guides-icon {
   position: absolute !important;
   left: 0.6rem !important;
-  width: 1.25rem !important;
-  height: 1.25rem !important;
+  width: 1.375rem !important;
+  height: 1.375rem !important;
 }
 
 .nav-guides-button span {
@@ -400,11 +400,11 @@ div[role="menuitem"] {
 /* Submenu list items (guides and threat models) - smaller height and consistent text color */
 .threat-model-item,
 .guide-item {
-  height: 1.75rem !important;
-  min-height: 1.75rem !important;
-  max-height: 1.75rem !important;
+  height: 2rem !important;
+  min-height: 2rem !important;
+  max-height: 2rem !important;
   padding: var(--spacing-xs) var(--spacing-sm) !important;
-  font-size: 0.8125rem !important;
+  font-size: 14px !important;
   color: var(--color-sidebar-accent-foreground) !important;
   background-color: transparent !important;
 }
@@ -485,7 +485,7 @@ div[role="menuitem"] {
 
 [data-sidebar="menu-sub-button"] {
   padding: var(--spacing-sm) var(--spacing-sm) !important;
-  font-size: 0.8125rem !important;
+  font-size: 14px !important;
   color: var(--color-sidebar-foreground) !important;
   border-radius: var(--radius-sm) !important;
   transition:
@@ -710,8 +710,8 @@ html.dark [role="menu"] .h-8.w-8 > * {
 
 /* Larger icons in sidebar */
 [data-sidebar="sidebar"] svg {
-  width: 1.25rem !important;
-  height: 1.25rem !important;
+  width: 1.375rem !important;
+  height: 1.375rem !important;
 }
 
 /* Small chevron for Recently viewed header */
@@ -720,10 +720,10 @@ html.dark [role="menu"] .h-8.w-8 > * {
   height: 14px !important;
 }
 
-/* Smaller text in menu buttons with fixed line height */
+/* Text in menu buttons with fixed line height */
 [data-sidebar="sidebar"] [data-sidebar="menu-button"] span {
-  font-size: 0.8125rem;
-  line-height: 1rem;
+  font-size: 14px;
+  line-height: 1.25rem;
   margin: 0;
   padding: 0;
 }
@@ -739,15 +739,15 @@ html.dark [role="menu"] .h-8.w-8 > * {
 
 /* User name text - not bold, smaller */
 [data-sidebar="footer"] .font-semibold {
-  font-size: 0.875rem !important;
+  font-size: 14px !important;
   font-weight: 400 !important;
 }
 
 /* Smaller avatar circle */
 [data-sidebar="footer"] .rounded-lg {
-  height: 1.5rem !important;
-  width: 1.5rem !important;
-  font-size: 0.375rem !important;
+  height: 2rem !important;
+  width: 2rem !important;
+  font-size: 0.75rem !important;
   font-weight: 400 !important;
   border-radius: 50% !important;
   flex-shrink: 0 !important;
@@ -771,40 +771,40 @@ html.dark [role="menu"] .h-8.w-8 > * {
 }
 
 [data-sidebar="trigger"] svg {
-  width: 1.25rem !important;
-  height: 1.25rem !important;
+  width: 1.375rem !important;
+  height: 1.375rem !important;
 }
 
 /* Make user button same size as navigation buttons - fixed height to prevent vertical movement */
 [data-sidebar="footer"] [data-sidebar="menu-button"] {
   padding: 0.125rem var(--spacing-sm);
-  height: 2.25rem;
-  min-height: 2.25rem;
-  max-height: 2.25rem;
+  height: 2.5rem;
+  min-height: 2.5rem;
+  max-height: 2.5rem;
 }
 
 /* Override Avatar inline classes */
 [data-sidebar="footer"] .h-8.w-8 {
-  height: 1.5rem !important;
-  width: 1.5rem !important;
+  height: 2rem !important;
+  width: 2rem !important;
 }
 
 /* Target AvatarFallback text specifically */
 [data-sidebar="footer"] .rounded-lg.h-8.w-8 {
-  font-size: 0.5rem !important;
+  font-size: 0.75rem !important;
   line-height: 1 !important;
 }
 
 /* Target the actual Radix Avatar Fallback element */
 [data-sidebar="footer"] [data-radix-avatar-fallback] {
-  font-size: 0.625rem !important;
+  font-size: 0.75rem !important;
   font-weight: 400 !important;
   line-height: 1 !important;
 }
 
 /* Also target by span inside avatar */
 [data-sidebar="footer"] .rounded-lg span {
-  font-size: 0.625rem !important;
+  font-size: 0.75rem !important;
   font-weight: 400 !important;
 }
 
@@ -843,8 +843,8 @@ html.dark [role="menu"] .h-8.w-8 > * {
 [data-sidebar="footer"] [data-sidebar="menu"]:first-child [data-sidebar="menu-button"] svg {
   position: absolute !important;
   left: 0.6rem !important;
-  width: 1.25rem !important;
-  height: 1.25rem !important;
+  width: 1.375rem !important;
+  height: 1.375rem !important;
 }
 
 /* Add spacing for Documentation text to match other nav buttons */

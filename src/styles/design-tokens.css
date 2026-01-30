@@ -28,7 +28,7 @@
 
   /* ===== Border Radius ===== */
   --radius-sm: 4px;
-  --radius-md: 6px;
+  --radius-md: 10px;
   --radius-lg: 10px;
   --radius-xl: 12px;
 
@@ -42,6 +42,7 @@
   /* Background colors */
   --token-bg-primary: #ffffff;
   --token-bg-secondary: #f5f5f4;
+  --token-bg-chat: #ffffff;
   --token-bg-tertiary: #eeeeee;
   --token-bg-hover: #e5e5e4;
   --token-bg-active: #e5e5e4;
@@ -93,6 +94,7 @@ html.dark {
   /* Background colors */
   --token-bg-primary: #18181b;
   --token-bg-secondary: #1d1d20;
+  --token-bg-chat: #141417;
   --token-bg-tertiary: #222225;
   --token-bg-hover: #2a2a2c;
   --token-bg-active: #2a2a2c;

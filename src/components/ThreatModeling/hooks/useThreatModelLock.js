@@ -28,15 +28,10 @@ export const useThreatModelLock = (threatModelId, showAlert) => {
       return;
     }
 
-    console.log(`[useThreatModelLock] Subscribing to lock for ${threatModelId}`);
-
     // Subscribe to lock state changes
     const unsubscribe = lockService.subscribe(threatModelId, (newState) => {
-      console.log(`[useThreatModelLock] State update for ${threatModelId}:`, newState);
-
       // Detect lock loss (had lock before, don't have it now)
       if (prevHasLockRef.current && !newState.hasLock && newState.isReadOnly) {
-        console.log(`[useThreatModelLock] Lock lost for ${threatModelId}`);
         if (showAlertRef.current) {
           showAlertRef.current("LockLost");
         }
@@ -48,7 +43,6 @@ export const useThreatModelLock = (threatModelId, showAlert) => {
 
     // Cleanup: unsubscribe when component unmounts or threatModelId changes
     return () => {
-      console.log(`[useThreatModelLock] Unsubscribing from lock for ${threatModelId}`);
       unsubscribe();
     };
   }, [threatModelId]); // Only depend on threatModelId

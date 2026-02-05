@@ -168,7 +168,6 @@ const ThreatModelInner = () => {
   const handleSendMessage = useCallback(
     async (id, response) => {
       if (!SENTRY_ENABLED) {
-        console.log("Sentry disabled - message not sent to backend");
         return;
       }
       await functions.sendMessage(id, response, true, response);
@@ -346,7 +345,6 @@ const ThreatModelInner = () => {
   useEffect(() => {
     return () => {
       if (id) {
-        console.log(`Clearing attack tree cache for threat model: ${id}`);
         clearThreatModelCache(id);
       }
     };

@@ -155,7 +155,6 @@ export const useAttackTreeLifecycle = ({
     try {
       // Cancel any existing polling
       if (abortControllerRef.current) {
-        console.log("Aborting previous polling operation");
         abortControllerRef.current.abort();
       }
 
@@ -200,14 +199,12 @@ export const useAttackTreeLifecycle = ({
     } catch (err) {
       // Don't show error if it was just a cancellation
       if (err.message === "Polling cancelled") {
-        console.log("Polling was cancelled, ignoring error");
         setIsSubmitting(false);
         return;
       }
 
       // Handle 404 - attack tree not found, clean up cache
       if (err.message && err.message.includes("not found")) {
-        console.log("Attack tree not found (404), removing from cache");
         handleAttackTreeNotFound(threatModelId, threatName);
       }
 
@@ -280,7 +277,6 @@ export const useAttackTreeLifecycle = ({
       try {
         // Compute the attack tree ID from threat model ID and threat name
         const computedId = generateAttackTreeId(threatModelId, threatName);
-        console.log("Computed attack tree ID:", computedId);
 
         if (isMounted) {
           setAttackTreeId(computedId);
@@ -327,7 +323,6 @@ export const useAttackTreeLifecycle = ({
             }));
           } else {
             // If attack tree data is invalid, show empty state
-            console.warn("Attack tree data is invalid or empty");
             setViewState((prevState) => ({
               ...prevState,
               status: "empty",
@@ -339,13 +334,11 @@ export const useAttackTreeLifecycle = ({
         }
       } catch (err) {
         if (err.message === "Polling cancelled" || err.name === "AbortError") {
-          console.log("Polling was cancelled or aborted");
           return;
         }
 
         // Attack tree doesn't exist - show empty state
         if (err.message === "ATTACK_TREE_NOT_FOUND" || err.message?.includes("not found")) {
-          console.log("Attack tree not found - showing create button");
           if (isMounted) {
             setAttackTreeId(null);
             setViewState((prevState) => ({
@@ -386,7 +379,6 @@ export const useAttackTreeLifecycle = ({
     return () => {
       // Cancel any ongoing polling operations when drawer closes
       if (abortControllerRef.current) {
-        console.log("Component unmounting - cancelling any ongoing polling");
         abortControllerRef.current.abort();
       }
     };

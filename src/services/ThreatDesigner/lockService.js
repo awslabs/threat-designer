@@ -77,12 +77,10 @@ class LockService {
     if (state.releaseTimeout) {
       clearTimeout(state.releaseTimeout);
       state.releaseTimeout = null;
-      console.log(`[LockService] Cancelled pending release for ${threatModelId}`);
     }
 
     // If this is the first subscriber and we don't have a lock and not already acquiring, acquire it
     if (state.subscriberCount === 1 && !state.isLocked && !state.isAcquiring) {
-      console.log(`[LockService] First subscriber for ${threatModelId}, acquiring lock`);
       this.acquireLock(threatModelId);
     } else {
       // Notify new subscriber of current state immediately
@@ -94,18 +92,12 @@ class LockService {
       subs.delete(callback);
       state.subscriberCount--;
 
-      console.log(
-        `[LockService] Subscriber removed for ${threatModelId}, count: ${state.subscriberCount}`
-      );
-
       // If no more subscribers, schedule lock release with small delay
       // This handles StrictMode re-renders where cleanup runs before next effect
       if (state.subscriberCount <= 0) {
-        console.log(`[LockService] Scheduling lock release for ${threatModelId}`);
         state.releaseTimeout = setTimeout(() => {
           // Double-check no new subscribers joined
           if (state.subscriberCount <= 0) {
-            console.log(`[LockService] Releasing lock for ${threatModelId}`);
             this.releaseLock(threatModelId);
           }
           state.releaseTimeout = null;
@@ -145,19 +137,16 @@ class LockService {
 
     // Already have lock or already acquiring
     if (state.isLocked && state.lockToken) {
-      console.log(`[LockService] Already have lock for ${threatModelId}`);
       return;
     }
 
     if (state.isAcquiring) {
-      console.log(`[LockService] Already acquiring lock for ${threatModelId}`);
       return;
     }
 
     state.isAcquiring = true;
 
     try {
-      console.log(`[LockService] Acquiring lock for ${threatModelId}`);
       const headers = await this.getAuthHeaders();
       const response = await axios.post(`${baseUrl}/${threatModelId}/lock`, {}, { headers });
 
@@ -167,15 +156,9 @@ class LockService {
         state.isReadOnly = false;
         state.lockStatus = null;
 
-        console.log(`[LockService] Lock acquired for ${threatModelId}, token: ${state.lockToken}`);
-
         this.startHeartbeat(threatModelId);
         this.notifySubscribers(threatModelId);
       } else {
-        console.log(
-          `[LockService] Failed to acquire lock for ${threatModelId}:`,
-          response.data.message
-        );
         state.isReadOnly = true;
         this.notifySubscribers(threatModelId);
       }
@@ -183,10 +166,6 @@ class LockService {
       if (error.response?.status === 409) {
         // Lock held by another user
         const data = error.response.data;
-        console.log(
-          `[LockService] Lock conflict for ${threatModelId}, held by:`,
-          data.username || data.held_by
-        );
 
         state.isReadOnly = true;
         state.lockStatus = {
@@ -217,7 +196,6 @@ class LockService {
     this.stopPolling(threatModelId);
 
     if (!state.lockToken) {
-      console.log(`[LockService] No lock token for ${threatModelId}, skipping release`);
       this.cleanupLockState(threatModelId);
       return;
     }
@@ -225,17 +203,13 @@ class LockService {
     try {
       if (useBeacon && navigator.sendBeacon) {
         // Beacon mode - just clear state, let TTL handle expiration
-        console.log(`[LockService] Releasing via TTL for ${threatModelId} (beacon mode)`);
       } else {
         const headers = await this.getAuthHeaders();
-        console.log(`[LockService] Releasing lock for ${threatModelId}`);
 
         await axios.delete(`${baseUrl}/${threatModelId}/lock`, {
           headers,
           data: { lock_token: state.lockToken },
         });
-
-        console.log(`[LockService] Lock released for ${threatModelId}`);
       }
     } catch (error) {
       console.error(`[LockService] Failed to release lock for ${threatModelId}:`, error);
@@ -269,8 +243,6 @@ class LockService {
       clearInterval(state.heartbeatInterval);
     }
 
-    console.log(`[LockService] Starting heartbeat for ${threatModelId}`);
-
     state.heartbeatInterval = setInterval(async () => {
       await this.sendHeartbeat(threatModelId);
     }, this.heartbeatIntervalMs);
@@ -282,7 +254,6 @@ class LockService {
   stopHeartbeat(threatModelId) {
     const state = this.locks.get(threatModelId);
     if (state?.heartbeatInterval) {
-      console.log(`[LockService] Stopping heartbeat for ${threatModelId}`);
       clearInterval(state.heartbeatInterval);
       state.heartbeatInterval = null;
     }
@@ -307,7 +278,6 @@ class LockService {
         { lock_token: state.lockToken },
         { headers }
       );
-      console.log(`[LockService] Heartbeat success for ${threatModelId}`);
     } catch (error) {
       if (error.response?.status === 410) {
         console.warn(`[LockService] Lock lost (410) for ${threatModelId}`);
@@ -340,16 +310,12 @@ class LockService {
     const state = this.getLockState(threatModelId);
 
     if (state.isLocked && state.lockToken) {
-      console.log(`[LockService] Already have lock, skipping polling for ${threatModelId}`);
       return;
     }
 
     if (state.pollInterval) {
-      console.log(`[LockService] Already polling for ${threatModelId}`);
       return;
     }
-
-    console.log(`[LockService] Starting polling for ${threatModelId}`);
 
     state.pollInterval = setInterval(async () => {
       // Stop if we got the lock or no more subscribers
@@ -362,7 +328,6 @@ class LockService {
         const status = await this.checkLockStatus(threatModelId);
 
         if (!status.locked) {
-          console.log(`[LockService] Lock available for ${threatModelId}, acquiring`);
           this.stopPolling(threatModelId);
           await this.acquireLock(threatModelId);
         }
@@ -378,7 +343,6 @@ class LockService {
   stopPolling(threatModelId) {
     const state = this.locks.get(threatModelId);
     if (state?.pollInterval) {
-      console.log(`[LockService] Stopping polling for ${threatModelId}`);
       clearInterval(state.pollInterval);
       state.pollInterval = null;
     }

@@ -23,7 +23,6 @@ export const useSessionInitializer = (sessionId) => {
         initializationRef.current = true;
         await functionsRef.current.initializeSession(sessionId);
         setIsInitialized(true);
-        console.log("sessions initialized");
       } catch (error) {
         console.error(`Failed to initialize session ${sessionId} on mount:`, error);
         initializationRef.current = false;

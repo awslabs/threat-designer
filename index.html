@@ -9,6 +9,29 @@
     <link rel="apple-touch-icon" href="/logo192.png" />
     <link rel="manifest" href="/manifest.json" />
     <title>Threat Designer</title>
+    <script>
+      // Prevent flash of wrong background color on page load
+      (function () {
+        var stored = localStorage.getItem("theme");
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var isDark = stored === "dark" || (!stored && prefersDark);
+        if (isDark) {
+          document.documentElement.classList.add("dark");
+        }
+      })();
+    </script>
+    <style>
+      /* Initial background colors to prevent flash */
+      html {
+        background-color: #fafaf9;
+      }
+      html.dark {
+        background-color: #101012;
+      }
+      body {
+        background-color: inherit;
+      }
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

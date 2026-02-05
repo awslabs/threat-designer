@@ -31,7 +31,15 @@ const ThinkingBudget = React.memo(({ budget, setBudget }) => {
   };
 
   return (
-    <div style={{ padding: "6px", paddingRight: "16px", paddingLeft: "10px", width: "200px", fontSize: "14px" }}>
+    <div
+      style={{
+        padding: "6px",
+        paddingRight: "16px",
+        paddingLeft: "10px",
+        width: "200px",
+        fontSize: "14px",
+      }}
+    >
       <List
         ariaLabel="List with icons and actions"
         sortable

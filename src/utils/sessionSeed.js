@@ -31,7 +31,6 @@ export function getSessionSeed() {
   if (!seed) {
     seed = generateSeed();
     sessionStorage.setItem(SESSION_SEED_KEY, seed);
-    console.log("[SessionSeed] Generated new session seed:", seed);
   }
 
   return seed;
@@ -54,5 +53,4 @@ export function createSentrySessionHeader(threatModelId) {
  */
 export function clearSessionSeed() {
   sessionStorage.removeItem(SESSION_SEED_KEY);
-  console.log("[SessionSeed] Cleared session seed");
 }

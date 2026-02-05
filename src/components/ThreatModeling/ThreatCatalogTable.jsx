@@ -23,7 +23,6 @@ const TableStatusComponent = ({ id }) => {
         const statusResponse = await getThreatModelingStatus(id);
         setStatus(statusResponse.data.state);
       } catch (error) {
-        console.log(error);
         console.error("Error fetching threat modeling status:", error);
         setStatus("FAILED");
       }

@@ -45,6 +45,87 @@ When extracting content from GitHub file URLs, convert them to raw format first:
 </web_search_behaviors>
 """
 
+# Chart generation instructions prompt - always included
+chart_prompt = """
+<chart_instructions>
+When visualizing data would help the user understand security metrics, threat distributions,
+or trends, use the chart tag format to generate inline charts.
+
+**Chart Format:**
+Use self-closing XML tags: `<chart config="{JSON_CONFIG}" />`
+
+**Supported Chart Types:**
+- `bar`: For comparing categories (e.g., STRIDE distribution, threat counts by source)
+- `pie`: For showing proportions (e.g., likelihood distribution, asset breakdown)
+- `donut`: For showing proportions with a center metric (e.g., total count in center)
+- `line`: For showing trends over time (e.g., vulnerability trends)
+
+**Configuration Schema for Bar/Line Charts:**
+```json
+{
+  "type": "bar|line",
+  "title": "Chart Title (optional)",
+  "xTitle": "X-Axis Label (optional)",
+  "yTitle": "Y-Axis Label (optional)",
+  "data": {
+    "categories": ["Cat1", "Cat2", ...],
+    "series": [
+      {
+        "title": "Series Name",
+        "type": "bar|line",
+        "data": [
+          { "x": "category_or_date", "y": numeric_value },
+          ...
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Pie Chart Data Format:**
+```json
+{
+  "type": "pie",
+  "title": "Distribution Title",
+  "data": [
+    { "title": "Segment 1", "value": 25 },
+    { "title": "Segment 2", "value": 75 }
+  ]
+}
+```
+
+**Donut Chart Data Format:**
+```json
+{
+  "type": "donut",
+  "title": "Distribution Title",
+  "innerMetricValue": "100",
+  "innerMetricDescription": "total",
+  "data": [
+    { "title": "Segment 1", "value": 25 },
+    { "title": "Segment 2", "value": 75 }
+  ]
+}
+```
+
+**Rules:**
+1. Only generate charts when visualization genuinely aids understanding
+2. Keep data series concise (max 10 categories, max 5 series)
+3. Use descriptive titles and labels
+4. Ensure numeric values are valid numbers
+5. Place charts on their own line, not inline with text
+6. Line chart works only with numerical, series data as intigers.  It doesn't work with categorical data and string values.
+
+**Example:**
+To show STRIDE category distribution:
+<chart config='{"type":"bar","title":"Threat Distribution by STRIDE Category","xTitle":"Category","yTitle":"Count","data":{"categories":["Spoofing","Tampering","Repudiation","Info Disclosure","DoS","Elevation"],"series":[{"title":"Threats","type":"bar","data":[{"x":"Spoofing","y":3},{"x":"Tampering","y":5},{"x":"Repudiation","y":2},{"x":"Info Disclosure","y":4},{"x":"DoS","y":1},{"x":"Elevation","y":2}]}]}}' />
+
+To show likelihood distribution as donut:
+<chart config='{"type":"donut","title":"Threat Likelihood","innerMetricValue":"56","innerMetricDescription":"threats","data":[{"title":"Low","value":18},{"title":"Medium","value":33},{"title":"High","value":5}]}' />
+</chart_instructions>
+"""
+
 # Citation instructions prompt - included only when Tavily tools are enabled
 citation_prompt = """
 <citation_instructions>
@@ -368,6 +449,9 @@ Sentry acts as a trusted security advisor where every recommendation enhances th
 
     if MODEL_PROVIDER == "bedrock":
         content.append({"cachePoint": {"type": "default"}})
+
+    # Always include chart generation instructions
+    content.append({"type": "text", "text": chart_prompt})
 
     # Conditionally include web search and citation prompts when Tavily is enabled
     if tavily_enabled:

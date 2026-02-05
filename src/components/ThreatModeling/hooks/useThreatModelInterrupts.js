@@ -59,7 +59,10 @@ export const useThreatModelInterrupts = (
     (toolName, threatsPayload) => {
       // Validate payload format before processing
       if (!Array.isArray(threatsPayload)) {
-        console.error("Invalid threat payload format - expected array, got:", typeof threatsPayload);
+        console.error(
+          "Invalid threat payload format - expected array, got:",
+          typeof threatsPayload
+        );
         return;
       }
 
@@ -155,11 +158,13 @@ export const useThreatModelInterrupts = (
       // Mark as processed using timestamp
       if (timestamp) {
         processedInterrupts.current.add(timestamp);
-        
+
         // Clean up old entries to prevent memory leak (keep last 50)
         if (processedInterrupts.current.size > 50) {
           const entries = Array.from(processedInterrupts.current);
-          entries.slice(0, entries.length - 50).forEach(key => processedInterrupts.current.delete(key));
+          entries
+            .slice(0, entries.length - 50)
+            .forEach((key) => processedInterrupts.current.delete(key));
         }
       }
 
@@ -222,7 +227,7 @@ export const useThreatModelInterrupts = (
     }
 
     const session = sessionData.sessions.get(threatModelId);
-    
+
     if (!session?.pendingInterrupt) {
       return;
     }

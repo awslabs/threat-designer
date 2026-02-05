@@ -4,10 +4,11 @@ resource "aws_bedrockagentcore_agent_runtime" "sentry" {
   role_arn           = aws_iam_role.sentry_role[0].arn
   environment_variables = merge(
     {
-      SESSION_TABLE  = aws_dynamodb_table.sentry_session[0].id,
-      S3_BUCKET      = aws_s3_bucket.architecture_bucket.id,
-      REGION         = var.region,
-      MODEL_PROVIDER = var.model_provider
+      SESSION_TABLE      = aws_dynamodb_table.sentry_session[0].id,
+      ATTACK_TREE_TABLE  = aws_dynamodb_table.attack_tree_data.id,
+      S3_BUCKET          = aws_s3_bucket.architecture_bucket.id,
+      REGION             = var.region,
+      MODEL_PROVIDER     = var.model_provider
     },
     var.model_provider == "bedrock" ? {
       MODEL_ID = var.model_sentry
@@ -200,6 +201,16 @@ resource "aws_iam_role_policy" "agent_core_policy" {
         "Resource" : [
           "${aws_dynamodb_table.sentry_session[0].arn}",
           "${aws_dynamodb_table.sentry_session[0].arn}/*"
+        ]
+      },
+      {
+        "Sid" : "AttackTreeTableRead",
+        "Effect" : "Allow",
+        "Action" : [
+          "dynamodb:GetItem"
+        ],
+        "Resource" : [
+          "${aws_dynamodb_table.attack_tree_data.arn}"
         ]
       },
       {

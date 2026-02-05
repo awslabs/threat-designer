@@ -111,7 +111,6 @@ export const useAttackTreeSave = ({ attackTreeId, nodes, edges, setHasUnsavedCha
 
     // Prevent duplicate saves from React StrictMode
     if (isSavingRef.current) {
-      console.log("Save already in progress, skipping duplicate call");
       return;
     }
 
@@ -130,13 +129,6 @@ export const useAttackTreeSave = ({ attackTreeId, nodes, edges, setHasUnsavedCha
       // Clean nodes and edges for saving
       const cleanedNodes = nodes.map(cleanNodeForSave);
       const cleanedEdges = edges.map(cleanEdgeForSave);
-
-      // Log what we're sending for debugging
-      console.log("Saving attack tree with cleaned data:", {
-        nodeCount: cleanedNodes.length,
-        edgeCount: cleanedEdges.length,
-        sampleNode: cleanedNodes[0],
-      });
 
       // Call API to save attack tree
       await updateAttackTree(attackTreeId, {
@@ -162,8 +154,6 @@ export const useAttackTreeSave = ({ attackTreeId, nodes, edges, setHasUnsavedCha
         setSaveSuccess(false);
         successTimeoutRef.current = null;
       }, 3000);
-
-      console.log("Attack tree saved successfully");
     } catch (err) {
       // Handle save failure
       console.error("Error saving attack tree:", err);

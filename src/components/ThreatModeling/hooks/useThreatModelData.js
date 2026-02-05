@@ -94,6 +94,7 @@ export const useThreatModelData = (
       const sessionContext = {
         diagram: threatModelData.s3_location,
         threatModel: {
+          threat_model_id: threatModelId,
           threats: threatsWithoutNotes,
           summary: threatModelData.summary,
           assumptions: threatModelData.assumptions,
@@ -127,8 +128,6 @@ export const useThreatModelData = (
           // Still show Sentry even if context update fails
           setIsVisible(true);
         }
-      } else {
-        console.log("Sentry disabled - session context not sent to backend");
       }
     },
     [threatModelId, updateSessionContext, sentryEnabled, setIsVisible]

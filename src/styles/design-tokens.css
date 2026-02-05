@@ -10,12 +10,12 @@
 :root {
   /* ===== Typography Scale ===== */
   /* Standardized font sizes for consistent text across the app */
-  --font-size-xs: 11px;   /* Citations, badges, tiny labels */
-  --font-size-sm: 12px;   /* Secondary text, captions, helper text */
+  --font-size-xs: 11px; /* Citations, badges, tiny labels */
+  --font-size-sm: 12px; /* Secondary text, captions, helper text */
   --font-size-base: 14px; /* Body text, paragraphs, inputs */
-  --font-size-md: 16px;   /* Section headers, emphasized text */
-  --font-size-lg: 18px;   /* Page titles, major headings */
-  --font-size-xl: 20px;   /* Hero text, large titles */
+  --font-size-md: 16px; /* Section headers, emphasized text */
+  --font-size-lg: 18px; /* Page titles, major headings */
+  --font-size-xl: 20px; /* Hero text, large titles */
 
   /* ===== Spacing Scale ===== */
   /* Consistent spacing values for padding, margin, and gap */

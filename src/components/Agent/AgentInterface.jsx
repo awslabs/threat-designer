@@ -287,7 +287,10 @@ function ChatInterface({ user, inTools }) {
         {chatTurns.length > 0 && <div className="stick-to-bottom-fade" />}
 
         {showButton && (
-          <ScrollToBottomButton scroll={() => scrollToBottom(true)} className="scroll-to-bottom-button" />
+          <ScrollToBottomButton
+            scroll={() => scrollToBottom(true)}
+            className="scroll-to-bottom-button"
+          />
         )}
       </div>
 

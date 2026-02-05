@@ -1,6 +1,6 @@
 {
   "name": "threat-designer",
-  "version": "0.5.6",
+  "version": "0.7.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -37,8 +37,8 @@
     "vite": "^6.4.1"
   },
   "dependencies": {
-    "@aws-amplify/auth": "^6.11.4",
-    "@aws-amplify/ui-react": "^6.9.3",
+    "@aws-amplify/auth": "^6.19.1",
+    "@aws-amplify/ui-react": "^6.13.2",
     "@cloudscape-design/board-components": "^3.0.139",
     "@cloudscape-design/chat-components": "^1.0.87",
     "@cloudscape-design/code-view": "^3.0.92",
@@ -64,9 +64,8 @@
     "dagre": "^0.8.5",
     "docx": "^9.2.0",
     "dompurify": "^3.2.4",
-    "jspdf": "^4.0.0",
+    "jspdf": "^4.1.0",
     "jspdf-autotable": "^5.0.7",
-    "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.539.0",
     "marked": "^16.3.0",
     "prop-types": "^15.8.1",

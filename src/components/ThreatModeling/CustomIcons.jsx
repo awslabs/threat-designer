@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled from "styled-components";
-import debounce from "lodash.debounce";
 import "./stepper.css";
 import { colorBackgroundLayoutMain } from "@cloudscape-design/design-tokens/index.js";
 
@@ -208,24 +207,31 @@ const useWindowSize = () => {
     width: undefined,
     height: undefined,
   });
+  const timeoutRef = useRef(null);
 
-  useEffect(() => {
-    const handleResize = debounce(() => {
+  const debouncedResize = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
       setWindowSize({
         width: window.innerWidth,
         height: window.innerHeight,
       });
     }, 250);
+  }, []);
 
-    window.addEventListener("resize", handleResize);
-
-    handleResize();
+  useEffect(() => {
+    window.addEventListener("resize", debouncedResize);
+    debouncedResize();
 
     return () => {
-      window.removeEventListener("resize", handleResize);
-      handleResize.cancel();
+      window.removeEventListener("resize", debouncedResize);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
-  }, []);
+  }, [debouncedResize]);
 
   return windowSize;
 };

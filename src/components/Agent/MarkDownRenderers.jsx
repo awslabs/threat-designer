@@ -11,15 +11,15 @@ import { useTheme } from "../ThemeContext";
 export const CodeRenderer = memo(
   ({ children, className = "", inline, node }) => {
     const code = String(children).replace(/\n$/, "");
-    
+
     // Check if this is inline code (no language class and inline prop or no newlines in short code)
-    const isInline = inline || (!className && code.length < 100 && !code.includes('\n'));
-    
+    const isInline = inline || (!className && code.length < 100 && !code.includes("\n"));
+
     if (isInline) {
       // Render inline code with simple styling
       return <code className="inline-code">{code}</code>;
     }
-    
+
     // Block code - use CodeBlock component
     const match = /language-(\w+)/.exec(className);
     const language = match ? match[1] : "default";
@@ -38,9 +38,7 @@ export const CodeRenderer = memo(
 /**
  * Memoized table renderer for markdown tables
  */
-export const CustomTable = memo(
-  ({ node, ...props }) => {
-    const { effectiveTheme } = useTheme();
-    return <table className={`custom-table ${effectiveTheme}`} {...props} />;
-  }
-);
+export const CustomTable = memo(({ node, ...props }) => {
+  const { effectiveTheme } = useTheme();
+  return <table className={`custom-table ${effectiveTheme}`} {...props} />;
+});

@@ -55,7 +55,6 @@ export const cacheAttackTreeId = (threatModelId, threatName, attackTreeId) => {
       cachedAt: new Date().toISOString(),
     };
     cache.set(key, cacheEntry);
-    console.log(`Cached attack tree ID: ${attackTreeId} for threat: ${threatName}`);
   } catch (error) {
     console.error("Error caching attack tree ID:", error);
     // Don't throw - caching is not critical
@@ -83,13 +82,9 @@ export const getCachedAttackTreeId = (threatModelId, threatName) => {
 
     // Check if this is a deletion marker
     if (cacheEntry.attackTreeId === null && cacheEntry.deletedAt) {
-      console.log(`Attack tree was deleted for threat: ${threatName}`);
       return null; // Explicitly deleted
     }
 
-    console.log(
-      `Found cached attack tree ID: ${cacheEntry.attackTreeId} for threat: ${threatName}`
-    );
     return cacheEntry.attackTreeId;
   } catch (error) {
     console.error("Error retrieving cached attack tree ID:", error);
@@ -114,7 +109,6 @@ export const removeCachedAttackTreeId = (threatModelId, threatName) => {
       deletedAt: new Date().toISOString(),
     };
     cache.set(key, deletionMarker);
-    console.log(`Marked attack tree as deleted for threat: ${threatName}`);
   } catch (error) {
     console.error("Error removing cached attack tree ID:", error);
     // Don't throw - cache cleanup is not critical
@@ -127,9 +121,7 @@ export const removeCachedAttackTreeId = (threatModelId, threatName) => {
  */
 export const clearAttackTreeCache = () => {
   try {
-    const size = cache.size;
     cache.clear();
-    console.log(`Cleared ${size} attack tree cache entries`);
   } catch (error) {
     console.error("Error clearing attack tree cache:", error);
   }
@@ -142,14 +134,11 @@ export const clearAttackTreeCache = () => {
  */
 export const clearThreatModelCache = (threatModelId) => {
   try {
-    let cleared = 0;
     for (const [key, entry] of cache.entries()) {
       if (entry.threatModelId === threatModelId) {
         cache.delete(key);
-        cleared++;
       }
     }
-    console.log(`Cleared ${cleared} cache entries for threat model: ${threatModelId}`);
   } catch (error) {
     console.error("Error clearing threat model cache:", error);
   }
@@ -165,7 +154,6 @@ export const handleAttackTreeNotFound = (threatModelId, threatName) => {
   try {
     const key = getCacheKey(threatModelId, threatName);
     cache.delete(key);
-    console.log(`Removed stale cache entry for threat: ${threatName} (404 from backend)`);
   } catch (error) {
     console.error("Error handling attack tree not found:", error);
   }

@@ -97,7 +97,9 @@
   margin: 0 auto; /* Horizontal centering only */
   transition: all var(--transition-normal);
   background: var(--token-bg-chat);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 2px 2px rgba(0, 0, 0, 0.05);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.1),
+    0 2px 2px rgba(0, 0, 0, 0.05);
 }
 
 .chat-textarea {
@@ -161,7 +163,9 @@
   min-height: 34px;
   border: none;
   color: var(--token-button-secondary-text);
-  transition: background-color var(--transition-normal), color var(--transition-normal);
+  transition:
+    background-color var(--transition-normal),
+    color var(--transition-normal);
 }
 
 .action-button:hover:not(:disabled) {
@@ -189,7 +193,9 @@
   padding: 6px 10px;
   border: none;
   background: transparent;
-  transition: background-color var(--transition-normal), color var(--transition-normal);
+  transition:
+    background-color var(--transition-normal),
+    color var(--transition-normal);
 }
 
 .action-button.toggle-button:hover:not(:disabled) {
@@ -342,11 +348,10 @@
   }
 }
 
-
 /* Dark mode send/stop button - active state with light color */
 html.dark .send-button:not(:disabled),
 html.dark .stop-button:not(:disabled) {
-  background: #FAFAF9;
+  background: #fafaf9;
 }
 
 html.dark .send-button:not(:disabled) svg,

@@ -60,13 +60,6 @@ export const generateAttackTreeId = (threatModelId, threatName) => {
   // Create composite key
   const compositeKey = `${threatModelId}_${normalizedName}`;
 
-  console.log("Generated composite attack tree ID:", {
-    threatModelId,
-    threatName,
-    normalizedName,
-    compositeKey,
-  });
-
   return compositeKey;
 };
 
@@ -105,7 +98,6 @@ export const generateAttackTree = async (threatModelId, threatName, threatDescri
   try {
     // Compute attack tree ID before making API call
     const attackTreeId = generateAttackTreeId(threatModelId, threatName);
-    console.log("Computed attack tree ID for generation:", attackTreeId);
 
     const headers = await getAuthHeaders();
     const response = await axios.post(
@@ -320,21 +312,17 @@ export const pollAttackTreeStatus = async (
   intervalMs = 5000,
   signal = null
 ) => {
-  console.log(`Starting polling for attack tree ${attackTreeId}, signal:`, signal);
   const timeoutMinutes = Math.floor((maxAttempts * intervalMs) / 60000);
   let attempts = 0;
 
   while (attempts < maxAttempts) {
     // Check if polling was cancelled
     if (signal?.aborted) {
-      console.log(`Polling cancelled for attack tree ${attackTreeId}`);
       throw new Error("Polling cancelled");
     }
 
     try {
-      console.log(`Poll attempt ${attempts + 1}/${maxAttempts} for ${attackTreeId}`);
       const status = await getAttackTreeStatus(attackTreeId);
-      console.log(`Status for ${attackTreeId}:`, status.status);
 
       if (onStatusUpdate) {
         onStatusUpdate(status);
@@ -344,7 +332,6 @@ export const pollAttackTreeStatus = async (
       const normalizedStatus = status.status?.toLowerCase();
 
       if (normalizedStatus === "completed") {
-        console.log(`Attack tree ${attackTreeId} completed, fetching data`);
         // Fetch the completed attack tree
         try {
           return await fetchAttackTree(attackTreeId);
@@ -358,20 +345,17 @@ export const pollAttackTreeStatus = async (
       }
 
       if (normalizedStatus === "failed") {
-        console.log(`Attack tree ${attackTreeId} failed`);
         // Provide detailed error message from backend
         const errorDetail = status.error || status.detail || "Attack tree generation failed";
         throw new Error(errorDetail);
       }
 
       if (normalizedStatus === "not_found") {
-        console.log(`Attack tree ${attackTreeId} not found - does not exist yet`);
         // Throw a specific error that the component can catch and handle
         throw new Error("ATTACK_TREE_NOT_FOUND");
       }
 
       // Wait before next poll (with cancellation support)
-      console.log(`Waiting ${intervalMs}ms before next poll...`);
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(resolve, intervalMs);
 

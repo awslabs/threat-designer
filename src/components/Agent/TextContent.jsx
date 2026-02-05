@@ -5,21 +5,24 @@ import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { CodeRenderer, CustomTable } from "./MarkDownRenderers";
 import { ExternalLink, Globe } from "lucide-react";
+import ChartRenderer from "./ChartRenderer";
+import ChartPlaceholder from "./ChartPlaceholder";
 import "./CitationStyles.css";
 
 /**
- * Custom sanitize schema that extends the default to allow <cite> tags with data-urls attribute
- * and <span> tags with class attribute for loading placeholders.
- * This provides XSS protection while preserving citation functionality.
- * Note: In hast (the AST format), data-urls becomes dataUrls (camelCase).
+ * Custom sanitize schema that extends the default to allow <cite> tags with data-urls attribute,
+ * <span> tags with class attribute for loading placeholders, and <chart> tags with dataConfig attribute.
+ * This provides XSS protection while preserving citation and chart functionality.
+ * Note: In hast (the AST format), data-urls becomes dataUrls and data-config becomes dataConfig (camelCase).
  */
 const sanitizeSchema = {
   ...defaultSchema,
-  tagNames: [...(defaultSchema.tagNames || []), "cite", "span"],
+  tagNames: [...(defaultSchema.tagNames || []), "cite", "span", "chart"],
   attributes: {
     ...defaultSchema.attributes,
     cite: ["dataUrls"],
     span: [...(defaultSchema.attributes?.span || []), "className", "class"],
+    chart: ["dataConfig"],
   },
 };
 
@@ -236,6 +239,28 @@ const CitationRenderer = memo(
 );
 
 /**
+ * Span renderer that handles special span elements like chart loading placeholder
+ * Memoized to prevent re-renders during streaming
+ */
+const SpanRenderer = memo(
+  ({ className, children, ...props }) => {
+    // Check if this is a chart loading placeholder
+    if (className === "chart-loading-placeholder") {
+      return <ChartPlaceholder />;
+    }
+    // Default span rendering
+    return (
+      <span className={className} {...props}>
+        {children}
+      </span>
+    );
+  },
+  (prevProps, nextProps) => {
+    return prevProps.className === nextProps.className;
+  }
+);
+
+/**
  * Resolve index-based citation [X:Y] to actual URL
  * X = search call number (1-indexed)
  * Y = result index within that call (1-indexed)
@@ -282,10 +307,16 @@ const parseMultipleCitations = (citationContent, webSearchResults) => {
 const CITATION_PLACEHOLDER = '<span class="citation-loading"></span>';
 
 /**
+ * Placeholder for loading chart during streaming
+ * Uses a custom element that will be rendered as ChartPlaceholder component
+ */
+const CHART_PLACEHOLDER = '<span class="chart-loading-placeholder"></span>';
+
+/**
  * Preprocess content to convert XML-style citations to URL-based citations
  * Format: <cite ref="X:Y" /> or <cite ref="X:Y,Z:W" />
  * Converted to: <cite data-urls="resolved_url1,resolved_url2"></cite>
- * 
+ *
  * Also shows a loading placeholder for incomplete citations during streaming
  * and hides incomplete code fences to prevent flash
  */
@@ -313,12 +344,12 @@ const preprocessCitations = (content, webSearchResults) => {
   // This handles all streaming states: <c, <ci, <cit, <cite, <cite , <cite r, <cite ref, <cite ref=, <cite ref="..., etc.
   // Match incomplete <cite tags that haven't been closed with />
   processed = processed.replace(/<cite(?:\s+ref(?:="[^"]*)?)?(?:\s*)$/gi, CITATION_PLACEHOLDER);
-  
+
   // Also catch partial tag starts like <c, <ci, <cit at the end
   processed = processed.replace(/<cit?e?$/gi, CITATION_PLACEHOLDER);
   processed = processed.replace(/<ci$/gi, CITATION_PLACEHOLDER);
   processed = processed.replace(/<c$/gi, CITATION_PLACEHOLDER);
-  
+
   // Hide lone < at the end (could be start of any tag)
   processed = processed.replace(/<$/g, "");
 
@@ -331,11 +362,82 @@ const preprocessCitations = (content, webSearchResults) => {
   return processed;
 };
 
+/**
+ * Escape HTML special characters for safe attribute embedding
+ * @param {string} str - String to escape
+ * @returns {string} Escaped string
+ */
+const escapeHtmlAttr = (str) => {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+};
+
+/**
+ * Preprocess content to convert chart tags to renderable elements
+ * Format: <chart config='{"type":"bar",...}' /> or <chart config="{...}"></chart>
+ * Converted to: <chart data-config="escaped_json"></chart>
+ *
+ * Also shows a loading placeholder for incomplete chart tags during streaming.
+ * Handles partial tag patterns: <char, <chart, <chart config='...
+ *
+ * Requirements: 6.1, 6.2
+ */
+const preprocessCharts = (content) => {
+  if (!content) return content;
+
+  let processed = content;
+
+  // Replace complete self-closing chart tags with single quotes: <chart config='...' />
+  processed = processed.replace(/<chart\s+config='([^']+)'\s*\/>/gi, (match, configJson) => {
+    return `<chart data-config="${escapeHtmlAttr(configJson)}"></chart>`;
+  });
+
+  // Replace complete self-closing chart tags with double quotes: <chart config="..." />
+  processed = processed.replace(/<chart\s+config="([^"]+)"\s*\/>/gi, (match, configJson) => {
+    return `<chart data-config="${escapeHtmlAttr(configJson)}"></chart>`;
+  });
+
+  // Replace complete chart tags with closing tag (single quotes): <chart config='...'>...</chart>
+  processed = processed.replace(/<chart\s+config='([^']+)'>\s*<\/chart>/gi, (match, configJson) => {
+    return `<chart data-config="${escapeHtmlAttr(configJson)}"></chart>`;
+  });
+
+  // Replace complete chart tags with closing tag (double quotes): <chart config="...">...</chart>
+  processed = processed.replace(/<chart\s+config="([^"]+)">\s*<\/chart>/gi, (match, configJson) => {
+    return `<chart data-config="${escapeHtmlAttr(configJson)}"></chart>`;
+  });
+
+  // Replace incomplete chart tags with placeholder
+  // Handle: <chart config='... (incomplete JSON, no closing quote or />)
+  processed = processed.replace(/<chart\s+config='[^']*$/gi, CHART_PLACEHOLDER);
+  // Handle: <chart config="... (incomplete JSON, no closing quote or />)
+  processed = processed.replace(/<chart\s+config="[^"]*$/gi, CHART_PLACEHOLDER);
+  // Handle: <chart config= (no quote yet)
+  processed = processed.replace(/<chart\s+config=\s*$/gi, CHART_PLACEHOLDER);
+  // Handle: <chart config (no = yet)
+  processed = processed.replace(/<chart\s+config\s*$/gi, CHART_PLACEHOLDER);
+  // Handle: <chart confi, <chart conf, etc.
+  processed = processed.replace(/<chart\s+conf?i?g?\s*$/gi, CHART_PLACEHOLDER);
+  // Handle: <chart (just the tag name with optional space)
+  processed = processed.replace(/<chart\s*$/gi, CHART_PLACEHOLDER);
+  // Handle: <char (partial tag name)
+  processed = processed.replace(/<char$/gi, CHART_PLACEHOLDER);
+  // Handle: <cha (partial tag name)
+  processed = processed.replace(/<cha$/gi, CHART_PLACEHOLDER);
+
+  return processed;
+};
+
 const TextContent = ({ content, webSearchResults, disableMarkdown }) => {
-  const processedContent = useMemo(
-    () => preprocessCitations(content, webSearchResults),
-    [content, webSearchResults]
-  );
+  const processedContent = useMemo(() => {
+    // Apply both citation and chart preprocessing
+    const citationProcessed = preprocessCitations(content, webSearchResults);
+    return preprocessCharts(citationProcessed);
+  }, [content, webSearchResults]);
 
   // Create citation renderer with access to webSearchResults
   // Use a stable reference to prevent re-renders during streaming
@@ -344,13 +446,21 @@ const TextContent = ({ content, webSearchResults, disableMarkdown }) => {
       code: CodeRenderer,
       table: CustomTable,
       cite: CitationRenderer,
+      chart: ChartRenderer,
+      span: SpanRenderer,
     }),
     []
   );
 
   // For user messages, render as plain text without markdown
   if (disableMarkdown) {
-    return <div style={{ fontSize: "var(--font-size-base, 14px)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{content}</div>;
+    return (
+      <div
+        style={{ fontSize: "var(--font-size-base, 14px)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}
+      >
+        {content}
+      </div>
+    );
   }
 
   return (

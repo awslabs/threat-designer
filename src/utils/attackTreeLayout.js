@@ -54,11 +54,8 @@ export const applyAutoLayout = (nodes, edges, options = {}) => {
 
     // If all nodes have positions, return as-is (backward compatibility)
     if (hasPositions) {
-      console.log("All nodes have existing positions, skipping layout calculation");
       return nodes;
     }
-
-    console.log("Calculating automatic layout for nodes without positions");
 
     // Create dagre graph
     const dagreGraph = new dagre.graphlib.Graph();
@@ -103,7 +100,6 @@ export const applyAutoLayout = (nodes, edges, options = {}) => {
       };
     });
 
-    console.log(`Layout calculated for ${nodesWithLayout.length} nodes`);
     return nodesWithLayout;
   } catch (error) {
     console.error("Error calculating layout:", error);

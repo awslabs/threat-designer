@@ -2,9 +2,9 @@ import { useEffect, useState, useCallback, useRef } from "react";
 
 // Scroll configuration constants
 const SCROLL_CONFIG = {
-  SMOOTH_DURATION: 400,        // Animation duration in ms (for reference)
+  SMOOTH_DURATION: 400, // Animation duration in ms (for reference)
   MIN_DISTANCE_FOR_SMOOTH: 10, // Minimum pixels to trigger smooth scroll (lowered from 50)
-  NEAR_BOTTOM_THRESHOLD: 5,    // Pixels from bottom to consider "at bottom"
+  NEAR_BOTTOM_THRESHOLD: 5, // Pixels from bottom to consider "at bottom"
 };
 
 export function useScrollToBottom(ref) {
@@ -14,59 +14,56 @@ export function useScrollToBottom(ref) {
   const lastScrollHeightRef = useRef(0);
   const isSmoothScrollingRef = useRef(false);
 
-  const scrollToBottom = useCallback((smooth = false) => {
-    const container = ref.current;
-    if (!container) return;
+  const scrollToBottom = useCallback(
+    (smooth = false) => {
+      const container = ref.current;
+      if (!container) return;
 
-    try {
-      const targetPosition = container.scrollHeight - container.clientHeight;
-      const currentPosition = container.scrollTop;
-      const distance = Math.abs(targetPosition - currentPosition);
+      try {
+        const targetPosition = container.scrollHeight - container.clientHeight;
+        const currentPosition = container.scrollTop;
+        const distance = Math.abs(targetPosition - currentPosition);
 
-      console.log('[ScrollToBottom] smooth:', smooth, 'distance:', distance, 'target:', targetPosition, 'current:', currentPosition);
-
-      // Skip if already at bottom
-      if (distance < SCROLL_CONFIG.NEAR_BOTTOM_THRESHOLD) {
-        console.log('[ScrollToBottom] Already at bottom, skipping');
-        setShowButton(false);
-        isSmoothScrollingRef.current = false;
-        return;
-      }
-
-      // Determine scroll behavior:
-      // Use instant scroll if:
-      // - smooth is false (explicit instant request)
-      // - distance is less than MIN_DISTANCE_FOR_SMOOTH (too short for animation)
-      const shouldUseSmooth = smooth && distance >= SCROLL_CONFIG.MIN_DISTANCE_FOR_SMOOTH;
-      console.log('[ScrollToBottom] shouldUseSmooth:', shouldUseSmooth);
-
-      if (shouldUseSmooth) {
-        // Smooth scroll using native scrollTo with behavior
-        isSmoothScrollingRef.current = true;
-        console.log('[ScrollToBottom] Using smooth scroll');
-        container.scrollTo({
-          top: targetPosition,
-          behavior: 'smooth'
-        });
-        
-        // Clear smooth scrolling flag after animation completes
-        // Using a timeout based on typical smooth scroll duration
-        setTimeout(() => {
+        // Skip if already at bottom
+        if (distance < SCROLL_CONFIG.NEAR_BOTTOM_THRESHOLD) {
+          setShowButton(false);
           isSmoothScrollingRef.current = false;
-        }, SCROLL_CONFIG.SMOOTH_DURATION);
-      } else {
-        // Instant scroll
-        console.log('[ScrollToBottom] Using instant scroll');
+          return;
+        }
+
+        // Determine scroll behavior:
+        // Use instant scroll if:
+        // - smooth is false (explicit instant request)
+        // - distance is less than MIN_DISTANCE_FOR_SMOOTH (too short for animation)
+        const shouldUseSmooth = smooth && distance >= SCROLL_CONFIG.MIN_DISTANCE_FOR_SMOOTH;
+
+        if (shouldUseSmooth) {
+          // Smooth scroll using native scrollTo with behavior
+          isSmoothScrollingRef.current = true;
+          container.scrollTo({
+            top: targetPosition,
+            behavior: "smooth",
+          });
+
+          // Clear smooth scrolling flag after animation completes
+          // Using a timeout based on typical smooth scroll duration
+          setTimeout(() => {
+            isSmoothScrollingRef.current = false;
+          }, SCROLL_CONFIG.SMOOTH_DURATION);
+        } else {
+          // Instant scroll
+          isSmoothScrollingRef.current = false;
+          container.scrollTop = targetPosition;
+        }
+
+        setShowButton(false);
+      } catch (err) {
+        console.error("Error scrolling:", err);
         isSmoothScrollingRef.current = false;
-        container.scrollTop = targetPosition;
       }
-      
-      setShowButton(false);
-    } catch (err) {
-      console.error("Error scrolling:", err);
-      isSmoothScrollingRef.current = false;
-    }
-  }, [ref]);
+    },
+    [ref]
+  );
 
   const checkScrollPosition = useCallback(() => {
     const container = ref.current;
@@ -93,7 +90,7 @@ export function useScrollToBottom(ref) {
         // We detect this by checking if we're not near the target position
         const targetPosition = container.scrollHeight - container.clientHeight;
         const distanceFromTarget = Math.abs(container.scrollTop - targetPosition);
-        
+
         // If we're far from target during smooth scroll, user likely interrupted
         if (distanceFromTarget > SCROLL_CONFIG.NEAR_BOTTOM_THRESHOLD) {
           // User is scrolling manually, cancel the smooth scroll
@@ -129,7 +126,7 @@ export function useScrollToBottom(ref) {
     mutationObserverRef.current = new MutationObserver((mutations) => {
       let shouldCheck = false;
       mutations.forEach((mutation) => {
-        if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+        if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
           shouldCheck = true;
           // Observe new elements
           mutation.addedNodes.forEach((node) => {
@@ -138,7 +135,7 @@ export function useScrollToBottom(ref) {
             }
           });
         }
-        if (mutation.type === 'characterData') {
+        if (mutation.type === "characterData") {
           shouldCheck = true;
         }
       });

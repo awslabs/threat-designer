@@ -113,7 +113,7 @@ const App = () => {
       const user = await getUser();
       setAuthUser(user);
     } catch (error) {
-      console.log(error);
+      // Auth check failed - user not logged in
       setAuthUser(null);
     } finally {
       setLoading(false);

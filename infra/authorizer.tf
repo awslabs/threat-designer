@@ -69,7 +69,7 @@ resource "null_resource" "wait_for_alias_stabilization" {
           --query 'RoutingConfig.AdditionalVersionWeights' \
           --output text)
         
-        if [ "$ROUTING" == "None" ] || [ -z "$ROUTING" ]; then
+        if [ "$ROUTING" = "None" ] || [ -z "$ROUTING" ]; then
           echo "Alias stabilized, no routing config detected"
           exit 0
         fi

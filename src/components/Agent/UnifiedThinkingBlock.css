@@ -1,0 +1,500 @@
+/* UnifiedThinkingBlock.css */
+
+.unified-thinking-block {
+  position: relative;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+/* ============================================
+   Theme Variables
+   ============================================ */
+
+/* Light theme */
+.unified-thinking-block.light {
+  --unified-text-primary: #18181b;
+  --unified-text-secondary: #555555;
+  --unified-text-muted: #4a4a4a;
+  --unified-border-color: #b0b0b0;
+  --unified-bg-hover: rgba(128, 128, 128, 0.15);
+  --unified-line-color: #c0c0c0;
+  --unified-source-bg: #e8e8e8;
+  --unified-source-bg-hover: #dbdbdb;
+  --unified-tool-text: #3b82f6;
+  --unified-thinking-icon-color: #6b7280;
+  --unified-tool-icon-color: #3b82f6;
+  --unified-raw-bg: #ececec;
+  --unified-raw-border: #c0c0c0;
+  --unified-page-bg: #f5f5f4;
+}
+
+/* Dark theme */
+.unified-thinking-block.dark {
+  --unified-text-primary: #fafaf9;
+  --unified-text-secondary: #e0e0e0;
+  --unified-text-muted: #8b8b8c;
+  --unified-border-color: #333333;
+  --unified-bg-hover: rgba(255, 255, 255, 0.05);
+  --unified-line-color: #3a3a3a;
+  --unified-source-bg: #2a2a2a;
+  --unified-source-bg-hover: #363636;
+  --unified-tool-text: #60a5fa;
+  --unified-thinking-icon-color: #6b7280;
+  --unified-tool-icon-color: #60a5fa;
+  --unified-raw-bg: #1e1e1e;
+  --unified-raw-border: #333333;
+  --unified-page-bg: #1d1d20;
+}
+
+/* ============================================
+   Base & Variables
+   ============================================ */
+
+.unified-thinking-block {
+  --marker-size: 22px;
+  --marker-offset: 36px;
+  --line-width: 2px;
+  --content-indent: 12px;
+  --content-gap: 6px;
+
+  position: relative;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+/* ============================================
+   Header Styles
+   ============================================ */
+
+.unified-block-header {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 0 8px 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.unified-header-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.unified-header-text {
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 500;
+  color: var(--unified-text-muted);
+}
+
+.unified-expand-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 4px;
+  color: var(--unified-text-muted);
+}
+
+.unified-arrow-icon {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.unified-arrow-icon.rotated {
+  transform: rotate(180deg);
+}
+
+/* ============================================
+   Content Container
+   ============================================ */
+
+.unified-content-container {
+  overflow: hidden;
+  transition:
+    max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.unified-content-container.collapsed {
+  max-height: 0 !important;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.unified-content-container.expanded {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.unified-content-wrapper {
+  padding: 8px 0 12px 0;
+  margin-left: 0;
+}
+
+/* ============================================
+   Timeline
+   ============================================ */
+
+.timeline {
+  position: relative;
+  padding-bottom: 4px;
+  margin-left: -3px;
+}
+
+/* FIX 1: Line stops before the last item */
+.timeline-line {
+  position: absolute;
+  left: calc((var(--marker-size) / 2) - (var(--line-width) / 2));
+  top: 4px;
+  bottom: calc(var(--marker-size) - 6px);
+  width: var(--line-width);
+  background-color: var(--unified-line-color);
+  border-radius: 1px;
+  z-index: 0;
+}
+
+/* ============================================
+   Timeline Item
+   ============================================ */
+
+.timeline-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  padding-bottom: 24px;
+  padding-left: 24px;
+  margin-left: 0;
+}
+
+.timeline-item.last {
+  padding-bottom: 0;
+}
+
+.timeline-marker {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--marker-size);
+  height: var(--marker-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--unified-page-bg);
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.timeline-icon {
+  flex-shrink: 0;
+}
+
+.timeline-icon.thinking-icon {
+  color: var(--unified-thinking-icon-color);
+}
+
+.timeline-icon.tool-icon {
+  color: var(--unified-tool-icon-color);
+}
+
+.timeline-content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ============================================
+   Thinking Content
+   ============================================ */
+
+.timeline-thinking-content {
+  font-size: 14px;
+  line-height: 1.6;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.timeline-thinking-content p {
+  margin: 0 0 8px 0;
+}
+
+.timeline-thinking-content p:last-child {
+  margin-bottom: 0;
+}
+
+.thinking-segment {
+  margin-bottom: 8px;
+}
+
+.thinking-segment:last-child {
+  margin-bottom: 0;
+}
+
+/* ============================================
+   Completion Step
+   ============================================ */
+
+.completion-step {
+  padding-bottom: 0;
+  min-height: var(--marker-size);
+}
+
+.completion-step .timeline-marker {
+  background-color: var(--unified-page-bg);
+}
+
+/* FIX 2: Mask any residual line below completion step */
+.completion-step::before {
+  content: "";
+  position: absolute;
+  left: calc((var(--marker-size) / 2) - (var(--line-width) / 2));
+  top: var(--marker-size);
+  bottom: -50px;
+  width: var(--line-width);
+  background-color: var(--unified-page-bg);
+  z-index: 1;
+}
+
+/* ============================================
+   Tool Result
+   ============================================ */
+
+.tool-result-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.tool-result-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--unified-tool-text);
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.tool-result-header.clickable {
+  cursor: pointer;
+}
+
+.tool-result-header.clickable:hover {
+  opacity: 0.8;
+}
+
+.tool-result-header.loading .tool-result-text {
+  animation: toolTextPulse 1.5s ease-in-out infinite;
+}
+
+.tool-result-text {
+  font-weight: 500;
+}
+
+.tool-result-chevron {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.tool-result-chevron.rotated {
+  transform: rotate(180deg);
+}
+
+@keyframes toolTextPulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   Source Items (Web, Extract, Threats)
+   ============================================ */
+
+.tool-result-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  max-width: 400px;
+}
+
+.source-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background-color: var(--unified-source-bg);
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--unified-text-primary);
+  transition: background-color 0.15s ease;
+}
+
+.source-item:hover {
+  background-color: var(--unified-source-bg-hover);
+}
+
+/* Threat items - no icon, not clickable */
+.source-item.threat-source-item {
+  cursor: default;
+  padding-left: 12px;
+}
+
+.source-item.threat-source-item:hover {
+  background-color: var(--unified-source-bg);
+}
+
+.source-favicon {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.source-favicon-placeholder {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background-color: var(--unified-border-color);
+  flex-shrink: 0;
+}
+
+/* Threat icon styling */
+.source-favicon.threat-icon {
+  color: var(--unified-tool-icon-color);
+  border-radius: 0;
+  background: none;
+}
+
+.source-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.source-external-icon {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  color: var(--unified-text-muted);
+}
+
+.source-item:hover .source-external-icon {
+  opacity: 1;
+}
+
+/* ============================================
+   Raw Content Display
+   ============================================ */
+
+.tool-result-raw {
+  margin-top: 8px;
+  max-width: 600px;
+  max-height: 200px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--unified-raw-bg);
+  border: 1px solid var(--unified-raw-border);
+  border-radius: 8px;
+}
+
+.tool-result-raw-header {
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--unified-text-muted);
+  border-bottom: 1px solid var(--unified-raw-border);
+  flex-shrink: 0;
+}
+
+.tool-result-raw-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  max-height: 250px;
+}
+
+.tool-result-raw-content {
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", monospace;
+  color: var(--unified-text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.tool-result-raw::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.tool-result-raw::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tool-result-raw::-webkit-scrollbar-thumb {
+  background-color: var(--unified-border-color);
+  border-radius: 3px;
+}
+
+.tool-result-raw::-webkit-scrollbar-thumb:hover {
+  background-color: var(--unified-text-muted);
+}
+
+/* ============================================
+   Text Animations
+   ============================================ */
+
+.unified-header-text.text-reveal {
+  background: linear-gradient(
+    90deg,
+    #8b8b8c 0%,
+    #8b8b8c 25%,
+    #ffffff 50%,
+    #8b8b8c 75%,
+    #8b8b8c 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: textShimmer 1.5s ease-in-out infinite;
+}
+
+.unified-header-text.text-reveal-light {
+  background: linear-gradient(
+    90deg,
+    #9a9a9a 0%,
+    #9a9a9a 25%,
+    #1a1a1a 50%,
+    #9a9a9a 75%,
+    #9a9a9a 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: textShimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes textShimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: -100% 50%;
+  }
+}

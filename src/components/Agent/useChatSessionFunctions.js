@@ -60,7 +60,6 @@ export const useChatSessionFunctions = (props) => {
     const clearSession = async (sessionId) => {
       // Handle Sentry disabled - just clear local state
       if (!SENTRY_ENABLED) {
-        console.log(`Sentry disabled - clearing local session ${sessionId}`);
         updateSession(sessionId, setSessions, {
           chatTurns: [],
           error: null,
@@ -164,8 +163,6 @@ export const useChatSessionFunctions = (props) => {
 
       initializedSessions.current.delete(sessionId);
       initializingPromises.current.delete(sessionId);
-
-      console.log(`Session ${sessionId} removed from memory`);
     };
 
     // Initialize session
@@ -179,8 +176,6 @@ export const useChatSessionFunctions = (props) => {
         if (!forceCheck && initializedSessions.current.has(sessionId)) {
           return;
         }
-
-        console.log(`Sentry disabled - creating local-only session for ${sessionId}`);
 
         setSessions((prev) => {
           const existingSession = prev.get(sessionId);
@@ -345,7 +340,6 @@ export const useChatSessionFunctions = (props) => {
     ) => {
       // Handle Sentry disabled - no-op for message sending
       if (!SENTRY_ENABLED) {
-        console.log(`Sentry disabled - message not sent to backend: "${userMessage}"`);
         return;
       }
 
@@ -361,10 +355,6 @@ export const useChatSessionFunctions = (props) => {
       // Retry logic for session not ready
       if (!currentSession) {
         if (retryAttempt < MAX_RETRIES) {
-          console.warn(
-            `Session ${sessionId} not ready. Retry attempt ${retryAttempt + 1}/${MAX_RETRIES}`
-          );
-
           // Try to initialize the session if it hasn't been
           if (!initializedSessions.current.has(sessionId)) {
             await initializeSession(sessionId);
@@ -397,7 +387,6 @@ export const useChatSessionFunctions = (props) => {
 
       // Only block regular messages if streaming, allow interrupts to proceed
       if (!interrupt && currentSession.isStreaming) {
-        console.log("Session is currently streaming, message blocked");
         return;
       }
 
@@ -510,104 +499,64 @@ export const useChatSessionFunctions = (props) => {
             }
           }
         } else {
-          // Regular messages - immediate streaming with selective buffering for tool updates
+          // Regular messages - use consistent buffering to handle large payloads split across chunks
           let buffer = "";
-          let processingToolUpdate = false;
 
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
             const chunk = decoder.decode(value);
+            buffer += chunk;
 
-            // If we're in tool update mode, use buffering
-            if (processingToolUpdate) {
-              buffer += chunk;
+            // Only process complete lines (ending with \n)
+            let newlineIndex;
+            while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+              const line = buffer.slice(0, newlineIndex);
+              buffer = buffer.slice(newlineIndex + 1);
 
-              let newlineIndex;
-              while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-                const line = buffer.slice(0, newlineIndex);
-                buffer = buffer.slice(newlineIndex + 1);
-
-                if (line.startsWith("data: ")) {
-                  try {
-                    const jsonStr = line.slice(6).trim();
-                    if (jsonStr) {
-                      const data = JSON.parse(jsonStr);
-
-                      // Check if still in tool update
-                      if (data.type === "tool" && data.tool_update) {
-                        addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
-                      } else {
-                        // Exit tool update mode
-                        processingToolUpdate = false;
-
-                        if (data.type === "interrupt") {
-                          setPendingInterrupt(sessionId, data, "sse", setSessions);
-                          return;
-                        }
-
-                        if (data.end) {
-                          addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
-                          cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
-                          return;
-                        }
-
-                        addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
-                      }
-                    }
-                  } catch (err) {
-                    console.error("Error parsing tool update:", err);
-                  }
-                }
-              }
-              continue;
-            }
-
-            // Normal immediate streaming for non-tool messages
-            const lines = chunk.split("\n");
-
-            for (const line of lines) {
               if (line.startsWith("data: ")) {
                 try {
-                  const data = JSON.parse(line.slice(6));
+                  const jsonStr = line.slice(6).trim();
+                  if (jsonStr) {
+                    const data = JSON.parse(jsonStr);
 
-                  // Detect tool start - switch to buffering mode for subsequent updates
-                  if (data.type === "tool" && data.tool_start) {
+                    if (data.type === "interrupt") {
+                      setPendingInterrupt(sessionId, data, "sse", setSessions);
+                      return;
+                    }
+
+                    if (data.end) {
+                      addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
+                      cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
+                      return;
+                    }
+
                     addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
-                    processingToolUpdate = true;
-                    continue;
                   }
-
-                  if (data.type === "interrupt") {
-                    setPendingInterrupt(sessionId, data, "sse", setSessions);
-                    return;
-                  }
-
-                  if (data.end) {
-                    addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
-                    cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
-                    return;
-                  }
-
-                  addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
                 } catch (err) {
                   console.error("Error parsing streaming response:", err);
+                  console.error("Failed line length:", line.length);
+                  console.error("Line starts with:", line.substring(0, 100));
+                  console.error("Line ends with:", line.substring(line.length - 100));
                 }
               }
             }
           }
 
-          // Handle any remaining buffered data
-          if (buffer.trim() && buffer.startsWith("data: ")) {
-            try {
-              const jsonStr = buffer.slice(6).trim();
-              if (jsonStr) {
-                const data = JSON.parse(jsonStr);
-                addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
+          // Handle any remaining data in buffer after stream ends
+          if (buffer.trim()) {
+            if (buffer.startsWith("data: ")) {
+              try {
+                const jsonStr = buffer.slice(6).trim();
+                if (jsonStr) {
+                  const data = JSON.parse(jsonStr);
+                  addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
+                }
+              } catch (err) {
+                console.error("Error parsing remaining buffer:", err);
+                console.error("Buffer length:", buffer.length);
               }
-            } catch (err) {
-              console.error("Error parsing remaining buffer:", err);
             }
           }
         }
@@ -616,10 +565,6 @@ export const useChatSessionFunctions = (props) => {
 
         // Retry on network errors (but not for interrupts)
         if (!interrupt && retryAttempt < MAX_RETRIES && isRetryableError(err)) {
-          console.log(
-            `Retrying message send after error. Attempt ${retryAttempt + 1}/${MAX_RETRIES}`
-          );
-
           await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS[retryAttempt]));
 
           return sendMessage(
@@ -694,14 +639,12 @@ export const useChatSessionFunctions = (props) => {
 
     // Flush all sessions
     const flushAllSessions = () => {
-      console.log(`Flushing all ${sessionsRef.current.size} sessions from memory`);
       Array.from(sessionsRef.current.keys()).forEach(removeSession);
     };
 
     // Handle auth change
     const handleAuthChange = (newUser = null, oldUser = null) => {
       if (!newUser || (oldUser && newUser?.id !== oldUser?.id)) {
-        console.log("User auth changed, flushing all sessions");
         flushAllSessions();
       }
     };
@@ -709,7 +652,6 @@ export const useChatSessionFunctions = (props) => {
     // Wrap prepareSession to handle Sentry disabled
     const prepareSessionWrapper = async (...args) => {
       if (!SENTRY_ENABLED) {
-        console.log("Sentry disabled - session preparation skipped");
         return { status: "skipped", message: "Sentry is disabled" };
       }
       return prepareSession(...args);

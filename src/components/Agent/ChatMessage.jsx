@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useMemo } from "react";
 import MessageAvatar from "./MessageAvatar";
 import ChatButtons from "./ChatButtons";
 import ContentResolver from "./ContentResolver";
-import WebSearchToolGroup from "./WebSearchToolGroup";
+import UnifiedThinkingBlock from "./UnifiedThinkingBlock";
 
 /**
  * Custom comparison function for ChatMessage memoization.
@@ -87,54 +87,73 @@ const ChatMessage = React.memo(
     // Use pre-computed blocks from buffering layer, fallback to empty array
     const blocks = messageBlocks || [];
 
-    // Group consecutive web search tools into single UI elements
-    // Only group same tool types together (search with search, extract with extract)
+    // Group all think and tool blocks (including web search) into unified groups
+    // The unified block ends only when a text block appears
     const groupedBlocks = useMemo(() => {
       const result = [];
-      let currentSearchGroup = [];
-      let currentGroupType = null; // 'search' or 'extract'
+      let currentUnifiedGroup = null; // For think + tool grouping
 
-      const getToolType = (block) => {
-        if (block.type !== "tool") return null;
-        if (block.toolName === "tavily_search") return "search";
-        if (block.toolName === "tavily_extract") return "extract";
-        return null;
-      };
-
-      const flushSearchGroup = (followedByNonSearch = false) => {
-        if (currentSearchGroup.length > 0) {
+      const flushUnifiedGroup = (markComplete = false) => {
+        if (currentUnifiedGroup) {
           result.push({
-            type: "search_group",
-            toolType: currentGroupType, // 'search' or 'extract'
-            blocks: [...currentSearchGroup],
-            id: `search_group_${currentSearchGroup[0].id || result.length}`,
-            // Group is complete if followed by non-search block OR stream ended
-            isGroupComplete: followedByNonSearch || isEnd,
+            ...currentUnifiedGroup,
+            isGroupComplete: markComplete || isEnd,
           });
-          currentSearchGroup = [];
-          currentGroupType = null;
+          currentUnifiedGroup = null;
         }
       };
 
       blocks.forEach((block) => {
-        const toolType = getToolType(block);
-        
-        if (toolType) {
-          // If switching tool types, flush the current group first
-          if (currentGroupType && currentGroupType !== toolType) {
-            flushSearchGroup(true);
+        // Handle think blocks - add to existing unified group or start new one
+        if (block.type === "think") {
+          if (currentUnifiedGroup) {
+            // Add to existing unified group - preserve order in contentBlocks
+            currentUnifiedGroup.contentBlocks.push(block);
+          } else {
+            // Start a new unified group
+            currentUnifiedGroup = {
+              type: "unified_thinking",
+              contentBlocks: [block], // Array preserving order of think/tool blocks
+              id: `unified_${block.id || result.length}`,
+              isGroupComplete: false,
+              thinkingStartTime: Date.now(),
+            };
           }
-          currentGroupType = toolType;
-          currentSearchGroup.push(block);
-        } else {
-          // Flush with followedByNonSearch = true since we hit a non-search block
-          flushSearchGroup(true);
-          result.push(block);
+          return;
         }
+
+        // Handle ALL tool blocks (including web search tools)
+        if (block.type === "tool") {
+          if (currentUnifiedGroup) {
+            // Add to existing unified group - preserve order in contentBlocks
+            currentUnifiedGroup.contentBlocks.push(block);
+          } else {
+            // Tool without preceding think - start a new unified group
+            currentUnifiedGroup = {
+              type: "unified_thinking",
+              contentBlocks: [block], // Array preserving order
+              id: `unified_${block.id || result.length}`,
+              isGroupComplete: false,
+              thinkingStartTime: Date.now(),
+            };
+          }
+          return;
+        }
+
+        // Handle text blocks - flush all groups (this ends the unified block)
+        if (block.type === "text") {
+          flushUnifiedGroup(true);
+          result.push(block);
+          return;
+        }
+
+        // Default: flush groups and add block as-is
+        flushUnifiedGroup(true);
+        result.push(block);
       });
 
-      // Trailing search tools - only complete if stream ended
-      flushSearchGroup(false);
+      // Flush remaining groups - only complete if stream ended
+      flushUnifiedGroup(false);
 
       return result;
     }, [blocks, isEnd]);
@@ -181,14 +200,15 @@ const ChatMessage = React.memo(
               // Add spacing between all blocks when there's a next block
               const marginBottom = nextBlock ? "16px" : "2px";
 
-              // Handle grouped search tools
-              if (block.type === "search_group") {
+              // Handle unified thinking + tools groups
+              if (block.type === "unified_thinking") {
                 return (
                   <div key={block.id} style={{ marginBottom }}>
-                    <WebSearchToolGroup 
-                      blocks={block.blocks} 
+                    <UnifiedThinkingBlock
+                      contentBlocks={block.contentBlocks}
                       isGroupComplete={block.isGroupComplete}
-                      toolType={block.toolType}
+                      thinkingStartTime={block.thinkingStartTime}
+                      isParentFirstMount={isParentFirstMount}
                     />
                   </div>
                 );

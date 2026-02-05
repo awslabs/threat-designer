@@ -12,7 +12,7 @@ from streaming import streaming_handler, cancel_stream_async
 from exceptions import MissingHeader
 from utils import logger, load_mcp_config
 from config import ALL_AVAILABLE_TOOLS
-from tools import add_threats, edit_threats, delete_threats
+from tools import add_threats, edit_threats, delete_threats, get_attack_tree
 from tavily_tools import get_tavily_tools
 import jwt
 
@@ -70,7 +70,9 @@ async def lifespan(app: FastAPI):
             )
             ALL_AVAILABLE_TOOLS.extend(tavily_tools)
 
-        ALL_AVAILABLE_TOOLS.extend([add_threats, edit_threats, delete_threats])
+        ALL_AVAILABLE_TOOLS.extend(
+            [add_threats, edit_threats, delete_threats, get_attack_tree]
+        )
         await agent_manager.initialize_default_agent()
     except Exception as e:
         logger.error(f"Failed to initialize default agent: {e}")

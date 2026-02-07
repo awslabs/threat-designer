@@ -1,4 +1,5 @@
 import os
+import json
 from langgraph_checkpoint_aws.async_saver import AsyncBedrockSessionSaver
 from langgraph_checkpoint_aws.saver import BedrockSessionSaver
 from botocore.session import get_session
@@ -21,11 +22,28 @@ S3_BUCKET = os.environ.get("S3_BUCKET")
 REGION = os.environ.get("REGION", "us-east-1")
 MODEL_PROVIDER = os.environ.get("MODEL_PROVIDER", "bedrock")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "64000"))
 
 # Tavily Configuration
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY")
 
-# OpenAI reasoning effort mapping (same as Threat Designer)
+
+# Parse reasoning budget/effort from environment
+def _parse_reasoning_config() -> dict:
+    """Parse reasoning budget (Bedrock) or effort (OpenAI) from environment"""
+    if MODEL_PROVIDER == "openai":
+        raw = os.environ.get(
+            "REASONING_EFFORT", '{"0": "none", "1": "low", "2": "medium", "3": "high"}'
+        )
+        return {int(k): v for k, v in json.loads(raw).items()}
+    else:
+        raw = os.environ.get("REASONING_BUDGET", '{"1": 16000, "2": 32000, "3": 63999}')
+        return {int(k): int(v) for k, v in json.loads(raw).items()}
+
+
+REASONING_CONFIG = _parse_reasoning_config()
+
+# OpenAI reasoning effort mapping (fallback for backward compatibility)
 OPENAI_REASONING_EFFORT_MAP = {0: "none", 1: "low", 2: "medium", 3: "high"}
 
 
@@ -58,8 +76,10 @@ sync_checkpointer = BedrockSessionSaver()
 ALL_AVAILABLE_TOOLS = []
 
 
-# Budget Level Configuration
-BUDGET_MAPPING = {1: 16000, 2: 32000, 3: 63999}
+# Budget Level Configuration (uses REASONING_CONFIG from environment)
+BUDGET_MAPPING = (
+    REASONING_CONFIG if MODEL_PROVIDER == "bedrock" else {1: 16000, 2: 32000, 3: 63999}
+)
 
 
 def create_model_config(budget_level: int = 1) -> dict:
@@ -73,7 +93,7 @@ def create_model_config(budget_level: int = 1) -> dict:
 def _create_bedrock_model_config(budget_level: int = 1) -> dict:
     """Create Bedrock model configuration based on budget level"""
     base_config = {
-        "max_tokens": 64000,
+        "max_tokens": MAX_TOKENS,
         "model_id": MODEL_ID,
         "client": boto_client,
         "temperature": 0 if budget_level == 0 else 1,
@@ -84,7 +104,7 @@ def _create_bedrock_model_config(budget_level: int = 1) -> dict:
         return base_config
 
     # For other levels, add thinking configuration
-    budget_tokens = BUDGET_MAPPING.get(budget_level, 8000)
+    budget_tokens = REASONING_CONFIG.get(budget_level, 8000)
 
     base_config["additional_model_request_fields"] = {
         "thinking": {
@@ -110,7 +130,7 @@ def _create_openai_model_config(budget_level: int = 1) -> dict:
 
     base_config = {
         "model": MODEL_ID or "gpt-5-mini-2025-08-07",
-        "max_tokens": 128000,
+        "max_tokens": MAX_TOKENS,
         "api_key": OPENAI_API_KEY,
         "temperature": 0,
         "use_responses_api": True,
@@ -119,7 +139,7 @@ def _create_openai_model_config(budget_level: int = 1) -> dict:
 
     # Add reasoning effort if budget level > 0
     if budget_level > 0:
-        reasoning_effort = OPENAI_REASONING_EFFORT_MAP.get(budget_level, "low")
+        reasoning_effort = REASONING_CONFIG.get(budget_level, "low")
         base_config["reasoning"] = {"effort": reasoning_effort, "summary": "detailed"}
 
     return base_config

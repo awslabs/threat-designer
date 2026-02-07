@@ -13,6 +13,7 @@ import ToolsConfigWrapper from "./ToolsConfigWrapper";
 import { useParams } from "react-router";
 import AgentLoader from "./LoadingAgent";
 import { useAgentState } from "./useAgentState";
+import { ClockFading, ToolCase } from "lucide-react";
 
 // localStorage keys
 const TOOLS_CONFIG_KEY = "toolsConfig";
@@ -189,13 +190,7 @@ function ChatInterface({ user, inTools }) {
       {
         id: "think",
         label: "Think",
-        icon: (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M9 18h6" />
-            <path d="M10 22h4" />
-            <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
-          </svg>
-        ),
+        icon: <ClockFading size={18} />,
         // For OpenAI, make it non-toggleable (always active)
         isToggle: true, //!isOpenAI,
         showDropdown: true,
@@ -212,11 +207,7 @@ function ChatInterface({ user, inTools }) {
       {
         id: "tools",
         label: "Tools",
-        icon: (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-          </svg>
-        ),
+        icon: <ToolCase size={18} />,
         isToggle: false,
         showDropdown: true,
         dropdownContent: () => (

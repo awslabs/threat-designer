@@ -1,8 +1,8 @@
-import { Globe, FileText, Shield, Wrench } from "lucide-react";
+import { Globe, FileText, Shield, ToolCase } from "lucide-react";
 import { getToolCategory } from "./utils/toolHelpers";
 import { TOOL_CATEGORIES } from "./utils/constants";
 
-const ToolIcon = ({ toolName, size = 16, className = "timeline-icon tool-icon" }) => {
+const ToolIcon = ({ toolName, size = 18, className = "timeline-icon tool-icon" }) => {
   const category = getToolCategory(toolName);
   const iconProps = { size, className };
 
@@ -14,7 +14,7 @@ const ToolIcon = ({ toolName, size = 16, className = "timeline-icon tool-icon" }
     case TOOL_CATEGORIES.THREAT:
       return <Shield {...iconProps} />;
     default:
-      return <Wrench {...iconProps} />;
+      return <ToolCase {...iconProps} />;
   }
 };
 

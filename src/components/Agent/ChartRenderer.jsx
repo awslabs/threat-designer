@@ -281,12 +281,11 @@ const renderLineChart = (config) => {
  * @param {string} props.dataConfig - JSON string containing chart configuration
  * @returns {JSX.Element} The rendered chart or error message
  */
-const ChartRenderer = memo(({ dataConfig, ...props }) => {
-  const renderedChart = useMemo(() => {
-    // In hast/react, data-config may come through as dataConfig (camelCase) or data-config (kebab-case)
-    // Handle both naming conventions for compatibility
-    const configAttr = dataConfig || props["data-config"];
+const ChartRenderer = memo(({ dataConfig, "data-config": dataConfigKebab }) => {
+  // In hast/react, data-config may come through as dataConfig (camelCase) or data-config (kebab-case)
+  const configAttr = dataConfig || dataConfigKebab;
 
+  const renderedChart = useMemo(() => {
     // Parse the configuration from the dataConfig attribute
     let config;
     try {
@@ -319,7 +318,7 @@ const ChartRenderer = memo(({ dataConfig, ...props }) => {
       default:
         return <ChartError message={`Unsupported chart type: ${limitedConfig.type}`} />;
     }
-  }, [dataConfig, props]);
+  }, [configAttr]);
 
   return <div className="chart-container">{renderedChart}</div>;
 });

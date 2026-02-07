@@ -32,10 +32,10 @@
 .unified-thinking-block.dark {
   --unified-text-primary: #fafaf9;
   --unified-text-secondary: #e0e0e0;
-  --unified-text-muted: #8b8b8c;
+  --unified-text-muted: #b5b5b6;
   --unified-border-color: #333333;
   --unified-bg-hover: rgba(255, 255, 255, 0.05);
-  --unified-line-color: #3a3a3a;
+  --unified-line-color: #4a4a4a;
   --unified-source-bg: #2a2a2a;
   --unified-source-bg-hover: #363636;
   --unified-tool-text: #60a5fa;
@@ -53,7 +53,7 @@
 .unified-thinking-block {
   --marker-size: 22px;
   --marker-offset: 36px;
-  --line-width: 2px;
+  --line-width: 1px;
   --content-indent: 12px;
   --content-gap: 6px;
 
@@ -145,12 +145,12 @@
   margin-left: -3px;
 }
 
-/* FIX 1: Line stops before the last item */
+/* FIX 1: Line stops at the last item's marker */
 .timeline-line {
   position: absolute;
   left: calc((var(--marker-size) / 2) - (var(--line-width) / 2));
   top: 4px;
-  bottom: calc(var(--marker-size) - 6px);
+  bottom: 4px;
   width: var(--line-width);
   background-color: var(--unified-line-color);
   border-radius: 1px;
@@ -193,11 +193,11 @@
 }
 
 .timeline-icon.thinking-icon {
-  color: var(--unified-thinking-icon-color);
+  color: var(--unified-text-muted);
 }
 
 .timeline-icon.tool-icon {
-  color: var(--unified-tool-icon-color);
+  color: var(--unified-text-muted);
 }
 
 .timeline-content {
@@ -269,7 +269,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--unified-tool-text);
+  color: var(--unified-text-muted);
   font-size: 14px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
@@ -283,11 +283,41 @@
 }
 
 .tool-result-header.loading .tool-result-text {
-  animation: toolTextPulse 1.5s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    #8b8b8c 0%,
+    #8b8b8c 25%,
+    #ffffff 50%,
+    #8b8b8c 75%,
+    #8b8b8c 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: textShimmer 1.5s ease-in-out infinite;
+}
+
+.light .tool-result-header.loading .tool-result-text {
+  background: linear-gradient(
+    90deg,
+    #9a9a9a 0%,
+    #9a9a9a 25%,
+    #1a1a1a 50%,
+    #9a9a9a 75%,
+    #9a9a9a 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: textShimmer 1.5s ease-in-out infinite;
 }
 
 .tool-result-text {
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .tool-result-chevron {
@@ -299,15 +329,6 @@
   transform: rotate(180deg);
 }
 
-@keyframes toolTextPulse {
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 1;
-  }
-}
 
 /* ============================================
    Source Items (Web, Extract, Threats)

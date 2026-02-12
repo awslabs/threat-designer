@@ -47,7 +47,7 @@ const UserChatMessage = React.memo(({ message, user }) => {
 
       <div
         style={{
-          flex: 1,
+          maxWidth: "90%",
           minWidth: 0,
           overflow: "hidden",
           marginTop: "-6px",
@@ -58,7 +58,7 @@ const UserChatMessage = React.memo(({ message, user }) => {
             backgroundColor: colorBackgroundChatBubbleIncoming,
             padding: "8px 12px",
             borderRadius: "8px",
-            width: "100%",
+            width: "fit-content",
           }}
         >
           <ContentResolver

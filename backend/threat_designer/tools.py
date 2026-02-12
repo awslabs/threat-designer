@@ -355,7 +355,7 @@ def add_threats(threats: ThreatsList, runtime: ToolRuntime):
         tool_use_delta = 1  # Increment by 1
         new_tool_use = tool_use + tool_use_delta
         response_msg = f"Successfully added: {valid_count} threats."
-        logger.info(
+        logger.debug(
             "Tool invoked successfully - all threats valid",
             tool="add_threats",
             usage_count=new_tool_use,
@@ -589,7 +589,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
     kpis_str = None
     try:
         kpi_start_time = time.time()
-        logger.info(
+        logger.debug(
             "Starting KPI calculation",
             tool="gap_analysis",
             threat_count=len(threat_list.threats)
@@ -604,7 +604,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
         kpis_str = _format_kpis_for_prompt(kpis)
 
         kpi_duration = time.time() - kpi_start_time
-        logger.info(
+        logger.debug(
             "KPI calculation completed",
             tool="gap_analysis",
             duration_ms=round(kpi_duration * 1000, 2),
@@ -676,7 +676,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
     reasoning = config["configurable"].get("reasoning", False)
 
     try:
-        logger.info(
+        logger.debug(
             "Invoking gap analysis model",
             tool="gap_analysis",
             usage_count=gap_tool_use + 1,
@@ -713,7 +713,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
                     tool_call_id=runtime.tool_call_id,
                 )
             ]
-            logger.info(
+            logger.debug(
                 "Gap analysis completed - catalog is comprehensive, counter reset",
                 tool="gap_analysis",
                 usage_count=new_gap_tool_use,
@@ -731,7 +731,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
                     tool_call_id=runtime.tool_call_id,
                 )
             ]
-            logger.info(
+            logger.debug(
                 "Gap analysis completed - gaps identified, counter reset",
                 tool="gap_analysis",
                 usage_count=new_gap_tool_use,

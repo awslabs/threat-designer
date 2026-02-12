@@ -130,7 +130,7 @@ Threat Designer supports two AI providers. Choose one based on your preference:
 
 You must enable access to the following models in your AWS region:
 
-- **Claude 4.5 Opus**
+- **Claude 4.6 Opus**
 - **Claude 4.5 Sonnet**
 - **Claude 4.5 Haiku**
 
@@ -216,12 +216,16 @@ Select AI model provider:
 
 **Used Models:**
 
-- **Claude 4.5 family models**
+- **Claude 4.X family models**
 
 **Key Characteristics:**
 
 - **Reasoning**: Hybrid model
-- **Reasoning Levels**: None, Low, Medium, High (maps to different reasoning token budget)
+- **Reasoning Levels**: None, Low, Medium, High, Max (maps to different reasoning token budgets or adaptive effort levels)
+
+> **Note:** Models listed in the `adaptive_thinking_models` Terraform variable (e.g., Claude Opus 4.6) use adaptive thinking with effort levels (`low`, `medium`, `high`, `max`) instead of token budgets. For these models, the `reasoning_budget` configuration is ignored — the reasoning level from the UI is mapped directly to an effort string. Standard models continue to use token-budget-based reasoning as before.
+>
+> **Note:** Claude Opus 4.6 supports a maximum output of 128K tokens, while other Claude 4.x family models support up to 64K tokens. If switching between models, make sure to update the `max_tokens` configuration accordingly to avoid API errors.
 
 #### OpenAI Configuration
 

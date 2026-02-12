@@ -40,7 +40,7 @@ class SessionManager:
                 self.session_cache[session_header] = session_id
                 self.cache_timestamps[session_header] = current_time
 
-            logger.info(
+            logger.debug(
                 f"Loaded {len(self.session_cache)} session mappings from DynamoDB"
             )
 
@@ -61,7 +61,7 @@ class SessionManager:
                 # Update local cache with timestamp
                 self.session_cache[session_header] = session_id
                 self.cache_timestamps[session_header] = time.time()
-                logger.info(
+                logger.debug(
                     f"Retrieved session ID from DynamoDB for header: {session_header}"
                 )
                 return session_id
@@ -83,7 +83,7 @@ class SessionManager:
                     "created_at": int(__import__("time").time()),
                 }
             )
-            logger.info(
+            logger.debug(
                 f"Saved session mapping to DynamoDB: {session_header} -> {session_id}"
             )
 
@@ -114,14 +114,14 @@ class SessionManager:
         # Check local cache first, but verify it hasn't expired
         if session_header in self.session_cache:
             if self._is_cache_expired(session_header):
-                logger.info(
+                logger.debug(
                     f"Cache expired for session header: {session_header}, refreshing from DynamoDB"
                 )
                 # Remove expired entry from cache
                 del self.session_cache[session_header]
                 del self.cache_timestamps[session_header]
             else:
-                logger.info(
+                logger.debug(
                     f"Found existing session ID in cache for header: {session_header}"
                 )
                 return self.session_cache[session_header]
@@ -141,7 +141,7 @@ class SessionManager:
             self.cache_timestamps[session_header] = time.time()
             self._save_session_to_dynamodb(session_header, session_id)
 
-            logger.info(
+            logger.debug(
                 f"Created new session ID {session_id} for header: {session_header}"
             )
             return session_id
@@ -154,25 +154,25 @@ class SessionManager:
         """Clear the local session cache (DynamoDB data remains)"""
         self.session_cache.clear()
         self.cache_timestamps.clear()
-        logger.info("Cleared local session cache and timestamps")
+        logger.debug("Cleared local session cache and timestamps")
 
     def delete_session(self, session_header: str):
         """Delete a specific session mapping from both cache and DynamoDB"""
         # Remove from local cache
         self.clear_cache()
-        logger.info(f"Session Cache: {self.session_cache}")
+        logger.debug(f"Session Cache: {self.session_cache}")
 
         # Remove from DynamoDB
         try:
             self.table.delete_item(Key={"session_header": session_header})
-            logger.info(f"Deleted session mapping for header: {session_header}")
+            logger.debug(f"Deleted session mapping for header: {session_header}")
 
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
 
             # If item doesn't exist, it's already deleted - this is fine
             if error_code == "ResourceNotFoundException":
-                logger.info(
+                logger.debug(
                     f"Session mapping for {session_header} not found in DynamoDB (already deleted)"
                 )
             else:

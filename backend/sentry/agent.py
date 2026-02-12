@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
 
         if len(filtered_mcp_tools) < len(mcp_tools_list):
             excluded_count = len(mcp_tools_list) - len(filtered_mcp_tools)
-            logger.info(f"Filtered out {excluded_count} MCP tool(s): {excluded_tools}")
+            logger.debug(f"Filtered out {excluded_count} MCP tool(s): {excluded_tools}")
     except Exception as e:
         logger.error(f"Failed to load mcp tools: {e}")
         filtered_mcp_tools = []
@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
         tavily_tools = get_tavily_tools()
 
         if tavily_tools:
-            logger.info(
+            logger.debug(
                 f"Loaded {len(tavily_tools)} Tavily tools: {[t.name for t in tavily_tools]}"
             )
             ALL_AVAILABLE_TOOLS.extend(tavily_tools)
@@ -81,7 +81,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        logger.info("Shutting down...")
+        logger.debug("Shutting down...")
         # Clear session cache
         session_manager.clear_cache()
 
@@ -120,13 +120,13 @@ async def invoke(request: InvocationRequest, http_request: Request):
     # Extract threat_model_id and discard the seed (seed is only for UI session management)
     if "/" in session_header:
         threat_model_id, session_seed = session_header.rsplit("/", 1)
-        logger.info(
+        logger.debug(
             f"Parsed session header - Threat Model ID: {threat_model_id}, Seed: {session_seed} (seed ignored)"
         )
     else:
         # Backward compatibility: if no seed, use the whole header as threat_model_id
         threat_model_id = session_header
-        logger.info(
+        logger.debug(
             f"Legacy session header format - Threat Model ID: {threat_model_id}"
         )
 

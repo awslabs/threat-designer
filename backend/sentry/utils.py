@@ -202,7 +202,7 @@ def _fetch_diagram_from_s3(
         s3_client = boto3.client("s3", region_name=REGION)
 
         s3_key = diagram_path
-        logger.info(f"Fetching diagram from s3://{s3_bucket}/{s3_key}")
+        logger.debug(f"Fetching diagram from s3://{s3_bucket}/{s3_key}")
 
         # Get the object directly from S3
         response = s3_client.get_object(Bucket=s3_bucket, Key=s3_key)
@@ -250,7 +250,7 @@ def _fetch_diagram_from_s3(
             "image_url": {"url": f"data:{content_type};base64,{image_data}"},
         }
 
-        logger.info(
+        logger.debug(
             f"Diagram fetched successfully as base64 data (size: {len(file_content)} bytes, type: {content_type})"
         )
 
@@ -287,12 +287,14 @@ def get_tools_for_preferences(
     """
     # If no preferences specified, return all available tools
     if tool_preferences is None:
-        logger.info("No tool preferences specified")
+        logger.debug("No tool preferences specified")
         return []
 
     # If explicitly empty list, return no tools
     if tool_preferences == []:
-        logger.info("Tool preferences explicitly set to empty list, returning no tools")
+        logger.debug(
+            "Tool preferences explicitly set to empty list, returning no tools"
+        )
         return []
 
     # Filter tools based on preferences
@@ -325,7 +327,7 @@ def get_tools_for_preferences(
 
     # Log results
     if valid_tool_names:
-        logger.info(f"Selected tools: {valid_tool_names}")
+        logger.debug(f"Selected tools: {valid_tool_names}")
     if invalid_tool_names:
         available_names = [tool.name for tool in all_available_tools]
         logger.warning(
@@ -398,23 +400,23 @@ async def get_or_create_agent(
 
     if needs_update:
         if current_tool_preferences != tool_preferences:
-            logger.info(
+            logger.debug(
                 f"Tool preferences changed: {current_tool_preferences} -> {tool_preferences}"
             )
         if current_context_hash != new_context_hash:
-            logger.info(
+            logger.debug(
                 f"Context changed: {current_context_hash} -> {new_context_hash}"
             )
         if current_diagram_hash != new_diagram_hash:
-            logger.info(f"Diagram changed: {diagram_path}")
+            logger.debug(f"Diagram changed: {diagram_path}")
 
-        logger.info(f"Creating agent with tools: {[tool.name for tool in new_tools]}")
+        logger.debug(f"Creating agent with tools: {[tool.name for tool in new_tools]}")
 
         try:
             # Prepare diagram data if specified (but don't add to context)
             diagram_data = None
             if diagram_path:
-                logger.info(f"Processing diagram: {diagram_path}")
+                logger.debug(f"Processing diagram: {diagram_path}")
 
                 # Fetch diagram (will use cache if available)
                 diagram_data = await download_and_cache_diagram(
@@ -423,7 +425,7 @@ async def get_or_create_agent(
 
                 if diagram_data:
                     # Just add a flag to context - the actual diagram data remains separate
-                    logger.info(f"Diagram processed and available: {diagram_path}")
+                    logger.debug(f"Diagram processed and available: {diagram_path}")
                 else:
                     logger.warning(f"Failed to retrieve diagram data: {diagram_path}")
 
@@ -435,14 +437,14 @@ async def get_or_create_agent(
             # Generate system prompt with enhanced context
             if context:
                 prompt = system_prompt(context, tavily_enabled=tavily_enabled)
-                logger.info(
+                logger.debug(
                     f"Using context-based system prompt (tavily_enabled={tavily_enabled})"
                 )
             else:
                 prompt = system_prompt(
                     {}, tavily_enabled=tavily_enabled
                 )  # Default empty context
-                logger.info(
+                logger.debug(
                     f"Using default system prompt (empty context, tavily_enabled={tavily_enabled})"
                 )
 
@@ -451,7 +453,7 @@ async def get_or_create_agent(
                 model=llm, tools=new_tools, prompt=prompt, checkpointer=checkpointer
             )
 
-            logger.info("Agent successfully created/updated")
+            logger.debug("Agent successfully created/updated")
 
             # Return the new agent and updated state parameters
             # Note: diagram_data is returned separately from the context

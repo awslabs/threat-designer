@@ -61,7 +61,7 @@ def lambda_handler(event: dict, context: LambdaContext):
         username = claims.get("cognito:username", claims.get("username", user_id))
         email = claims.get("email", "")
 
-        logger.info(
+        logger.debug(
             "Token validated successfully",
             extra={"user_id": user_id, "username": username},
         )

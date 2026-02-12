@@ -130,7 +130,7 @@ const ThreatModelContent = React.memo(
               }}
             >
               {/* Processing component */}
-              {processing && (
+              {processing && !(alert.visible && alert.state === "ErrorThreatModeling") && (
                 <div style={{ width: "100%", marginTop: "200px" }}>
                   <Processing
                     status={tmStatus}

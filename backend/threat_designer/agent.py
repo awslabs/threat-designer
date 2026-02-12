@@ -60,7 +60,7 @@ def _run_agent_async(state: Dict, config: Dict, job_id: str, agent_config: Dict)
                 # Import attack tree workflow
                 from workflow_attack_tree import attack_tree_workflow, AttackTreeState
 
-                logger.info(
+                logger.debug(
                     "Starting attack tree generation in background",
                     job_id=job_id,
                     threat_name=state.get("threat_name"),
@@ -95,7 +95,7 @@ def _run_agent_async(state: Dict, config: Dict, job_id: str, agent_config: Dict)
                 if not attack_tree_model:
                     raise RuntimeError("Attack tree model not configured")
 
-                logger.info(
+                logger.debug(
                     "Attack tree model configured with fixed reasoning",
                     job_id=job_id,
                     reasoning_level=ATTACK_TREE_REASONING_LEVEL,
@@ -113,7 +113,7 @@ def _run_agent_async(state: Dict, config: Dict, job_id: str, agent_config: Dict)
                 # Execute attack tree workflow
                 attack_tree_workflow.invoke(attack_tree_state, config=workflow_config)
 
-                logger.info(
+                logger.debug(
                     "Attack tree generation completed successfully",
                     job_id=job_id,
                     execution_time_seconds=(
@@ -122,7 +122,7 @@ def _run_agent_async(state: Dict, config: Dict, job_id: str, agent_config: Dict)
                 )
             else:
                 # Default: Execute threat modeling workflow (existing logic)
-                logger.info(
+                logger.debug(
                     "Starting threat modeling analysis in background",
                     job_id=job_id,
                     reasoning=agent_config["reasoning"],
@@ -132,7 +132,7 @@ def _run_agent_async(state: Dict, config: Dict, job_id: str, agent_config: Dict)
                 # Execute the threat modeling workflow
                 agent.invoke(state, config=config)
 
-                logger.info(
+                logger.debug(
                     "Threat modeling completed successfully",
                     job_id=job_id,
                     execution_time_seconds=(
@@ -147,7 +147,7 @@ def _run_agent_async(state: Dict, config: Dict, job_id: str, agent_config: Dict)
         # Handle graceful shutdown scenarios (e.g., session cancelled by user)
         error_msg = str(e)
         if "cannot schedule new futures after interpreter shutdown" in error_msg:
-            logger.info(
+            logger.debug(
                 "Agent execution stopped due to session cancellation",
                 job_id=job_id,
                 error=error_msg,
@@ -161,7 +161,7 @@ def _run_agent_async(state: Dict, config: Dict, job_id: str, agent_config: Dict)
     except Exception as e:
         _handle_error_response(e, job_id, HTTP_STATUS_INTERNAL_SERVER_ERROR)
     finally:
-        logger.info("Background invocation completed", job_id=job_id)
+        logger.debug("Background invocation completed", job_id=job_id)
 
 
 @with_error_context("create agent configuration")
@@ -179,7 +179,7 @@ def _create_agent_config(event: Dict[str, Any]) -> ConfigSchema:
     models = initialize_models(reasoning)
     thinking = reasoning != REASONING_DISABLED
 
-    logger.info(
+    logger.debug(
         "Created agent configuration",
         reasoning=thinking,
     )
@@ -216,7 +216,7 @@ def _initialize_state(event: Dict[str, Any], job_id: str) -> AgentState:
         state["instructions"] = (event.get("instructions") or "").strip() or None
 
         replay_mode = event.get("replay", False)
-        logger.info(
+        logger.debug(
             "Initializing state",
             job_id=job_id,
             replay_mode=replay_mode,
@@ -241,7 +241,7 @@ def _handle_replay_state(state: AgentState, job_id: str) -> AgentState:
         AgentState: State loaded from previous analysis
     """
     with operation_context("handle_replay", job_id):
-        logger.info("Loading replay state", job_id=job_id)
+        logger.debug("Loading replay state", job_id=job_id)
 
         results = fetch_results(job_id, AGENT_TABLE)
         item = results["item"]
@@ -281,7 +281,7 @@ def _handle_replay_state(state: AgentState, job_id: str) -> AgentState:
             }
         )
 
-        logger.info(
+        logger.debug(
             "Successfully loaded replay state",
             job_id=job_id,
             has_assets=assets is not None,
@@ -328,7 +328,7 @@ def _handle_new_state(state: AgentState, event: Dict[str, Any]) -> AgentState:
             }
         )
 
-        logger.info(
+        logger.debug(
             "Successfully initialized new state",
             job_id=job_id,
             s3_location=event["s3_location"],
@@ -351,7 +351,7 @@ def _validate_event(event: Dict[str, Any]) -> None:
     Raises:
         ValidationError: If required fields are missing or invalid
     """
-    logger.info("Validating incoming event", event_keys=list(event.keys()))
+    logger.debug("Validating incoming event", event_keys=list(event.keys()))
 
     required_fields = ["id"]
     missing_fields = [field for field in required_fields if not event.get(field)]
@@ -381,7 +381,7 @@ def _validate_event(event: Dict[str, Any]) -> None:
             )
             raise ValidationError(ERROR_INVALID_REASONING_TYPE)
 
-    logger.info("Event validation successful", event_id=event["id"])
+    logger.debug("Event validation successful", event_id=event["id"])
 
 
 def _handle_error_response(
@@ -413,7 +413,7 @@ def _handle_error_response(
     if job_id:
         try:
             update_job_state(job_id, JobState.FAILED.value)
-            logger.info("Updated job state to FAILED", job_id=job_id)
+            logger.debug("Updated job state to FAILED", job_id=job_id)
         except Exception as update_error:
             logger.error(
                 "Failed to update job state to FAILED",
@@ -487,7 +487,7 @@ async def handler(request: InvocationRequest, http_request: Request) -> Dict[str
             request_type = event.get("type")
 
             if request_type == "attack_tree":
-                logger.info("Processing attack tree request", job_id=job_id)
+                logger.debug("Processing attack tree request", job_id=job_id)
 
                 # Create minimal state for attack tree
                 state = {
@@ -507,7 +507,7 @@ async def handler(request: InvocationRequest, http_request: Request) -> Dict[str
 
                 message = "Attack tree generation started"
             else:
-                logger.info("Processing threat modeling request", job_id=job_id)
+                logger.debug("Processing threat modeling request", job_id=job_id)
 
                 # Create agent configuration
                 agent_config = _create_agent_config(event)
@@ -517,10 +517,10 @@ async def handler(request: InvocationRequest, http_request: Request) -> Dict[str
 
                 message = "Threat modeling process started"
 
-            logger.info("Agent invocation accepted", job_id=job_id)
+            logger.debug("Agent invocation accepted", job_id=job_id)
 
             # Log execution start
-            logger.info(
+            logger.debug(
                 "Accepting request",
                 job_id=job_id,
                 request_type=request_type or "threat_modeling",

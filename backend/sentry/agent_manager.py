@@ -33,7 +33,7 @@ class AgentManager:
         # Check if budget level changed - if so, we need to recreate the agent and LLM
         budget_level_changed = self.current_budget_level != budget_level
         if budget_level_changed:
-            logger.info(
+            logger.debug(
                 f"Budget level changed from {self.current_budget_level} to {budget_level}, recreating agent and LLM..."
             )
             self.current_budget_level = budget_level
@@ -42,7 +42,7 @@ class AgentManager:
 
         # Create or reuse LLM
         if self.cached_llm is None:
-            logger.info(f"Creating new LLM with budget level {budget_level}")
+            logger.debug(f"Creating new LLM with budget level {budget_level}")
             self.cached_llm = create_model(budget_level)
 
         llm = self.cached_llm
@@ -81,7 +81,7 @@ class AgentManager:
         """Initialize agent with all available tools, no context, no diagram"""
         try:
             await self.get_agent_with_preferences(None, None, None, 1)
-            logger.info(
+            logger.debug(
                 f"Default agent initialized successfully with all tools: {[tool.name for tool in ALL_AVAILABLE_TOOLS]}"
             )
         except Exception as e:

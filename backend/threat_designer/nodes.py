@@ -344,7 +344,7 @@ class GapAnalysisService:
             state.get("gap", []),
         )
 
-        logger.info("Gap analysis message prepared", job_id=state.get("job_id"))
+        logger.debug("Gap analysis message prepared", job_id=state.get("job_id"))
 
         if state.get("replay") and state.get("instructions"):
             system_prompt = SystemMessage(content=gap_prompt(state.get("instructions")))
@@ -407,7 +407,7 @@ class WorkflowFinalizationService:
                     "cannot schedule new futures after interpreter shutdown"
                     in error_msg
                 ):
-                    logger.info(
+                    logger.debug(
                         "Finalization stopped due to session cancellation",
                         job_id=job_id,
                         error=error_msg,

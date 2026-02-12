@@ -29,6 +29,7 @@ ENV_MAIN_MODEL = "MAIN_MODEL"
 ENV_MODEL_STRUCT = "MODEL_STRUCT"
 ENV_MODEL_SUMMARY = "MODEL_SUMMARY"
 ENV_REASONING_MODELS = "REASONING_MODELS"
+ENV_ADAPTIVE_THINKING_MODELS = "ADAPTIVE_THINKING_MODELS"
 
 # Model provider configuration
 ENV_MODEL_PROVIDER = "MODEL_PROVIDER"
@@ -220,12 +221,16 @@ HTTP_STATUS_INTERNAL_SERVER_ERROR = 500
 
 # Valid reasoning levels
 REASONING_DISABLED = 0
-REASONING_ENABLED = [1, 2, 3]
+REASONING_ENABLED = [1, 2, 3, 4]
 VALID_REASONING_VALUES = [REASONING_DISABLED, *REASONING_ENABLED]
 
 # Reasoning model configuration
 REASONING_THINKING_TYPE = "enabled"
 REASONING_BUDGET_FIELD = "budget_tokens"
+
+# Adaptive thinking configuration
+ADAPTIVE_THINKING_TYPE = "adaptive"
+ADAPTIVE_EFFORT_MAP: Dict[int, str] = {1: "low", 2: "medium", 3: "high", 4: "max"}
 
 # OpenAI reasoning effort mapping for mini models
 OPENAI_REASONING_EFFORT_MAP_MINI: Dict[int, str] = {
@@ -295,7 +300,7 @@ MAX_SUMMARY_WORDS = 100
 
 # Reasoning level validation
 MIN_REASONING_LEVEL = 0
-MAX_REASONING_LEVEL = 3
+MAX_REASONING_LEVEL = 4
 
 
 # ============================================================================

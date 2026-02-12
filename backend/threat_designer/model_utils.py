@@ -14,9 +14,12 @@ from typing import Any, Dict, Optional, TypedDict
 import boto3
 from botocore.config import Config
 from constants import (
+    ADAPTIVE_EFFORT_MAP,
+    ADAPTIVE_THINKING_TYPE,
     AWS_SERVICE_BEDROCK_RUNTIME,
     DEFAULT_REGION,
     DEFAULT_TIMEOUT,
+    ENV_ADAPTIVE_THINKING_MODELS,
     ENV_MAIN_MODEL,
     ENV_MODEL_PROVIDER,
     ENV_MODEL_STRUCT,
@@ -68,6 +71,7 @@ class ModelConfigurations:
     struct_model: ModelConfig
     summary_model: ModelConfig
     reasoning_models: list[str]
+    adaptive_thinking_models: list[str]
 
 
 @with_error_context("load model configurations")
@@ -94,6 +98,9 @@ def _load_model_configs() -> ModelConfigurations:
         struct_model = json.loads(os.environ.get(ENV_MODEL_STRUCT, "{}"))
         summary_model = json.loads(os.environ.get(ENV_MODEL_SUMMARY, "{}"))
         reasoning_models = json.loads(os.environ.get(ENV_REASONING_MODELS, "[]"))
+        adaptive_thinking_models = json.loads(
+            os.environ.get(ENV_ADAPTIVE_THINKING_MODELS, "[]")
+        )
 
         # Validate required configurations
         missing_configs = []
@@ -128,7 +135,7 @@ def _load_model_configs() -> ModelConfigurations:
                 "environment variables are properly set."
             )
 
-        logger.info(
+        logger.debug(
             "Model configurations loaded successfully",
             assets_model_id=assets_model.get("id") if assets_model else None,
             flows_model_id=flows_model.get("id") if flows_model else None,
@@ -143,6 +150,7 @@ def _load_model_configs() -> ModelConfigurations:
             struct_model_id=struct_model.get("id") if struct_model else None,
             summary_model_id=summary_model.get("id") if summary_model else None,
             reasoning_models_count=len(reasoning_models),
+            adaptive_thinking_models_count=len(adaptive_thinking_models),
         )
 
         return ModelConfigurations(
@@ -155,6 +163,7 @@ def _load_model_configs() -> ModelConfigurations:
             struct_model=struct_model,
             summary_model=summary_model,
             reasoning_models=reasoning_models,
+            adaptive_thinking_models=adaptive_thinking_models,
         )
 
     except json.JSONDecodeError as e:
@@ -192,7 +201,7 @@ def _create_bedrock_client(
             service_name=AWS_SERVICE_BEDROCK_RUNTIME, region_name=region, config=config
         )
 
-        logger.info("Bedrock client created successfully", region=region)
+        logger.debug("Bedrock client created successfully", region=region)
         return client
 
     except Exception as e:
@@ -267,7 +276,7 @@ def _build_main_model_config(
         }
         config["temperature"] = MODEL_TEMPERATURE_REASONING
 
-        logger.info(
+        logger.debug(
             "Reasoning enabled for main model",
             model_id=model_config["id"],
             token_budget=reasoning,
@@ -284,6 +293,46 @@ def _build_main_model_config(
     return config
 
 
+def _build_adaptive_model_config(
+    model_config: ModelConfig,
+    reasoning: int,
+    client: boto3.client,
+    region: str,
+) -> dict:
+    """
+    Build configuration dictionary for adaptive thinking models (e.g., Claude Opus 4.6).
+
+    Uses effort-level-based parameters instead of token budgets.
+
+    Args:
+        model_config: Model configuration with id and max_tokens.
+        reasoning: Reasoning level (0-4). 0 disables thinking, 1-4 maps to effort levels.
+        client: Bedrock runtime client.
+        region: AWS region name.
+
+    Returns:
+        dict: Model configuration with adaptive thinking parameters if reasoning > 0.
+    """
+    config = _build_standard_model_config(model_config, client, region)
+
+    if reasoning != 0:
+        effort = ADAPTIVE_EFFORT_MAP.get(reasoning, "low")
+        config["additional_model_request_fields"] = {
+            "thinking": {"type": ADAPTIVE_THINKING_TYPE},
+            "output_config": {"effort": effort},
+        }
+        config["temperature"] = MODEL_TEMPERATURE_REASONING
+
+        logger.debug(
+            "Adaptive thinking enabled for model",
+            model_id=model_config["id"],
+            effort=effort,
+            reasoning_level=reasoning,
+        )
+
+    return config
+
+
 def _initialize_bedrock_models(
     reasoning: int = 0,
     bedrock_client: Optional[boto3.client] = None,
@@ -295,7 +344,7 @@ def _initialize_bedrock_models(
     This function creates multiple Bedrock model clients with different configurations.
 
     Args:
-        reasoning: Reasoning level (0-3). 0 disables reasoning, 1-3 enables with different token budgets.
+        reasoning: Reasoning level (0-4). 0 disables reasoning, 1-4 enables with different token budgets or effort levels.
         bedrock_client: Optional pre-configured Bedrock client for testing.
         job_id: Optional job ID for operation tracking.
 
@@ -306,7 +355,7 @@ def _initialize_bedrock_models(
         ThreatModelingError: If model initialization fails.
     """
     try:
-        logger.info(
+        logger.debug(
             "Initializing Bedrock models",
             reasoning_level=reasoning,
             using_provided_client=bedrock_client is not None,
@@ -322,57 +371,28 @@ def _initialize_bedrock_models(
         # Build model configurations
         logger.debug("Building Bedrock model configurations")
 
-        assets_config = _build_main_model_config(
-            configs.assets_model,
-            configs.reasoning_models,
-            configs.assets_model.get("reasoning_budget", {}).get(str(reasoning), 0),
-            client,
-            region,
-        )
+        def _build_config_for_model(model_config: ModelConfig) -> dict:
+            """Build the appropriate config based on whether the model is adaptive."""
+            if model_config["id"] in configs.adaptive_thinking_models:
+                return _build_adaptive_model_config(
+                    model_config, reasoning, client, region
+                )
+            else:
+                # Use the budget key directly; falls back to level 3 if key not found
+                budget_key = str(reasoning) if reasoning > 0 else str(reasoning)
+                budget = model_config.get("reasoning_budget", {}).get(
+                    budget_key, model_config.get("reasoning_budget", {}).get(str(3), 0)
+                )
+                return _build_main_model_config(
+                    model_config, configs.reasoning_models, budget, client, region
+                )
 
-        flows_config = _build_main_model_config(
-            configs.flows_model,
-            configs.reasoning_models,
-            configs.flows_model.get("reasoning_budget", {}).get(str(reasoning), 0),
-            client,
-            region,
-        )
-
-        threats_config = _build_main_model_config(
-            configs.threats_model,
-            configs.reasoning_models,
-            configs.threats_model.get("reasoning_budget", {}).get(str(reasoning), 0),
-            client,
-            region,
-        )
-
-        threats_agent_config = _build_main_model_config(
-            configs.threats_agent_model,
-            configs.reasoning_models,
-            configs.threats_agent_model.get("reasoning_budget", {}).get(
-                str(reasoning), 0
-            ),
-            client,
-            region,
-        )
-
-        gaps_config = _build_main_model_config(
-            configs.gaps_model,
-            configs.reasoning_models,
-            configs.gaps_model.get("reasoning_budget", {}).get(str(reasoning), 0),
-            client,
-            region,
-        )
-
-        attack_tree_config = _build_main_model_config(
-            configs.attack_tree_model,
-            configs.reasoning_models,
-            configs.attack_tree_model.get("reasoning_budget", {}).get(
-                str(reasoning), 0
-            ),
-            client,
-            region,
-        )
+        assets_config = _build_config_for_model(configs.assets_model)
+        flows_config = _build_config_for_model(configs.flows_model)
+        threats_config = _build_config_for_model(configs.threats_model)
+        threats_agent_config = _build_config_for_model(configs.threats_agent_model)
+        gaps_config = _build_config_for_model(configs.gaps_model)
+        attack_tree_config = _build_config_for_model(configs.attack_tree_model)
 
         struct_config = _build_standard_model_config(
             configs.struct_model, client, region
@@ -395,7 +415,7 @@ def _initialize_bedrock_models(
             "summary_model": ChatBedrockConverse(**summary_config),
         }
 
-        logger.info(
+        logger.debug(
             "Bedrock models initialized successfully",
             model_count=len(models),
             assets_model_id=configs.assets_model["id"],
@@ -485,7 +505,7 @@ def _create_openai_model(
             "effort": reasoning_effort,
             "summary": "detailed",
         }
-        logger.info(
+        logger.debug(
             "Reasoning configured for OpenAI model",
             model_id=model_id,
             reasoning_level=reasoning,
@@ -527,7 +547,7 @@ def _initialize_openai_models(
         )
 
     try:
-        logger.info(
+        logger.debug(
             "Initializing OpenAI models",
             reasoning_level=reasoning,
         )
@@ -573,7 +593,7 @@ def _initialize_openai_models(
             ),
         }
 
-        logger.info(
+        logger.debug(
             "OpenAI models initialized successfully",
             model_count=len(models),
             assets_model_id=configs.assets_model["id"],
@@ -639,7 +659,7 @@ def initialize_models(
             # Detect provider from environment
             provider = os.environ.get(ENV_MODEL_PROVIDER, MODEL_PROVIDER_BEDROCK)
 
-            logger.info(
+            logger.debug(
                 "Starting model initialization",
                 provider=provider,
                 reasoning_level=reasoning,

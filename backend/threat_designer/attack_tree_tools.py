@@ -54,7 +54,7 @@ def create_attack_tree(
     attack_tree_id = runtime.state.get("attack_tree_id", "unknown")
     tool_use = runtime.state.get("tool_use", 0)
 
-    logger.info(
+    logger.debug(
         "Tool invoked",
         tool="create_attack_tree",
         attack_tree_id=attack_tree_id,
@@ -67,7 +67,7 @@ def create_attack_tree(
         # Create the complete attack tree
         attack_tree = AttackTreeLogical(goal=goal, children=children)
 
-        logger.info(
+        logger.debug(
             "Created complete attack tree",
             tool="create_attack_tree",
             attack_tree_id=attack_tree_id,
@@ -140,7 +140,7 @@ def read_attack_tree(runtime: ToolRuntime) -> Command:
     attack_tree_id = runtime.state.get("attack_tree_id", "unknown")
     attack_tree = runtime.state.get("attack_tree")
 
-    logger.info(
+    logger.debug(
         "Tool invoked",
         tool="read_attack_tree",
         attack_tree_id=attack_tree_id,
@@ -208,7 +208,7 @@ def read_attack_tree(runtime: ToolRuntime) -> Command:
 
         summary_text = "\n".join(summary_lines)
 
-        logger.info(
+        logger.debug(
             "Read attack tree",
             tool="read_attack_tree",
             attack_tree_id=attack_tree_id,
@@ -277,7 +277,7 @@ def add_attack_node(
     tool_use = runtime.state.get("tool_use", 0)
     attack_tree = runtime.state.get("attack_tree")
 
-    logger.info(
+    logger.debug(
         "Tool invoked",
         tool="add_attack_node",
         attack_tree_id=attack_tree_id,
@@ -293,7 +293,7 @@ def add_attack_node(
             attack_tree = AttackTreeLogical(
                 goal=runtime.state.get("threat_name", "Attack Goal"), children=[node]
             )
-            logger.info(
+            logger.debug(
                 "Initialized attack tree with first child",
                 tool="add_attack_node",
                 attack_tree_id=attack_tree_id,
@@ -315,7 +315,7 @@ def add_attack_node(
             if parent_path is None or len(parent_path) == 0:
                 # Add as root-level child
                 attack_tree.children.append(node)
-                logger.info(
+                logger.debug(
                     "Added node as root-level child",
                     tool="add_attack_node",
                     attack_tree_id=attack_tree_id,
@@ -350,7 +350,7 @@ def add_attack_node(
                     )
 
                 parent.children.append(node)
-                logger.info(
+                logger.debug(
                     "Added node as child of parent",
                     tool="add_attack_node",
                     attack_tree_id=attack_tree_id,
@@ -429,7 +429,7 @@ def update_attack_node(
     tool_use = runtime.state.get("tool_use", 0)
     attack_tree = runtime.state.get("attack_tree")
 
-    logger.info(
+    logger.debug(
         "Tool invoked",
         tool="update_attack_node",
         attack_tree_id=attack_tree_id,
@@ -456,7 +456,7 @@ def update_attack_node(
             # Update root goal
             if "goal" in updates:
                 attack_tree.goal = updates["goal"]
-                logger.info(
+                logger.debug(
                     "Updated root goal",
                     tool="update_attack_node",
                     attack_tree_id=attack_tree_id,
@@ -515,7 +515,7 @@ def update_attack_node(
                     }
                 )
 
-            logger.info(
+            logger.debug(
                 "Updated node fields",
                 tool="update_attack_node",
                 attack_tree_id=attack_tree_id,
@@ -592,7 +592,7 @@ def delete_attack_node(
     tool_use = runtime.state.get("tool_use", 0)
     attack_tree = runtime.state.get("attack_tree")
 
-    logger.info(
+    logger.debug(
         "Tool invoked",
         tool="delete_attack_node",
         attack_tree_id=attack_tree_id,
@@ -643,7 +643,7 @@ def delete_attack_node(
                 )
 
             deleted_node = attack_tree.children.pop(child_index)
-            logger.info(
+            logger.debug(
                 "Deleted root-level child",
                 tool="delete_attack_node",
                 attack_tree_id=attack_tree_id,
@@ -694,7 +694,7 @@ def delete_attack_node(
                 )
 
             deleted_node = parent.children.pop(child_index)
-            logger.info(
+            logger.debug(
                 "Deleted child node",
                 tool="delete_attack_node",
                 attack_tree_id=attack_tree_id,
@@ -775,7 +775,7 @@ def validate_attack_tree(runtime: ToolRuntime) -> Command:
     tool_use = runtime.state.get("tool_use", 0)
     attack_tree = runtime.state.get("attack_tree")
 
-    logger.info(
+    logger.debug(
         "Tool invoked",
         tool="validate_attack_tree",
         attack_tree_id=attack_tree_id,
@@ -857,7 +857,7 @@ def validate_attack_tree(runtime: ToolRuntime) -> Command:
 
     # Build response message
     if len(validation_issues) == 0:
-        logger.info(
+        logger.debug(
             "Validation passed",
             tool="validate_attack_tree",
             attack_tree_id=attack_tree_id,
@@ -884,7 +884,7 @@ def validate_attack_tree(runtime: ToolRuntime) -> Command:
             }
         )
     else:
-        logger.info(
+        logger.debug(
             "Validation found issues",
             tool="validate_attack_tree",
             attack_tree_id=attack_tree_id,

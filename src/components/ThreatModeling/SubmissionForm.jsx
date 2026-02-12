@@ -34,6 +34,16 @@ export const SubmissionComponent = ({
   setReasoning,
 }) => {
   const isReasoningEnabled = import.meta.env.VITE_REASONING_ENABLED === "true";
+  const isOpenAI = import.meta.env.VITE_MODEL_PROVIDER === "openai";
+  const maxReasoning = isOpenAI ? 3 : 4;
+  const reasoningLabels = [
+    { value: "0", label: "None" },
+    { value: "1", label: "Low" },
+    { value: "2", label: "Medium" },
+    { value: "3", label: "High" },
+    ...(!isOpenAI ? [{ value: "4", label: "Max" }] : []),
+  ];
+  const reasoningReferenceValues = isOpenAI ? [1, 2] : [1, 2, 3];
   const [activeStepIndex, setActiveStepIndex] = React.useState(0);
   const [value, setValue] = React.useState([]);
   const [title, setTitle] = React.useState("");
@@ -163,17 +173,12 @@ export const SubmissionComponent = ({
                     onChange={({ detail }) => setReasoning(detail.value)}
                     value={reasoning}
                     valueFormatter={(value) =>
-                      [
-                        { value: "0", label: "None" },
-                        { value: "1", label: "Low" },
-                        { value: "2", label: "Medium" },
-                        { value: "3", label: "High" },
-                      ].find((item) => item.value === value.toString())?.label || ""
+                      reasoningLabels.find((item) => item.value === value.toString())?.label || ""
                     }
-                    ariaDescription="From None to High"
-                    max={3}
+                    ariaDescription={isOpenAI ? "From None to High" : "From None to Max"}
+                    max={maxReasoning}
                     min={0}
-                    referenceValues={[1, 2]}
+                    referenceValues={reasoningReferenceValues}
                     step={1}
                   />
                 </FormField>
@@ -330,17 +335,12 @@ export const SubmissionComponent = ({
                       onChange={({ detail }) => setReasoning(detail.value)}
                       value={reasoning}
                       valueFormatter={(value) =>
-                        [
-                          { value: "0", label: "None" },
-                          { value: "1", label: "Low" },
-                          { value: "2", label: "Medium" },
-                          { value: "3", label: "High" },
-                        ].find((item) => item.value === value.toString())?.label || ""
+                        reasoningLabels.find((item) => item.value === value.toString())?.label || ""
                       }
-                      ariaDescription="From None to High"
-                      max={3}
+                      ariaDescription={isOpenAI ? "From None to High" : "From None to Max"}
+                      max={maxReasoning}
                       min={0}
-                      referenceValues={[1, 2]}
+                      referenceValues={reasoningReferenceValues}
                       step={1}
                     />
                   </SpaceBetween>

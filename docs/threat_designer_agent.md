@@ -1460,7 +1460,7 @@ def _run_agent_async(state, config, job_id, agent_config):
         # Execute workflow (15-60 minutes)
         agent.invoke(state, config=config)
 
-        logger.info("Threat modeling completed successfully")
+        logger.debug("Threat modeling completed successfully")
     except Exception as e:
         _handle_error_response(e, job_id)
     finally:

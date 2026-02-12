@@ -162,7 +162,7 @@ def format_chat_for_frontend(backend_messages, interrupt=None):
                         }
                     )
                 except Exception:
-                    logger.info("Unable to parse tool message content")
+                    logger.debug("Unable to parse tool message content")
                     current_turn["aiMessage"].append(
                         {
                             "type": "tool",
@@ -206,10 +206,10 @@ def delete_bedrock_session(session_header, session_id):
         if terminate_session["sessionStatus"] in ["EXPIRED", "ENDED"]:
             session_manager.delete_session(session_header)
             bedrock_agent.delete_session(sessionIdentifier=session_id)
-            logger.info(f"Successfully deleted session {session_id}")
+            logger.debug(f"Successfully deleted session {session_id}")
             return True
         else:
-            logger.info(
+            logger.debug(
                 f"Unable to terminate session because is still active. Status: {terminate_session['sessionStatus']}"
             )
             return False
@@ -218,12 +218,12 @@ def delete_bedrock_session(session_header, session_id):
 
         # If session not found, it's already deleted - continue with cleanup
         if error_code == "ResourceNotFoundException":
-            logger.info(
+            logger.debug(
                 f"Session {session_id} not found in AWS (already deleted), proceeding with local cleanup"
             )
             # Clean up local cache and DynamoDB mapping
             session_manager.delete_session(session_header)
-            logger.info(f"Completed cleanup for session {session_id}")
+            logger.debug(f"Completed cleanup for session {session_id}")
             return True
         else:
             # Other AWS errors should be logged and raised

@@ -27,7 +27,7 @@ def cancel_current_stream(session_id: str = None):
         task = _current_tasks[session_id]
         if not task.done():
             task.cancel()
-            logger.info(f"Cancelled stream for session: {session_id}")
+            logger.debug(f"Cancelled stream for session: {session_id}")
         return {"response": "stream_cancelled"}
 
     # Cancel all active tasks if no session_id provided
@@ -37,7 +37,7 @@ def cancel_current_stream(session_id: str = None):
             task.cancel()
             cancelled_count += 1
 
-    logger.info(f"Cancelled {cancelled_count} active streams")
+    logger.debug(f"Cancelled {cancelled_count} active streams")
     return {"response": f"cancelled_{cancelled_count}_streams"}
 
 
@@ -111,7 +111,7 @@ class StreamingHandler:
             # Note: LangGraph doesn't support direct metadata updates via aupdate_state
             # We'll track provider through message detection instead
             if state and (not state.metadata or not state.metadata.get("provider")):
-                logger.info(
+                logger.debug(
                     f"New session detected, will track provider: {current_provider}"
                 )
 
@@ -193,11 +193,11 @@ class StreamingHandler:
                         budget_level = agent_manager.current_budget_level
 
                     if tool_preferences:
-                        logger.info(f"Extracted tool preferences: {tool_preferences}")
+                        logger.debug(f"Extracted tool preferences: {tool_preferences}")
                     if diagram_path:
-                        logger.info(f"Extracted diagram path: {diagram_path}")
+                        logger.debug(f"Extracted diagram path: {diagram_path}")
                     if budget_level is not None:
-                        logger.info(f"Extracted budget level: {budget_level}")
+                        logger.debug(f"Extracted budget level: {budget_level}")
 
                     await agent_manager.get_agent_with_preferences(
                         tool_preferences, context, diagram_path, budget_level
@@ -205,7 +205,7 @@ class StreamingHandler:
                 elif is_resume_interrupt:
                     # When resuming interrupt, ensure we use the existing agent without recreation
                     # This preserves the tool registry that matches the persisted state
-                    logger.info(
+                    logger.debug(
                         "Resuming interrupt with existing agent to preserve tool registry"
                     )
 
@@ -280,7 +280,7 @@ class StreamingHandler:
                             response_buffer.append(data[0])
 
             except asyncio.CancelledError:
-                logger.info(f"Stream cancelled for session: {session_id}")
+                logger.debug(f"Stream cancelled for session: {session_id}")
                 cancelled = True
                 # Handle cancellation cleanup
                 tool_messages = await self._handle_cancellation(
@@ -310,7 +310,7 @@ class StreamingHandler:
 
     async def _handle_cancellation(self, response_buffer: list, session_id: str):
         """Handle stream cancellation and update agent state"""
-        logger.info(f"Handling cancellation for session: {session_id}")
+        logger.debug(f"Handling cancellation for session: {session_id}")
         tool_messages = []
 
         # Only proceed if we have an agent and response buffer
@@ -381,7 +381,7 @@ class StreamingHandler:
 
             # Handle all pending tool calls
             if pending_tool_calls:
-                logger.info(
+                logger.debug(
                     f"Found {len(pending_tool_calls)} unique pending tool calls to cancel"
                 )
 
@@ -516,7 +516,7 @@ class StreamingHandler:
                                     id=_id,
                                 )
                             )
-                            logger.info(
+                            logger.debug(
                                 f"Adding cancellation message for {content_type}"
                             )
 
@@ -735,7 +735,7 @@ class StreamingHandler:
         missing_results = set(tool_use_map.keys()) - tool_result_ids
 
         if missing_results:
-            logger.info(
+            logger.debug(
                 f"Adding synthetic ToolMessages for orphaned tool_use blocks: {missing_results}"
             )
 
@@ -784,7 +784,7 @@ class StreamingHandler:
                             if content_type == "reasoning" and content_item.get(
                                 "id", ""
                             ).startswith("rs_"):
-                                logger.info(
+                                logger.debug(
                                     f"Removing OpenAI reasoning content with ID: {content_item.get('id')}"
                                 )
                                 continue
@@ -945,7 +945,11 @@ class StreamingHandler:
                     "tool_start": True,
                 }
             elif msg_type == "text":
-                return {"type": "text", "content": content.get("text")}
+                text_content = content.get("text")
+                # Skip empty newline chunks produced by some models (e.g., Opus 4.6) before reasoning
+                if text_content == "\n\n":
+                    return {}
+                return {"type": "text", "content": text_content}
             elif msg_type == "reasoning_content":
                 # Bedrock format
                 return {

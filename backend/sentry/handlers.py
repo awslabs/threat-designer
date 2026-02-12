@@ -103,24 +103,24 @@ class RequestHandlers:
             if budget_level is None:
                 budget_level = agent_manager.current_budget_level
 
-            logger.info(
+            logger.debug(
                 "Preparing environment with updated preferences, context, and budget..."
             )
             if tool_preferences:
-                logger.info(f"Updating tool preferences: {tool_preferences}")
+                logger.debug(f"Updating tool preferences: {tool_preferences}")
             if context:
-                logger.info(f"Updating context: {context if context else 'None'}")
+                logger.debug(f"Updating context: {context if context else 'None'}")
             if diagram_path:
-                logger.info(f"Updating diagram path: {diagram_path}")
+                logger.debug(f"Updating diagram path: {diagram_path}")
 
             # Log budget level information
             if budget_level == 0:
-                logger.info("Budget level 0: Thinking disabled")
+                logger.debug("Budget level 0: Thinking disabled")
             else:
                 from config import BUDGET_MAPPING
 
                 budget_tokens = BUDGET_MAPPING.get(budget_level, 8000)
-                logger.info(
+                logger.debug(
                     f"Budget level {budget_level}: Thinking enabled with {budget_tokens} tokens"
                 )
 

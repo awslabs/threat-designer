@@ -183,7 +183,7 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
             # Record start time
             if not start_time:
                 start_time = time.time()
-                logger.info(
+                logger.debug(
                     "Starting attack tree generation timer",
                     node="agent",
                     attack_tree_id=attack_tree_id,
@@ -203,7 +203,7 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
                 )
                 # Continue - status update failure shouldn't stop workflow
 
-            logger.info(
+            logger.debug(
                 "Agent node invoked - initializing messages",
                 node="agent",
                 attack_tree_id=attack_tree_id,
@@ -256,7 +256,7 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
                                 context_parts.append(
                                     f"Threat Model Description:\n{threat_model_description}"
                                 )
-                                logger.info(
+                                logger.debug(
                                     "✓ Context Element: Threat Model Description",
                                     node="agent",
                                     attack_tree_id=attack_tree_id,
@@ -280,7 +280,7 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
                                             if architecture_image
                                             else 0
                                         )
-                                        logger.info(
+                                        logger.debug(
                                             "✓ Context Element: Architecture Diagram",
                                             node="agent",
                                             attack_tree_id=attack_tree_id,
@@ -307,7 +307,7 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
                                         if threat.get("name") == threat_name:
                                             threat_object = threat
                                             # Log full threat object details
-                                            logger.info(
+                                            logger.debug(
                                                 "✓ Context Element: Threat Object",
                                                 node="agent",
                                                 attack_tree_id=attack_tree_id,
@@ -343,7 +343,7 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
                                                     f"Target Asset:\n{asset_text}"
                                                 )
                                                 # Log target asset details
-                                                logger.info(
+                                                logger.debug(
                                                     "✓ Context Element: Target Asset",
                                                     node="agent",
                                                     attack_tree_id=attack_tree_id,
@@ -382,7 +382,7 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
                                                     f"Threat Source:\n{source_text}"
                                                 )
                                                 # Log threat source details
-                                                logger.info(
+                                                logger.debug(
                                                     "✓ Context Element: Threat Source",
                                                     node="agent",
                                                     attack_tree_id=attack_tree_id,
@@ -409,7 +409,7 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
                             if context_parts:
                                 threat_model_context = "\n\n".join(context_parts)
                                 # Log complete context summary
-                                logger.info(
+                                logger.debug(
                                     "✓ Context Extraction Complete",
                                     node="agent",
                                     attack_tree_id=attack_tree_id,
@@ -470,7 +470,7 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
 
             messages = [system_prompt, human_message]
         else:
-            logger.info(
+            logger.debug(
                 "Agent node invoked - continuing conversation",
                 node="agent",
                 attack_tree_id=attack_tree_id,
@@ -579,7 +579,7 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
                 )
                 # Continue - status update failure shouldn't stop workflow
 
-            logger.info(
+            logger.debug(
                 "Agent made tool calls",
                 node="agent",
                 attack_tree_id=attack_tree_id,
@@ -587,7 +587,7 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
                 tool_call_count=len(response.tool_calls),
             )
         else:
-            logger.info(
+            logger.debug(
                 "Agent completed without tool calls",
                 node="agent",
                 attack_tree_id=attack_tree_id,
@@ -640,7 +640,7 @@ def should_continue(state: AttackTreeState) -> str:
 
     # Check if agent wants to continue with tool calls
     if last_message.tool_calls:
-        logger.info(
+        logger.debug(
             "Routing to tools node",
             node="should_continue",
             attack_tree_id=attack_tree_id,
@@ -649,7 +649,7 @@ def should_continue(state: AttackTreeState) -> str:
         return "tools"
 
     # No tool calls means the agent is done - route to continue for validation
-    logger.info(
+    logger.debug(
         "Agent completed without tool calls - routing to continue node",
         node="should_continue",
         attack_tree_id=attack_tree_id,
@@ -720,7 +720,7 @@ def _save_message_trail(state: AttackTreeState, attack_tree_id: str) -> None:
             # Convert to JSON string for storage
             trail_json = json.dumps(message_trail, indent=2)
 
-            logger.info(
+            logger.debug(
                 "Saving message trail to trail table",
                 node="continue",
                 attack_tree_id=attack_tree_id,
@@ -790,7 +790,7 @@ def continue_or_finish(state: AttackTreeState) -> Command:
 
         # Check if validation was performed
         if validate_tool_use == 0:
-            logger.info(
+            logger.debug(
                 "Validation not performed - routing back to agent",
                 node="continue",
                 attack_tree_id=attack_tree_id,
@@ -834,7 +834,7 @@ def continue_or_finish(state: AttackTreeState) -> Command:
                 }
             )
 
-            logger.info(
+            logger.debug(
                 "Successfully saved attack tree to DynamoDB",
                 node="continue",
                 attack_tree_id=attack_tree_id,
@@ -884,7 +884,7 @@ def continue_or_finish(state: AttackTreeState) -> Command:
             # Continue - status update failure shouldn't stop workflow
 
         # Finish the workflow
-        logger.info(
+        logger.debug(
             "Continue node finishing workflow",
             node="continue",
             attack_tree_id=attack_tree_id,

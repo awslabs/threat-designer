@@ -60,6 +60,12 @@ variable "reasoning_models" {
 }
 
 
+variable "adaptive_thinking_models" {
+  type        = list(string)
+  description = "List of model IDs that support adaptive thinking"
+  default     = ["global.anthropic.claude-opus-4-6-v1"]
+}
+
 variable "model_main" {
   type = object({
     assets = object({
@@ -95,57 +101,63 @@ variable "model_main" {
   })
   default = {
     assets = {
-      id         = "global.anthropic.claude-opus-4-5-20251101-v1:0"
-      max_tokens = 64000
+      id         = "global.anthropic.claude-opus-4-6-v1"
+      max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
-        "2" = 32000
-        "3" = 63999
+        "2" = 24000
+        "3" = 38000
+        "4" = 63999
       }
     }
     flows = {
-      id         = "global.anthropic.claude-opus-4-5-20251101-v1:0"
-      max_tokens = 64000
+      id         = "global.anthropic.claude-opus-4-6-v1"
+      max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
-        "2" = 32000
-        "3" = 63999
+        "2" = 24000
+        "3" = 38000
+        "4" = 63999
       }
     }
     threats = {
-      id         = "global.anthropic.claude-opus-4-5-20251101-v1:0"
-      max_tokens = 64000
+      id         = "global.anthropic.claude-opus-4-6-v1"
+      max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
-        "2" = 32000
-        "3" = 63999
+        "2" = 24000
+        "3" = 38000
+        "4" = 63999
       }
     }
     threats_agent = {
-      id         = "global.anthropic.claude-opus-4-5-20251101-v1:0"
-      max_tokens = 64000
+      id         = "global.anthropic.claude-opus-4-6-v1"
+      max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
-        "2" = 32000
-        "3" = 63999
+        "2" = 24000
+        "3" = 38000
+        "4" = 63999
       }
     }
     gaps = {
-      id         = "global.anthropic.claude-opus-4-5-20251101-v1:0"
-      max_tokens = 64000
+      id         = "global.anthropic.claude-opus-4-6-v1"
+      max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
-        "2" = 32000
-        "3" = 63999
+        "2" = 24000
+        "3" = 38000
+        "4" = 63999
       }
     }
     attack_tree = {
-      id         = "global.anthropic.claude-opus-4-5-20251101-v1:0"
-      max_tokens = 64000
+      id         = "global.anthropic.claude-opus-4-6-v1"
+      max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
-        "2" = 32000
-        "3" = 63999
+        "2" = 24000
+        "3" = 38000
+        "4" = 63999
       }
     }
   }
@@ -158,14 +170,15 @@ variable "model_sentry" {
     reasoning_budget = map(number)
   })
   default = {
-    id         = "global.anthropic.claude-opus-4-5-20251101-v1:0"
-    max_tokens = 64000
-    reasoning_budget = {
-      "1" = 16000
-      "2" = 32000
-      "3" = 63999
+      id         = "global.anthropic.claude-opus-4-6-v1"
+      max_tokens = 128000
+      reasoning_budget = {
+        "1" = 16000
+        "2" = 24000
+        "3" = 38000
+        "4" = 63999
+      }
     }
-  }
 }
 
 variable "openai_model_sentry" {

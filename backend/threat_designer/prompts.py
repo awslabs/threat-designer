@@ -138,8 +138,6 @@ flow_description: [What data moves, between which components, and through what m
 source_entity: [Name from the assets/entities inventory]
 target_entity: [Name from the assets/entities inventory]
 assets: [Specific data types or assets involved]
-flow_type: [Internal | External | Cross-boundary]
-criticality: [High | Medium | Low — based on data sensitivity and business impact]
 </data_flow>
 
 SECTION 2 — TRUST BOUNDARIES

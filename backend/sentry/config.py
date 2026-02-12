@@ -43,6 +43,10 @@ def _parse_reasoning_config() -> dict:
 
 REASONING_CONFIG = _parse_reasoning_config()
 
+# Adaptive thinking configuration
+ADAPTIVE_THINKING_MODELS = json.loads(os.environ.get("ADAPTIVE_THINKING_MODELS", "[]"))
+ADAPTIVE_EFFORT_MAP = {1: "low", 2: "medium", 3: "high", 4: "max"}
+
 # OpenAI reasoning effort mapping (fallback for backward compatibility)
 OPENAI_REASONING_EFFORT_MAP = {0: "none", 1: "low", 2: "medium", 3: "high"}
 
@@ -103,16 +107,25 @@ def _create_bedrock_model_config(budget_level: int = 1) -> dict:
     if budget_level == 0:
         return base_config
 
-    # For other levels, add thinking configuration
-    budget_tokens = REASONING_CONFIG.get(budget_level, 8000)
-
-    base_config["additional_model_request_fields"] = {
-        "thinking": {
-            "type": "enabled",
-            "budget_tokens": budget_tokens,
-        },
-        "anthropic_beta": ["interleaved-thinking-2025-05-14"],
-    }
+    # Check if the model supports adaptive thinking
+    if MODEL_ID in ADAPTIVE_THINKING_MODELS:
+        effort = ADAPTIVE_EFFORT_MAP.get(budget_level, "low")
+        base_config["additional_model_request_fields"] = {
+            "thinking": {"type": "adaptive"},
+            "output_config": {"effort": effort},
+        }
+    else:
+        # For standard models, level 4 falls back to level 3 budget
+        budget_tokens = REASONING_CONFIG.get(
+            budget_level, REASONING_CONFIG.get(3, 8000)
+        )
+        base_config["additional_model_request_fields"] = {
+            "thinking": {
+                "type": "enabled",
+                "budget_tokens": budget_tokens,
+            },
+            "anthropic_beta": ["interleaved-thinking-2025-05-14"],
+        }
 
     return base_config
 

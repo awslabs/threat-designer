@@ -86,7 +86,7 @@ def agent_node(state: ThreatState, config: RunnableConfig) -> Command:
         # Update job state to indicate threat generation has started
         state_service.update_job_state(job_id, JobState.THREAT.value, 0)
 
-        logger.info(
+        logger.debug(
             "Agent node invoked - initializing messages and updated job state",
             node="agent",
             job_id=job_id,
@@ -104,7 +104,7 @@ def agent_node(state: ThreatState, config: RunnableConfig) -> Command:
 
         messages = [system_prompt, human_message]
     else:
-        logger.info(
+        logger.debug(
             "Agent node invoked - continuing conversation",
             node="agent",
             job_id=job_id,
@@ -148,7 +148,7 @@ def agent_node(state: ThreatState, config: RunnableConfig) -> Command:
 
         state_service.update_job_state(job_id, JobState.THREAT.value, detail=detail)
 
-        logger.info(
+        logger.debug(
             "Agent made tool calls",
             node="agent",
             job_id=job_id,
@@ -156,7 +156,7 @@ def agent_node(state: ThreatState, config: RunnableConfig) -> Command:
             tool_call_count=len(response.tool_calls),
         )
     else:
-        logger.info("Agent completed without tool calls", node="agent", job_id=job_id)
+        logger.debug("Agent completed without tool calls", node="agent", job_id=job_id)
 
     return Command(update={"messages": [response]})
 
@@ -176,7 +176,7 @@ def should_continue(state: ThreatState):
 
     # Check if agent wants to continue with tool calls
     if last_message.tool_calls:
-        logger.info(
+        logger.debug(
             "Routing to tools node",
             node="should_continue",
             job_id=job_id,
@@ -185,7 +185,7 @@ def should_continue(state: ThreatState):
         return "tools"
 
     # No tool calls means the agent is done - route to continue for validation
-    logger.info(
+    logger.debug(
         "Agent completed without tool calls - routing to continue node",
         node="should_continue",
         job_id=job_id,
@@ -264,7 +264,7 @@ def continue_or_finish(state: ThreatState) -> Command:
 
     # Check if gap analysis was never performed
     if gap_tool_use == 0:
-        logger.info(
+        logger.debug(
             "Gap analysis not performed - routing back to agent",
             node="continue",
             job_id=job_id,
@@ -323,7 +323,7 @@ def continue_or_finish(state: ThreatState) -> Command:
 
     # Update trail with reasoning if any was found
     if reasoning_trails:
-        logger.info(
+        logger.debug(
             "Extracted reasoning trails from agent messages",
             node="continue",
             job_id=job_id,
@@ -335,7 +335,7 @@ def continue_or_finish(state: ThreatState) -> Command:
     state_service.update_job_state(job_id, JobState.THREAT.value, detail=None)
 
     # Route to parent finalize node when catalog has threats
-    logger.info(
+    logger.debug(
         "Continue node routing to parent finalize",
         node="continue",
         job_id=job_id,

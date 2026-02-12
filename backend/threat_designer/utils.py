@@ -143,7 +143,7 @@ def update_job_state(
             # Check if session was cancelled - skip update and reset flag if so
             current_item = table.get_item(Key={DB_FIELD_ID: job_id})
             if current_item.get("Item", {}).get("cancelled"):
-                logger.info(
+                logger.debug(
                     "Skipping state update - session was cancelled, resetting flag",
                     job_id=job_id,
                     requested_state=state,
@@ -156,7 +156,7 @@ def update_job_state(
                 )
                 return None
 
-            logger.info(
+            logger.debug(
                 "Updating job state",
                 job_id=job_id,
                 new_state=state,
@@ -201,7 +201,7 @@ def update_job_state(
                 ReturnValues="UPDATED_NEW",
             )
 
-            logger.info(
+            logger.debug(
                 "Job state updated successfully",
                 job_id=job_id,
                 state=state,
@@ -266,7 +266,7 @@ def update_trail(
     context_id = job_context_id or f"update-trail-{job_id}"
 
     with operation_context("update_trail", context_id):
-        logger.info(
+        logger.debug(
             "Starting trail update",
             job_id=job_id,
             has_assets=assets is not None,
@@ -357,7 +357,7 @@ def update_trail(
 
             # Only proceed if there's something to update
             if is_first:
-                logger.info("No fields to update in trail", job_id=job_id)
+                logger.debug("No fields to update in trail", job_id=job_id)
                 return None
 
             response = table.update_item(
@@ -369,7 +369,7 @@ def update_trail(
             )
 
             updated_fields = list(expr_names.values())
-            logger.info(
+            logger.debug(
                 "Trail updated successfully",
                 job_id=job_id,
                 updated_fields=updated_fields,
@@ -423,7 +423,7 @@ def create_dynamodb_item(
             if not job_id:
                 raise ValueError("job_id is required in agent_state")
 
-            logger.info("Creating DynamoDB item", job_id=job_id, table=table_name)
+            logger.debug("Creating DynamoDB item", job_id=job_id, table=table_name)
 
             dynamodb = boto3.resource(AWS_SERVICE_DYNAMODB, region_name=REGION)
             table = dynamodb.Table(table_name)
@@ -461,7 +461,7 @@ def create_dynamodb_item(
 
             table.put_item(Item=item)
 
-            logger.info(
+            logger.debug(
                 "DynamoDB item created successfully",
                 job_id=job_id,
                 table=table_name,
@@ -510,7 +510,7 @@ def update_item_with_backup(
 
     with operation_context("update_item_with_backup", context_id):
         try:
-            logger.info(
+            logger.debug(
                 "Creating backup for DynamoDB item", job_id=job_id, table=table_name
             )
 
@@ -538,7 +538,7 @@ def update_item_with_backup(
 
             response = table.put_item(Item=item)
 
-            logger.info(
+            logger.debug(
                 "Item backup created successfully",
                 job_id=job_id,
                 table=table_name,
@@ -584,7 +584,7 @@ def fetch_results(job_id: str, table_name: str) -> Dict[str, Any]:
         DynamoDBError: If fetch operation fails.
     """
     try:
-        logger.info("Fetching job results", job_id=job_id, table=table_name)
+        logger.debug("Fetching job results", job_id=job_id, table=table_name)
 
         dynamodb = boto3.resource(AWS_SERVICE_DYNAMODB, region_name=REGION)
         table = dynamodb.Table(table_name)
@@ -592,7 +592,7 @@ def fetch_results(job_id: str, table_name: str) -> Dict[str, Any]:
         response = table.get_item(Key={DB_FIELD_JOB_ID: job_id})
 
         if "Item" in response:
-            logger.info("Job results found", job_id=job_id, table=table_name)
+            logger.debug("Job results found", job_id=job_id, table=table_name)
             return {
                 "job_id": job_id,
                 "state": "Found",
@@ -645,7 +645,9 @@ def parse_s3_image_to_base64(bucket_name: str, object_key: str) -> Optional[str]
         S3Error: If S3 operation fails.
     """
     try:
-        logger.info("Converting S3 image to base64", bucket=bucket_name, key=object_key)
+        logger.debug(
+            "Converting S3 image to base64", bucket=bucket_name, key=object_key
+        )
 
         s3_client = boto3.client(AWS_SERVICE_S3, region_name=REGION)
 
@@ -654,7 +656,7 @@ def parse_s3_image_to_base64(bucket_name: str, object_key: str) -> Optional[str]
 
         base64_encoded = base64.b64encode(image_content).decode("utf-8")
 
-        logger.info(
+        logger.debug(
             "S3 image converted to base64 successfully",
             bucket=bucket_name,
             key=object_key,
@@ -779,7 +781,7 @@ def handle_asset_error(
                 )
 
                 if thinking:
-                    logger.info(
+                    logger.debug(
                         "Attempting structured output retry", function=func.__name__
                     )
                     try:

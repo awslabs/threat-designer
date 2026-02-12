@@ -112,7 +112,7 @@ def create_dynamodb_item(agent_state, table_name):
     try:
         # Create a new item in DynamoDB
         response = table.put_item(Item=item)
-        logger.info("Item created successfully:", response)
+        logger.debug("Item created successfully:", response)
     except Exception as e:
         logger.error("Error creating item:", e.response["Error"]["Message"])
         raise

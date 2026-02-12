@@ -114,7 +114,7 @@ class ModelService:
         reasoning: bool,
     ) -> Dict[str, Any]:
         """Process structured model response with error handling."""
-        logger.info("response metadata", response=response.usage_metadata)
+        logger.debug("response metadata", response=response.usage_metadata)
 
         @handle_asset_error(model_structured, tool_class, thinking=reasoning)
         def process_response(resp):

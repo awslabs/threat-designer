@@ -41,7 +41,7 @@ def get_tavily_tools() -> List:
             extract_depth="basic",
         )
 
-        logger.info("Tavily tools loaded successfully")
+        logger.debug("Tavily tools loaded successfully")
         return [tavily_search, tavily_extract]
 
     except ImportError as e:

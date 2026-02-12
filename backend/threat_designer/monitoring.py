@@ -28,11 +28,11 @@ logger = structlog.get_logger()
 def operation_context(operation_name: str, job_id: str) -> Generator[None, None, None]:
     """Context manager for operation monitoring."""
     start_time = time.time()
-    logger.info("Operation started", operation=operation_name, job_id=job_id)
+    logger.debug("Operation started", operation=operation_name, job_id=job_id)
     try:
         yield
         duration = time.time() - start_time
-        logger.info(
+        logger.debug(
             "Operation completed",
             operation=operation_name,
             job_id=job_id,

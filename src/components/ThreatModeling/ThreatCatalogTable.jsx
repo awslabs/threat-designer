@@ -314,8 +314,8 @@ export const ThreatCatalogTable = ({
           />
         }
       />
-      {pagination?.hasNextPage && (
-        <Box textAlign="center">
+      {pagination?.hasNextPage && results.length >= pagination?.pageSize && (
+        <Box textAlign="center" margin={{ top: "l" }}>
           <Button onClick={onLoadMore} loading={pagination?.loading} disabled={pagination?.loading}>
             Load More
           </Button>

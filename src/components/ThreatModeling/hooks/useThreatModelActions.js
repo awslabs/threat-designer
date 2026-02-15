@@ -119,7 +119,7 @@ export const useThreatModelActions = ({
    * Handle replay operation with state reset
    */
   const handleReplay = useCallback(
-    async (iteration, reasoning, instructions) => {
+    async (iteration, reasoning, instructions, applicationType) => {
       try {
         setisVisible(false);
         setProcessing(true);
@@ -134,7 +134,9 @@ export const useThreatModelActions = ({
           null, // assumptions
           true, // replay
           threatModelId, // id
-          instructions // instructions
+          instructions, // instructions
+          null, // imageType
+          applicationType
         );
 
         setTrigger(Math.floor(Math.random() * 100) + 1);

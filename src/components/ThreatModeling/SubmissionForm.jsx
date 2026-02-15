@@ -10,6 +10,9 @@ import {
   Select,
   Grid,
   TokenGroup,
+  Popover,
+  Box,
+  Link,
 } from "@cloudscape-design/components";
 import { I18nProvider } from "@cloudscape-design/components/i18n";
 import Slider from "@cloudscape-design/components/slider";
@@ -51,6 +54,10 @@ export const SubmissionComponent = ({
   const [assumptions, setAssumptions] = React.useState([]);
   const [text, setText] = React.useState("");
   const [error, setError] = React.useState(false);
+  const [applicationType, setApplicationType] = React.useState({
+    label: "Hybrid",
+    value: "hybrid",
+  });
   const handleAddAssumption = () => {
     if (newAssumption.trim()) {
       setAssumptions((prev) => [...prev, newAssumption.trim()]);
@@ -93,7 +100,7 @@ export const SubmissionComponent = ({
       submitButtonText="Start threat modeling"
       isLoadingNextStep={loading}
       onSubmit={() => {
-        handleStart(title, text, assumptions);
+        handleStart(title, text, assumptions, applicationType.value);
       }}
       steps={[
         {
@@ -124,30 +131,121 @@ export const SubmissionComponent = ({
           ),
         },
         {
-          title: "Description",
-          description:
-            "Provide a clear description of your application/system to help identify potential security concerns and establish the scope of the threat model.",
+          title: "Details",
+          description: "Provide details about your application to help scope the threat model.",
           content: (
             <div style={{ minHeight: 200 }}>
-              <FormField>
-                <Textarea
-                  onChange={({ detail }) => setText(detail.value)}
-                  value={text}
-                  placeholder="Add your description"
-                />
-              </FormField>
+              <SpaceBetween size="s">
+                <FormField
+                  label="Application type"
+                  info={
+                    <Popover
+                      header="Application type"
+                      content={
+                        <SpaceBetween size="s">
+                          <Box>
+                            <Box variant="h5">Internal</Box>
+                            Accessible only within a private network. Reduced external threat
+                            exposure, but insider threats and misconfigurations remain relevant.
+                          </Box>
+                          <Box>
+                            <Box variant="h5">Hybrid</Box>
+                            Both internal and external-facing components. Public parts get full
+                            rigor, internal parts reflect reduced exposure.
+                          </Box>
+                          <Box>
+                            <Box variant="h5">Public facing</Box>
+                            Internet-facing, accessible by anonymous users. Subject to constant
+                            automated attacks and broad threat actor exposure.
+                          </Box>
+                        </SpaceBetween>
+                      }
+                    >
+                      <Link variant="info">Info</Link>
+                    </Popover>
+                  }
+                >
+                  <Select
+                    options={[
+                      { label: "Internal", value: "internal" },
+                      { label: "Hybrid", value: "hybrid" },
+                      { label: "Public facing", value: "public_facing" },
+                    ]}
+                    selectedOption={applicationType}
+                    onChange={({ detail }) => setApplicationType(detail.selectedOption)}
+                  />
+                </FormField>
+                <FormField
+                  label="Description"
+                  info={
+                    <Popover
+                      header="Description tips"
+                      content={
+                        <SpaceBetween size="s">
+                          <Box>
+                            Use this field to provide context that can't be inferred from the
+                            architecture diagram alone. For example:
+                          </Box>
+                          <Box>
+                            <Box variant="h5">Data sensitivity</Box>
+                            What types of data does the system handle? (PII, financial records,
+                            health data, credentials)
+                          </Box>
+                          <Box>
+                            <Box variant="h5">User base and access</Box>
+                            Who uses the system? Internal employees, external customers, third-party
+                            partners?
+                          </Box>
+                          <Box>
+                            <Box variant="h5">Compliance requirements</Box>
+                            Any regulatory frameworks that apply? (GDPR, HIPAA, PCI-DSS, SOC 2)
+                          </Box>
+                          <Box>
+                            <Box variant="h5">Deployment context</Box>
+                            Cloud provider, on-premises, hybrid? Multi-region? Shared tenancy?
+                          </Box>
+                        </SpaceBetween>
+                      }
+                    >
+                      <Link variant="info">Info</Link>
+                    </Popover>
+                  }
+                >
+                  <Textarea
+                    onChange={({ detail }) => setText(detail.value)}
+                    value={text}
+                    placeholder="Add your description"
+                  />
+                </FormField>
+              </SpaceBetween>
             </div>
           ),
           isOptional: true,
         },
         {
-          title: "Select iterations",
-          description:
-            "Determine the number of runs needed to generate the threat catalog. Increasing the number of runs will result in a more comprehensive and detailed threat catalog.",
+          title: "Agent configuration",
+          description: "Configure the agent's iteration count and reasoning level.",
           content: (
             <div style={{ minHeight: 200 }}>
               <SpaceBetween size="s">
-                <FormField>
+                <FormField
+                  label="Iterations"
+                  info={
+                    <Popover
+                      header="Iterations"
+                      content={
+                        <Box>
+                          Determines the number of runs needed to generate the threat catalog.
+                          Increasing the number of runs will result in a more comprehensive and
+                          detailed threat catalog. Use "Auto" to let the agent decide.
+                        </Box>
+                      }
+                    >
+                      <Link variant="info">Info</Link>
+                    </Popover>
+                  }
+                  description="Number of threat cataloging runs."
+                >
                   <Select
                     options={[
                       { label: "Auto", value: 0 },
@@ -282,24 +380,29 @@ export const SubmissionComponent = ({
                     />
                   </SpaceBetween>
                 )}
-                {text.length > 0 && (
+                {(text.length > 0 || applicationType) && (
                   <SpaceBetween size="xs">
                     <Header
                       variant="h3"
                       actions={
-                        <Button onClick={() => setActiveStepIndex(2)} ariaLabel="Edit description">
+                        <Button onClick={() => setActiveStepIndex(2)} ariaLabel="Edit details">
                           Edit
                         </Button>
                       }
                     >
-                      Step 3: Description
+                      Step 3: Details
                     </Header>
-                    <Textarea
-                      onChange={({ detail }) => setText(detail.value)}
-                      value={text}
-                      placeholder="Add your description"
-                      disabled
-                    />
+                    {text.length > 0 && (
+                      <Textarea
+                        onChange={({ detail }) => setText(detail.value)}
+                        value={text}
+                        placeholder="Add your description"
+                        disabled
+                      />
+                    )}
+                    <FormField label="Application type">
+                      <Input value={applicationType.label} disabled />
+                    </FormField>
                   </SpaceBetween>
                 )}
                 {iteration && (
@@ -312,7 +415,7 @@ export const SubmissionComponent = ({
                         </Button>
                       }
                     >
-                      Step 4: Iterations
+                      Step 4: Agent configuration
                     </Header>
                     <FormField>
                       <Select

@@ -15,7 +15,7 @@ export const SECTION_TITLES = {
 
 export const TABLE_COLUMNS = {
   ASSUMPTIONS: ["assumption"],
-  ASSETS: ["type", "name", "description"],
+  ASSETS: ["type", "name", "description", "criticality"],
   DATA_FLOW: ["flow_description", "source_entity", "target_entity"],
   TRUST_BOUNDARY: ["purpose", "source_entity", "target_entity"],
   THREAT_SOURCE: ["category", "description", "example"],

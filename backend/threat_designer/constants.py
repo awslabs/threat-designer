@@ -173,6 +173,26 @@ class LikelihoodLevel(Enum):
 
 
 # ============================================================================
+# CRITICALITY LEVELS
+# ============================================================================
+
+
+class CriticalityLevel(Enum):
+    """Asset criticality classification levels for risk-weighted analysis."""
+
+    LOW = "Low"
+    MEDIUM = "Medium"
+    HIGH = "High"
+
+
+CRITICALITY_MULTIPLIER_MAP = {
+    CriticalityLevel.LOW.value: 0.5,
+    CriticalityLevel.MEDIUM.value: 1.0,
+    CriticalityLevel.HIGH.value: 1.5,
+}
+
+
+# ============================================================================
 # DATABASE FIELD NAMES
 # ============================================================================
 

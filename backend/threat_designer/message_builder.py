@@ -4,7 +4,6 @@ import os
 from typing import Any, Dict, List
 
 from langchain_core.messages.human import HumanMessage
-from monitoring import logger
 
 from constants import ENV_MODEL_PROVIDER, MODEL_PROVIDER_BEDROCK
 
@@ -43,15 +42,15 @@ class MessageBuilder:
         return "image/jpeg"
 
     def _format_asset_list(self, assets) -> str:
-        """Helper function to format asset names as a bulleted list."""
+        """Helper function to format asset names as plain comma-separated quoted strings."""
         if not assets or not hasattr(assets, "assets") or not assets.assets:
             return "No assets identified yet."
 
         asset_names = [asset.name for asset in assets.assets]
-        return "\n".join([f"  - {name}" for name in asset_names])
+        return ", ".join([f'"{name}"' for name in asset_names])
 
     def _format_threat_sources(self, system_architecture) -> str:
-        """Helper function to format threat source categories as a bulleted list."""
+        """Helper function to format threat source categories as plain comma-separated quoted strings."""
         if (
             not system_architecture
             or not hasattr(system_architecture, "threat_sources")
@@ -62,7 +61,7 @@ class MessageBuilder:
         source_categories = [
             source.category for source in system_architecture.threat_sources
         ]
-        return "\n".join([f"  - {category}" for category in source_categories])
+        return ", ".join([f'"{category}"' for category in source_categories])
 
     def _add_cache_point_if_bedrock(self) -> List[Dict[str, Any]]:
         """Add cache point marker only for Bedrock provider."""
@@ -220,7 +219,12 @@ Using any other values will result in validation errors. These are the ONLY acce
         return HumanMessage(content=base_message)
 
     def create_threat_agent_message(
-        self, assets=None, system_architecture=None, starred_threats=None, threats=True
+        self,
+        assets=None,
+        system_architecture=None,
+        starred_threats=None,
+        threats=True,
+        application_type: str = "hybrid",
     ) -> HumanMessage:
         """Create threat agent message with full context enrichment.
 

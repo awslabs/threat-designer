@@ -11,6 +11,7 @@ from constants import MAX_GAP_ANALYSIS_USES, MAX_ADD_THREATS_USES, JobState
 from monitoring import logger
 from config import config as app_config
 from state_tracking_service import StateService
+from pydantic import BaseModel
 import json
 import time
 from collections import Counter
@@ -41,9 +42,9 @@ def _calculate_threat_kpis(
         - threats_by_likelihood: Count of threats by likelihood level
         - threats_by_stride: Count and percentage by STRIDE category
         - threats_by_source: Count by threat source category
-        - threats_by_asset: Count by target asset
+        - threats_by_asset: Count and criticality by target asset
         - uncovered_sources: List of threat sources without any threats
-        - uncovered_assets: List of assets without any threats
+        - uncovered_assets: List of uncovered asset dicts with name and criticality, sorted by criticality descending
 
     Example:
         >>> kpis = _calculate_threat_kpis(threat_list, assets, system_architecture)
@@ -137,7 +138,13 @@ def _calculate_threat_kpis(
         sorted(source_counter.items(), key=lambda x: x[1], reverse=True)
     )
 
-    # Count threats by asset (target)
+    # Build asset name -> criticality lookup from assets parameter
+    asset_criticality_map = {}
+    if assets and assets.assets:
+        for asset in assets.assets:
+            asset_criticality_map[asset.name] = getattr(asset, "criticality", "Medium")
+
+    # Count threats by asset (target), include criticality
     asset_counter = Counter()
     for threat in threats:
         if hasattr(threat, "target") and threat.target:
@@ -148,10 +155,16 @@ def _calculate_threat_kpis(
                 threat_name=getattr(threat, "name", "unknown"),
             )
 
-    # Sort by count descending
-    threats_by_asset = dict(
-        sorted(asset_counter.items(), key=lambda x: x[1], reverse=True)
-    )
+    # Sort by count descending, include criticality level
+    threats_by_asset = {
+        asset_name: {
+            "count": count,
+            "criticality": asset_criticality_map.get(asset_name, "Medium"),
+        }
+        for asset_name, count in sorted(
+            asset_counter.items(), key=lambda x: x[1], reverse=True
+        )
+    }
 
     # Identify uncovered threat sources
     uncovered_sources = []
@@ -160,12 +173,25 @@ def _calculate_threat_kpis(
         covered_sources = set(source_counter.keys())
         uncovered_sources = sorted(list(all_sources - covered_sources))
 
+    # Criticality sort order: High > Medium > Low
+    criticality_sort_order = {"High": 0, "Medium": 1, "Low": 2}
+
     # Identify uncovered assets (filter only Asset type, exclude Entity type)
     uncovered_assets = []
     if assets and assets.assets:
         all_assets = {asset.name for asset in assets.assets if asset.type == "Asset"}
         covered_assets = set(asset_counter.keys())
-        uncovered_assets = sorted(list(all_assets - covered_assets))
+        uncovered_asset_names = all_assets - covered_assets
+        uncovered_assets = sorted(
+            [
+                {
+                    "name": name,
+                    "criticality": asset_criticality_map.get(name, "Medium"),
+                }
+                for name in uncovered_asset_names
+            ],
+            key=lambda a: criticality_sort_order.get(a["criticality"], 1),
+        )
 
     return {
         "total_threats": total_threats,
@@ -235,6 +261,15 @@ No threats in catalog yet.
             output.append(f"- {source}: {count}")
         output.append("")
 
+    # Threats by Asset (with criticality)
+    if kpis.get("threats_by_asset"):
+        output.append("**Threats by Asset**:")
+        for asset_name, data in kpis["threats_by_asset"].items():
+            count = data["count"]
+            criticality = data["criticality"]
+            output.append(f"- {asset_name} [Criticality: {criticality}]: {count}")
+        output.append("")
+
     # Uncovered Threat Sources
     if kpis.get("uncovered_sources"):
         output.append("**⚠️ Threat Sources Without Coverage**:")
@@ -242,11 +277,13 @@ No threats in catalog yet.
             output.append(f"- {source}")
         output.append("")
 
-    # Uncovered Assets
+    # Uncovered Assets (with criticality)
     if kpis.get("uncovered_assets"):
         output.append("**⚠️ Assets Without Threat Coverage**:")
         for asset in kpis["uncovered_assets"]:
-            output.append(f"- {asset}")
+            name = asset["name"]
+            criticality = asset["criticality"]
+            output.append(f"- {name} [Criticality: {criticality}]")
         output.append("")
 
     output.append("</threat_catalog_kpis>")
@@ -411,6 +448,166 @@ Please ensure:
     )
 
 
+def create_dynamic_add_threats_tool(threats_list_model: type[BaseModel]):
+    """Create an add_threats tool bound to a dynamic ThreatsList model.
+
+    The returned tool has the same name, description, and handler logic as the
+    static ``add_threats`` tool but its input schema uses the dynamic model so
+    that the JSON schema presented to the LLM includes ``enum`` constraints for
+    the ``target`` and ``source`` fields.
+
+    Args:
+        threats_list_model: Dynamic ThreatsList with Literal-constrained fields.
+
+    Returns:
+        A langchain tool instance with the constrained schema.
+    """
+
+    @tool(
+        name_or_callable="add_threats",
+        description=""" Used to add new threats to the existing catalog""",
+    )
+    def dynamic_add_threats(threats: threats_list_model, runtime: ToolRuntime):
+        tool_use = _unwrap_value(runtime.state.get("tool_use", 0), 0)
+        gap_tool_use = _unwrap_value(runtime.state.get("gap_tool_use", 0), 0)
+        job_id = runtime.state.get("job_id", "unknown")
+
+        # Check limit
+        if tool_use >= MAX_ADD_THREATS_USES:
+            if gap_tool_use < MAX_GAP_ANALYSIS_USES:
+                error_msg = "You must call gap_analysis to verify the current threat model first. Afterwards you can use the tool again to add other threats if needed."
+            else:
+                error_msg = (
+                    "You have consumed all your tool calls. "
+                    "You can only delete threats or proceed to finish."
+                )
+            logger.warning(
+                "Tool usage limit exceeded - gap_analysis required",
+                tool="add_threats",
+                current_usage=tool_use,
+                max_usage=MAX_ADD_THREATS_USES,
+                gap_tool_use=gap_tool_use,
+                job_id=job_id,
+            )
+            return error_msg
+
+        # Get valid assets and threat sources from state
+        assets = runtime.state.get("assets")
+        system_architecture = runtime.state.get("system_architecture")
+
+        valid_asset_names = set()
+        if assets and assets.assets:
+            valid_asset_names = {asset.name for asset in assets.assets}
+
+        valid_threat_sources = set()
+        if system_architecture and system_architecture.threat_sources:
+            valid_threat_sources = {
+                source.category for source in system_architecture.threat_sources
+            }
+
+        # Validate threats and separate valid from invalid
+        valid_threats = []
+        invalid_threats = []
+
+        for threat in threats.threats:
+            violations = []
+
+            if threat.target not in valid_asset_names:
+                violations.append(
+                    f"Invalid target '{threat.target}' - not in asset list"
+                )
+
+            if threat.source not in valid_threat_sources:
+                violations.append(
+                    f"Invalid source '{threat.source}' - not in threat sources"
+                )
+
+            if violations:
+                invalid_threats.append({"name": threat.name, "violations": violations})
+                logger.warning(
+                    "Threat validation failed",
+                    tool="add_threats",
+                    threat_name=threat.name,
+                    violations=violations,
+                    job_id=job_id,
+                )
+            else:
+                threat.starred = False
+                valid_threats.append(threat)
+
+        valid_threats_list = ThreatsList(threats=valid_threats)
+
+        valid_count = len(valid_threats)
+        invalid_count = len(invalid_threats)
+
+        if valid_count > 0:
+            state_service.update_job_state(
+                job_id,
+                JobState.THREAT.value,
+                detail=f"{valid_count} threats added to catalog",
+            )
+
+        if invalid_count == 0:
+            tool_use_delta = 1
+            new_tool_use = tool_use + tool_use_delta
+            response_msg = f"Successfully added: {valid_count} threats."
+            logger.debug(
+                "Tool invoked successfully - all threats valid",
+                tool="add_threats",
+                usage_count=new_tool_use,
+                max_usage=MAX_ADD_THREATS_USES,
+                threats_added=valid_count,
+                remaining_invocations=MAX_ADD_THREATS_USES - new_tool_use,
+                job_id=job_id,
+            )
+        else:
+            tool_use_delta = 0
+            new_tool_use = tool_use
+            invalid_details = []
+            for invalid in invalid_threats:
+                violations_str = "; ".join(invalid["violations"])
+                invalid_details.append(f"  - {invalid['name']}: {violations_str}")
+
+            invalid_summary = "\n".join(invalid_details)
+
+            response_msg = f"""Successfully added: {valid_count} threats. \n
+
+{invalid_count} threats were NOT added due to validation failures: \n
+{invalid_summary} \n
+
+Please ensure:
+- Threat 'target' matches an asset name from the asset list: {valid_asset_names} \n
+- Threat 'source' matches a threat source category from the data flow threat sources" {valid_threat_sources}"""
+
+            logger.warning(
+                "Tool invoked with validation failures",
+                tool="add_threats",
+                usage_count=new_tool_use,
+                max_usage=MAX_ADD_THREATS_USES,
+                threats_added=valid_count,
+                threats_rejected=invalid_count,
+                remaining_invocations=MAX_ADD_THREATS_USES - new_tool_use,
+                job_id=job_id,
+            )
+
+        time.sleep(5)
+
+        return Command(
+            update={
+                "threat_list": valid_threats_list,
+                "tool_use": tool_use_delta,
+                "messages": [
+                    ToolMessage(
+                        response_msg,
+                        tool_call_id=runtime.tool_call_id,
+                    )
+                ],
+            }
+        )
+
+    return dynamic_add_threats
+
+
 @tool(
     name_or_callable="delete_threats",
     description="Used to delete threats from the existing catalog",
@@ -501,6 +698,65 @@ def read_threat_catalog(
 
 
 @tool(
+    name_or_callable="catalog_stats",
+    description="Get statistics about the current threat catalog: total count, distribution by severity/likelihood, STRIDE category breakdown, and per-asset/entity threat counts. Use this to check coverage before finishing or to decide where more threats are needed.",
+)
+def catalog_stats(
+    runtime: ToolRuntime,
+    asset_name: Annotated[
+        str,
+        "Optional asset/entity name to get STRIDE breakdown for a specific target. Leave empty for overall stats.",
+    ] = "",
+) -> str:
+    """Return threat catalog statistics and distribution metrics."""
+
+    state = runtime.state
+    threat_list = state.get("threat_list")
+
+    if not threat_list or not threat_list.threats:
+        return "No threats in the catalog yet."
+
+    threats = threat_list.threats
+
+    # If a specific asset is requested, return per-asset STRIDE breakdown
+    if asset_name:
+        asset_threats = [t for t in threats if t.target == asset_name]
+        if not asset_threats:
+            return f"No threats found targeting '{asset_name}'."
+
+        stride_counter = Counter()
+        likelihood_counter = Counter()
+        for t in asset_threats:
+            if t.stride_category:
+                stride_counter[t.stride_category] += 1
+            if t.likelihood:
+                likelihood_counter[t.likelihood] += 1
+
+        output = f"Stats for '{asset_name}' ({len(asset_threats)} threats):\n\n"
+        output += "By STRIDE:\n"
+        for cat in [
+            "Spoofing",
+            "Tampering",
+            "Repudiation",
+            "Information Disclosure",
+            "Denial of Service",
+            "Elevation of Privilege",
+        ]:
+            count = stride_counter.get(cat, 0)
+            output += f"  - {cat}: {count}\n"
+        output += "\nBy Likelihood:\n"
+        for level in ["High", "Medium", "Low"]:
+            output += f"  - {level}: {likelihood_counter.get(level, 0)}\n"
+        return output
+
+    # Overall stats — reuse existing KPI calculation
+    kpis = _calculate_threat_kpis(
+        threat_list, state.get("assets"), state.get("system_architecture")
+    )
+    return _format_kpis_for_prompt(kpis)
+
+
+@tool(
     name_or_callable="gap_analysis",
     description="Analyze the current threat catalog for gaps and completeness. Returns identified gaps or confirmation of completeness.",
 )
@@ -585,49 +841,6 @@ def gap_analysis(runtime: ToolRuntime) -> str:
             indent=2,
         )
 
-    # Calculate KPIs from threat catalog
-    kpis_str = None
-    try:
-        kpi_start_time = time.time()
-        logger.debug(
-            "Starting KPI calculation",
-            tool="gap_analysis",
-            threat_count=len(threat_list.threats)
-            if threat_list and threat_list.threats
-            else 0,
-            job_id=job_id,
-        )
-
-        kpis = _calculate_threat_kpis(
-            threat_list, state.get("assets"), state.get("system_architecture")
-        )
-        kpis_str = _format_kpis_for_prompt(kpis)
-
-        kpi_duration = time.time() - kpi_start_time
-        logger.debug(
-            "KPI calculation completed",
-            tool="gap_analysis",
-            duration_ms=round(kpi_duration * 1000, 2),
-            total_threats=kpis["total_threats"],
-            high_likelihood=kpis["threats_by_likelihood"]["High"],
-            medium_likelihood=kpis["threats_by_likelihood"]["Medium"],
-            low_likelihood=kpis["threats_by_likelihood"]["Low"],
-            unique_sources=len(kpis["threats_by_source"]),
-            unique_assets=len(kpis["threats_by_asset"]),
-            kpis_string=kpis_str,
-            job_id=job_id,
-        )
-    except Exception as e:
-        # Log error but continue without KPIs to maintain backward compatibility
-        logger.error(
-            "KPI calculation failed - continuing without KPIs",
-            tool="gap_analysis",
-            error=str(e),
-            job_id=job_id,
-            exc_info=True,
-        )
-        kpis_str = None
-
     # Get previous gap analysis results
     gap = state.get("gap", [])
     gap_str = "\n".join(gap) if gap else ""
@@ -643,7 +856,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
             [f"  - {category}" for category in source_categories]
         )
 
-    # Create gap analysis message (with threat sources and KPIs)
+    # Create gap analysis message (with threat sources, without KPIs — gap analysis focuses on semantic coverage)
     human_message = msg_builder.create_gap_analysis_message(
         json.dumps(
             [asset.model_dump() for asset in state.get("assets").assets], indent=2
@@ -659,14 +872,16 @@ def gap_analysis(runtime: ToolRuntime) -> str:
         threat_list_str,
         gap_str,
         threat_sources_str,  # Pass threat sources to HumanMessage
-        kpis_str,  # Pass formatted KPIs to HumanMessage
     )
 
     # Create system prompt (without threat sources)
+    app_type = state.get("application_type", "hybrid")
     if state.get("instructions"):
-        system_prompt = SystemMessage(content=gap_prompt(state.get("instructions")))
+        system_prompt = SystemMessage(
+            content=gap_prompt(state.get("instructions"), application_type=app_type)
+        )
     else:
-        system_prompt = SystemMessage(content=gap_prompt())
+        system_prompt = SystemMessage(content=gap_prompt(application_type=app_type))
 
     messages = [system_prompt, human_message]
 
@@ -709,7 +924,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
         if gap_result.stop:
             update_dict["messages"] = [
                 ToolMessage(
-                    "Gap Analysis: The threat catalog is comprehensive and complete. No actionable gaps identified.",
+                    "Gap Analysis: The threat catalog is comprehensive and complete. No actionable gaps identified. You may proceed to finish or continue refining.",
                     tool_call_id=runtime.tool_call_id,
                 )
             ]
@@ -721,7 +936,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
                 rating=gap_result.rating,
                 job_id=job_id,
             )
-            return Command(update=update_dict, goto="continue")
+            return Command(update=update_dict)
         else:
             update_dict["messages"] = [
                 ToolMessage(

@@ -6,7 +6,7 @@ from langgraph.types import Command, Overwrite
 from typing import List, Annotated, Dict, Any
 from message_builder import MessageBuilder, list_to_string
 from model_service import ModelService
-from prompts import gap_prompt
+from prompt_provider import gap_prompt
 from constants import MAX_GAP_ANALYSIS_USES, MAX_ADD_THREATS_USES, JobState
 from monitoring import logger
 from config import config as app_config

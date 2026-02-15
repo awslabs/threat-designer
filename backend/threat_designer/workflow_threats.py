@@ -25,7 +25,7 @@ from tools import (
 )
 from state import ThreatState, ConfigSchema, create_constrained_threat_model
 from message_builder import MessageBuilder, list_to_string
-from prompts import create_agent_system_prompt
+from prompt_provider import create_agent_system_prompt
 
 
 tools = [add_threats, remove_threat, read_threat_catalog, catalog_stats, gap_analysis]
@@ -63,7 +63,7 @@ def _build_session_tools(state: ThreatState) -> list:
             catalog_stats,
             gap_analysis,
         ]
-        logger.debug(
+        logger.info(
             "Dynamic add_threats tool created",
             asset_count=len(asset_names),
             source_count=len(source_cats),

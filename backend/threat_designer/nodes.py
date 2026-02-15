@@ -17,7 +17,7 @@ from langgraph.types import Command
 from message_builder import MessageBuilder, list_to_string
 from model_service import ModelService
 from monitoring import logger, operation_context, with_error_context
-from prompts import (
+from prompt_provider import (
     asset_prompt,
     flow_prompt,
     gap_prompt,

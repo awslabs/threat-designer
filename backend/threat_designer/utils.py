@@ -42,7 +42,7 @@ from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import BaseMessage
 from langchain_core.messages.human import HumanMessage
 from monitoring import operation_context, with_error_context
-from prompts import structure_prompt
+from prompt_provider import structure_prompt
 from state import AgentState
 from langgraph.types import Overwrite
 

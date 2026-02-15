@@ -203,13 +203,23 @@ def get_all_by_owner(table, owner: str):
         InternalError: If DynamoDB query fails
     """
     try:
-        response = table.query(
-            IndexName="owner-job-index",
-            KeyConditionExpression="#owner = :owner_value",
-            ExpressionAttributeNames={"#owner": "owner"},
-            ExpressionAttributeValues={":owner_value": owner},
-        )
-        return response.get("Items", [])
+        query_params = {
+            "IndexName": "owner-job-index",
+            "KeyConditionExpression": "#owner = :owner_value",
+            "ExpressionAttributeNames": {"#owner": "owner"},
+            "ExpressionAttributeValues": {":owner_value": owner},
+        }
+
+        all_items = []
+        while True:
+            response = table.query(**query_params)
+            all_items.extend(response.get("Items", []))
+            last_key = response.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            query_params["ExclusiveStartKey"] = last_key
+
+        return all_items
     except Exception as e:
         LOG.error(e)
         raise InternalError(e)
@@ -812,23 +822,72 @@ def query_shared_paginated(
         raise InternalError(e)
 
 
-@tracer.capture_method
-def fetch_all(owner, limit=20, cursor=None, filter_mode="all"):
+def _get_all_shared(sharing_table, table, owner):
     """
-    Fetch paginated threat models for a user.
+    Query all shared threat models for a user (no pagination).
+
+    Args:
+        sharing_table: DynamoDB sharing table resource
+        table: DynamoDB agent table resource
+        owner: User ID
+
+    Returns:
+        list: List of threat model items with sharing info
+    """
+    try:
+        query_params = {
+            "IndexName": "user-index",
+            "KeyConditionExpression": "#user_id = :user_id",
+            "ExpressionAttributeNames": {"#user_id": "user_id"},
+            "ExpressionAttributeValues": {":user_id": owner},
+        }
+
+        # Paginate through all sharing records
+        all_sharing_records = []
+        while True:
+            sharing_response = sharing_table.query(**query_params)
+            all_sharing_records.extend(sharing_response.get("Items", []))
+            last_key = sharing_response.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            query_params["ExclusiveStartKey"] = last_key
+
+        # Fetch full threat model details for each shared record
+        shared_items = []
+        for sharing_record in all_sharing_records:
+            threat_model_id = sharing_record["threat_model_id"]
+            tm_response = table.get_item(Key={"job_id": threat_model_id})
+
+            if "Item" in tm_response:
+                item = tm_response["Item"]
+                item["is_owner"] = False
+                item["access_level"] = sharing_record["access_level"]
+                item["shared_by"] = sharing_record.get("shared_by")
+                shared_items.append(item)
+
+        return shared_items
+    except Exception as e:
+        LOG.error(f"Error querying all shared threat models: {e}")
+        raise InternalError(e)
+
+
+@tracer.capture_method
+def fetch_all(owner, limit=None, cursor=None, filter_mode="all"):
+    """
+    Fetch all threat models for a user (no pagination).
 
     Args:
         owner: User ID
-        limit: Number of items per page (default: 20)
-        cursor: Pagination cursor (base64-encoded JSON)
+        limit: Ignored (kept for API compatibility)
+        cursor: Ignored (kept for API compatibility)
         filter_mode: Filter mode - "owned", "shared", or "all" (default: "all")
 
     Returns:
         dict: {
             "catalogs": [...],
             "pagination": {
-                "hasNextPage": bool,
-                "cursor": str|None,
+                "hasNextPage": False,
+                "cursor": None,
                 "totalReturned": int
             }
         }
@@ -836,80 +895,43 @@ def fetch_all(owner, limit=20, cursor=None, filter_mode="all"):
     table = dynamodb.Table(AGENT_TABLE)
     sharing_table = dynamodb.Table(os.environ.get("SHARING_TABLE"))
     LOG.info(
-        f"Fetching paginated items for owner: {owner}, limit: {limit}, filter: {filter_mode}"
+        f"Fetching all items for owner: {owner}, filter: {filter_mode}"
     )
 
     try:
-        # Validate pagination parameters
-        validate_pagination_params(limit, filter_mode)
-
-        # Decode cursor if provided
-        cursor_data = None
-        if cursor:
-            try:
-                cursor_data = decode_cursor(cursor)
-                # Validate filter mode matches cursor
-                if cursor_data["filter"] != filter_mode:
-                    LOG.warning(
-                        f"Filter mode mismatch: cursor={cursor_data['filter']}, requested={filter_mode}"
-                    )
-                    # Reset cursor if filter changed
-                    cursor_data = None
-            except ValueError as e:
-                LOG.warning(f"Invalid cursor, resetting to first page: {e}")
-                cursor_data = None
+        # Validate filter mode
+        valid_filters = ["owned", "shared", "all"]
+        if filter_mode not in valid_filters:
+            raise ValueError(f"Filter mode must be one of {valid_filters}")
 
         owned_items = []
         shared_items = []
-        owned_last_key = None
-        shared_last_key = None
 
-        # Query owned threat models if needed
+        # Query all owned threat models
         if filter_mode in ["owned", "all"]:
-            owned_start_key = cursor_data.get("owned") if cursor_data else None
-            owned_result = query_owned_paginated(table, owner, limit, owned_start_key)
-            owned_items = owned_result["items"]
-            owned_last_key = owned_result["last_evaluated_key"]
-
-            # Add access information to owned items
+            owned_items = get_all_by_owner(table, owner)
             for item in owned_items:
                 item["is_owner"] = True
                 item["access_level"] = "OWNER"
 
-        # Query shared threat models if needed
+        # Query all shared threat models
         if filter_mode in ["shared", "all"] and owner != "MCP":
-            shared_start_key = cursor_data.get("shared") if cursor_data else None
-            shared_result = query_shared_paginated(
-                sharing_table, table, owner, limit, shared_start_key
-            )
-            shared_items = shared_result["items"]
-            shared_last_key = shared_result["last_evaluated_key"]
+            shared_result = _get_all_shared(sharing_table, table, owner)
+            shared_items = shared_result
 
         # Combine and sort results by timestamp (newest first)
         all_items = owned_items + shared_items
         all_items.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
 
-        # Limit to requested page size after merging
-        all_items = all_items[:limit]
-
-        # Determine if there's a next page
-        has_next_page = owned_last_key is not None or shared_last_key is not None
-
-        # Encode cursor for next page
-        next_cursor = None
-        if has_next_page:
-            next_cursor = encode_cursor(owned_last_key, shared_last_key, filter_mode)
-
         return {
             "catalogs": convert_decimals(all_items),
             "pagination": {
-                "hasNextPage": has_next_page,
-                "cursor": next_cursor,
+                "hasNextPage": False,
+                "cursor": None,
                 "totalReturned": len(all_items),
             },
         }
     except ValueError:
-        # Invalid cursor - return error
         raise
     except Exception as e:
         LOG.error(e)

@@ -188,38 +188,21 @@ This analysis must align with the shared responsibility model for the system's d
 </inputs>
 
 <instructions>
-Review all four inputs holistically before producing any output. Ensure every asset and entity from the inventory is accounted for in at least one data flow, trust boundary, or threat actor relationship.
+Review all four inputs holistically before producing any output.
 
-Consider the full system lifecycle including deployment, operation, maintenance, and decommissioning. Include both automated and manual processes. Account for emergency and disaster recovery paths if the description or assumptions mention them.
+Focus on operational and deployment-phase flows. Include maintenance, decommissioning, or disaster recovery paths only when the description or assumptions explicitly mention them. Cover both automated and manual processes where they appear in the inputs.
 
-Prioritize elements by security impact: sensitive data flows first, high-consequence trust boundaries first, and threat actors with realistic access to the described architecture first.
+Prioritize depth over breadth. For architectures with many components, focus on the 10–20 most security-critical data flows rather than exhaustively mapping every interaction. Prioritize elements by security impact: sensitive data flows first, high-consequence trust boundaries first, and threat actors with realistic access to the described architecture first.
+
+When categorizing a flow or boundary, commit to your assessment and move on. Do not revisit classifications unless new input evidence directly contradicts them.
 
 SECTION 1 — DATA FLOWS
 
 Map all significant data movements between identified assets and entities. Include internal flows within trust boundaries, external flows crossing trust boundaries, and bidirectional flows where both directions carry security relevance. Cover primary operational flows as well as secondary flows such as logging, backups, and monitoring. Focus on flows involving sensitive data, authentication credentials, or business-critical information.
 
-For each data flow, provide:
-
-<data_flow>
-flow_description: [What data moves, between which components, and through what mechanism]
-source_entity: [Name from the assets/entities inventory]
-target_entity: [Name from the assets/entities inventory]
-assets: [Specific data types or assets involved]
-</data_flow>
-
 SECTION 2 — TRUST BOUNDARIES
 
 Identify every point where the level of trust changes. This includes network boundaries such as internal-to-external or DMZ transitions, process boundaries between different services or execution contexts, physical boundaries between on-premises and cloud or between data centers, organizational boundaries between internal systems and third-party services, and administrative boundaries between different management domains or privilege levels.
-
-For each trust boundary, provide:
-
-<trust_boundary>
-purpose: [What trust level change occurs and why this boundary exists]
-source_entity: [Entity on the higher-trust side]
-target_entity: [Entity on the lower-trust side]
-boundary_type: [Network | Process | Physical | Organizational | Administrative]
-security_controls: [Known controls at this boundary, or "Unknown" if not stated in inputs]
-</trust_boundary>
 
 SECTION 3 — THREAT ACTORS
 
@@ -235,18 +218,41 @@ Consider these standard categories and include only those with clear relevance t
 - Untrusted Data Suppliers — third-party data sources or integrations
 - Unauthorized External Users — actors attempting access without credentials
 - Compromised Accounts or Components — legitimate credentials used maliciously
-
-Present threat actors as a table with exactly three columns: Category, Description, and Examples. Keep each description to one sentence. Keep each example entry to two to five words. Do not include attack scenarios, technical narratives, or step-by-step attack explanations. Focus on who might attack within the customer's scope, not how.
 </instructions>
 
 <output_format>
-Structure your response in three clearly labeled sections in this order:
+Structure your response in three clearly labeled sections in this order.
 
-1. Data Flows — one <data_flow> block per flow, ordered by criticality (High first)
-2. Trust Boundaries — one <trust_boundary> block per boundary, ordered by security significance
-3. Threat Actors — a single markdown table with columns: Category | Description | Examples
+SECTION 1 — DATA FLOWS
 
-Ensure completeness: every asset and entity from the inventory should appear in at least one data flow or trust boundary. If an asset or entity has no security-relevant flows or boundaries, note why briefly.
+One block per flow, ordered by criticality (High first):
+
+<data_flow>
+flow_description: [What data moves, between which components, and through what mechanism]
+source_entity: [Name from the assets/entities inventory]
+target_entity: [Name from the assets/entities inventory]
+assets: [Specific data types or assets involved]
+</data_flow>
+
+SECTION 2 — TRUST BOUNDARIES
+
+One block per boundary, ordered by security significance:
+
+<trust_boundary>
+purpose: [What trust level change occurs and why this boundary exists]
+source_entity: [Entity on the higher-trust side]
+target_entity: [Entity on the lower-trust side]
+boundary_type: [Network | Process | Physical | Organizational | Administrative]
+security_controls: [Known controls at this boundary, or "Unknown" if not stated in inputs]
+</trust_boundary>
+
+SECTION 3 — THREAT ACTORS
+
+A single markdown table with exactly three columns: Category | Description | Examples. Keep each description to one sentence. Keep each example entry to two to five words. Do not include attack scenarios, technical narratives, or step-by-step attack explanations. Focus on who might attack within the customer's scope, not how.
+
+COMPLETENESS CHECK
+
+Every asset and entity from the inventory should appear in at least one data flow or trust boundary. If an asset or entity has no security-relevant flows or boundaries, note why briefly at the end of your response.
 </output_format>
 """
     return [
@@ -518,13 +524,10 @@ def create_agent_system_prompt(
     app_type_context = _get_application_type_context(application_type)
     criticality_context = _get_asset_criticality_context()
 
-    prompt = (
-        app_type_context
-        + criticality_context
-        + """<role>
+    prompt = """<role>
 You are a security architect operating as an autonomous threat modeling agent.
 You produce STRIDE-based threat catalogs for system architectures by working
-through a generate → audit → fix loop.
+through a generate → audit → fix cycle.
 </role>
 
 <context>
@@ -548,34 +551,54 @@ The user provides:
 </context>
 
 <workflow>
-Work in a generate → audit → fix loop. The loop ends only when gap_analysis
-returns STOP.
+Work in a generate → audit → fix cycle. You own the decision of when the
+catalog is complete.
 
 Read the architecture, internalize the assumptions and controls, and generate
-an initial batch of threats across the STRIDE categories. Then call
-gap_analysis.
+threats across the STRIDE categories. Build up the catalog until you have at
+least 30 threats before calling gap_analysis — it needs that baseline to do a
+meaningful review.
 
-Each gap_analysis result either returns STOP (catalog is complete) or CONTINUE
-with priority actions describing what's missing, miscalibrated, or invalid.
-Address the findings — add threats to fill gaps, delete threats that were
-flagged — and call gap_analysis again. Repeat until STOP.
+Weigh gap_analysis findings against your own assessment. If it surfaces a
+genuine gap, address it. If a finding is marginal or speculative, use your
+judgment. You are also free to add threats you identify independently,
+regardless of whether gap_analysis flagged them.
 
-When the loop ends, provide a brief summary: total threat count, STRIDE
-distribution, and any observations about the architecture's risk posture.
+When you're confident the catalog provides solid STRIDE coverage across the
+architecture's components, trust boundaries, and data flows, end the loop and
+provide a brief summary: total threat count, STRIDE distribution, and any
+observations about the architecture's risk posture.
 </workflow>
+
+<execution_discipline>
+Explore threat perspectives thoroughly — examine every component, data flow,
+and trust boundary from each STRIDE category. Missing a real threat is costly,
+so cast a wide net during generation. However, once you've assessed a threat's
+likelihood and impact, commit to that calibration and move on. The expensive
+mistake is a missing threat, not a likelihood scored Medium instead of High.
+Reserve recalibration for threats that gap_analysis explicitly flags — don't
+revisit your own assessments unprompted between iterations.
+
+When the architecture is complex, work through it systematically by component
+or by trust boundary rather than attempting to reason about the entire system
+at once. This surfaces more threats than broad speculation.
+</execution_discipline>
 
 <tool_usage>
 add_threats — accepts a list of threat objects. Batch multiple threats into a
-single call rather than adding them one at a time. Each threat object includes:
-target, source, stride_category, description, prerequisites, attack_vector,
-impact_description, likelihood, impact, and mitigations.
+single call rather than adding them one at a time. An initial pass typically
+produces 10–20 threats spanning all STRIDE categories; subsequent passes
+addressing gap_analysis findings are usually smaller. Each threat object
+includes: target, source, stride_category, description, prerequisites,
+attack_vector, impact_description, likelihood, impact, and mitigations.
 
 delete_threats — removes threats by ID. Use for hallucinations, duplicates, or
 threats flagged as invalid.
 
 gap_analysis — evaluates the current catalog against the architecture and
-returns STOP or CONTINUE with specific findings. Call this after every batch of
-changes, not only at the end.
+returns findings that may include blind spots, miscalibrations, or invalid
+entries. Call this once the catalog has at least 30 threats, and after
+subsequent batches of changes when you want a second opinion.
 
 When correcting an existing threat, add the new version before deleting the old
 one so there's no coverage gap during the transition.
@@ -657,11 +680,17 @@ modify asset names. Values that don't match will be rejected.
 source: Must exactly match one of the enum values provided in the add_threats
 tool schema. Copy the value verbatim from the threat source categories.
 Values that don't match will be rejected.
-</quality_guidance>"""
+</quality_guidance>
+
+"""
+
+    prompt += (
+        f"<application_context>\n{app_type_context}\n</application_context>\n\n"
+        f"<asset_criticality>\n{criticality_context}\n</asset_criticality>"
     )
 
     if instructions:
-        prompt += f"\n\nAdditional Instructions:\n{instructions}"
+        prompt += f"\n\n<additional_instructions>\n{instructions}\n</additional_instructions>"
 
     # Build content with conditional cache points (Bedrock only)
     # For OpenAI, caching is handled automatically

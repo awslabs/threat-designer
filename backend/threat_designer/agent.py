@@ -214,6 +214,7 @@ def _initialize_state(event: Dict[str, Any], job_id: str) -> AgentState:
         state["job_id"] = job_id
         state["iteration"] = event.get("iteration", REASONING_DISABLED)
         state["instructions"] = (event.get("instructions") or "").strip() or None
+        state["application_type"] = event.get("application_type", "hybrid")
 
         replay_mode = event.get("replay", False)
         logger.debug(
@@ -278,6 +279,7 @@ def _handle_replay_state(state: AgentState, job_id: str) -> AgentState:
                 "title": item.get("title"),
                 "owner": item.get("owner"),
                 "s3_location": item["s3_location"],
+                "application_type": state.get("application_type", "hybrid"),
             }
         )
 
@@ -325,6 +327,7 @@ def _handle_new_state(state: AgentState, event: Dict[str, Any]) -> AgentState:
                 "s3_location": event["s3_location"],
                 "owner": event.get("owner"),
                 "title": event.get("title"),
+                "application_type": state.get("application_type", "hybrid"),
             }
         )
 

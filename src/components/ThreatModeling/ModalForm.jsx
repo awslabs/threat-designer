@@ -10,6 +10,8 @@ import Box from "@cloudscape-design/components/box";
 import TokenGroup from "@cloudscape-design/components/token-group";
 import Grid from "@cloudscape-design/components/grid";
 import ColumnLayout from "@cloudscape-design/components/column-layout";
+import Popover from "@cloudscape-design/components/popover";
+import Link from "@cloudscape-design/components/link";
 
 export const ModalComponent = ({
   headers,
@@ -53,6 +55,11 @@ export const ModalComponent = ({
       { label: "High", value: "High" },
       { label: "Medium", value: "Medium" },
       { label: "Low", value: "Low" },
+    ],
+    criticality: [
+      { label: "Low", value: "Low" },
+      { label: "Medium", value: "Medium" },
+      { label: "High", value: "High" },
     ],
   };
 
@@ -270,8 +277,64 @@ export const ModalComponent = ({
     }
 
     if (key in EnumOptions) {
+      const infoPopover =
+        key === "criticality" ? (
+          <Popover
+            header="Criticality"
+            size="large"
+            content={
+              <ColumnLayout columns={2}>
+                <SpaceBetween size="s">
+                  <Box variant="h5">Assets</Box>
+                  <Box color="text-body-secondary" variant="small">
+                    Based on data sensitivity and business impact.
+                  </Box>
+                  <Box>
+                    <Box variant="h5">Low</Box>
+                    Non-sensitive operational data with minimal business impact (e.g., system
+                    telemetry, public docs, non-critical caches).
+                  </Box>
+                  <Box>
+                    <Box variant="h5">Medium</Box>
+                    Internal or moderately sensitive data with contained business impact (e.g.,
+                    internal APIs, application logs).
+                  </Box>
+                  <Box>
+                    <Box variant="h5">High</Box>
+                    Sensitive, regulated, or business-critical data such as PII, credentials, or
+                    data under regulatory frameworks (e.g., GDPR, HIPAA, PCI-DSS).
+                  </Box>
+                </SpaceBetween>
+                <SpaceBetween size="s">
+                  <Box variant="h5">Entities</Box>
+                  <Box color="text-body-secondary" variant="small">
+                    Based on privilege level, trust scope, and blast radius.
+                  </Box>
+                  <Box>
+                    <Box variant="h5">Low</Box>
+                    Limited access scope with minimal privilege and narrow blast radius (e.g.
+                    read-only monitoring service).
+                  </Box>
+                  <Box>
+                    <Box variant="h5">Medium</Box>
+                    Moderate access or privilege. Compromise could affect multiple components (e.g.
+                    standard app user).
+                  </Box>
+                  <Box>
+                    <Box variant="h5">High</Box>
+                    Elevated privilege or broad trust scope. Compromise could lead to widespread
+                    unauthorized access (e.g., admin user, CI/CD service account).
+                  </Box>
+                </SpaceBetween>
+              </ColumnLayout>
+            }
+          >
+            <Link variant="info">Info</Link>
+          </Popover>
+        ) : null;
+
       return (
-        <FormField key={key} label={label}>
+        <FormField key={key} label={label} info={infoPopover}>
           <Select
             selectedOption={
               tempFormData[key]

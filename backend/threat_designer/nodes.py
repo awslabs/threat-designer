@@ -105,7 +105,11 @@ class AssetDefinitionService:
 
         human_message = msg_builder.create_asset_message()
 
-        system_prompt = SystemMessage(content=asset_prompt())
+        system_prompt = SystemMessage(
+            content=asset_prompt(
+                application_type=state.get("application_type", "hybrid")
+            )
+        )
 
         return [system_prompt, human_message]
 
@@ -152,7 +156,11 @@ class FlowDefinitionService:
             state.get("image_type"),
         )
         human_message = msg_builder.create_system_flows_message(assets=state["assets"])
-        system_prompt = SystemMessage(content=flow_prompt())
+        system_prompt = SystemMessage(
+            content=flow_prompt(
+                application_type=state.get("application_type", "hybrid")
+            )
+        )
 
         return [system_prompt, human_message]
 
@@ -241,26 +249,36 @@ class ThreatDefinitionService:
             state.get("image_type"),
         )
 
+        app_type = state.get("application_type", "hybrid")
+
         if retry_count > 1 or len(threats) > 0:
             human_message = msg_builder.create_threat_improve_message(
                 state["assets"], state["system_architecture"], state["threat_list"]
             )
             if state.get("replay") and state.get("instructions"):
                 system_prompt = SystemMessage(
-                    content=threats_improve_prompt(state.get("instructions"))
+                    content=threats_improve_prompt(
+                        state.get("instructions"), application_type=app_type
+                    )
                 )
             else:
-                system_prompt = SystemMessage(content=threats_improve_prompt())
+                system_prompt = SystemMessage(
+                    content=threats_improve_prompt(application_type=app_type)
+                )
         else:
             human_message = msg_builder.create_threat_message(
                 state["assets"], state["system_architecture"]
             )
             if state.get("replay") and state.get("instructions"):
                 system_prompt = SystemMessage(
-                    content=threats_prompt(state.get("instructions"))
+                    content=threats_prompt(
+                        state.get("instructions"), application_type=app_type
+                    )
                 )
             else:
-                system_prompt = SystemMessage(content=threats_improve_prompt())
+                system_prompt = SystemMessage(
+                    content=threats_improve_prompt(application_type=app_type)
+                )
         return [system_prompt, human_message]
 
     @with_error_context("threat node execution")
@@ -323,9 +341,7 @@ class GapAnalysisService:
             if response["structured_response"].stop:
                 return Command(goto="finalize")
 
-            return Command(
-                goto="threats", update={"gap": [response["structured_response"].gap]}
-            )
+            return Command(goto="threats")
 
     def _prepare_gap_messages(self, state: AgentState) -> list:
         """Prepare messages for gap analysis."""
@@ -341,15 +357,19 @@ class GapAnalysisService:
             state["assets"],
             state["system_architecture"],
             state.get("threat_list", ""),
-            state.get("gap", []),
+            [],
         )
 
         logger.debug("Gap analysis message prepared", job_id=state.get("job_id"))
 
+        app_type = state.get("application_type", "hybrid")
+
         if state.get("replay") and state.get("instructions"):
-            system_prompt = SystemMessage(content=gap_prompt(state.get("instructions")))
+            system_prompt = SystemMessage(
+                content=gap_prompt(state.get("instructions"), application_type=app_type)
+            )
         else:
-            system_prompt = SystemMessage(content=gap_prompt())
+            system_prompt = SystemMessage(content=gap_prompt(application_type=app_type))
 
         return [system_prompt, human_message]
 

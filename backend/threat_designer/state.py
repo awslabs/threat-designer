@@ -6,10 +6,12 @@ from langgraph.graph import MessagesState
 from typing import Annotated, List, Literal, Optional, TypedDict
 
 from constants import (
+    CRITICALITY_MULTIPLIER_MAP,
     MITIGATION_MAX_ITEMS,
     MITIGATION_MIN_ITEMS,
     SUMMARY_MAX_WORDS_DEFAULT,
     AssetType,
+    CriticalityLevel,
     StrideCategory,
 )
 from langchain_aws import ChatBedrockConverse
@@ -53,6 +55,15 @@ class Assets(BaseModel):
     description: Annotated[
         str, Field(description="The description of the asset or entity")
     ]
+    criticality: Annotated[
+        Literal["Low", "Medium", "High"],
+        Field(description="Criticality level of the asset", default="Medium"),
+    ] = "Medium"
+
+    @property
+    def criticality_multiplier(self) -> float:
+        """Computed multiplier from criticality level. Not persisted to DynamoDB."""
+        return CRITICALITY_MULTIPLIER_MAP.get(self.criticality, 1.0)
 
 
 class AssetsList(BaseModel):
@@ -245,6 +256,64 @@ class ThreatsList(BaseModel):
         return ThreatsList(threats=filtered_threats)
 
 
+def create_constrained_threat_model(
+    asset_names: set[str], source_categories: set[str]
+) -> tuple[type[BaseModel], type[BaseModel]]:
+    """Create Threat and ThreatsList models with Literal-constrained target/source fields.
+
+    Uses pydantic.create_model() to dynamically override the `target` and `source`
+    fields with Literal types when valid values are available, falling back to str
+    when the respective set is empty.
+
+    Args:
+        asset_names: Set of valid asset names from state.assets.
+        source_categories: Set of valid threat source categories.
+
+    Returns:
+        Tuple of (DynamicThreat, DynamicThreatsList) model classes.
+    """
+    from pydantic import create_model
+
+    field_overrides = {}
+
+    if asset_names:
+        target_literal = Literal[tuple(sorted(asset_names))]
+        field_overrides["target"] = (
+            Annotated[
+                target_literal,
+                Field(
+                    description="The specific asset that could be compromised by this threat. Must exactly match one of the allowed values."
+                ),
+            ],
+            ...,
+        )
+
+    if source_categories:
+        source_literal = Literal[tuple(sorted(source_categories))]
+        field_overrides["source"] = (
+            Annotated[
+                source_literal,
+                Field(
+                    description="The threat actor category. Must exactly match one of the allowed values."
+                ),
+            ],
+            ...,
+        )
+
+    DynamicThreat = create_model("Threat", __base__=Threat, **field_overrides)
+
+    DynamicThreatsList = create_model(
+        "ThreatsList",
+        __base__=ThreatsList,
+        threats=(
+            Annotated[List[DynamicThreat], Field(description="The list of threats")],
+            ...,
+        ),
+    )
+
+    return DynamicThreat, DynamicThreatsList
+
+
 class AgentState(TypedDict):
     """Container for the internal state of the threat modeling agent."""
 
@@ -265,10 +334,9 @@ class AgentState(TypedDict):
     title: Optional[str] = None
     owner: Optional[str] = None
     stop: Optional[bool] = False
-    gap: Annotated[List[str], operator.add] = []
     replay: Optional[bool] = False
     instructions: Optional[str] = None
-    traditional_acceptance_rates: Annotated[List[float], operator.add] = []
+    application_type: Optional[str] = "hybrid"
 
 
 def _add_or_overwrite(left, right):
@@ -317,3 +385,4 @@ class ThreatState(MessagesState):
     retry: Optional[int] = 1
     iteration: Optional[int] = 0
     replay: Optional[bool] = False
+    application_type: Optional[str] = "hybrid"

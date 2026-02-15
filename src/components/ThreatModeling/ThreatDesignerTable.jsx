@@ -1,4 +1,4 @@
-import { Table, Box, Header } from "@cloudscape-design/components";
+import { Table, Box, Header, Badge } from "@cloudscape-design/components";
 import React from "react";
 import ButtonDropdown from "@cloudscape-design/components/button-dropdown";
 import { ModalComponent } from "./ModalForm";
@@ -31,6 +31,10 @@ export const ThreatTableComponent = React.memo(
         header: formattedHeader,
         cell: (item) => {
           const value = item[header.toLowerCase()];
+          if (header.toLowerCase() === "criticality") {
+            const level = value || "Medium";
+            return <Badge color={`severity-${level.toLowerCase()}`}>{level}</Badge>;
+          }
           return <div>{arrayToBullets(value)}</div>;
         },
         sortingField: header.toLowerCase(),

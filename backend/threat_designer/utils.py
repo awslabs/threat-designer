@@ -454,6 +454,7 @@ def create_dynamodb_item(
                 "owner": agent_state.get("owner"),
                 "retry": agent_state.get("retry"),
                 "timestamp": current_utc,
+                "application_type": agent_state.get("application_type"),
             }
 
             # Remove None values to avoid DynamoDB issues

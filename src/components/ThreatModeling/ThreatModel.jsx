@@ -248,9 +248,9 @@ const ThreatModelInner = () => {
 
   // Replay handler - closes modal and initiates replay with specified parameters
   const handleReplayThreatModeling = useCallback(
-    async (iteration, reasoning, instructions) => {
+    async (iteration, reasoning, instructions, applicationType) => {
       dispatch({ type: THREAT_MODEL_ACTIONS.CLOSE_MODAL, modal: "replay" });
-      await handleReplay(iteration, reasoning, instructions);
+      await handleReplay(iteration, reasoning, instructions, applicationType);
     },
     [handleReplay, dispatch]
   );

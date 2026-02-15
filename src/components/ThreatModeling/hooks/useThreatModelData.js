@@ -96,11 +96,13 @@ export const useThreatModelData = (
         threatModel: {
           threat_model_id: threatModelId,
           threats: threatsWithoutNotes,
+          assets: threatModelData.assets,
           summary: threatModelData.summary,
           assumptions: threatModelData.assumptions,
           system_architecture: threatModelData.system_architecture,
           description: threatModelData.description,
           title: threatModelData.title,
+          application_type: threatModelData.application_type || "hybrid",
           threat_catalog_summary: {
             nr_threats: {
               total: threats.length,

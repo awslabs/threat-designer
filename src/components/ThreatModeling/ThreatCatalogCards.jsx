@@ -527,8 +527,8 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
                 {filteredResults.length > 0 ? (
                   <>
                     {renderCardView()}
-                    {pagination.hasNextPage && (
-                      <Box textAlign="center">
+                    {pagination.hasNextPage && filteredResults.length >= pagination.pageSize && (
+                      <Box textAlign="center" margin={{ top: "l" }}>
                         <Button
                           onClick={loadMore}
                           loading={pagination.loading}

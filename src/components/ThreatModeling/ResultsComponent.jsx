@@ -286,7 +286,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
         </LazySection>
         <LazySection estimatedHeight={300}>
           <ThreatTableComponent
-            headers={["Type", "Name", "Description"]}
+            headers={["Type", "Name", "Description", "Criticality"]}
             data={assets}
             title="Assets"
             updateData={updateTM}

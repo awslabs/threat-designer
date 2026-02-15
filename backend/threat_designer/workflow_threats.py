@@ -15,14 +15,74 @@ from langgraph.prebuilt import ToolNode
 from model_service import ModelService
 from monitoring import logger
 from state_tracking_service import StateService
-from tools import read_threat_catalog, add_threats, remove_threat, gap_analysis
-from state import ThreatState, ConfigSchema
+from tools import (
+    read_threat_catalog,
+    add_threats,
+    remove_threat,
+    gap_analysis,
+    catalog_stats,
+    create_dynamic_add_threats_tool,
+)
+from state import ThreatState, ConfigSchema, create_constrained_threat_model
 from message_builder import MessageBuilder, list_to_string
 from prompts import create_agent_system_prompt
 
 
-tools = [add_threats, remove_threat, read_threat_catalog, gap_analysis]
-tool_node = ToolNode(tools)
+tools = [add_threats, remove_threat, read_threat_catalog, catalog_stats, gap_analysis]
+
+
+def _build_session_tools(state: ThreatState) -> list:
+    """Build a session-specific tools list with dynamic add_threats if possible.
+
+    Extracts asset names and source categories from state, creates a
+    constrained Threat model, and returns a tools list with the dynamic
+    add_threats tool replacing the static one.  Falls back to the static
+    tools list on any failure.
+    """
+    assets = state.get("assets")
+    system_architecture = state.get("system_architecture")
+
+    asset_names: set[str] = set()
+    if assets and assets.assets:
+        asset_names = {a.name for a in assets.assets}
+
+    source_cats: set[str] = set()
+    if system_architecture and system_architecture.threat_sources:
+        source_cats = {s.category for s in system_architecture.threat_sources}
+
+    if not asset_names and not source_cats:
+        return tools
+
+    try:
+        _, DynThreatsList = create_constrained_threat_model(asset_names, source_cats)
+        dynamic_add_threats = create_dynamic_add_threats_tool(DynThreatsList)
+        session_tools = [
+            dynamic_add_threats,
+            remove_threat,
+            read_threat_catalog,
+            catalog_stats,
+            gap_analysis,
+        ]
+        logger.debug(
+            "Dynamic add_threats tool created",
+            asset_count=len(asset_names),
+            source_count=len(source_cats),
+        )
+        return session_tools
+    except Exception as e:
+        logger.warning(
+            "Failed to create dynamic threat model, falling back to static tools",
+            error=str(e),
+        )
+        return tools
+
+
+def dynamic_tool_node(state: ThreatState) -> Command:
+    """Tool node that uses session-specific dynamic tools."""
+    session_tools = _build_session_tools(state)
+    node = ToolNode(session_tools)
+    return node.invoke(state)
+
 
 # Initialize state service for tracking job state and trails
 state_service = StateService(app_config.agent_state_table)
@@ -60,6 +120,7 @@ def create_agent_human_message(state: ThreatState) -> HumanMessage:
         system_architecture=system_architecture,
         starred_threats=starred_threats if starred_threats else None,
         threats=bool(threat_list and threat_list.threats),
+        application_type=state.get("application_type", "hybrid"),
     )
     return human_msg
 
@@ -97,7 +158,10 @@ def agent_node(state: ThreatState, config: RunnableConfig) -> Command:
 
         # Create initial system prompt with optional instructions
         instructions = state.get("instructions")
-        system_prompt = create_agent_system_prompt(instructions)
+        app_type = state.get("application_type", "hybrid")
+        system_prompt = create_agent_system_prompt(
+            instructions, application_type=app_type
+        )
 
         # Create initial human message with context
         human_message = create_agent_human_message(state)
@@ -120,10 +184,13 @@ def agent_node(state: ThreatState, config: RunnableConfig) -> Command:
     # Get model from config
     model = config["configurable"].get("model_threats_agent")
 
+    # Build session-specific tools with dynamic add_threats
+    session_tools = _build_session_tools(state)
+
     # Bind tools to model with "auto" tool choice
     model_service = ModelService()
     model_with_tools = model_service.get_model_with_tools(
-        model=model, tools=tools, tool_choice="auto"
+        model=model, tools=session_tools, tool_choice="auto"
     )
 
     # Invoke model
@@ -143,6 +210,10 @@ def agent_node(state: ThreatState, config: RunnableConfig) -> Command:
             detail = "Reviewing catalog"
         elif first_tool == "gap_analysis":
             detail = "Reviewing for gaps"
+        elif first_tool == "catalog_stats":
+            detail = "Checking catalog stats"
+        elif first_tool == "remove_threat":
+            detail = "Removing threat"
         else:
             detail = f"Calling {first_tool} tool"
 
@@ -357,8 +428,8 @@ workflow = StateGraph(ThreatState, ConfigSchema)
 # Add agent node for agentic workflow
 workflow.add_node("agent", agent_node)
 
-# Add tools node with ToolNode for tool execution
-workflow.add_node("tools", tool_node)
+# Add tools node with dynamic tool support
+workflow.add_node("tools", dynamic_tool_node)
 
 # Add continue node for catalog validation
 workflow.add_node("continue", continue_or_finish)

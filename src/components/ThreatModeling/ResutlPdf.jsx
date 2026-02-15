@@ -676,10 +676,27 @@ export const createThreatModelingPDF = async (
         columnStyles[0] = { cellWidth: 40 };
         columnStyles[1] = { cellWidth: textWidth - 40 };
       } else if (numColumns === 3) {
-        // For assets table: type, name, description
-        columnStyles[0] = { cellWidth: 30 }; // type
-        columnStyles[1] = { cellWidth: 40 }; // name
-        columnStyles[2] = { cellWidth: textWidth - 70 }; // description
+        if (columns[0] === "flow_description" || columns[0] === "purpose") {
+          // Data flows / Trust boundaries: wide first column, narrow source/target
+          columnStyles[0] = { cellWidth: textWidth - 70 }; // flow_description / purpose
+          columnStyles[1] = { cellWidth: 35 }; // source_entity
+          columnStyles[2] = { cellWidth: 35 }; // target_entity
+        } else if (columns[0] === "category") {
+          // Threat sources: narrow category, wide description, medium example
+          columnStyles[0] = { cellWidth: 35 }; // category
+          columnStyles[1] = { cellWidth: textWidth - 75 }; // description
+          columnStyles[2] = { cellWidth: 40 }; // example
+        } else {
+          columnStyles[0] = { cellWidth: 30 };
+          columnStyles[1] = { cellWidth: 40 };
+          columnStyles[2] = { cellWidth: textWidth - 70 };
+        }
+      } else if (numColumns === 4) {
+        // For assets table: type, name, description, criticality
+        columnStyles[0] = { cellWidth: 25 }; // type
+        columnStyles[1] = { cellWidth: 35 }; // name
+        columnStyles[2] = { cellWidth: textWidth - 90 }; // description (gets remaining space)
+        columnStyles[3] = { cellWidth: 30 }; // criticality
       } else {
         // Default distribution for other tables
         const equalWidth = textWidth / numColumns;

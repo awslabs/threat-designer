@@ -187,6 +187,7 @@ const ThreatModelContent = React.memo(
           visible={modals.replay}
           setVisible={onReplayModalChange}
           setSplitPanelOpen={setSplitPanelOpen}
+          currentApplicationType={response?.item?.application_type || "hybrid"}
         />
 
         {/* Delete Modal */}

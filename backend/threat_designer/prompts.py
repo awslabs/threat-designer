@@ -31,29 +31,78 @@ def _get_stride_categories_string() -> str:
     return " | ".join([category.value for category in StrideCategory])
 
 
+APPLICATION_TYPE_DESCRIPTIONS = {
+    "internal": (
+        "This is an INTERNAL application, accessible only within a private network or organization. "
+        "It has controlled access and reduced external threat exposure. Calibrate likelihood ratings "
+        "and threat prioritization accordingly — external attack vectors are less likely, but insider "
+        "threats and misconfigurations remain relevant."
+    ),
+    "public_facing": (
+        "This is a PUBLIC-FACING application, accessible from the internet by anonymous or "
+        "unauthenticated users. It is subject to constant automated attacks and broad threat actor "
+        "exposure. Calibrate likelihood ratings and threat prioritization accordingly — internet-facing "
+        "components should generally receive High likelihood for common attack vectors."
+    ),
+    "hybrid": (
+        "This is a HYBRID application with both internal and external-facing components. "
+        "Calibrate threat analysis for each exposure boundary — public-facing components should be "
+        "treated with the same rigor as a fully public application, while internal components can "
+        "reflect their reduced exposure."
+    ),
+}
+
+
+def _get_application_type_context(application_type: str = "hybrid") -> str:
+    """Return an XML-wrapped application type context block for injection into prompts."""
+    description = APPLICATION_TYPE_DESCRIPTIONS.get(
+        application_type, APPLICATION_TYPE_DESCRIPTIONS["hybrid"]
+    )
+    return f"\n<application_type>\nApplication Type: {application_type}\n{description}\n</application_type>\n"
+
+
+def _get_asset_criticality_context() -> str:
+    """Return an XML-wrapped asset criticality definitions block for injection into prompts."""
+    return """
+<asset_criticality>
+Assets and entities have a criticality level that reflects their risk profile:
+
+For Assets (data stores, APIs, keys, configs, logs) — based on data sensitivity and business impact:
+- High: Handles sensitive, regulated, or business-critical data such as PII, financial records, authentication credentials, encryption keys, or data subject to regulatory frameworks (e.g., GDPR, HIPAA, PCI-DSS). Compromise causes severe business impact. Requires comprehensive, layered controls and thorough threat coverage.
+- Medium: Handles internal or moderately sensitive data whose compromise would cause noticeable but contained business impact (e.g., internal APIs, application logs with limited sensitive content, non-public configuration). Requires standard security controls.
+- Low: Handles non-sensitive operational data with minimal business impact if compromised (e.g., system telemetry, public documentation, non-critical caches). Requires baseline security controls.
+
+For Entities (users, roles, external systems, services) — based on privilege level, trust scope, and blast radius:
+- High: Elevated privilege, broad trust scope, or crosses a critical trust boundary. Compromise could lead to widespread unauthorized access, lateral movement, or full system takeover (e.g., admin user, CI/CD pipeline service account, external payment gateway with write access).
+- Medium: Moderate access or privilege within the system. Compromise could affect multiple components or expose internal functionality (e.g., standard application user, internal microservice with cross-service access).
+- Low: Limited access scope with minimal privilege. Compromise has narrow blast radius and low impact on other components (e.g., read-only monitoring service, public-facing anonymous user).
+</asset_criticality>
+"""
+
+
 def _get_likelihood_levels_string() -> str:
     """Helper function to get likelihood levels as a formatted string."""
     return " | ".join([level.value for level in LikelihoodLevel])
 
 
 def _format_asset_list(assets) -> str:
-    """Helper function to format asset names as a bulleted list."""
+    """Helper function to format asset names as plain comma-separated quoted strings."""
     if not assets or not assets.assets:
         return "No assets identified yet."
 
     asset_names = [asset.name for asset in assets.assets]
-    return "\n".join([f"  - {name}" for name in asset_names])
+    return ", ".join([f'"{name}"' for name in asset_names])
 
 
 def _format_threat_sources(system_architecture) -> str:
-    """Helper function to format threat source categories as a bulleted list."""
+    """Helper function to format threat source categories as plain comma-separated quoted strings."""
     if not system_architecture or not system_architecture.threat_sources:
         return "No threat sources identified yet."
 
     source_categories = [
         source.category for source in system_architecture.threat_sources
     ]
-    return "\n".join([f"  - {category}" for category in source_categories])
+    return ", ".join([f'"{category}"' for category in source_categories])
 
 
 def summary_prompt() -> str:
@@ -64,7 +113,8 @@ def summary_prompt() -> str:
     return [{"type": "text", "text": main_prompt}]
 
 
-def asset_prompt() -> str:
+def asset_prompt(application_type: str = "hybrid") -> str:
+    app_type_context = _get_application_type_context(application_type)
     main_prompt = """<role>
 You are a security architect specializing in threat modeling. You identify critical assets and entities within system architectures that require protection, producing structured inventories used as input for downstream threat analysis.
 </role>
@@ -81,6 +131,20 @@ Identify critical assets: sensitive data stores, databases, secrets, encryption 
 Identify key entities: users, roles, external systems, internal services, third-party integrations, and any actor that interacts with or operates within the system.
 
 For each item, classify it as either "Asset" or "Entity," give it a clear name, and write a one-to-two sentence description explaining what it is and why it matters to the system's security posture.
+
+Assign a criticality level to each item using the criteria appropriate to its type:
+
+For Assets (data stores, APIs, keys, configs, logs):
+- Low: Handles non-sensitive operational data with minimal business impact if compromised (e.g., system telemetry, public documentation, non-critical caches).
+- Medium: Handles internal or moderately sensitive data whose compromise would cause noticeable but contained business impact (e.g., internal APIs, application logs with limited sensitive content, non-public configuration).
+- High: Handles sensitive, regulated, or business-critical data such as PII, financial records, authentication credentials, encryption keys, or data subject to regulatory frameworks (e.g., GDPR, HIPAA, PCI-DSS).
+
+For Entities (users, roles, external systems, services):
+- Low: Limited access scope with minimal privilege. Compromise has narrow blast radius and low impact on other components (e.g., read-only monitoring service, public-facing anonymous user).
+- Medium: Moderate access or privilege within the system. Compromise could affect multiple components or expose internal functionality (e.g., standard application user, internal microservice with cross-service access).
+- High: Elevated privilege, broad trust scope, or crosses a critical trust boundary. Compromise could lead to widespread unauthorized access, lateral movement, or full system takeover (e.g., admin user, CI/CD pipeline service account, external payment gateway with write access).
+
+When you cannot confidently determine the appropriate criticality level, default to Medium.
 </instructions>
 
 <inputs>
@@ -95,14 +159,17 @@ Return your response as a structured list. For each identified item, use this ex
 Type: [Asset | Entity]
 Name: [Concise, specific name]
 Description: [One to two sentences: what this is and why it needs protection or monitoring]
+Criticality: [Low | Medium | High]
 
 Group all Assets first, then all Entities. Order each group by criticality, with the most critical items listed first.
 </output_format>
 """
-    return [{"type": "text", "text": main_prompt}]
+    return [{"type": "text", "text": app_type_context + main_prompt}]
 
 
-def flow_prompt() -> str:
+def flow_prompt(application_type: str = "hybrid") -> str:
+    app_type_context = _get_application_type_context(application_type)
+    criticality_context = _get_asset_criticality_context()
     main_prompt = """<role>
 You are a security architect specializing in threat modeling. You analyze system architectures to identify data flows, trust boundaries, and threat actors. Your output feeds directly into structured threat identification and risk assessment.
 </role>
@@ -182,10 +249,14 @@ Structure your response in three clearly labeled sections in this order:
 Ensure completeness: every asset and entity from the inventory should appear in at least one data flow or trust boundary. If an asset or entity has no security-relevant flows or boundaries, note why briefly.
 </output_format>
 """
-    return [{"type": "text", "text": main_prompt}]
+    return [
+        {"type": "text", "text": app_type_context + criticality_context + main_prompt}
+    ]
 
 
-def gap_prompt(instructions: str = None) -> str:
+def gap_prompt(instructions: str = None, application_type: str = "hybrid") -> str:
+    app_type_context = _get_application_type_context(application_type)
+    criticality_context = _get_asset_criticality_context()
     main_prompt = """<role>
 You are a security architect performing gap analysis on threat catalogs. You
 audit catalogs generated for a specific architecture and make a binary decision:
@@ -312,14 +383,20 @@ active-voice imperatives for priority actions.
          {instructions}
          </important_instructions>
       """
-        final_prompt = instructions_prompt + main_prompt
+        final_prompt = (
+            instructions_prompt + app_type_context + criticality_context + main_prompt
+        )
     else:
-        final_prompt = main_prompt
+        final_prompt = app_type_context + criticality_context + main_prompt
 
     return [{"type": "text", "text": final_prompt}]
 
 
-def threats_improve_prompt(instructions: str = None) -> str:
+def threats_improve_prompt(
+    instructions: str = None, application_type: str = "hybrid"
+) -> str:
+    app_type_context = _get_application_type_context(application_type)
+    criticality_context = _get_asset_criticality_context()
     main_prompt = """<role>
 You are a security architect generating threat entries for a system architecture using the STRIDE methodology. You produce structured JSON threat objects that feed into a threat catalog reviewed by a downstream gap analysis agent. Precision in field values and realistic severity calibration matter more than volume.
 </role>
@@ -407,29 +484,47 @@ Do not wrap the JSON in markdown code fences. Output only the JSON array.
       """
 
     if instructions:
-        return [{"type": "text", "text": instructions_prompt + main_prompt}]
-    return [{"type": "text", "text": main_prompt}]
+        return [
+            {
+                "type": "text",
+                "text": instructions_prompt
+                + app_type_context
+                + criticality_context
+                + main_prompt,
+            }
+        ]
+    return [
+        {"type": "text", "text": app_type_context + criticality_context + main_prompt}
+    ]
 
 
-def threats_prompt(instructions: str = None) -> str:
-    return threats_improve_prompt(instructions)
+def threats_prompt(instructions: str = None, application_type: str = "hybrid") -> str:
+    return threats_improve_prompt(instructions, application_type)
 
 
-def create_agent_system_prompt(instructions: str = None) -> SystemMessage:
+def create_agent_system_prompt(
+    instructions: str = None, application_type: str = "hybrid"
+) -> SystemMessage:
     """Create system prompt for the threat modeling agent.
 
     Args:
         instructions: Optional additional instructions to append to the system prompt
+        application_type: The application type (internal, public_facing, hybrid) for calibration context
 
     Returns:
         SystemMessage with complete agent instructions
     """
 
-    prompt = """<role>
+    app_type_context = _get_application_type_context(application_type)
+    criticality_context = _get_asset_criticality_context()
+
+    prompt = (
+        app_type_context
+        + criticality_context
+        + """<role>
 You are a security architect operating as an autonomous threat modeling agent.
 You produce STRIDE-based threat catalogs for system architectures by working
-through a generate → audit → fix loop. You have three tools: add_threats,
-delete_threats, and gap_analysis.
+through a generate → audit → fix loop.
 </role>
 
 <context>
@@ -553,7 +648,17 @@ architecture. Architecture-specific threats ("SQL injection via the file upload
 endpoint's metadata parser") are what make this catalog valuable. Generic
 threats ("generic malware infection") will be caught by gap analysis and
 deleted — save yourself the round trip.
+
+Exact value matching for target and source:
+target: Must exactly match one of the enum values provided in the add_threats
+tool schema. Copy the value verbatim — do not paraphrase, abbreviate, or
+modify asset names. Values that don't match will be rejected.
+
+source: Must exactly match one of the enum values provided in the add_threats
+tool schema. Copy the value verbatim from the threat source categories.
+Values that don't match will be rejected.
 </quality_guidance>"""
+    )
 
     if instructions:
         prompt += f"\n\nAdditional Instructions:\n{instructions}"

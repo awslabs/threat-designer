@@ -14,7 +14,8 @@ resource "aws_bedrockagentcore_agent_runtime" "sentry" {
       MODEL_ID                 = var.model_sentry.id,
       MAX_TOKENS               = tostring(var.model_sentry.max_tokens),
       REASONING_BUDGET         = jsonencode(var.model_sentry.reasoning_budget),
-      ADAPTIVE_THINKING_MODELS = jsonencode(var.adaptive_thinking_models)
+      ADAPTIVE_THINKING_MODELS = jsonencode(var.adaptive_thinking_models),
+      MODELS_SUPPORTING_MAX   = jsonencode(var.models_supporting_max)
     } : {},
     var.model_provider == "openai" ? {
       OPENAI_API_KEY    = var.openai_api_key,

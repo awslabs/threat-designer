@@ -25,7 +25,7 @@ from tools import (
 )
 from state import ThreatState, ConfigSchema, create_constrained_threat_model
 from message_builder import MessageBuilder, list_to_string
-from prompts import create_agent_system_prompt
+from prompt_provider import create_agent_system_prompt
 
 
 tools = [add_threats, remove_threat, read_threat_catalog, catalog_stats, gap_analysis]

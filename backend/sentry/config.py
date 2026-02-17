@@ -47,6 +47,9 @@ REASONING_CONFIG = _parse_reasoning_config()
 ADAPTIVE_THINKING_MODELS = json.loads(os.environ.get("ADAPTIVE_THINKING_MODELS", "[]"))
 ADAPTIVE_EFFORT_MAP = {1: "low", 2: "medium", 3: "high", 4: "max"}
 
+# Models that support "Max" reasoning level
+MODELS_SUPPORTING_MAX = json.loads(os.environ.get("MODELS_SUPPORTING_MAX", "[]"))
+
 # OpenAI reasoning effort mapping (fallback for backward compatibility)
 OPENAI_REASONING_EFFORT_MAP = {0: "none", 1: "low", 2: "medium", 3: "high"}
 
@@ -96,6 +99,10 @@ def create_model_config(budget_level: int = 1) -> dict:
 
 def _create_bedrock_model_config(budget_level: int = 1) -> dict:
     """Create Bedrock model configuration based on budget level"""
+    # Cap level 4 (Max) to 3 (High) if model doesn't support Max
+    if budget_level == 4 and MODEL_ID not in MODELS_SUPPORTING_MAX:
+        budget_level = 3
+
     base_config = {
         "max_tokens": MAX_TOKENS,
         "model_id": MODEL_ID,

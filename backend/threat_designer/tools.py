@@ -6,7 +6,7 @@ from langgraph.types import Command, Overwrite
 from typing import List, Annotated, Dict, Any
 from message_builder import MessageBuilder, list_to_string
 from model_service import ModelService
-from prompts import gap_prompt
+from prompt_provider import gap_prompt
 from constants import MAX_GAP_ANALYSIS_USES, MAX_ADD_THREATS_USES, JobState
 from monitoring import logger
 from config import config as app_config
@@ -525,7 +525,7 @@ def create_dynamic_add_threats_tool(threats_list_model: type[BaseModel]):
             if violations:
                 invalid_threats.append({"name": threat.name, "violations": violations})
                 logger.warning(
-                    "Threat validation failed",
+                    "Threat validation failed for dynamic tools",
                     tool="add_threats",
                     threat_name=threat.name,
                     violations=violations,
@@ -699,7 +699,7 @@ def read_threat_catalog(
 
 @tool(
     name_or_callable="catalog_stats",
-    description="Get statistics about the current threat catalog: total count, distribution by severity/likelihood, STRIDE category breakdown, and per-asset/entity threat counts. Use this to check coverage before finishing or to decide where more threats are needed.",
+    description="Get statistics about the current threat catalog: total count, distribution by severity/likelihood, STRIDE category breakdown, and per-asset/entity threat counts. Use this to check coverage before finishing or to decide where more threats are needed. Do not invoke this tool in parallel with other tools otherwise you may not receive accurate stats.",
 )
 def catalog_stats(
     runtime: ToolRuntime,

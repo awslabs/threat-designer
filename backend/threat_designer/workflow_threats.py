@@ -63,7 +63,7 @@ def _build_session_tools(state: ThreatState) -> list:
             catalog_stats,
             gap_analysis,
         ]
-        logger.info(
+        logger.debug(
             "Dynamic add_threats tool created",
             asset_count=len(asset_names),
             source_count=len(source_cats),

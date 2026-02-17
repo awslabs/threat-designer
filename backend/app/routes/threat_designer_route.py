@@ -6,6 +6,8 @@ from services.threat_designer_service import (
     delete_tm,
     delete_session,
     fetch_all,
+    fetch_owned_paginated,
+    fetch_shared_paginated,
     fetch_results,
     generate_presigned_download_url,
     generate_presigned_download_urls_batch,
@@ -110,7 +112,6 @@ def _restore(id):
 
 
 @router.get("/threat-designer/mcp/all")
-@router.get("/threat-designer/all")
 def _fetch_all():
     try:
         path = router.current_event.path
@@ -142,6 +143,72 @@ def _fetch_all():
 
         return result
 
+    except Exception as e:
+        LOG.exception(e)
+        from aws_lambda_powertools.event_handler import Response
+        from aws_lambda_powertools.event_handler.api_gateway import content_types
+        import json
+
+        return Response(
+            status_code=500,
+            content_type=content_types.APPLICATION_JSON,
+            body=json.dumps({"error": "Failed to fetch threat models"}),
+        )
+
+
+@router.get("/threat-designer/owned")
+def _fetch_owned():
+    try:
+        owner = router.current_event.request_context.authorizer.get("user_id")
+        query_params = router.current_event.query_string_parameters or {}
+        limit = int(query_params.get("limit", "10"))
+        cursor = query_params.get("cursor")
+
+        return fetch_owned_paginated(owner, limit, cursor)
+
+    except ValueError as e:
+        from aws_lambda_powertools.event_handler import Response
+        from aws_lambda_powertools.event_handler.api_gateway import content_types
+        import json
+
+        return Response(
+            status_code=400,
+            content_type=content_types.APPLICATION_JSON,
+            body=json.dumps({"error": str(e)}),
+        )
+    except Exception as e:
+        LOG.exception(e)
+        from aws_lambda_powertools.event_handler import Response
+        from aws_lambda_powertools.event_handler.api_gateway import content_types
+        import json
+
+        return Response(
+            status_code=500,
+            content_type=content_types.APPLICATION_JSON,
+            body=json.dumps({"error": "Failed to fetch threat models"}),
+        )
+
+
+@router.get("/threat-designer/shared")
+def _fetch_shared():
+    try:
+        user_id = router.current_event.request_context.authorizer.get("user_id")
+        query_params = router.current_event.query_string_parameters or {}
+        limit = int(query_params.get("limit", "10"))
+        cursor = query_params.get("cursor")
+
+        return fetch_shared_paginated(user_id, limit, cursor)
+
+    except ValueError as e:
+        from aws_lambda_powertools.event_handler import Response
+        from aws_lambda_powertools.event_handler.api_gateway import content_types
+        import json
+
+        return Response(
+            status_code=400,
+            content_type=content_types.APPLICATION_JSON,
+            body=json.dumps({"error": str(e)}),
+        )
     except Exception as e:
         LOG.exception(e)
         from aws_lambda_powertools.event_handler import Response

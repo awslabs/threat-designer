@@ -690,7 +690,9 @@ Values that don't match will be rejected.
     )
 
     if instructions:
-        prompt += f"\n\n<additional_instructions>\n{instructions}\n</additional_instructions>"
+        prompt += (
+            f"\n\n<additional_instructions>\n{instructions}\n</additional_instructions>"
+        )
 
     # Build content with conditional cache points (Bedrock only)
     # For OpenAI, caching is handled automatically

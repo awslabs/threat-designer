@@ -94,7 +94,7 @@ def _format_asset_list(assets) -> str:
         return "No assets identified yet."
 
     asset_names = [asset.name for asset in assets.assets]
-    return ", ".join([f'\"{name}\"' for name in asset_names])
+    return ", ".join([f'"{name}"' for name in asset_names])
 
 
 def _format_threat_sources(system_architecture) -> str:
@@ -105,7 +105,7 @@ def _format_threat_sources(system_architecture) -> str:
     source_categories = [
         source.category for source in system_architecture.threat_sources
     ]
-    return ", ".join([f'\"{category}\"' for category in source_categories])
+    return ", ".join([f'"{category}"' for category in source_categories])
 
 
 def summary_prompt() -> str:
@@ -591,7 +591,9 @@ source: Must exactly match one of the enum values in the add_threats tool schema
     )
 
     if instructions:
-        prompt += f"\n\n<additional_instructions>\n{instructions}\n</additional_instructions>"
+        prompt += (
+            f"\n\n<additional_instructions>\n{instructions}\n</additional_instructions>"
+        )
 
     # GPT 5.2: caching is handled automatically by OpenAI — no manual cache points needed
     return SystemMessage(content=prompt)

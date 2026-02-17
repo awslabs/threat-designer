@@ -24,6 +24,7 @@ from constants import (
     ENV_MODEL_PROVIDER,
     ENV_MODEL_STRUCT,
     ENV_MODEL_SUMMARY,
+    ENV_MODELS_SUPPORTING_MAX,
     ENV_OPENAI_API_KEY,
     ENV_REASONING_MODELS,
     ENV_REGION,
@@ -72,6 +73,7 @@ class ModelConfigurations:
     summary_model: ModelConfig
     reasoning_models: list[str]
     adaptive_thinking_models: list[str]
+    models_supporting_max: list[str]
 
 
 @with_error_context("load model configurations")
@@ -100,6 +102,9 @@ def _load_model_configs() -> ModelConfigurations:
         reasoning_models = json.loads(os.environ.get(ENV_REASONING_MODELS, "[]"))
         adaptive_thinking_models = json.loads(
             os.environ.get(ENV_ADAPTIVE_THINKING_MODELS, "[]")
+        )
+        models_supporting_max = json.loads(
+            os.environ.get(ENV_MODELS_SUPPORTING_MAX, "[]")
         )
 
         # Validate required configurations
@@ -151,6 +156,7 @@ def _load_model_configs() -> ModelConfigurations:
             summary_model_id=summary_model.get("id") if summary_model else None,
             reasoning_models_count=len(reasoning_models),
             adaptive_thinking_models_count=len(adaptive_thinking_models),
+            models_supporting_max_count=len(models_supporting_max),
         )
 
         return ModelConfigurations(
@@ -164,6 +170,7 @@ def _load_model_configs() -> ModelConfigurations:
             summary_model=summary_model,
             reasoning_models=reasoning_models,
             adaptive_thinking_models=adaptive_thinking_models,
+            models_supporting_max=models_supporting_max,
         )
 
     except json.JSONDecodeError as e:
@@ -373,13 +380,29 @@ def _initialize_bedrock_models(
 
         def _build_config_for_model(model_config: ModelConfig) -> dict:
             """Build the appropriate config based on whether the model is adaptive."""
+            nonlocal reasoning
+            # Cap level 4 (Max) to 3 (High) if model doesn't support Max
+            effective_reasoning = reasoning
+            if (
+                reasoning == 4
+                and model_config["id"] not in configs.models_supporting_max
+            ):
+                effective_reasoning = 3
+                logger.debug(
+                    "Capping reasoning from Max to High - model not in models_supporting_max",
+                    model_id=model_config["id"],
+                )
+
             if model_config["id"] in configs.adaptive_thinking_models:
                 return _build_adaptive_model_config(
-                    model_config, reasoning, client, region
+                    model_config, effective_reasoning, client, region
                 )
             else:
-                # Use the budget key directly; falls back to level 3 if key not found
-                budget_key = str(reasoning) if reasoning > 0 else str(reasoning)
+                budget_key = (
+                    str(effective_reasoning)
+                    if effective_reasoning > 0
+                    else str(effective_reasoning)
+                )
                 budget = model_config.get("reasoning_budget", {}).get(
                     budget_key, model_config.get("reasoning_budget", {}).get(str(3), 0)
                 )

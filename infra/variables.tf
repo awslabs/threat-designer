@@ -52,6 +52,7 @@ variable "reasoning_models" {
     "eu.anthropic.claude-sonnet-4-20250514-v1:0",
     "us.anthropic.claude-opus-4-1-20250805-v1:0",
     "global.anthropic.claude-opus-4-6-v1",
+    "global.anthropic.claude-sonnet-4-6",
     "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
     "global.anthropic.claude-sonnet-4-20250514-v1:0",
     "global.anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -63,7 +64,13 @@ variable "reasoning_models" {
 variable "adaptive_thinking_models" {
   type        = list(string)
   description = "List of model IDs that support adaptive thinking"
-  default     = ["global.anthropic.claude-opus-4-6-v1"]
+  default     = ["global.anthropic.claude-opus-4-6-v1", "global.anthropic.claude-sonnet-4-6"]
+}
+
+variable "models_supporting_max" {
+  type        = list(string)
+  description = "List of model IDs that support 'Max' reasoning effort level. Models not in this list will have level 4 capped to level 3 (High)."
+  default     = ["global.anthropic.claude-opus-4-6-v1", "global.anthropic.claude-sonnet-4-6"]
 }
 
 variable "model_main" {

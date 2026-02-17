@@ -140,23 +140,18 @@ async function getThreatModelingResults(id) {
   return instance.get(statsPath);
 }
 
-async function getThreatModelingAllResults(limit = null, cursor = null, filter = null) {
+async function getOwnedThreatModels(limit, cursor = null) {
   const params = new URLSearchParams();
+  params.append("limit", limit);
+  if (cursor) params.append("cursor", cursor);
+  return instance.get(`/owned?${params.toString()}`);
+}
 
-  if (limit !== null) {
-    params.append("limit", limit);
-  }
-  if (cursor !== null) {
-    params.append("cursor", cursor);
-  }
-  if (filter !== null) {
-    params.append("filter", filter);
-  }
-
-  const queryString = params.toString();
-  const statsPath = queryString ? `/all?${queryString}` : `/all`;
-
-  return instance.get(statsPath);
+async function getSharedThreatModels(limit, cursor = null) {
+  const params = new URLSearchParams();
+  params.append("limit", limit);
+  if (cursor) params.append("cursor", cursor);
+  return instance.get(`/shared?${params.toString()}`);
 }
 
 export {
@@ -168,7 +163,8 @@ export {
   getDownloadUrl,
   getDownloadUrlsBatch,
   deleteTm,
-  getThreatModelingAllResults,
+  getOwnedThreatModels,
+  getSharedThreatModels,
   getThreatModelingTrail,
   restoreTm,
   stopTm,

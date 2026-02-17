@@ -144,6 +144,18 @@ class FlowDefinitionService:
             message = self._prepare_flow_message(state)
             flows = self._invoke_flow_model(message, config, job_id)
 
+            threat_source_cats = (
+                [s.category for s in flows.threat_sources]
+                if flows and flows.threat_sources
+                else []
+            )
+            logger.debug(
+                "Data flows step completed",
+                job_id=job_id,
+                threat_source_count=len(threat_source_cats),
+                threat_sources=threat_source_cats,
+            )
+
             return {"system_architecture": flows}
 
     def _prepare_flow_message(self, state: AgentState) -> list:

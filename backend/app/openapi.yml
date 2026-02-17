@@ -384,142 +384,6 @@ paths:
         contentHandling: CONVERT_TO_TEXT
         passthroughBehavior: NEVER
 
-  "/threat-designer/all":
-    get:
-      summary: Fetch all threat models for a given user
-      description: |
-        Fetch threat models for a given user with pagination support.
-
-        Returns a paginated list of threat models (both owned and shared) sorted by creation date (newest first).
-        Use the cursor from the response to fetch subsequent pages.
-      tags:
-        - Security
-      parameters:
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            enum: [10, 20, 50, 100]
-            default: 20
-          description: Number of items per page (must be 10, 20, 50, or 100)
-          example: 20
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-          description: |
-            Base64-encoded pagination cursor from previous response.
-            Omit this parameter to fetch the first page.
-          example: "eyJvd25lZCI6ImJhc2U2NCIsInNoYXJlZCI6ImJhc2U2NCIsImZpbHRlciI6ImFsbCJ9"
-        - name: filter
-          in: query
-          required: false
-          schema:
-            type: string
-            enum: [owned, shared, all]
-            default: all
-          description: |
-            Filter results by ownership:
-            - owned: Only threat models owned by the user
-            - shared: Only threat models shared with the user
-            - all: Both owned and shared threat models
-          example: all
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CatalogResponse"
-              examples:
-                first_page:
-                  summary: First page of results
-                  value:
-                    catalogs:
-                      - job_id: "550e8400-e29b-41d4-a716-446655440000"
-                        title: "E-commerce Platform Threat Model"
-                        state: "COMPLETE"
-                        created_at: "2024-01-15T10:30:00Z"
-                        owner: "user-123"
-                        is_owner: true
-                        access_level: "OWNER"
-                      - job_id: "550e8400-e29b-41d4-a716-446655440001"
-                        title: "API Gateway Security Analysis"
-                        state: "COMPLETE"
-                        created_at: "2024-01-14T15:20:00Z"
-                        owner: "user-456"
-                        is_owner: false
-                        access_level: "EDIT"
-                        shared_by: "user-456"
-                    pagination:
-                      hasNextPage: true
-                      cursor: "eyJvd25lZCI6ImJhc2U2NCIsInNoYXJlZCI6ImJhc2U2NCIsImZpbHRlciI6ImFsbCJ9"
-                      totalReturned: 20
-                last_page:
-                  summary: Last page of results
-                  value:
-                    catalogs:
-                      - job_id: "550e8400-e29b-41d4-a716-446655440099"
-                        title: "Mobile App Security Review"
-                        state: "COMPLETE"
-                        created_at: "2024-01-01T09:00:00Z"
-                        owner: "user-123"
-                        is_owner: true
-                        access_level: "OWNER"
-                    pagination:
-                      hasNextPage: false
-                      cursor: null
-                      totalReturned: 5
-          headers:
-            Access-Control-Allow-Headers:
-              schema:
-                type: string
-            Access-Control-Allow-Origin:
-              schema:
-                type: string
-        "400":
-          $ref: "#/components/responses/400"
-        "500":
-          $ref: "#/components/responses/500"
-      x-amazon-apigateway-integration:
-        payloadFormatVersion: "2.0"
-        type: "aws_proxy"
-        httpMethod: "POST"
-        uri: "${lambda_arn}"
-        connectionType: "INTERNET"
-        contentHandling: CONVERT_TO_TEXT
-        passthroughBehavior: NEVER
-    options:
-      responses:
-        "200":
-          description: OK
-          headers:
-            Access-Control-Allow-Headers:
-              schema:
-                type: string
-            Access-Control-Allow-Methods:
-              schema:
-                type: string
-            Access-Control-Allow-Origin:
-              schema:
-                type: string
-            Access-Control-Allow-Credentials:
-              schema:
-                type: string
-      security: []
-      tags:
-        - CORS (Options)
-      x-amazon-apigateway-integration:
-        payloadFormatVersion: "2.0"
-        type: "aws_proxy"
-        httpMethod: "POST"
-        uri: "${lambda_arn}"
-        connectionType: "INTERNET"
-        contentHandling: CONVERT_TO_TEXT
-        passthroughBehavior: NEVER
-
   "/threat-designer/mcp/all":
     get:
       summary: Fetch all threat models for a given user (MCP)
@@ -578,6 +442,169 @@ paths:
           $ref: "#/components/responses/400"
         "500":
           $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+
+  "/threat-designer/owned":
+    get:
+      summary: Fetch owned threat models with pagination
+      description: |
+        Fetch threat models owned by the authenticated user, sorted by timestamp descending (newest first).
+        Uses cursor-based pagination via the owner-timestamp-index GSI.
+      tags:
+        - Security
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [10, 20, 50, 100]
+            default: 20
+          description: Number of items per page (must be 10, 20, 50, or 100)
+          example: 20
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Base64-encoded pagination cursor from previous response.
+            Omit this parameter to fetch the first page.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogResponse"
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/400"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+    options:
+      responses:
+        "200":
+          description: OK
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Credentials:
+              schema:
+                type: string
+      security: []
+      tags:
+        - CORS (Options)
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+
+  "/threat-designer/shared":
+    get:
+      summary: Fetch shared threat models with pagination
+      description: |
+        Fetch threat models shared with the authenticated user, sorted by sharing timestamp descending (newest first).
+        Uses cursor-based pagination via the user-timestamp-index GSI.
+        Each record is enriched with is_owner (false), access_level, and shared_by fields.
+      tags:
+        - Security
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [10, 20, 50, 100]
+            default: 20
+          description: Number of items per page (must be 10, 20, 50, or 100)
+          example: 20
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Base64-encoded pagination cursor from previous response.
+            Omit this parameter to fetch the first page.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogResponse"
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/400"
+        "500":
+          $ref: "#/components/responses/500"
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "${lambda_arn}"
+        connectionType: "INTERNET"
+        contentHandling: CONVERT_TO_TEXT
+        passthroughBehavior: NEVER
+    options:
+      responses:
+        "200":
+          description: OK
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Credentials:
+              schema:
+                type: string
+      security: []
+      tags:
+        - CORS (Options)
       x-amazon-apigateway-integration:
         payloadFormatVersion: "2.0"
         type: "aws_proxy"

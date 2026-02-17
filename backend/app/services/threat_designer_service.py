@@ -727,6 +727,261 @@ def encode_cursor(owned_key, shared_key, filter_mode):
     return cursor_b64
 
 
+def encode_single_cursor(last_evaluated_key: dict) -> str | None:
+    """
+    Encode a single DynamoDB LastEvaluatedKey into a base64 cursor string.
+
+    Args:
+        last_evaluated_key: DynamoDB LastEvaluatedKey dict
+
+    Returns:
+        Base64-encoded cursor string, or None if key is None/empty
+    """
+    if not last_evaluated_key:
+        return None
+
+    cursor_json = json.dumps(last_evaluated_key, default=str)
+    cursor_bytes = cursor_json.encode("utf-8")
+    return base64.b64encode(cursor_bytes).decode("utf-8")
+
+
+def _slim_catalog_item(item: dict) -> dict:
+    """
+    Return a lightweight copy of a threat model item for catalog listing.
+    Keeps only the fields the UI needs and strips heavy nested data
+    from threat_list (retaining only each threat's likelihood for badge counts).
+    """
+    slim = {
+        "job_id": item.get("job_id"),
+        "owner": item.get("owner"),
+        "title": item.get("title"),
+        "summary": item.get("summary"),
+        "timestamp": item.get("timestamp"),
+        "s3_location": item.get("s3_location"),
+        "is_owner": item.get("is_owner"),
+        "access_level": item.get("access_level"),
+        "shared_by": item.get("shared_by"),
+    }
+
+    # Keep only likelihood from each threat for badge counts
+    threat_list = item.get("threat_list")
+    if isinstance(threat_list, dict):
+        threats = threat_list.get("threats")
+        if isinstance(threats, list):
+            slim["threat_list"] = {
+                "threats": [
+                    {"likelihood": t.get("likelihood")}
+                    for t in threats
+                    if isinstance(t, dict)
+                ]
+            }
+        else:
+            slim["threat_list"] = {"threats": []}
+    else:
+        slim["threat_list"] = {"threats": []}
+
+    return slim
+
+
+def decode_single_cursor(cursor_str: str) -> dict | None:
+    """
+    Decode and validate a base64 cursor string back into a DynamoDB ExclusiveStartKey.
+
+    Args:
+        cursor_str: Base64-encoded JSON cursor string
+
+    Returns:
+        Decoded dict, or None if cursor_str is falsy
+
+    Raises:
+        ValueError: If cursor is invalid or malformed
+    """
+    if not cursor_str:
+        return None
+
+    try:
+        decoded_bytes = base64.b64decode(cursor_str)
+        cursor_data = json.loads(decoded_bytes.decode("utf-8"))
+
+        if not isinstance(cursor_data, dict):
+            raise ValueError("Cursor must be a JSON object")
+
+        return cursor_data
+    except (base64.binascii.Error, json.JSONDecodeError, UnicodeDecodeError) as e:
+        LOG.warning(f"Invalid single cursor format: {e}")
+        raise ValueError("Invalid pagination cursor")
+
+
+@tracer.capture_method
+def fetch_owned_paginated(owner: str, limit: int, cursor: str = None) -> dict:
+    """
+    Fetch owned threat models with cursor-based pagination, sorted newest-first.
+
+    Args:
+        owner: User ID
+        limit: Page size (must be one of 10, 20, 50, 100)
+        cursor: Base64-encoded cursor string for next page (optional)
+
+    Returns:
+        dict with 'catalogs' and 'pagination' keys
+
+    Raises:
+        ValueError: If limit is invalid or cursor is malformed
+    """
+    valid_page_sizes = [10, 20, 50, 100]
+    if limit not in valid_page_sizes:
+        raise ValueError(f"Page size must be one of {valid_page_sizes}")
+
+    state_table = dynamodb.Table(AGENT_TABLE)
+
+    exclusive_start_key = decode_single_cursor(cursor) if cursor else None
+
+    try:
+        query_params = {
+            "IndexName": "owner-timestamp-index",
+            "KeyConditionExpression": "#owner = :owner_value",
+            "ExpressionAttributeNames": {"#owner": "owner"},
+            "ExpressionAttributeValues": {":owner_value": owner},
+            "ScanIndexForward": False,
+            "Limit": limit + 1,
+        }
+
+        if exclusive_start_key:
+            query_params["ExclusiveStartKey"] = exclusive_start_key
+
+        response = state_table.query(**query_params)
+
+        items = response.get("Items", [])
+
+        # Determine if there's a next page by checking if we got more than limit
+        has_next_page = len(items) > limit
+        if has_next_page:
+            items = items[:limit]
+
+        for item in items:
+            item["is_owner"] = True
+            item["access_level"] = "OWNER"
+
+        slim_items = [_slim_catalog_item(item) for item in items]
+
+        # Build cursor from the last item's key attributes if there's a next page
+        next_cursor = None
+        if has_next_page and items:
+            last_item = items[-1]
+            next_cursor = encode_single_cursor(
+                {
+                    "owner": last_item["owner"],
+                    "job_id": last_item["job_id"],
+                    "timestamp": last_item["timestamp"],
+                }
+            )
+
+        return {
+            "catalogs": convert_decimals(slim_items),
+            "pagination": {
+                "hasNextPage": has_next_page,
+                "cursor": next_cursor,
+                "totalReturned": len(items),
+            },
+        }
+    except ValueError:
+        raise
+    except Exception as e:
+        LOG.error(f"Error fetching owned paginated: {e}")
+        raise InternalError(e)
+
+
+@tracer.capture_method
+def fetch_shared_paginated(user_id: str, limit: int, cursor: str = None) -> dict:
+    """
+    Fetch shared threat models with cursor-based pagination, sorted newest-first.
+
+    Args:
+        user_id: User ID
+        limit: Page size (must be one of 10, 20, 50, 100)
+        cursor: Base64-encoded cursor string for next page (optional)
+
+    Returns:
+        dict with 'catalogs' and 'pagination' keys
+
+    Raises:
+        ValueError: If limit is invalid or cursor is malformed
+    """
+    valid_page_sizes = [10, 20, 50, 100]
+    if limit not in valid_page_sizes:
+        raise ValueError(f"Page size must be one of {valid_page_sizes}")
+
+    sharing_table = dynamodb.Table(SHARING_TABLE)
+
+    exclusive_start_key = decode_single_cursor(cursor) if cursor else None
+
+    try:
+        query_params = {
+            "IndexName": "user-timestamp-index",
+            "KeyConditionExpression": "#user_id = :user_id",
+            "ExpressionAttributeNames": {"#user_id": "user_id"},
+            "ExpressionAttributeValues": {":user_id": user_id},
+            "ScanIndexForward": False,
+            "Limit": limit + 1,
+        }
+
+        if exclusive_start_key:
+            query_params["ExclusiveStartKey"] = exclusive_start_key
+
+        sharing_response = sharing_table.query(**query_params)
+
+        sharing_records = sharing_response.get("Items", [])
+
+        # Determine if there's a next page by checking if we got more than limit
+        has_next_page = len(sharing_records) > limit
+        if has_next_page:
+            sharing_records = sharing_records[:limit]
+
+        # Batch-fetch full threat model records from state table
+        threat_model_ids = [r["threat_model_id"] for r in sharing_records]
+        threat_models = _batch_fetch_threat_models(threat_model_ids)
+
+        # Enrich records, skipping any where the threat model no longer exists
+        items = []
+        for sharing_record in sharing_records:
+            tm_id = sharing_record["threat_model_id"]
+            tm = threat_models.get(tm_id)
+            if tm is None:
+                continue
+            tm["is_owner"] = False
+            tm["access_level"] = sharing_record["access_level"]
+            tm["shared_by"] = sharing_record.get("shared_by")
+            items.append(tm)
+
+        slim_items = [_slim_catalog_item(item) for item in items]
+
+        # Build cursor from the last sharing record's key attributes if there's a next page
+        next_cursor = None
+        if has_next_page and sharing_records:
+            last_record = sharing_records[-1]
+            next_cursor = encode_single_cursor(
+                {
+                    "threat_model_id": last_record["threat_model_id"],
+                    "user_id": last_record["user_id"],
+                    "shared_at": last_record["shared_at"],
+                }
+            )
+
+        return {
+            "catalogs": convert_decimals(slim_items),
+            "pagination": {
+                "hasNextPage": has_next_page,
+                "cursor": next_cursor,
+                "totalReturned": len(items),
+            },
+        }
+    except ValueError:
+        raise
+    except Exception as e:
+        LOG.error(f"Error fetching shared paginated: {e}")
+        raise InternalError(e)
+
+
 def query_owned_paginated(table, owner, limit, exclusive_start_key=None):
     """
     Query owned threat models with pagination.
@@ -894,9 +1149,7 @@ def fetch_all(owner, limit=None, cursor=None, filter_mode="all"):
     """
     table = dynamodb.Table(AGENT_TABLE)
     sharing_table = dynamodb.Table(os.environ.get("SHARING_TABLE"))
-    LOG.info(
-        f"Fetching all items for owner: {owner}, filter: {filter_mode}"
-    )
+    LOG.info(f"Fetching all items for owner: {owner}, filter: {filter_mode}")
 
     try:
         # Validate filter mode

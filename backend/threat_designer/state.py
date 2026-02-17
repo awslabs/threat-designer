@@ -149,7 +149,7 @@ class FlowsList(BaseModel):
         List[TrustBoundary], Field(description="The list of trust boundaries")
     ]
     threat_sources: Annotated[
-        List[ThreatSource], Field(description="The list of threat actors")
+        List[ThreatSource], Field(description="The list of threat actors", min_length=4)
     ]
 
 

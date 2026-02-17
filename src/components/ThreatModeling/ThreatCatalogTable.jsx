@@ -33,15 +33,7 @@ const TableStatusComponent = ({ id }) => {
   return <StatusIndicatorComponent status={status} />;
 };
 
-export const ThreatCatalogTable = ({
-  results,
-  onItemsChange,
-  filterMode,
-  onFilterChange,
-  pagination,
-  onLoadMore,
-  error,
-}) => {
+export const ThreatCatalogTable = ({ results, onItemsChange, pagination, onLoadMore, error }) => {
   const [selectedItems, setSelectedItems] = useState([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(1);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -50,7 +42,7 @@ export const ThreatCatalogTable = ({
   const [sortingDescending, setSortingDescending] = useState(true);
   const functions = useContext(ChatSessionFunctionsContext);
 
-  const pageSize = 25;
+  const pageSize = pagination?.pageSize || 20;
   const navigate = useNavigate();
 
   const handleBulkDelete = async () => {
@@ -89,15 +81,6 @@ export const ThreatCatalogTable = ({
     }
   };
 
-  const getFilteredResults = () => {
-    if (filterMode === "owned") {
-      return results.filter((item) => item.is_owner === true);
-    } else if (filterMode === "shared") {
-      return results.filter((item) => item.is_owner === false);
-    }
-    return results;
-  };
-
   const sortItems = (items, column, isDescending) => {
     return [...items].sort((a, b) => {
       let aValue, bValue;
@@ -131,20 +114,6 @@ export const ThreatCatalogTable = ({
           <Box>{item?.title || "Untitled"}</Box>
         </Link>
       ),
-    },
-    {
-      id: "shared",
-      header: "Shared",
-      cell: (item) => (
-        <Box textAlign="center">
-          {item.is_owner === false ? (
-            <Badge color="blue">Shared</Badge>
-          ) : (
-            <Box color="text-body-secondary">-</Box>
-          )}
-        </Box>
-      ),
-      width: 100,
     },
     {
       id: "status",
@@ -230,12 +199,21 @@ export const ThreatCatalogTable = ({
     },
   ];
 
-  const filteredResults = getFilteredResults();
-  const sortedItems = sortItems(filteredResults, sortingColumn, sortingDescending);
+  const sortedItems = sortItems(results, sortingColumn, sortingDescending);
+  const totalClientPages = Math.ceil(results.length / pageSize);
+  // Add an extra page when the server has more data to fetch
+  const pagesCount = pagination?.hasNextPage ? totalClientPages + 1 : totalClientPages;
   const paginatedItems = sortedItems.slice(
     (currentPageIndex - 1) * pageSize,
     currentPageIndex * pageSize
   );
+
+  // Auto-fetch next server page when user navigates beyond loaded data
+  useEffect(() => {
+    if (currentPageIndex > totalClientPages && pagination?.hasNextPage && !pagination?.loading) {
+      onLoadMore();
+    }
+  }, [currentPageIndex, totalClientPages, pagination?.hasNextPage, pagination?.loading]);
 
   return (
     <SpaceBetween size="s">
@@ -281,8 +259,8 @@ export const ThreatCatalogTable = ({
           <Header
             counter={
               selectedItems.length
-                ? `(${selectedItems.length}/${filteredResults.length})`
-                : `(${filteredResults.length})`
+                ? `(${selectedItems.length}/${results.length})`
+                : `(${results.length})`
             }
             actions={
               <SpaceBetween direction="horizontal" size="xs">
@@ -305,7 +283,8 @@ export const ThreatCatalogTable = ({
           <Pagination
             currentPageIndex={currentPageIndex}
             onChange={({ detail }) => setCurrentPageIndex(detail.currentPageIndex)}
-            pagesCount={Math.ceil(filteredResults.length / pageSize)}
+            pagesCount={pagesCount}
+            openEnd={pagination?.hasNextPage}
             ariaLabels={{
               nextPageLabel: "Next page",
               previousPageLabel: "Previous page",
@@ -314,13 +293,6 @@ export const ThreatCatalogTable = ({
           />
         }
       />
-      {pagination?.hasNextPage && results.length >= pagination?.pageSize && (
-        <Box textAlign="center" margin={{ top: "l" }}>
-          <Button onClick={onLoadMore} loading={pagination?.loading} disabled={pagination?.loading}>
-            Load More
-          </Button>
-        </Box>
-      )}
 
       <Modal
         onDismiss={() => setShowDeleteModal(false)}

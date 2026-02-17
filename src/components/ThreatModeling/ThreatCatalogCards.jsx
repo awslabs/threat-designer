@@ -10,13 +10,16 @@ import { useNavigate } from "react-router";
 import { S3DownloaderComponent } from "./S3Downloader";
 import StatusIndicator from "@cloudscape-design/components/status-indicator";
 import { Spinner, ButtonDropdown } from "@cloudscape-design/components";
+import Select from "@cloudscape-design/components/select";
+import Tabs from "@cloudscape-design/components/tabs";
 import Badge from "@cloudscape-design/components/badge";
 import Alert from "@cloudscape-design/components/alert";
 import {
   getThreatModelingStatus,
-  getThreatModelingAllResults,
   deleteTm,
   getDownloadUrlsBatch,
+  getOwnedThreatModels,
+  getSharedThreatModels,
 } from "../../services/ThreatDesigner/stats";
 import SegmentedControl from "@cloudscape-design/components/segmented-control";
 import ThreatCatalogTable from "./ThreatCatalogTable";
@@ -91,7 +94,15 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
     }
   });
 
-  const [filterMode, setFilterMode] = useState("all");
+  const [filterMode, setFilterMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem("threatCatalogFilterMode");
+      return saved && ["owned", "shared"].includes(saved) ? saved : "owned";
+    } catch (error) {
+      console.error("Error reading from localStorage:", error);
+      return "owned";
+    }
+  });
 
   // Shared pagination state for both card and table views
   const [pagination, setPagination] = useState({
@@ -103,7 +114,7 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
         const savedPageSize = localStorage.getItem("threatCatalogPageSize");
         return savedPageSize && [10, 20, 50, 100].includes(parseInt(savedPageSize))
           ? parseInt(savedPageSize)
-          : 20;
+          : 10;
       } catch (error) {
         console.error("Error reading from localStorage:", error);
         return 20;
@@ -123,25 +134,37 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
     }
   }, [viewMode]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem("threatCatalogFilterMode", filterMode);
+    } catch (error) {
+      console.error("Error saving to localStorage:", error);
+    }
+  }, [filterMode]);
+
   const removeItem = (idToRemove) => {
     setResults(results.filter((item) => item.job_id !== idToRemove));
   };
+
+  // Reset pagination when filterMode changes
+  useEffect(() => {
+    setPagination((prev) => ({
+      ...prev,
+      hasNextPage: false,
+      cursor: null,
+    }));
+    setResults([]);
+  }, [filterMode]);
 
   // Load initial page of results
   useEffect(() => {
     setLoading(true);
     setError(null);
-    const fetchAllResults = async () => {
+    const fetchResults = async () => {
       try {
-        const response = await getThreatModelingAllResults(pagination.pageSize, null, filterMode);
-        const sortedCatalogs = response?.data?.catalogs.sort((a, b) => {
-          if (!a.timestamp && !b.timestamp) return 0;
-          if (!a.timestamp) return 1;
-          if (!b.timestamp) return -1;
-
-          return new Date(b.timestamp) - new Date(a.timestamp);
-        });
-        setResults(sortedCatalogs);
+        const fetchFn = filterMode === "shared" ? getSharedThreatModels : getOwnedThreatModels;
+        const response = await fetchFn(pagination.pageSize, null);
+        setResults(response?.data?.catalogs || []);
         setPagination((prev) => ({
           ...prev,
           hasNextPage: response?.data?.pagination?.hasNextPage || false,
@@ -155,7 +178,7 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
         setLoading(false);
       }
     };
-    fetchAllResults();
+    fetchResults();
   }, [user, pagination.pageSize, filterMode]);
 
   // Batch load presigned URLs when results change
@@ -247,21 +270,11 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
     setError(null);
 
     try {
-      const response = await getThreatModelingAllResults(
-        pagination.pageSize,
-        pagination.cursor,
-        filterMode
-      );
+      const fetchFn = filterMode === "shared" ? getSharedThreatModels : getOwnedThreatModels;
+      const response = await fetchFn(pagination.pageSize, pagination.cursor);
       const newCatalogs = response?.data?.catalogs || [];
-      const sortedNewCatalogs = newCatalogs.sort((a, b) => {
-        if (!a.timestamp && !b.timestamp) return 0;
-        if (!a.timestamp) return 1;
-        if (!b.timestamp) return -1;
 
-        return new Date(b.timestamp) - new Date(a.timestamp);
-      });
-
-      setResults((prev) => [...prev, ...sortedNewCatalogs]);
+      setResults((prev) => [...prev, ...newCatalogs]);
       setPagination((prev) => ({
         ...prev,
         hasNextPage: response?.data?.pagination?.hasNextPage || false,
@@ -292,12 +305,9 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
     setResults([]);
   };
 
-  // Show all results without filtering
-  const filteredResults = results;
-
   const createGridDefinition = () => {
     const gridDefinition = [];
-    filteredResults.forEach(() => {
+    results.forEach(() => {
       gridDefinition.push({
         colspan: { default: 12, xxs: 12, xs: 12, s: 12, m: 6, l: 6, xl: 6 },
       });
@@ -307,7 +317,7 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
 
   const renderCardView = () => (
     <Grid gridDefinition={createGridDefinition()}>
-      {filteredResults.map((item) => {
+      {results.map((item) => {
         const presignedData = presignedUrlMap[item?.job_id];
         return (
           <div key={item.job_id} style={{ height: 250 }}>
@@ -382,7 +392,6 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
                       >
                         {item?.title || "Untitled"}
                       </Link>
-                      {item.is_owner === false && <Badge color="blue">Shared</Badge>}
                     </SpaceBetween>
                   </Header>
                 }
@@ -473,101 +482,107 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
     </Grid>
   );
 
-  return (
-    <SpaceBetween size="s">
-      <div style={{ marginTop: 20 }}>
-        {loading ? (
-          <SpaceBetween alignItems="center">
-            <Spinner size="large" />
-          </SpaceBetween>
-        ) : results.length > 0 ? (
-          <SpaceBetween size="l">
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-start",
-                alignItems: "center",
-                gap: "16px",
-              }}
-            >
-              <SegmentedControl
-                selectedId={viewMode}
-                onChange={({ detail }) => {
-                  setViewMode(detail.selectedId);
-                }}
-                label="View mode"
-                options={[
-                  { text: "Card view", id: "card", iconName: "view-full" },
-                  { text: "Table view", id: "table", iconName: "menu" },
-                ]}
-              />
-            </div>
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <SpaceBetween alignItems="center">
+          <Spinner size="large" />
+        </SpaceBetween>
+      );
+    }
 
-            {viewMode === "card" ? (
-              <SpaceBetween size="m">
-                {error && (
-                  <Alert
-                    type="error"
-                    dismissible
-                    onDismiss={() => setError(null)}
-                    action={
-                      <Button onClick={loadMore} disabled={pagination.loading}>
-                        Retry
-                      </Button>
-                    }
-                  >
-                    {error}
-                  </Alert>
-                )}
-                {batchLoadError && (
-                  <Alert type="warning" dismissible onDismiss={() => setBatchLoadError(null)}>
-                    {batchLoadError}
-                  </Alert>
-                )}
-                {filteredResults.length > 0 ? (
-                  <>
-                    {renderCardView()}
-                    {pagination.hasNextPage && filteredResults.length >= pagination.pageSize && (
-                      <Box textAlign="center" margin={{ top: "l" }}>
-                        <Button
-                          onClick={loadMore}
-                          loading={pagination.loading}
-                          disabled={pagination.loading}
-                        >
-                          Load More
-                        </Button>
-                      </Box>
-                    )}
-                  </>
-                ) : (
-                  <Box margin={{ vertical: "xs" }} textAlign="center" color="inherit">
-                    <SpaceBetween size="m">
-                      <b>No threat models match the selected filter</b>
-                    </SpaceBetween>
-                  </Box>
-                )}
-              </SpaceBetween>
-            ) : (
-              <ThreatCatalogTable
-                results={results}
-                onItemsChange={setResults}
-                loading={loading}
-                filterMode={filterMode}
-                onFilterChange={setFilterMode}
-                pagination={pagination}
-                onLoadMore={loadMore}
-                error={error}
-              />
+    if (results.length === 0) {
+      return (
+        <Box margin={{ vertical: "xs" }} textAlign="center" color="inherit">
+          <SpaceBetween size="m">
+            <b>No threat models</b>
+          </SpaceBetween>
+        </Box>
+      );
+    }
+
+    return (
+      <SpaceBetween size="l">
+        <SegmentedControl
+          selectedId={viewMode}
+          onChange={({ detail }) => {
+            setViewMode(detail.selectedId);
+          }}
+          label="View mode"
+          options={[
+            { text: "Card view", id: "card", iconName: "view-full" },
+            { text: "Table view", id: "table", iconName: "menu" },
+          ]}
+        />
+
+        {viewMode === "card" ? (
+          <SpaceBetween size="m">
+            {error && (
+              <Alert
+                type="error"
+                dismissible
+                onDismiss={() => setError(null)}
+                action={
+                  <Button onClick={loadMore} disabled={pagination.loading}>
+                    Retry
+                  </Button>
+                }
+              >
+                {error}
+              </Alert>
+            )}
+            {batchLoadError && (
+              <Alert type="warning" dismissible onDismiss={() => setBatchLoadError(null)}>
+                {batchLoadError}
+              </Alert>
+            )}
+            {renderCardView()}
+            {pagination.hasNextPage && (
+              <Box textAlign="center" margin={{ top: "l" }}>
+                <Button
+                  onClick={loadMore}
+                  loading={pagination.loading}
+                  disabled={pagination.loading}
+                >
+                  Load More
+                </Button>
+              </Box>
             )}
           </SpaceBetween>
         ) : (
-          <Box margin={{ vertical: "xs" }} textAlign="center" color="inherit">
-            <SpaceBetween size="m">
-              <b>No threat model</b>
-            </SpaceBetween>
-          </Box>
+          <ThreatCatalogTable
+            results={results}
+            onItemsChange={setResults}
+            loading={loading}
+            pagination={pagination}
+            onLoadMore={loadMore}
+            error={error}
+          />
         )}
-      </div>
-    </SpaceBetween>
+      </SpaceBetween>
+    );
+  };
+
+  return (
+    <div style={{ marginTop: 20 }}>
+      <Tabs
+        activeTabId={filterMode}
+        onChange={({ detail }) => {
+          setFilterMode(detail.activeTabId);
+        }}
+        tabs={[
+          {
+            id: "owned",
+            label: "Models owned by me",
+            content: renderContent(),
+          },
+          {
+            id: "shared",
+            label: "Models shared with me",
+            content: renderContent(),
+          },
+        ]}
+      />
+    </div>
   );
 };

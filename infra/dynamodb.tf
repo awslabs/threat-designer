@@ -22,10 +22,22 @@ resource "aws_dynamodb_table" "threat_designer_state" {
     type = "S"
   }
 
+  attribute {
+    name = "timestamp"
+    type = "S"
+  }
+
   global_secondary_index {
     name            = "owner-job-index"
     hash_key        = "owner"
     range_key       = "job_id"
+    projection_type = "ALL"
+  }
+
+  global_secondary_index {
+    name            = "owner-timestamp-index"
+    hash_key        = "owner"
+    range_key       = "timestamp"
     projection_type = "ALL"
   }
 }
@@ -82,6 +94,11 @@ resource "aws_dynamodb_table" "threat_designer_sharing" {
     type = "S"
   }
 
+  attribute {
+    name = "shared_at"
+    type = "S"
+  }
+
   global_secondary_index {
     name            = "owner-index"
     hash_key        = "owner"
@@ -91,6 +108,13 @@ resource "aws_dynamodb_table" "threat_designer_sharing" {
   global_secondary_index {
     name            = "user-index"
     hash_key        = "user_id"
+    projection_type = "ALL"
+  }
+
+  global_secondary_index {
+    name            = "user-timestamp-index"
+    hash_key        = "user_id"
+    range_key       = "shared_at"
     projection_type = "ALL"
   }
 }

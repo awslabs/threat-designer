@@ -561,6 +561,7 @@ When the active context is large (many data flows, threats, or complex architect
 # PROMPT ASSEMBLY
 # ==============================================================================
 
+
 def system_prompt(context, tavily_enabled=False):
     """
     Generate the system prompt for Sentry.

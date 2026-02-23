@@ -8,23 +8,6 @@
 
 ---
 
-## 🚀 Try It Now - Lightning Mode
-
-**Experience Threat Designer instantly in your browser - no deployment required!**
-
-**[Launch Lightning Mode →](https://awslabs.github.io/threat-designer/)**
-
-Lightning Mode provides:
-
-- ✅ Core AI-powered threat modeling
-- ✅ Instant access - runs entirely in your browser
-- ✅ Perfect for evaluation and quick threat assessments
-- ✅ No AWS account or infrastructure needed
-
-📖 **[Lightning Mode Quick Start Guide](https://github.com/awslabs/threat-designer/blob/lightning/main/README.md)**
-
----
-
 ## Quick Links
 
 - 📖 [Read the AWS Blog Post](https://aws.amazon.com/blogs/machine-learning/accelerate-threat-modeling-with-generative-ai/)

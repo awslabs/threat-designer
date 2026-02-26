@@ -138,5 +138,3 @@ export function useSessionPreparation({ sessionId, tools, thinkingBudget }) {
     functions,
   };
 }
-
-export default useSessionPreparation;

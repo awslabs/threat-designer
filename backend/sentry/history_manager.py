@@ -121,24 +121,31 @@ def format_chat_for_frontend(backend_messages, interrupt=None):
                                 }
                             )
                 elif content_item.get("type") == "tool_use":
-                    current_turn["aiMessage"].append(
-                        {
-                            "type": "tool",
-                            "id": content_item["id"],
-                            "tool_name": content_item["name"],
-                            "tool_start": True,
-                        }
-                    )
+                    tool_msg = {
+                        "type": "tool",
+                        "id": content_item["id"],
+                        "tool_name": content_item["name"],
+                        "tool_start": True,
+                    }
+                    if content_item.get("input"):
+                        tool_msg["tool_update"] = True
+                        tool_msg["content"] = content_item["input"]
+                    current_turn["aiMessage"].append(tool_msg)
                 elif content_item.get("type") == "function_call":
                     # OpenAI function call format
-                    current_turn["aiMessage"].append(
-                        {
-                            "type": "tool",
-                            "id": content_item.get("call_id"),
-                            "tool_name": content_item["name"],
-                            "tool_start": True,
-                        }
-                    )
+                    tool_msg = {
+                        "type": "tool",
+                        "id": content_item.get("call_id"),
+                        "tool_name": content_item["name"],
+                        "tool_start": True,
+                    }
+                    if content_item.get("arguments"):
+                        tool_msg["tool_update"] = True
+                        try:
+                            tool_msg["content"] = json.loads(content_item["arguments"])
+                        except (json.JSONDecodeError, TypeError):
+                            tool_msg["content"] = content_item["arguments"]
+                    current_turn["aiMessage"].append(tool_msg)
                 else:
                     # Regular text content
                     text_content = content_item.get("text", "").strip()

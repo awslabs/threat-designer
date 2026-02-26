@@ -5,6 +5,8 @@ resource "aws_dynamodb_table" "threat_designer_state" {
   hash_key                    = "job_id"
   name                        = "${local.prefix}-state"
   deletion_protection_enabled = var.deletion_protection_enabled
+  stream_enabled              = true
+  stream_view_type            = "NEW_AND_OLD_IMAGES"
 
   # Schema includes additional attributes for collaboration (not defined in Terraform):
   # - shared_with: Map of user_id to access_level (e.g., {"user@example.com": "EDIT"})

@@ -6,12 +6,10 @@ from langgraph.graph import MessagesState
 from typing import Annotated, List, Literal, Optional, TypedDict
 
 from constants import (
-    CRITICALITY_MULTIPLIER_MAP,
     MITIGATION_MAX_ITEMS,
     MITIGATION_MIN_ITEMS,
     SUMMARY_MAX_WORDS_DEFAULT,
     AssetType,
-    CriticalityLevel,
     StrideCategory,
 )
 from langchain_aws import ChatBedrockConverse
@@ -59,11 +57,6 @@ class Assets(BaseModel):
         Literal["Low", "Medium", "High"],
         Field(description="Criticality level of the asset", default="Medium"),
     ] = "Medium"
-
-    @property
-    def criticality_multiplier(self) -> float:
-        """Computed multiplier from criticality level. Not persisted to DynamoDB."""
-        return CRITICALITY_MULTIPLIER_MAP.get(self.criticality, 1.0)
 
 
 class AssetsList(BaseModel):
@@ -149,7 +142,29 @@ class FlowsList(BaseModel):
         List[TrustBoundary], Field(description="The list of trust boundaries")
     ]
     threat_sources: Annotated[
-        List[ThreatSource], Field(description="The list of threat actors", min_length=4)
+        List[ThreatSource], Field(description="The list of threat actors")
+    ]
+
+
+class DataFlowsList(BaseModel):
+    """Input model for adding data flows via tools."""
+
+    data_flows: Annotated[List[DataFlow], Field(description="The list of data flows")]
+
+
+class TrustBoundariesList(BaseModel):
+    """Input model for adding trust boundaries via tools."""
+
+    trust_boundaries: Annotated[
+        List[TrustBoundary], Field(description="The list of trust boundaries")
+    ]
+
+
+class ThreatSourcesList(BaseModel):
+    """Input model for adding threat sources via tools."""
+
+    threat_sources: Annotated[
+        List[ThreatSource], Field(description="The list of threat sources")
     ]
 
 
@@ -386,3 +401,119 @@ class ThreatState(MessagesState):
     iteration: Optional[int] = 0
     replay: Optional[bool] = False
     application_type: Optional[str] = "hybrid"
+
+
+def _merge_flows_list(left, right):
+    """Reducer that merges FlowsList deltas or replaces with Overwrite.
+
+    Tools send deltas (FlowsList with partial lists) for additions,
+    or Overwrite(FlowsList) for replacements (e.g., after deletions).
+    """
+    from langgraph.types import Overwrite
+
+    if isinstance(right, Overwrite):
+        return right.value
+    if isinstance(left, Overwrite):
+        return right
+    if left is None:
+        return right
+    if right is None:
+        return left
+
+    # Merge by concatenating lists
+    return FlowsList(
+        data_flows=left.data_flows + right.data_flows,
+        trust_boundaries=left.trust_boundaries + right.trust_boundaries,
+        threat_sources=left.threat_sources + right.threat_sources,
+    )
+
+
+class FlowsState(MessagesState):
+    """Container for the internal state of the flows subgraph."""
+
+    flows_list: Annotated[Optional[FlowsList], _merge_flows_list] = None
+    tool_use: Annotated[int, _add_or_overwrite] = 0
+    assets: Optional[AssetsList] = None
+    image_data: Optional[str] = None
+    image_type: Optional[str] = None
+    description: Optional[str] = None
+    assumptions: Optional[List[str]] = None
+    instructions: Optional[str] = None
+    job_id: Optional[str] = None
+    iteration: Optional[int] = 0
+    application_type: Optional[str] = "hybrid"
+
+
+def create_constrained_flow_models(
+    asset_names: set[str],
+) -> tuple[type[BaseModel], type[BaseModel], type[BaseModel], type[BaseModel]]:
+    """Create DataFlow, TrustBoundary, DataFlowsList, and TrustBoundariesList models
+    with Literal-constrained entity fields.
+
+    Args:
+        asset_names: Set of valid asset names from state.assets.
+
+    Returns:
+        Tuple of (DynDataFlow, DynTrustBoundary, DynDataFlowsList, DynTrustBoundariesList).
+    """
+    from pydantic import create_model
+
+    entity_literal = Literal[tuple(sorted(asset_names))]
+
+    DynDataFlow = create_model(
+        "DataFlow",
+        __base__=DataFlow,
+        source_entity=(
+            Annotated[
+                entity_literal,
+                Field(
+                    description="The source entity/asset of the data flow. Must exactly match one of the allowed values."
+                ),
+            ],
+            ...,
+        ),
+        target_entity=(
+            Annotated[
+                entity_literal,
+                Field(
+                    description="The target entity/asset of the data flow. Must exactly match one of the allowed values."
+                ),
+            ],
+            ...,
+        ),
+    )
+
+    DynTrustBoundary = create_model(
+        "TrustBoundary",
+        __base__=TrustBoundary,
+        source_entity=(
+            Annotated[
+                entity_literal,
+                Field(
+                    description="The source entity/asset of the trust boundary. Must exactly match one of the allowed values."
+                ),
+            ],
+            ...,
+        ),
+        target_entity=(
+            Annotated[
+                entity_literal,
+                Field(
+                    description="The target entity/asset of the trust boundary. Must exactly match one of the allowed values."
+                ),
+            ],
+            ...,
+        ),
+    )
+
+    class DataFlowsList(BaseModel):
+        data_flows: Annotated[
+            List[DynDataFlow], Field(description="The list of data flows")
+        ]
+
+    class TrustBoundariesList(BaseModel):
+        trust_boundaries: Annotated[
+            List[DynTrustBoundary], Field(description="The list of trust boundaries")
+        ]
+
+    return DynDataFlow, DynTrustBoundary, DataFlowsList, TrustBoundariesList

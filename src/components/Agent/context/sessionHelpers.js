@@ -215,7 +215,7 @@ export const flushBuffer = (sessionId, sessionRefs, setSessions) => {
   });
 };
 
-export const scheduleBufferFlush = (sessionId, sessionRefs, setSessions, flushBufferFn) => {
+const scheduleBufferFlush = (sessionId, sessionRefs, setSessions, flushBufferFn) => {
   const refs = getSessionRefs(sessionId, sessionRefs);
 
   // Cancel any previously scheduled animation frame for this session

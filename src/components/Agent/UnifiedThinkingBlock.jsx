@@ -3,7 +3,7 @@ import { useTheme } from "../ThemeContext";
 import { buildTimelineSteps } from "./utils/timelineParser";
 import { mergeThinkingSteps } from "./utils/stepMerger";
 import { getToolCategory, formatToolName } from "./utils/toolHelpers";
-import { TOOL_CATEGORIES, HEIGHT_DEBOUNCE_MS } from "./utils/constants";
+import { TOOL_CATEGORIES } from "./utils/constants";
 import ReasoningHeader from "./ReasoningHeader";
 import CompletionStep from "./CompletionStep";
 import ThinkingStep from "./ThinkingStep";
@@ -14,11 +14,11 @@ const UnifiedThinkingBlock = ({ contentBlocks = [], isGroupComplete = false }) =
   const { effectiveTheme } = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
   const [contentHeight, setContentHeight] = useState(0);
+  const [isToggling, setIsToggling] = useState(false);
 
   const wrapperRef = useRef(null);
+  const containerRef = useRef(null);
   const resizeObserverRef = useRef(null);
-  const heightDebounceRef = useRef(null);
-  const rafRef = useRef(null);
 
   const mergedSteps = useMemo(() => {
     const steps = buildTimelineSteps(contentBlocks);
@@ -30,12 +30,25 @@ const UnifiedThinkingBlock = ({ contentBlocks = [], isGroupComplete = false }) =
 
     const lastStep = mergedSteps[mergedSteps.length - 1];
 
+    const getSearchQuery = (step) => {
+      if (!step.toolInput) return null;
+      try {
+        const parsed =
+          typeof step.toolInput === "string" ? JSON.parse(step.toolInput) : step.toolInput;
+        return parsed.query || parsed.search_query || parsed.q || null;
+      } catch {
+        return typeof step.toolInput === "string" ? step.toolInput : null;
+      }
+    };
+
     if (isGroupComplete) {
       if (lastStep.type === "thinking") return "Reasoning";
       const category = getToolCategory(lastStep.toolName);
       switch (category) {
-        case TOOL_CATEGORIES.WEB_SEARCH:
-          return "Searched";
+        case TOOL_CATEGORIES.WEB_SEARCH: {
+          const q = getSearchQuery(lastStep);
+          return q ? `Searched for ${q}` : "Searched";
+        }
         case TOOL_CATEGORIES.WEB_EXTRACT:
           return "Read sources";
         case TOOL_CATEGORIES.THREAT:
@@ -51,8 +64,10 @@ const UnifiedThinkingBlock = ({ contentBlocks = [], isGroupComplete = false }) =
 
     if (!lastStep.isToolComplete) {
       switch (category) {
-        case TOOL_CATEGORIES.WEB_SEARCH:
-          return "Searching";
+        case TOOL_CATEGORIES.WEB_SEARCH: {
+          const q = getSearchQuery(lastStep);
+          return q ? `Searching for ${q}` : "Searching";
+        }
         case TOOL_CATEGORIES.WEB_EXTRACT:
           return "Reading";
         case TOOL_CATEGORIES.THREAT:
@@ -62,8 +77,10 @@ const UnifiedThinkingBlock = ({ contentBlocks = [], isGroupComplete = false }) =
       }
     } else {
       switch (category) {
-        case TOOL_CATEGORIES.WEB_SEARCH:
-          return "Searched";
+        case TOOL_CATEGORIES.WEB_SEARCH: {
+          const q = getSearchQuery(lastStep);
+          return q ? `Searched for ${q}` : "Searched";
+        }
         case TOOL_CATEGORIES.WEB_EXTRACT:
           return "Read sources";
         case TOOL_CATEGORIES.THREAT:
@@ -75,6 +92,8 @@ const UnifiedThinkingBlock = ({ contentBlocks = [], isGroupComplete = false }) =
   }, [mergedSteps, isGroupComplete]);
 
   const handleToggle = useCallback(() => {
+    // Enable transition only for the explicit user toggle
+    setIsToggling(true);
     setIsExpanded((prev) => !prev);
   }, []);
 
@@ -87,28 +106,30 @@ const UnifiedThinkingBlock = ({ contentBlocks = [], isGroupComplete = false }) =
     }
   }, []);
 
-  // Debounced version for resize observer (less frequent updates)
-  const debouncedCalculateHeight = useCallback(() => {
-    if (heightDebounceRef.current) clearTimeout(heightDebounceRef.current);
-    heightDebounceRef.current = setTimeout(() => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(calculateHeightImmediate);
-    }, HEIGHT_DEBOUNCE_MS);
-  }, [calculateHeightImmediate]);
+  // Clear the toggling flag once the CSS transition finishes
+  // so subsequent content resizes (e.g. tool expand) apply instantly
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onEnd = (e) => {
+      if (e.propertyName === "max-height") setIsToggling(false);
+    };
+    el.addEventListener("transitionend", onEnd);
+    return () => el.removeEventListener("transitionend", onEnd);
+  }, []);
 
-  // Setup ResizeObserver
+  // Setup ResizeObserver — use immediate height calc so the parent
+  // max-height stays in sync with child expand/collapse animations
   useEffect(() => {
     if (wrapperRef.current && window.ResizeObserver) {
-      resizeObserverRef.current = new ResizeObserver(debouncedCalculateHeight);
+      resizeObserverRef.current = new ResizeObserver(calculateHeightImmediate);
       resizeObserverRef.current.observe(wrapperRef.current);
     }
 
     return () => {
       if (resizeObserverRef.current) resizeObserverRef.current.disconnect();
-      if (heightDebounceRef.current) clearTimeout(heightDebounceRef.current);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [debouncedCalculateHeight]);
+  }, [calculateHeightImmediate]);
 
   // Use useLayoutEffect for immediate height updates when content changes
   // This runs synchronously after DOM mutations but before paint
@@ -127,7 +148,8 @@ const UnifiedThinkingBlock = ({ contentBlocks = [], isGroupComplete = false }) =
       />
 
       <div
-        className={`unified-content-container ${isExpanded ? "expanded" : "collapsed"}`}
+        ref={containerRef}
+        className={`unified-content-container ${isExpanded ? "expanded" : "collapsed"} ${isToggling ? "animating" : ""}`}
         style={{ maxHeight: isExpanded ? `${contentHeight}px` : "0" }}
       >
         <div ref={wrapperRef} className="unified-content-wrapper">

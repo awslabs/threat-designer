@@ -9,7 +9,6 @@ from langchain.tools import tool, ToolRuntime
 from langchain_core.messages import ToolMessage
 from langgraph.types import Command
 from typing import Union, Optional, Dict, Any, List
-import time
 
 from attack_tree_models import (
     AttackTreeLogical,

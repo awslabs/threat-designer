@@ -44,3 +44,17 @@ if [[ -f ../backend/app/requirements.txt ]]; then
     echo "Installing backend packages..."
     pip3 install --platform manylinux2014_x86_64 --implementation cp --only-binary=:all: --python-version 3.12 -r ../backend/app/requirements.txt --target "$backend_build_path"
 fi
+
+# Build stream processor lambda
+stream_processor_build_path="${build_path}/stream_processor_code/"
+rm -rf "$stream_processor_build_path"
+mkdir -p "$stream_processor_build_path"
+
+cd "$ROOT"
+echo "Building stream processor lambda"
+cp -r ../backend/stream_processor/* "$stream_processor_build_path/"
+
+if [[ -f ../backend/stream_processor/requirements.txt ]]; then
+    echo "Installing stream processor packages..."
+    pip3 install --platform manylinux2014_x86_64 --implementation cp --only-binary=:all: --python-version 3.12 -r ../backend/stream_processor/requirements.txt --target "$stream_processor_build_path"
+fi

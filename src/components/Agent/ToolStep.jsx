@@ -10,6 +10,7 @@ const ToolStep = ({ step, isLast }) => (
       <ToolResultIndicator
         toolName={step.toolName}
         content={step.toolContent}
+        toolInput={step.toolInput}
         isComplete={step.isToolComplete}
         error={step.toolError}
       />

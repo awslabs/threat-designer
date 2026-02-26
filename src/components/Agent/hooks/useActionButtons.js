@@ -165,5 +165,3 @@ export function useActionButtons({ actionButtons, onToggleButton, onDropdownClic
     handleDropdownClick,
   };
 }
-
-export default useActionButtons;

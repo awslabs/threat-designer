@@ -10,7 +10,7 @@ export const getAuthToken = async () => {
   }
 };
 
-export const checkForInterruptInTurn = (turn) => {
+const checkForInterruptInTurn = (turn) => {
   if (!turn || !turn.aiMessage || !Array.isArray(turn.aiMessage)) {
     return null;
   }

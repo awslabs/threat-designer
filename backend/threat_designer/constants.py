@@ -78,10 +78,6 @@ MODEL_TEMPERATURE_REASONING = 1
 # PROMPT CONFIGURATION
 # ============================================================================
 
-# Word limits for threat descriptions
-THREAT_DESCRIPTION_MIN_WORDS = 35
-THREAT_DESCRIPTION_MAX_WORDS = 50
-
 # Mitigation constraints
 MITIGATION_MIN_ITEMS = 2
 MITIGATION_MAX_ITEMS = 5
@@ -161,39 +157,6 @@ class AssetType(Enum):
 
 
 # ============================================================================
-# LIKELIHOOD LEVELS
-# ============================================================================
-
-
-class LikelihoodLevel(Enum):
-    """Threat likelihood assessment levels."""
-
-    LOW = "Low"
-    MEDIUM = "Medium"
-    HIGH = "High"
-
-
-# ============================================================================
-# CRITICALITY LEVELS
-# ============================================================================
-
-
-class CriticalityLevel(Enum):
-    """Asset criticality classification levels for risk-weighted analysis."""
-
-    LOW = "Low"
-    MEDIUM = "Medium"
-    HIGH = "High"
-
-
-CRITICALITY_MULTIPLIER_MAP = {
-    CriticalityLevel.LOW.value: 0.5,
-    CriticalityLevel.MEDIUM.value: 1.0,
-    CriticalityLevel.HIGH.value: 1.5,
-}
-
-
-# ============================================================================
 # DATABASE FIELD NAMES
 # ============================================================================
 
@@ -216,7 +179,6 @@ DB_FIELD_BACKUP = "backup"
 
 # Common error message templates
 ERROR_MISSING_ENV_VAR = "Environment variable not set"
-ERROR_INVALID_JSON = "Invalid JSON in environment variables"
 ERROR_MODEL_INIT_FAILED = "Model initialization failed"
 ERROR_DYNAMODB_OPERATION_FAILED = "DynamoDB operation failed"
 ERROR_S3_OPERATION_FAILED = "S3 operation failed"
@@ -230,7 +192,6 @@ ERROR_INVALID_REASONING_TYPE = "Invalid reasoning parameter"
 # HTTP STATUS CODES
 # ============================================================================
 
-HTTP_STATUS_OK = 200
 HTTP_STATUS_BAD_REQUEST = 400
 HTTP_STATUS_UNPROCESSABLE_ENTITY = 422
 HTTP_STATUS_INTERNAL_SERVER_ERROR = 500
@@ -296,14 +257,6 @@ AWS_SERVICE_S3 = "s3"
 
 
 # ============================================================================
-# IMAGE PROCESSING
-# ============================================================================
-
-IMAGE_MIME_TYPE_JPEG = "image/jpeg"
-IMAGE_URL_PREFIX = "data:image/jpeg;base64,"
-
-
-# ============================================================================
 # VALIDATION CONSTRAINTS
 # ============================================================================
 
@@ -332,16 +285,9 @@ MAX_REASONING_LEVEL = 4
 WORKFLOW_NODE_IMAGE_TO_BASE64 = "image_to_base64"
 WORKFLOW_NODE_ASSET = "asset"
 WORKFLOW_NODE_FLOWS = "flows"
-WORKFLOW_NODE_THREATS = "threats"
 WORKFLOW_NODE_THREATS_TRADITIONAL = "threats_traditional"
 WORKFLOW_NODE_THREATS_AGENTIC = "threats_agentic"
-WORKFLOW_NODE_GAP_ANALYSIS = "gap_analysis"
 WORKFLOW_NODE_FINALIZE = "finalize"
-
-# Workflow routing values
-WORKFLOW_ROUTE_REPLAY = "replay"
-WORKFLOW_ROUTE_FULL = "full"
-
 
 # ============================================================================
 # SLEEP INTERVALS

@@ -51,3 +51,11 @@ data "archive_file" "lambda_layer_authorization" {
 
   depends_on = [null_resource.build]
 }
+
+data "archive_file" "stream_processor_lambda_code_zip" {
+  type        = "zip"
+  source_dir  = "build/stream_processor_code"
+  output_path = "build/stream_processor.zip"
+
+  depends_on = [null_resource.build]
+}

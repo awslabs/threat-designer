@@ -1,7 +1,14 @@
 from langchain.tools import tool, ToolRuntime
 from langchain_core.messages import ToolMessage
 from langchain_core.messages import SystemMessage
-from state import ThreatsList, ContinueThreatModeling
+from state import (
+    ThreatsList,
+    ContinueThreatModeling,
+    DataFlowsList,
+    TrustBoundariesList,
+    ThreatSourcesList,
+    FlowsList,
+)
 from langgraph.types import Command, Overwrite
 from typing import List, Annotated, Dict, Any
 from message_builder import MessageBuilder, list_to_string
@@ -975,3 +982,600 @@ def gap_analysis(runtime: ToolRuntime) -> str:
         # Return user-friendly message as string (not Command, so state is not updated)
         error_msg = f"Gap analysis failed due to a model error. Please try again or proceed without gap analysis. Error: {str(e)}"
         return error_msg
+
+
+# ============================================================================
+# Flow Tools — Agentic Define Flows Sub-Graph
+# ============================================================================
+
+
+@tool(
+    name_or_callable="add_data_flows",
+    description="Add data flows to the FlowsList. Each data flow must reference valid asset/entity names as source_entity and target_entity.",
+)
+def add_data_flows(data_flows: DataFlowsList, runtime: ToolRuntime) -> Command:
+    """Add data flows with entity validation against known assets."""
+    job_id = runtime.state.get("job_id", "unknown")
+    assets = runtime.state.get("assets")
+
+    # Build set of valid asset names
+    valid_asset_names = set()
+    if assets and assets.assets:
+        valid_asset_names = {asset.name for asset in assets.assets}
+
+    # Partition into valid/invalid
+    valid_flows = []
+    invalid_flows = []
+
+    for flow in data_flows.data_flows:
+        violations = []
+        if flow.source_entity not in valid_asset_names:
+            violations.append(
+                f"Invalid source_entity '{flow.source_entity}' - not in asset list"
+            )
+        if flow.target_entity not in valid_asset_names:
+            violations.append(
+                f"Invalid target_entity '{flow.target_entity}' - not in asset list"
+            )
+        if violations:
+            invalid_flows.append(
+                {"description": flow.flow_description, "violations": violations}
+            )
+            logger.warning(
+                "Data flow validation failed",
+                tool="add_data_flows",
+                flow_description=flow.flow_description,
+                violations=violations,
+                job_id=job_id,
+            )
+        else:
+            valid_flows.append(flow)
+
+    valid_count = len(valid_flows)
+    invalid_count = len(invalid_flows)
+
+    if valid_count > 0:
+        state_service.update_job_state(
+            job_id,
+            JobState.FLOW.value,
+            detail=f"Adding {valid_count} data flows",
+        )
+
+    # Build response message
+    if invalid_count == 0:
+        response_msg = f"Successfully added {valid_count} data flows."
+    else:
+        invalid_details = []
+        for inv in invalid_flows:
+            violations_str = "; ".join(inv["violations"])
+            invalid_details.append(f"  - {inv['description']}: {violations_str}")
+        invalid_summary = "\n".join(invalid_details)
+        response_msg = (
+            f"Successfully added {valid_count} data flows.\n\n"
+            f"{invalid_count} data flows were NOT added due to validation failures:\n"
+            f"{invalid_summary}\n\n"
+            f"Valid asset names: {sorted(valid_asset_names)}"
+        )
+
+    # Build delta FlowsList with only valid flows
+    delta = FlowsList(data_flows=valid_flows, trust_boundaries=[], threat_sources=[])
+
+    return Command(
+        update={
+            "flows_list": delta,
+            "tool_use": 1,
+            "messages": [ToolMessage(response_msg, tool_call_id=runtime.tool_call_id)],
+        }
+    )
+
+
+@tool(
+    name_or_callable="add_trust_boundaries",
+    description="Add trust boundaries to the FlowsList. Each trust boundary must reference valid asset/entity names as source_entity and target_entity.",
+)
+def add_trust_boundaries(
+    trust_boundaries: TrustBoundariesList, runtime: ToolRuntime
+) -> Command:
+    """Add trust boundaries with entity validation against known assets."""
+    job_id = runtime.state.get("job_id", "unknown")
+    assets = runtime.state.get("assets")
+
+    # Build set of valid asset names
+    valid_asset_names = set()
+    if assets and assets.assets:
+        valid_asset_names = {asset.name for asset in assets.assets}
+
+    # Partition into valid/invalid
+    valid_boundaries = []
+    invalid_boundaries = []
+
+    for boundary in trust_boundaries.trust_boundaries:
+        violations = []
+        if boundary.source_entity not in valid_asset_names:
+            violations.append(
+                f"Invalid source_entity '{boundary.source_entity}' - not in asset list"
+            )
+        if boundary.target_entity not in valid_asset_names:
+            violations.append(
+                f"Invalid target_entity '{boundary.target_entity}' - not in asset list"
+            )
+        if violations:
+            invalid_boundaries.append(
+                {"purpose": boundary.purpose, "violations": violations}
+            )
+            logger.warning(
+                "Trust boundary validation failed",
+                tool="add_trust_boundaries",
+                purpose=boundary.purpose,
+                violations=violations,
+                job_id=job_id,
+            )
+        else:
+            valid_boundaries.append(boundary)
+
+    valid_count = len(valid_boundaries)
+    invalid_count = len(invalid_boundaries)
+
+    if valid_count > 0:
+        state_service.update_job_state(
+            job_id,
+            JobState.FLOW.value,
+            detail=f"Adding {valid_count} trust boundaries",
+        )
+
+    # Build response message
+    if invalid_count == 0:
+        response_msg = f"Successfully added {valid_count} trust boundaries."
+    else:
+        invalid_details = []
+        for inv in invalid_boundaries:
+            violations_str = "; ".join(inv["violations"])
+            invalid_details.append(f"  - {inv['purpose']}: {violations_str}")
+        invalid_summary = "\n".join(invalid_details)
+        response_msg = (
+            f"Successfully added {valid_count} trust boundaries.\n\n"
+            f"{invalid_count} trust boundaries were NOT added due to validation failures:\n"
+            f"{invalid_summary}\n\n"
+            f"Valid asset names: {sorted(valid_asset_names)}"
+        )
+
+    # Build delta FlowsList with only valid boundaries
+    delta = FlowsList(
+        data_flows=[], trust_boundaries=valid_boundaries, threat_sources=[]
+    )
+
+    return Command(
+        update={
+            "flows_list": delta,
+            "tool_use": 1,
+            "messages": [ToolMessage(response_msg, tool_call_id=runtime.tool_call_id)],
+        }
+    )
+
+
+@tool(
+    name_or_callable="add_threat_sources",
+    description="Add threat sources (actor categories) to the FlowsList. No entity validation is needed for threat sources.",
+)
+def add_threat_sources(
+    threat_sources: ThreatSourcesList, runtime: ToolRuntime
+) -> Command:
+    """Add threat sources to the FlowsList. All provided sources are appended."""
+    job_id = runtime.state.get("job_id", "unknown")
+
+    count = len(threat_sources.threat_sources)
+
+    if count > 0:
+        state_service.update_job_state(
+            job_id,
+            JobState.FLOW.value,
+            detail=f"Adding {count} threat sources",
+        )
+
+    response_msg = f"Successfully added {count} threat sources."
+
+    delta = FlowsList(
+        data_flows=[], trust_boundaries=[], threat_sources=threat_sources.threat_sources
+    )
+
+    return Command(
+        update={
+            "flows_list": delta,
+            "tool_use": 1,
+            "messages": [ToolMessage(response_msg, tool_call_id=runtime.tool_call_id)],
+        }
+    )
+
+
+def create_dynamic_add_data_flows_tool(data_flows_list_model: type):
+    """Create an add_data_flows tool with Literal-constrained entity fields.
+
+    Args:
+        data_flows_list_model: Dynamic DataFlowsList with Literal-constrained fields.
+
+    Returns:
+        A langchain tool instance with the constrained schema.
+    """
+
+    @tool(
+        name_or_callable="add_data_flows",
+        description="Add data flows to the FlowsList. Each data flow must reference valid asset/entity names as source_entity and target_entity.",
+    )
+    def dynamic_add_data_flows(
+        data_flows: data_flows_list_model, runtime: ToolRuntime
+    ) -> Command:
+        """Add data flows with entity validation against known assets."""
+        job_id = runtime.state.get("job_id", "unknown")
+        assets = runtime.state.get("assets")
+
+        valid_asset_names = set()
+        if assets and assets.assets:
+            valid_asset_names = {asset.name for asset in assets.assets}
+
+        valid_flows = []
+        invalid_flows = []
+
+        for flow in data_flows.data_flows:
+            violations = []
+            if flow.source_entity not in valid_asset_names:
+                violations.append(
+                    f"Invalid source_entity '{flow.source_entity}' - not in asset list"
+                )
+            if flow.target_entity not in valid_asset_names:
+                violations.append(
+                    f"Invalid target_entity '{flow.target_entity}' - not in asset list"
+                )
+            if violations:
+                invalid_flows.append(
+                    {"description": flow.flow_description, "violations": violations}
+                )
+            else:
+                valid_flows.append(flow)
+
+        valid_count = len(valid_flows)
+        invalid_count = len(invalid_flows)
+
+        if valid_count > 0:
+            state_service.update_job_state(
+                job_id, JobState.FLOW.value, detail=f"Adding {valid_count} data flows"
+            )
+
+        if invalid_count == 0:
+            response_msg = f"Successfully added {valid_count} data flows."
+        else:
+            invalid_details = [
+                f"  - {inv['description']}: {'; '.join(inv['violations'])}"
+                for inv in invalid_flows
+            ]
+            response_msg = (
+                f"Successfully added {valid_count} data flows.\n\n"
+                f"{invalid_count} data flows were NOT added due to validation failures:\n"
+                f"{chr(10).join(invalid_details)}\n\n"
+                f"Valid asset names: {sorted(valid_asset_names)}"
+            )
+
+        delta = FlowsList(
+            data_flows=valid_flows, trust_boundaries=[], threat_sources=[]
+        )
+
+        return Command(
+            update={
+                "flows_list": delta,
+                "tool_use": 1,
+                "messages": [
+                    ToolMessage(response_msg, tool_call_id=runtime.tool_call_id)
+                ],
+            }
+        )
+
+    return dynamic_add_data_flows
+
+
+def create_dynamic_add_trust_boundaries_tool(trust_boundaries_list_model: type):
+    """Create an add_trust_boundaries tool with Literal-constrained entity fields.
+
+    Args:
+        trust_boundaries_list_model: Dynamic TrustBoundariesList with Literal-constrained fields.
+
+    Returns:
+        A langchain tool instance with the constrained schema.
+    """
+
+    @tool(
+        name_or_callable="add_trust_boundaries",
+        description="Add trust boundaries to the FlowsList. Each trust boundary must reference valid asset/entity names as source_entity and target_entity.",
+    )
+    def dynamic_add_trust_boundaries(
+        trust_boundaries: trust_boundaries_list_model, runtime: ToolRuntime
+    ) -> Command:
+        """Add trust boundaries with entity validation against known assets."""
+        job_id = runtime.state.get("job_id", "unknown")
+        assets = runtime.state.get("assets")
+
+        valid_asset_names = set()
+        if assets and assets.assets:
+            valid_asset_names = {asset.name for asset in assets.assets}
+
+        valid_boundaries = []
+        invalid_boundaries = []
+
+        for boundary in trust_boundaries.trust_boundaries:
+            violations = []
+            if boundary.source_entity not in valid_asset_names:
+                violations.append(
+                    f"Invalid source_entity '{boundary.source_entity}' - not in asset list"
+                )
+            if boundary.target_entity not in valid_asset_names:
+                violations.append(
+                    f"Invalid target_entity '{boundary.target_entity}' - not in asset list"
+                )
+            if violations:
+                invalid_boundaries.append(
+                    {"purpose": boundary.purpose, "violations": violations}
+                )
+            else:
+                valid_boundaries.append(boundary)
+
+        valid_count = len(valid_boundaries)
+        invalid_count = len(invalid_boundaries)
+
+        if valid_count > 0:
+            state_service.update_job_state(
+                job_id,
+                JobState.FLOW.value,
+                detail=f"Adding {valid_count} trust boundaries",
+            )
+
+        if invalid_count == 0:
+            response_msg = f"Successfully added {valid_count} trust boundaries."
+        else:
+            invalid_details = [
+                f"  - {inv['purpose']}: {'; '.join(inv['violations'])}"
+                for inv in invalid_boundaries
+            ]
+            response_msg = (
+                f"Successfully added {valid_count} trust boundaries.\n\n"
+                f"{invalid_count} trust boundaries were NOT added due to validation failures:\n"
+                f"{chr(10).join(invalid_details)}\n\n"
+                f"Valid asset names: {sorted(valid_asset_names)}"
+            )
+
+        delta = FlowsList(
+            data_flows=[], trust_boundaries=valid_boundaries, threat_sources=[]
+        )
+
+        return Command(
+            update={
+                "flows_list": delta,
+                "tool_use": 1,
+                "messages": [
+                    ToolMessage(response_msg, tool_call_id=runtime.tool_call_id)
+                ],
+            }
+        )
+
+    return dynamic_add_trust_boundaries
+
+
+@tool(
+    name_or_callable="delete_data_flows",
+    description="Delete data flows from the FlowsList by matching flow_description.",
+)
+def delete_data_flows(
+    flow_descriptions: Annotated[
+        List[str], "List of flow descriptions to remove from the FlowsList"
+    ],
+    runtime: ToolRuntime,
+) -> Command:
+    """Remove data flows matching by flow_description."""
+    job_id = runtime.state.get("job_id", "unknown")
+    current_flows = runtime.state.get("flows_list")
+
+    descriptions_to_remove = set(flow_descriptions)
+    remaining_flows = []
+    removed_count = 0
+    found_descriptions = set()
+
+    for flow in current_flows.data_flows:
+        if flow.flow_description in descriptions_to_remove:
+            removed_count += 1
+            found_descriptions.add(flow.flow_description)
+        else:
+            remaining_flows.append(flow)
+
+    not_found = sorted(descriptions_to_remove - found_descriptions)
+
+    state_service.update_job_state(
+        job_id,
+        JobState.FLOW.value,
+        detail=f"Removed {removed_count} data flows",
+    )
+
+    # Build response
+    response_msg = f"Successfully removed {removed_count} data flows."
+    if not_found:
+        response_msg += f"\n\nNot found: {not_found}"
+
+    # Use Overwrite to replace the entire flows_list
+    updated_flows = FlowsList(
+        data_flows=remaining_flows,
+        trust_boundaries=current_flows.trust_boundaries,
+        threat_sources=current_flows.threat_sources,
+    )
+
+    return Command(
+        update={
+            "flows_list": Overwrite(updated_flows),
+            "messages": [ToolMessage(response_msg, tool_call_id=runtime.tool_call_id)],
+        }
+    )
+
+
+@tool(
+    name_or_callable="delete_trust_boundaries",
+    description="Delete trust boundaries from the FlowsList by matching purpose.",
+)
+def delete_trust_boundaries(
+    boundary_purposes: Annotated[
+        List[str], "List of trust boundary purposes to remove from the FlowsList"
+    ],
+    runtime: ToolRuntime,
+) -> Command:
+    """Remove trust boundaries matching by purpose."""
+    job_id = runtime.state.get("job_id", "unknown")
+    current_flows = runtime.state.get("flows_list")
+
+    purposes_to_remove = set(boundary_purposes)
+    remaining_boundaries = []
+    removed_count = 0
+    found_purposes = set()
+
+    for boundary in current_flows.trust_boundaries:
+        if boundary.purpose in purposes_to_remove:
+            removed_count += 1
+            found_purposes.add(boundary.purpose)
+        else:
+            remaining_boundaries.append(boundary)
+
+    not_found = sorted(purposes_to_remove - found_purposes)
+
+    state_service.update_job_state(
+        job_id,
+        JobState.FLOW.value,
+        detail=f"Removed {removed_count} trust boundaries",
+    )
+
+    # Build response
+    response_msg = f"Successfully removed {removed_count} trust boundaries."
+    if not_found:
+        response_msg += f"\n\nNot found: {not_found}"
+
+    # Use Overwrite to replace the entire flows_list
+    updated_flows = FlowsList(
+        data_flows=current_flows.data_flows,
+        trust_boundaries=remaining_boundaries,
+        threat_sources=current_flows.threat_sources,
+    )
+
+    return Command(
+        update={
+            "flows_list": Overwrite(updated_flows),
+            "messages": [ToolMessage(response_msg, tool_call_id=runtime.tool_call_id)],
+        }
+    )
+
+
+@tool(
+    name_or_callable="delete_threat_sources",
+    description="Delete threat sources from the FlowsList by matching category.",
+)
+def delete_threat_sources(
+    source_categories: Annotated[
+        List[str], "List of threat source categories to remove from the FlowsList"
+    ],
+    runtime: ToolRuntime,
+) -> Command:
+    """Remove threat sources matching by category."""
+    job_id = runtime.state.get("job_id", "unknown")
+    current_flows = runtime.state.get("flows_list")
+
+    categories_to_remove = set(source_categories)
+    remaining_sources = []
+    removed_count = 0
+    found_categories = set()
+
+    for source in current_flows.threat_sources:
+        if source.category in categories_to_remove:
+            removed_count += 1
+            found_categories.add(source.category)
+        else:
+            remaining_sources.append(source)
+
+    not_found = sorted(categories_to_remove - found_categories)
+
+    state_service.update_job_state(
+        job_id,
+        JobState.FLOW.value,
+        detail=f"Removed {removed_count} threat sources",
+    )
+
+    # Build response
+    response_msg = f"Successfully removed {removed_count} threat sources."
+    if not_found:
+        response_msg += f"\n\nNot found: {not_found}"
+
+    # Use Overwrite to replace the entire flows_list
+    updated_flows = FlowsList(
+        data_flows=current_flows.data_flows,
+        trust_boundaries=current_flows.trust_boundaries,
+        threat_sources=remaining_sources,
+    )
+
+    return Command(
+        update={
+            "flows_list": Overwrite(updated_flows),
+            "messages": [ToolMessage(response_msg, tool_call_id=runtime.tool_call_id)],
+        }
+    )
+
+
+@tool(
+    name_or_callable="flows_stats",
+    description="Get the current status and full contents of the FlowsList including counts and details of data flows, trust boundaries, and threat sources.",
+)
+def flows_stats(runtime: ToolRuntime) -> str:
+    """Return counts and full contents of all FlowsList categories."""
+    job_id = runtime.state.get("job_id", "unknown")
+    current_flows = runtime.state.get("flows_list")
+
+    state_service.update_job_state(job_id, JobState.FLOW.value, detail="Checking stats")
+
+    is_empty = not current_flows or not any(
+        [
+            current_flows.data_flows,
+            current_flows.trust_boundaries,
+            current_flows.threat_sources,
+        ]
+    )
+    if is_empty:
+        return (
+            "FlowsList is empty.\nData Flows: 0\nTrust Boundaries: 0\nThreat Sources: 0"
+        )
+
+    output = []
+    output.append(f"Data Flows: {len(current_flows.data_flows)}")
+    output.append(f"Trust Boundaries: {len(current_flows.trust_boundaries)}")
+    output.append(f"Threat Sources: {len(current_flows.threat_sources)}")
+    output.append("")
+
+    # Data flows details
+    if current_flows.data_flows:
+        output.append("--- Data Flows ---")
+        for i, flow in enumerate(current_flows.data_flows, 1):
+            output.append(
+                f"  {i}. {flow.flow_description} "
+                f"({flow.source_entity} -> {flow.target_entity})"
+            )
+        output.append("")
+
+    # Trust boundaries details
+    if current_flows.trust_boundaries:
+        output.append("--- Trust Boundaries ---")
+        for i, boundary in enumerate(current_flows.trust_boundaries, 1):
+            output.append(
+                f"  {i}. {boundary.purpose} "
+                f"({boundary.source_entity} -> {boundary.target_entity})"
+            )
+        output.append("")
+
+    # Threat sources details
+    if current_flows.threat_sources:
+        output.append("--- Threat Sources ---")
+        for i, source in enumerate(current_flows.threat_sources, 1):
+            output.append(
+                f"  {i}. {source.category}: {source.description} "
+                f"(Examples: {source.example})"
+            )
+        output.append("")
+
+    return "\n".join(output)

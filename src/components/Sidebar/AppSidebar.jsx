@@ -58,5 +58,3 @@ export function AppSidebar({ user, colorMode, effectiveTheme, setThemeMode, onLo
     </Sidebar>
   );
 }
-
-export default AppSidebar;

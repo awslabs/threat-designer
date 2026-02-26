@@ -38,7 +38,7 @@ const isValidNumber = (value) => {
  * @param {Object} config - Chart configuration object
  * @returns {{ valid: boolean, errors: string[] }} Validation result
  */
-export const validateChartConfig = (config) => {
+const validateChartConfig = (config) => {
   const errors = [];
 
   if (!config || typeof config !== "object") {

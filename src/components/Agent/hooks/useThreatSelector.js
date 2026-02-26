@@ -170,5 +170,3 @@ export function useThreatSelector({ sessionId, textareaRef, onHeightChange }) {
     closeThreatSelector,
   };
 }
-
-export default useThreatSelector;

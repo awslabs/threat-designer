@@ -49,7 +49,7 @@
  * //   { id: 'segment-1', content: '- Item 1\n- Item 2', type: 'list' }
  * // ]
  */
-export function parseThinkingContent(content) {
+function parseThinkingContent(content) {
   // Handle null, undefined, or non-string inputs (Requirement 2.4)
   if (content == null || typeof content !== "string") {
     return [];
@@ -141,6 +141,7 @@ export function buildTimelineSteps(contentBlocks) {
         type: "tool",
         toolName: block.toolName,
         toolContent: block.content,
+        toolInput: block.input,
         isToolComplete: block.isComplete,
         toolError: block.error,
       });
@@ -149,8 +150,3 @@ export function buildTimelineSteps(contentBlocks) {
 
   return steps;
 }
-
-export default {
-  parseThinkingContent,
-  buildTimelineSteps,
-};

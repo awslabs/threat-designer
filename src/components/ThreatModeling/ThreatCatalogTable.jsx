@@ -233,6 +233,7 @@ export const ThreatCatalogTable = ({ results, onItemsChange, pagination, onLoadM
       )}
       <Table
         columnDefinitions={columnDefinitions}
+        stickyHeader={true}
         items={paginatedItems}
         loadingText="Loading threat models"
         selectionType="multi"

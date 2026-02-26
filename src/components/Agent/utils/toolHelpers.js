@@ -21,7 +21,7 @@ export const formatToolName = (toolName) => {
     .join(" ");
 };
 
-export const getThreatActionText = (toolName, count, isComplete) => {
+const getThreatActionText = (toolName, count, isComplete) => {
   if (!isComplete) {
     if (toolName === "add_threats") return "Adding threats";
     if (toolName === "edit_threats") return "Editing threats";

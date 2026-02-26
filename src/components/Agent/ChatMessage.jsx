@@ -187,6 +187,7 @@ const ChatMessage = React.memo(
             flex: 1,
             minWidth: 0,
             overflow: "hidden",
+            paddingBottom: "30px",
           }}
         >
           <div

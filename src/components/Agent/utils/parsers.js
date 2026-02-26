@@ -1,4 +1,4 @@
-export const getFaviconUrl = (url) => {
+const getFaviconUrl = (url) => {
   if (!url) return null;
   try {
     const domain = new URL(url).hostname;

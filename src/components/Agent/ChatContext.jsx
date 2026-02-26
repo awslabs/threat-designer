@@ -119,17 +119,3 @@ export const ChatSessionProvider = ({ children }) => {
     </ChatSessionFunctionsContext.Provider>
   );
 };
-
-// Export a hook specifically for accessing tools
-export const useAvailableTools = () => {
-  const context = useContext(ChatSessionFunctionsContext);
-  if (!context) {
-    throw new Error("useAvailableTools must be used within a ChatSessionProvider");
-  }
-
-  return {
-    tools: context.availableTools,
-    loading: context.toolsLoading,
-    error: context.toolsError,
-  };
-};

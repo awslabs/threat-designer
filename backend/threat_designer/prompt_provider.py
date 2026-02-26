@@ -16,7 +16,7 @@ if _provider == MODEL_PROVIDER_OPENAI:
     from prompts_gpt import (  # noqa: F401
         asset_prompt,
         create_agent_system_prompt,
-        flow_prompt,
+        create_flows_agent_system_prompt,
         gap_prompt,
         structure_prompt,
         summary_prompt,
@@ -27,7 +27,7 @@ else:
     from prompts import (  # noqa: F401
         asset_prompt,
         create_agent_system_prompt,
-        flow_prompt,
+        create_flows_agent_system_prompt,
         gap_prompt,
         structure_prompt,
         summary_prompt,

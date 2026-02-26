@@ -39,6 +39,7 @@ build.zip
 /.vscode
 /.kiro
 __pycache__
+package-lock.json
 #
  AWS Security Agent domain verification
 public/.well-known/aws/securityagent-domain-verification.json

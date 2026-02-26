@@ -19,8 +19,6 @@ from model_service import ModelService
 from monitoring import logger, operation_context, with_error_context
 from prompt_provider import (
     asset_prompt,
-    flow_prompt,
-    gap_prompt,
     summary_prompt,
     threats_improve_prompt,
     threats_prompt,
@@ -28,8 +26,6 @@ from prompt_provider import (
 from state import (
     AgentState,
     AssetsList,
-    ContinueThreatModeling,
-    FlowsList,
     SummaryState,
     ThreatsList,
 )
@@ -124,69 +120,6 @@ class AssetDefinitionService:
         )
         if response["reasoning"]:
             self.state_service.update_trail(job_id=job_id, assets=response["reasoning"])
-        return response["structured_response"]
-
-
-class FlowDefinitionService:
-    """Service for defining data flows between assets."""
-
-    def __init__(self, model_service: ModelService, state_service: StateService):
-        self.model_service = model_service
-        self.state_service = state_service
-
-    def define_flows(self, state: AgentState, config: RunnableConfig) -> Dict[str, Any]:
-        """Define data flows in the architecture."""
-        job_id = state.get("job_id", "unknown")
-
-        with operation_context("define_flows", job_id):
-            self.state_service.update_job_state(job_id, JobState.FLOW.value)
-
-            message = self._prepare_flow_message(state)
-            flows = self._invoke_flow_model(message, config, job_id)
-
-            threat_source_cats = (
-                [s.category for s in flows.threat_sources]
-                if flows and flows.threat_sources
-                else []
-            )
-            logger.debug(
-                "Data flows step completed",
-                job_id=job_id,
-                threat_source_count=len(threat_source_cats),
-                threat_sources=threat_source_cats,
-            )
-
-            return {"system_architecture": flows}
-
-    def _prepare_flow_message(self, state: AgentState) -> list:
-        """Prepare message for flow definition."""
-
-        msg_builder = MessageBuilder(
-            state["image_data"],
-            state.get("description", ""),
-            list_to_string(state.get("assumptions", [])),
-            state.get("image_type"),
-        )
-        human_message = msg_builder.create_system_flows_message(assets=state["assets"])
-        system_prompt = SystemMessage(
-            content=flow_prompt(
-                application_type=state.get("application_type", "hybrid")
-            )
-        )
-
-        return [system_prompt, human_message]
-
-    @with_error_context("flow node execution")
-    def _invoke_flow_model(
-        self, messages: list, config: RunnableConfig, job_id: str
-    ) -> Any:
-        """Invoke model for flow definition."""
-        reasoning = config["configurable"].get("reasoning", False)
-        response = self.model_service.invoke_structured_model(
-            messages, [FlowsList], config, reasoning, "model_flows"
-        )
-        if response["reasoning"]:
-            self.state_service.update_trail(job_id=job_id, flows=response["reasoning"])
         return response["structured_response"]
 
 
@@ -322,97 +255,7 @@ class ThreatDefinitionService:
 
         update_dict = {"threat_list": response, "retry": next_retry}
 
-        if iteration == 0:
-            return Command(
-                goto="gap_analysis",
-                update=update_dict,
-            )
-
-        return Command(goto="threats", update=update_dict)
-
-
-class GapAnalysisService:
-    """Service for analyzing gaps in threat model."""
-
-    def __init__(self, model_service: ModelService, state_service: StateService):
-        self.model_service = model_service
-        self.state_service = state_service
-
-    def analyze_gaps(self, state: AgentState, config: RunnableConfig) -> Command:
-        """Analyze gaps in the threat model."""
-        job_id = state.get("job_id", "unknown")
-
-        with operation_context("gap_analysis", job_id):
-            messages = self._prepare_gap_messages(state)
-            response = self._invoke_gap_model(messages, config)
-
-            self._update_gap_reasoning_trail(
-                response["reasoning"], config, job_id, state
-            )
-
-            if response["structured_response"].stop:
-                return Command(goto="finalize")
-
-            return Command(goto="threats")
-
-    def _prepare_gap_messages(self, state: AgentState) -> list:
-        """Prepare messages for gap analysis."""
-
-        msg_builder = MessageBuilder(
-            state["image_data"],
-            state.get("description", ""),
-            list_to_string(state.get("assumptions", [])),
-            state.get("image_type"),
-        )
-
-        human_message = msg_builder.create_gap_analysis_message(
-            state["assets"],
-            state["system_architecture"],
-            state.get("threat_list", ""),
-            [],
-        )
-
-        logger.debug("Gap analysis message prepared", job_id=state.get("job_id"))
-
-        app_type = state.get("application_type", "hybrid")
-
-        if state.get("replay") and state.get("instructions"):
-            system_prompt = SystemMessage(
-                content=gap_prompt(state.get("instructions"), application_type=app_type)
-            )
-        else:
-            system_prompt = SystemMessage(content=gap_prompt(application_type=app_type))
-
-        return [system_prompt, human_message]
-
-    @with_error_context("gap node execution")
-    def _invoke_gap_model(self, messages: list, config: RunnableConfig) -> Any:
-        """Invoke model for gap analysis."""
-        reasoning = config["configurable"].get("reasoning", False)
-        return self.model_service.invoke_structured_model(
-            messages, [ContinueThreatModeling], config, reasoning, "model_gaps"
-        )
-
-    def _update_gap_reasoning_trail(
-        self,
-        reasoning_text: Any,
-        config: RunnableConfig,
-        job_id: str,
-        state: AgentState,
-    ) -> None:
-        """Update gap reasoning trail if enabled."""
-        reasoning = config["configurable"].get("reasoning", False)
-
-        if reasoning:
-            flush = (
-                FLUSH_MODE_REPLACE
-                if int(state.get("retry", 1)) == 1
-                else FLUSH_MODE_APPEND
-            )
-            if reasoning_text:
-                self.state_service.update_trail(
-                    job_id=job_id, gaps=reasoning_text, flush=flush
-                )
+        return Command(goto="threats_traditional", update=update_dict)
 
 
 class WorkflowFinalizationService:
@@ -461,9 +304,21 @@ class ReplayService:
         self.state_service = state_service
 
     def route_replay(self, state: AgentState) -> str:
-        """Route workflow based on replay flag."""
+        """Route workflow based on replay flag.
+
+        Returns:
+            - WORKFLOW_NODE_ASSET for full (non-replay) runs
+            - WORKFLOW_NODE_THREATS_AGENTIC for replay with iteration == 0
+            - WORKFLOW_NODE_THREATS_TRADITIONAL for replay with iteration > 0
+        """
+        from constants import (
+            WORKFLOW_NODE_ASSET,
+            WORKFLOW_NODE_THREATS_AGENTIC,
+            WORKFLOW_NODE_THREATS_TRADITIONAL,
+        )
+
         if not state.get("replay", False):
-            return "full"
+            return WORKFLOW_NODE_ASSET
 
         job_id = state.get("job_id", "unknown")
 
@@ -473,8 +328,11 @@ class ReplayService:
                 self.state_service.update_trail(
                     job_id=job_id, threats=[], gaps=[], flush=FLUSH_MODE_REPLACE
                 )
-                # Note: Backup is now created in backend/app before agent starts
-                return "replay"
+                # Route based on iteration parameter
+                iteration = state.get("iteration", 0)
+                if iteration == 0:
+                    return WORKFLOW_NODE_THREATS_AGENTIC
+                return WORKFLOW_NODE_THREATS_TRADITIONAL
             except Exception as e:
                 error_str = str(e)
                 logger.error("Replay routing failed", error=error_str)

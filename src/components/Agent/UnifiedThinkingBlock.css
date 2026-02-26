@@ -114,6 +114,9 @@
 
 .unified-content-container {
   overflow: hidden;
+}
+
+.unified-content-container.animating {
   transition:
     max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -177,14 +180,14 @@
 .timeline-marker {
   position: absolute;
   left: 0;
-  top: 0;
+  top: -4px;
   width: var(--marker-size);
-  height: var(--marker-size);
+  height: calc(var(--marker-size) + 8px);
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: var(--unified-page-bg);
-  border-radius: 50%;
+  border-radius: 4px;
   z-index: 1;
 }
 
@@ -263,6 +266,29 @@
 .tool-result-content {
   display: flex;
   flex-direction: column;
+}
+
+.tool-result-expandable {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition:
+    grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+}
+
+.tool-result-expandable > * {
+  overflow: hidden;
+}
+
+.tool-result-expandable.expanded {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tool-result-expandable.collapsed {
+  pointer-events: none;
 }
 
 .tool-result-header {
@@ -418,7 +444,6 @@
 .tool-result-raw {
   margin-top: 8px;
   max-width: 600px;
-  max-height: 200px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -436,11 +461,40 @@
   flex-shrink: 0;
 }
 
+.tool-result-raw-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--unified-raw-border);
+  flex-shrink: 0;
+}
+
+.tool-result-raw-tab {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--unified-text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.tool-result-raw-tab:hover {
+  color: var(--unified-text-primary);
+}
+
+.tool-result-raw-tab.active {
+  color: var(--unified-text-primary);
+  border-bottom-color: var(--unified-tool-text);
+}
+
 .tool-result-raw-scroll {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  max-height: 250px;
+  max-height: 300px;
 }
 
 .tool-result-raw-content {

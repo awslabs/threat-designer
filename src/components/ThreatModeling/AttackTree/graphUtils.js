@@ -1,33 +1,4 @@
 /**
- * Graph utility functions for attack tree navigation and filtering
- */
-
-/**
- * Find all ancestor nodes (upstream) from a given node
- * @param {string} nodeId - The starting node ID
- * @param {Array} edges - Array of all edges
- * @returns {Set} Set of ancestor node IDs
- */
-export const findAncestors = (nodeId, edges) => {
-  const ancestors = new Set();
-  const queue = [nodeId];
-
-  while (queue.length > 0) {
-    const currentId = queue.shift();
-
-    // Find all edges that point TO the current node (parents)
-    edges.forEach((edge) => {
-      if (edge.target === currentId && !ancestors.has(edge.source)) {
-        ancestors.add(edge.source);
-        queue.push(edge.source);
-      }
-    });
-  }
-
-  return ancestors;
-};
-
-/**
  * Find all descendant nodes (downstream) from a given node
  * @param {string} nodeId - The starting node ID
  * @param {Array} edges - Array of all edges

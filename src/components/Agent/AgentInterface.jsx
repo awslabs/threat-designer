@@ -49,9 +49,6 @@ function ChatInterface({ user, inTools }) {
     throw new Error("ChatInterface must be used within a ChatSessionProvider");
   }
 
-  // Check if using OpenAI provider
-  const isOpenAI = import.meta.env.VITE_MODEL_PROVIDER === "openai";
-
   // State for managing tool items properly - now handled by useAgentState
 
   // Generate stable sessionId - only once on mount
@@ -110,24 +107,14 @@ function ChatInterface({ user, inTools }) {
   // Save budget to localStorage when it changes
   const handleBudgetChange = useCallback(
     (newBudget) => {
-      // For OpenAI, prevent setting budget to "0"
-      if (isOpenAI && newBudget === "0") {
-        return;
-      }
-
       setBudget(newBudget);
     },
-    [isOpenAI, setBudget]
+    [setBudget]
   );
 
   // Handle thinking toggle
   const handleThinkingToggle = useCallback(
     (isToggled) => {
-      // For OpenAI, reasoning cannot be disabled
-      // if (isOpenAI && !isToggled) {
-      //   return;
-      // }
-
       setThinkingEnabled(isToggled);
 
       if (isToggled && budget === "0") {

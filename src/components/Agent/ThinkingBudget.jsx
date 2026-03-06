@@ -3,8 +3,6 @@ import List from "@cloudscape-design/components/list";
 import Toggle from "@cloudscape-design/components/toggle";
 
 const ThinkingBudget = React.memo(({ budget, setBudget }) => {
-  const isOpenAI = import.meta.env.VITE_MODEL_PROVIDER === "openai";
-
   const items = [
     {
       id: "1",
@@ -18,7 +16,10 @@ const ThinkingBudget = React.memo(({ budget, setBudget }) => {
       id: "3",
       content: "High",
     },
-    ...(!isOpenAI ? [{ id: "4", content: "Max" }] : []),
+    {
+      id: "4",
+      content: "Max",
+    },
   ];
 
   const handleToggleChange = (itemId, isChecked) => {

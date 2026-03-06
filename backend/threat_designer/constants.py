@@ -220,6 +220,7 @@ OPENAI_REASONING_EFFORT_MAP_MINI: Dict[int, str] = {
     1: "low",
     2: "medium",
     3: "high",
+    4: "xhigh",
 }
 
 # OpenAI reasoning effort mapping for standard models
@@ -228,6 +229,7 @@ OPENAI_REASONING_EFFORT_MAP_STANDARD: Dict[int, str] = {
     1: "minimal",
     2: "low",
     3: "low",
+    4: "xhigh",
 }
 
 # Known GPT-5 family models that support reasoning

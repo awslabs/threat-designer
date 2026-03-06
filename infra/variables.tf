@@ -188,25 +188,6 @@ variable "model_sentry" {
     }
 }
 
-variable "openai_model_sentry" {
-  type = object({
-    id               = string
-    max_tokens       = number
-    reasoning_effort = map(string)
-  })
-  description = "OpenAI model configuration for Sentry assistant"
-  default = {
-    id         = "gpt-5.2-2025-12-11"
-    max_tokens = 128000
-    reasoning_effort = {
-      "0" = "none"
-      "1" = "low"
-      "2" = "medium"
-      "3" = "high"
-    }
-  }
-}
-
 variable "model_struct" {
   type = object({
     id         = string
@@ -309,64 +290,90 @@ variable "openai_model_main" {
   description = "OpenAI model configurations for main workflow stages"
   default = {
     assets = {
-      id         = "gpt-5.2-2025-12-11"
-      max_tokens = 64000
+      id         = "gpt-5.4-2026-03-05"
+      max_tokens = 128000
       reasoning_effort = {
         "0" = "none"
         "1" = "low"
         "2" = "medium"
         "3" = "high"
+        "4" = "xhigh"
       }
     }
     flows = {
-      id         = "gpt-5.2-2025-12-11"
-      max_tokens = 64000
+      id         = "gpt-5.4-2026-03-05"
+      max_tokens = 128000
       reasoning_effort = {
         "0" = "none"
         "1" = "low"
         "2" = "medium"
         "3" = "high"
+        "4" = "xhigh"
       }
     }
     threats = {
-      id         = "gpt-5-mini-2025-08-07"
+      id         = "gpt-5.4-2026-03-05"
       max_tokens = 128000
       reasoning_effort = {
-        "0" = "minimal"
+        "0" = "none"
         "1" = "low"
         "2" = "medium"
         "3" = "high"
+        "4" = "xhigh"
       }
     }
     threats_agent = {
-      id         = "gpt-5.2-2025-12-11"
+      id         = "gpt-5.4-2026-03-05"
       max_tokens = 128000
       reasoning_effort = {
         "0" = "none"
         "1" = "low"
         "2" = "medium"
         "3" = "high"
+        "4" = "xhigh"
       }
     }
     gaps = {
-      id         = "gpt-5.2-2025-12-11"
-      max_tokens = 64000
-      reasoning_effort = {
-        "0" = "none"
-        "1" = "low"
-        "2" = "medium"
-        "3" = "high"
-      }
-    }
-    attack_tree = {
-      id         = "gpt-5.2-2025-12-11"
+      id         = "gpt-5.4-2026-03-05"
       max_tokens = 128000
       reasoning_effort = {
         "0" = "none"
         "1" = "low"
         "2" = "medium"
         "3" = "high"
+        "4" = "xhigh"
       }
+    }
+    attack_tree = {
+      id         = "gpt-5.4-2026-03-05"
+      max_tokens = 128000
+      reasoning_effort = {
+        "0" = "none"
+        "1" = "low"
+        "2" = "medium"
+        "3" = "high"
+        "4" = "xhigh"
+      }
+    }
+  }
+}
+
+variable "openai_model_sentry" {
+  type = object({
+    id               = string
+    max_tokens       = number
+    reasoning_effort = map(string)
+  })
+  description = "OpenAI model configuration for Sentry assistant"
+  default = {
+    id         = "gpt-5.4-2026-03-05"
+    max_tokens = 128000
+    reasoning_effort = {
+      "0" = "none"
+      "1" = "low"
+      "2" = "medium"
+      "3" = "high"
+      "4" = "xhigh"
     }
   }
 }
@@ -378,7 +385,7 @@ variable "openai_model_struct" {
   })
   description = "OpenAI model configuration for structured output"
   default = {
-    id         = "gpt-5-mini-2025-08-07"
+    id         = "gpt-5.4-2026-03-05"
     max_tokens = 64000
   }
 }
@@ -390,7 +397,7 @@ variable "openai_model_summary" {
   })
   description = "OpenAI model configuration for summary generation"
   default = {
-    id         = "gpt-5-mini-2025-08-07"
+    id         = "gpt-5.4-2026-03-05"
     max_tokens = 4000
   }
 }
@@ -398,7 +405,7 @@ variable "openai_model_summary" {
 variable "openai_reasoning_models" {
   type        = list(string)
   description = "List of OpenAI GPT-5 models that support reasoning"
-  default     = ["gpt-5.2-2025-12-11", "gpt-5.1-2025-11-13", "gpt-5-2025-08-07", "gpt-5-mini-2025-08-07"]
+  default     = ["gpt-5.4-2026-03-05", "gpt-5.2-2025-12-11", "gpt-5.1-2025-11-13", "gpt-5-2025-08-07", "gpt-5-mini-2025-08-07"]
 }
 
 

@@ -26,8 +26,7 @@ export const ReplayModalComponent = ({
   const [text, setText] = useState(null);
   const [applicationType, setApplicationType] = useState(null);
   const isReasoningEnabled = import.meta.env.VITE_REASONING_ENABLED === "true";
-  const isOpenAI = import.meta.env.VITE_MODEL_PROVIDER === "openai";
-  const maxReasoning = isOpenAI ? 3 : 4;
+  const maxReasoning = 4;
 
   const applicationTypeOptions = [
     { label: "Internal", value: "internal" },
@@ -45,9 +44,9 @@ export const ReplayModalComponent = ({
     { value: "1", label: "Low" },
     { value: "2", label: "Medium" },
     { value: "3", label: "High" },
-    ...(!isOpenAI ? [{ value: "4", label: "Max" }] : []),
+    { value: "4", label: "Max" },
   ];
-  const reasoningReferenceValues = isOpenAI ? [1, 2] : [1, 2, 3];
+  const reasoningReferenceValues = [1, 2, 3];
 
   return (
     <Modal
@@ -122,7 +121,7 @@ export const ReplayModalComponent = ({
               valueFormatter={(value) =>
                 reasoningLabels.find((item) => item.value === value.toString())?.label || ""
               }
-              ariaDescription={isOpenAI ? "From None to High" : "From None to Max"}
+              ariaDescription={"From None to Max"}
               max={maxReasoning}
               min={0}
               referenceValues={reasoningReferenceValues}

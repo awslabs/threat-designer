@@ -33,7 +33,8 @@ def _parse_reasoning_config() -> dict:
     """Parse reasoning budget (Bedrock) or effort (OpenAI) from environment"""
     if MODEL_PROVIDER == "openai":
         raw = os.environ.get(
-            "REASONING_EFFORT", '{"0": "none", "1": "low", "2": "medium", "3": "high"}'
+            "REASONING_EFFORT",
+            '{"0": "none", "1": "low", "2": "medium", "3": "high", "4": "xhigh"}',
         )
         return {int(k): v for k, v in json.loads(raw).items()}
     else:
@@ -51,7 +52,7 @@ ADAPTIVE_EFFORT_MAP = {1: "low", 2: "medium", 3: "high", 4: "max"}
 MODELS_SUPPORTING_MAX = json.loads(os.environ.get("MODELS_SUPPORTING_MAX", "[]"))
 
 # OpenAI reasoning effort mapping (fallback for backward compatibility)
-OPENAI_REASONING_EFFORT_MAP = {0: "none", 1: "low", 2: "medium", 3: "high"}
+OPENAI_REASONING_EFFORT_MAP = {0: "none", 1: "low", 2: "medium", 3: "high", 4: "xhigh"}
 
 
 def create_bedrock_client(

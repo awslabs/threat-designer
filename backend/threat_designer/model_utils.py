@@ -514,26 +514,40 @@ def _create_openai_model(
         # Use provided reasoning_effort_map or get from model_config
         effort_map = reasoning_effort_map or model_config.get("reasoning_effort", {})
 
-        # Convert reasoning level to string for map lookup
-        # If reasoning=0, use "minimal" as default since GPT-5 always has reasoning on
-        if reasoning == 0:
-            if "gpt-5.1" in model_id or "gpt-5.2" in model_id:
-                reasoning_effort = "none"
-            else:
-                reasoning_effort = "minimal"
-        else:
-            reasoning_effort = effort_map.get(str(reasoning), "minimal")
+        # Look up the effort value from the config map
+        reasoning_effort = effort_map.get(str(reasoning))
 
-        config["reasoning"] = {
-            "effort": reasoning_effort,
-            "summary": "detailed",
-        }
-        logger.debug(
-            "Reasoning configured for OpenAI model",
-            model_id=model_id,
-            reasoning_level=reasoning,
-            reasoning_effort=reasoning_effort,
-        )
+        # If no mapping exists for this level and reasoning is 0, skip reasoning config entirely
+        # (e.g. struct/summary models that have no reasoning_effort map)
+        if reasoning_effort is None:
+            if reasoning == 0:
+                logger.debug(
+                    "No reasoning effort mapping for level 0, skipping reasoning config",
+                    model_id=model_id,
+                )
+            else:
+                reasoning_effort = "low"
+                config["reasoning"] = {
+                    "effort": reasoning_effort,
+                    "summary": "detailed",
+                }
+                logger.debug(
+                    "Reasoning configured with fallback for OpenAI model",
+                    model_id=model_id,
+                    reasoning_level=reasoning,
+                    reasoning_effort=reasoning_effort,
+                )
+        else:
+            config["reasoning"] = {
+                "effort": reasoning_effort,
+                "summary": "detailed",
+            }
+            logger.debug(
+                "Reasoning configured for OpenAI model",
+                model_id=model_id,
+                reasoning_level=reasoning,
+                reasoning_effort=reasoning_effort,
+            )
     elif reasoning != 0:
         logger.warning(
             "Reasoning requested but model does not support it",

@@ -91,6 +91,8 @@
     @apply border-border;
   }
 
+
+
   /* Exclude avatar components and sidebar menu buttons from border-border */
   [data-radix-avatar-root],
   [data-radix-avatar-fallback],
@@ -148,6 +150,41 @@
       color 0.3s ease-in-out,
       border-color 0.3s ease-in-out;
   }
+}
+
+/* Fix Cloudscape Wizard navigation line alignment - Tailwind preflight sets
+   margin: 0 on all elements which removes the browser default auto-centering
+   of hr elements, and sets height: 0 + border-top-width: 1px which breaks
+   the vertical connecting lines Cloudscape renders via background-color */
+/* Fix Cloudscape Wizard navigation line alignment - Tailwind preflight sets
+   margin: 0 on all elements which removes the browser default auto-centering
+   of hr elements, and sets height: 0 + border-top-width: 1px which breaks
+   the vertical connecting lines Cloudscape renders via background-color.
+   Also fix z-index so circles render above the connecting line. */
+[class*="awsui_navigation"] hr {
+  height: auto !important;
+  border: none !important;
+  border-width: 0 !important;
+  justify-self: center !important;
+  z-index: 0 !important;
+  position: relative !important;
+}
+
+[class*="awsui_navigation"] [class*="awsui_circle"] {
+  z-index: 1 !important;
+  position: relative !important;
+  vertical-align: middle !important;
+  margin-top: 0 !important;
+}
+
+/* Restore Cloudscape wizard navigation defaults that Tailwind preflight breaks */
+[class*="awsui_navigation"] li {
+  margin: 0;
+}
+
+[class*="awsui_navigation"] a,
+[class*="awsui_navigation"] span {
+  vertical-align: middle !important;
 }
 
 /* Force 14px font size on sidebar elements - outside @layer for higher specificity */

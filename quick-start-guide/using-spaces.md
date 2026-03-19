@@ -71,7 +71,7 @@ If no documents in the Space were relevant to the submitted architecture, the ta
 
 ## Sharing a Space
 
-Spaces support the same sharing model as threat models. From the Space detail page you can invite collaborators with **Read** or **Edit** access, allowing teams to maintain a shared knowledge base across multiple threat modeling sessions.
+Spaces support the same sharing model as threat models. From the Space detail page you can invite collaborators with **Read** access, allowing teams to maintain a shared knowledge base across multiple threat models.
 
 ---
 

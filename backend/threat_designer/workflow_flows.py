@@ -133,6 +133,13 @@ def create_agent_human_message(state: FlowsState) -> HumanMessage:
             }
         )
 
+    # Inject space insights if present
+    space_insights = state.get("space_insights")
+    if space_insights:
+        insights_block = msg_builder.space_insights_block(space_insights)
+        if insights_block:
+            base_message.append(insights_block)
+
     # Add instruction to define flows
     base_message.append(
         {
@@ -407,9 +414,14 @@ def continue_or_finish(state: FlowsState) -> Command:
         threat_sources=threat_source_count,
     )
 
+    parent_update = {"system_architecture": flows_list}
+    space_insights = state.get("space_insights")
+    if space_insights is not None:
+        parent_update["space_insights"] = space_insights
+
     return Command(
         goto=threats_node,
-        update={"system_architecture": flows_list},
+        update=parent_update,
         graph=Command.PARENT,
     )
 

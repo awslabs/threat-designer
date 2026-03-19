@@ -358,6 +358,25 @@ Using any other values will result in validation errors. These are the ONLY acce
         base_message.extend(gap_msg)
         return HumanMessage(content=base_message)
 
+    def space_insights_block(self, space_insights) -> Dict[str, Any]:
+        """Return a content block with formatted space insights for injection into prompts.
+
+        Args:
+            space_insights: SpaceInsightsList containing extracted insights from the space KB.
+
+        Returns:
+            Dict content block with XML-tagged insights text.
+        """
+        if not space_insights or not space_insights.insights:
+            return None
+
+        lines = ["<space_knowledge_insights>"]
+        for i, insight in enumerate(space_insights.insights, 1):
+            lines.append(f'  <insight id="{i}">{insight}</insight>')
+        lines.append("</space_knowledge_insights>")
+
+        return {"type": "text", "text": "\n".join(lines)}
+
 
 def list_to_string(str_list: List[str]) -> str:
     """Convert a list of strings to a single string."""

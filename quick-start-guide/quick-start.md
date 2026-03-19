@@ -67,6 +67,19 @@ Interact with Sentry, Threat Designer's built-in AI assistant, for conversationa
 
 **Start here if**: You want to explore your threat model interactively, ask security questions, or get AI-assisted recommendations.
 
+### [How to Use Spaces](./using-spaces.md)
+
+Attach a personal knowledge base to your threat models to surface organization-specific context. This guide covers:
+
+- Creating a Space and uploading documents (runbooks, architecture docs, security policies)
+- Attaching a Space when submitting a threat model
+- Understanding how the agent queries your Space and injects insights
+- Interpreting the Context tab in the analysis trail
+
+**Start here if**: You want the agent to incorporate your own documentation—compliance requirements, existing controls, data classification policies—into the threat modeling analysis.
+
+---
+
 ### [How to Collaborate on Threat Models](./collaborate-on-threat-models.md)
 
 Share threat models with team members and work together while maintaining data integrity. This guide covers:
@@ -95,14 +108,15 @@ For the best experience with Threat Designer, we recommend this workflow:
 
 ## Quick Reference
 
-| Task                           | Guide                                               | Time Required                      |
-| ------------------------------ | --------------------------------------------------- | ---------------------------------- |
-| Create first threat model      | [Submit](./submit-threat-model.md)                  | 5 min setup + 15-30 min processing |
-| Review and edit results        | [Interact](./interact-with-threat-model-results.md) | 10-30 min                          |
-| Visualize attack paths         | [Attack Trees](./using-attack-trees.md)             | 30 sec per threat                  |
-| Share with team members        | [Collaborate](./collaborate-on-threat-models.md)    | 2-5 min                            |
-| Ask AI questions about threats | [Sentry](./using-sentry.md)                         | Ongoing                            |
-| Update with new parameters     | [Replay](./replay-threat-model.md)                  | 5 min setup + 5-20 min processing  |
+| Task                                  | Guide                                               | Time Required                      |
+| ------------------------------------- | --------------------------------------------------- | ---------------------------------- |
+| Create first threat model             | [Submit](./submit-threat-model.md)                  | 5 min setup + 15-30 min processing |
+| Review and edit results               | [Interact](./interact-with-threat-model-results.md) | 10-30 min                          |
+| Visualize attack paths                | [Attack Trees](./using-attack-trees.md)             | 30 sec per threat                  |
+| Attach org knowledge to threat models | [Spaces](./using-spaces.md)                         | 5-10 min setup                     |
+| Share with team members               | [Collaborate](./collaborate-on-threat-models.md)    | 2-5 min                            |
+| Ask AI questions about threats        | [Sentry](./using-sentry.md)                         | Ongoing                            |
+| Update with new parameters            | [Replay](./replay-threat-model.md)                  | 5 min setup + 5-20 min processing  |
 
 ---
 

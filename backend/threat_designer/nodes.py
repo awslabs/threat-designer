@@ -101,6 +101,13 @@ class AssetDefinitionService:
 
         human_message = msg_builder.create_asset_message()
 
+        # Inject space insights if present
+        space_insights = state.get("space_insights")
+        if space_insights:
+            insights_block = msg_builder.space_insights_block(space_insights)
+            if insights_block and isinstance(human_message.content, list):
+                human_message.content.insert(-1, insights_block)
+
         system_prompt = SystemMessage(
             content=asset_prompt(
                 application_type=state.get("application_type", "hybrid")
@@ -303,21 +310,26 @@ class ReplayService:
     def __init__(self, state_service: StateService):
         self.state_service = state_service
 
-    def route_replay(self, state: AgentState) -> str:
-        """Route workflow based on replay flag.
+    def route_after_summary(self, state: AgentState) -> str:
+        """Route workflow after summary node.
 
         Returns:
-            - WORKFLOW_NODE_ASSET for full (non-replay) runs
+            - WORKFLOW_NODE_SPACE_CONTEXT for new runs with a space attached
+            - WORKFLOW_NODE_ASSET for new runs without a space
             - WORKFLOW_NODE_THREATS_AGENTIC for replay with iteration == 0
             - WORKFLOW_NODE_THREATS_TRADITIONAL for replay with iteration > 0
         """
         from constants import (
             WORKFLOW_NODE_ASSET,
+            WORKFLOW_NODE_SPACE_CONTEXT,
             WORKFLOW_NODE_THREATS_AGENTIC,
             WORKFLOW_NODE_THREATS_TRADITIONAL,
         )
 
         if not state.get("replay", False):
+            # New run: check for attached space
+            if state.get("space_id"):
+                return WORKFLOW_NODE_SPACE_CONTEXT
             return WORKFLOW_NODE_ASSET
 
         job_id = state.get("job_id", "unknown")
@@ -337,3 +349,7 @@ class ReplayService:
                 error_str = str(e)
                 logger.error("Replay routing failed", error=error_str)
                 raise e
+
+    def route_replay(self, state: AgentState) -> str:
+        """Deprecated: use route_after_summary. Kept for backward compat."""
+        return self.route_after_summary(state)

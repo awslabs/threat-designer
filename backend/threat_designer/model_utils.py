@@ -436,6 +436,7 @@ def _initialize_bedrock_models(
             "attack_tree_agent_model": ChatBedrockConverse(**attack_tree_config),
             "struct_model": ChatBedrockConverse(**struct_config),
             "summary_model": ChatBedrockConverse(**summary_config),
+            "space_context_model": ChatBedrockConverse(**flows_config),
         }
 
         logger.debug(
@@ -627,6 +628,9 @@ def _initialize_openai_models(
             ),
             "summary_model": _create_openai_model(
                 configs.summary_model, 0, configs.reasoning_models
+            ),
+            "space_context_model": _create_openai_model(
+                configs.flows_model, reasoning, configs.reasoning_models
             ),
         }
 

@@ -6,6 +6,7 @@ import { Spinner } from "@cloudscape-design/components";
 const ThreatModeling = lazy(() => import("./pages/ThreatDesigner/ThreatModeling.jsx"));
 const ThreatModelResult = lazy(() => import("./pages/ThreatDesigner/ThreatModelResult.jsx"));
 const ThreatCatalog = lazy(() => import("./pages/ThreatDesigner/ThreatCatalog.jsx"));
+const SpacesCatalog = lazy(() => import("./pages/Spaces/SpacesCatalog.jsx"));
 const GuideViewer = lazy(() =>
   import("./components/Guides/GuideViewer.jsx").then((m) => ({ default: m.GuideViewer }))
 );
@@ -30,6 +31,8 @@ function Main({ user }) {
         <Route path="/" element={<ThreatModeling />} />
         <Route path="/:id" element={<ThreatModelResult user={user} />} />
         <Route path="/threat-catalog" element={<ThreatCatalog user={user} />} />
+        <Route path="/spaces" element={<SpacesCatalog user={user} />} />
+        <Route path="/spaces/:spaceId" element={<SpacesCatalog user={user} />} />
         <Route path="/guides/:slug" element={<GuideViewerWrapper />} />
       </Routes>
     </Suspense>

@@ -13,7 +13,7 @@ from aws_lambda_powertools.event_handler import (
 from aws_lambda_powertools.logging import correlation_paths
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from exceptions.exceptions import BadRequestError, InternalError, ViewError
-from routes import threat_designer_route, attack_tree_route
+from routes import threat_designer_route, attack_tree_route, space_route
 from utils.utils import custom_serializer, mask_sensitive_attributes
 
 PORTAL_REDIRECT_URL = os.getenv(key="PORTAL_REDIRECT_URL")
@@ -37,6 +37,7 @@ trusted_origins = os.environ["TRUSTED_ORIGINS"].split(",")
 app = APIGatewayRestResolver(serializer=custom_serializer, cors=cors_config)
 app.include_router(threat_designer_route.router)
 app.include_router(attack_tree_route.router)
+app.include_router(space_route.router)
 
 
 @app.route(method="OPTIONS", rule=".*")

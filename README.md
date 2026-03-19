@@ -23,6 +23,7 @@
 - **Iterative Refinement** - Replay threat modeling based on your edits and additional input
 - **Multiple Export Formats** - Export results in PDF, DOCX, or JSON format
 - **AI Assistant (Sentry)** - Interact with a built-in assistant to dive deep into threat models
+- **Spaces** - Attach a knowledge base of your own documents (runbooks, policies, diagrams) to enrich threat modeling with organization-specific context
 - **Threat Catalog** - Explore and manage past threat models
 
 <picture>
@@ -78,6 +79,8 @@
 - Amazon Cognito
 - AWS Lambda
 - Amazon Bedrock AgentCore Runtime
+- Amazon Bedrock Knowledge Bases
+- Amazon OpenSearch Serverless
 - Amazon DynamoDB
 - Amazon S3
 

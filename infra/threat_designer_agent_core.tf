@@ -11,7 +11,8 @@ resource "aws_bedrockagentcore_agent_runtime" "threat_designer" {
       LOG_LEVEL           = var.log_level,
       TRACEBACK_ENABLED   = var.traceback_enabled,
       ARCHITECTURE_BUCKET = aws_s3_bucket.architecture_bucket.id,
-      MODEL_PROVIDER      = var.model_provider
+      MODEL_PROVIDER      = var.model_provider,
+      KNOWLEDGE_BASE_ID   = aws_bedrockagent_knowledge_base.spaces_kb.id
     },
     var.model_provider == "bedrock" ? {
       MAIN_MODEL               = jsonencode(var.model_main),

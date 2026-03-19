@@ -49,7 +49,8 @@ async function startThreatModeling(
   id = null,
   instructions = null,
   imageType = null,
-  applicationType = "hybrid"
+  applicationType = "hybrid",
+  spaceId = null
 ) {
   const statsPath = "";
   const postData = {
@@ -65,6 +66,9 @@ async function startThreatModeling(
     image_type: imageType,
     application_type: applicationType,
   };
+  if (spaceId) {
+    postData.space_id = spaceId;
+  }
   return instance.post(statsPath, postData);
 }
 

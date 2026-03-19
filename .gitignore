@@ -37,6 +37,8 @@ build.zip
 .deployment.config
 /infra/build
 /.vscode
+/.claude
+CLAUDE.md
 /.kiro
 __pycache__
 package-lock.json

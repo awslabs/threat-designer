@@ -5,7 +5,7 @@ import assets from "./images/assets.svg";
 import flows from "./images/flows.svg";
 import thinking from "./images/thinking.svg";
 import complete from "./images/complete.svg";
-import { Assets, Flows, Threats, Thinking, Complete, Stepper } from "./CustomIcons";
+import { Assets, Flows, Threats, Thinking, Complete, Stepper, SpaceContext } from "./CustomIcons";
 
 export default function Processing({ status, iteration, id, detail }) {
   const [viewport, setViewport] = useState({
@@ -29,19 +29,24 @@ export default function Processing({ status, iteration, id, detail }) {
         text: "Processing your request...",
         currentStep: 0,
       },
-      ASSETS: { image: assets, text: "Generating assets...", currentStep: 1 },
-      THREAT: { image: threats, text: "Cataloging threats...", currentStep: 3 },
-      FLOW: { image: flows, text: "Identifying data flows...", currentStep: 2 },
+      SPACE_CONTEXT: {
+        component: <SpaceContext color="#656871" width="120px" height="120px" />,
+        text: "Querying knowledge base...",
+        currentStep: 1,
+      },
+      ASSETS: { image: assets, text: "Generating assets...", currentStep: 2 },
+      THREAT: { image: threats, text: "Cataloging threats...", currentStep: 4 },
+      FLOW: { image: flows, text: "Identifying data flows...", currentStep: 3 },
       EVALUATION: { image: thinking, text: "Evaluating threat catalog..." },
       THREAT_RETRY: {
         image: threats,
         text: "Improving threat catalog...",
-        currentStep: 3,
+        currentStep: 4,
       },
       FINALIZE: {
         image: complete,
         text: "All good! Finalising threat model...",
-        currentStep: 4,
+        currentStep: 5,
       },
     }),
     []
@@ -56,6 +61,12 @@ export default function Processing({ status, iteration, id, detail }) {
         subtitle: "Initiating threat modeling",
       },
       {
+        icon: <SpaceContext />,
+        title: "Context",
+        subtitle: currentStep === 1 && detail ? detail : "Querying context",
+        key: currentStep === 1 ? detail : "default",
+      },
+      {
         icon: <Assets />,
         title: "Assets",
         subtitle: "Identifying assets",
@@ -68,9 +79,9 @@ export default function Processing({ status, iteration, id, detail }) {
       {
         icon: <Threats />,
         title: `Threats ${iteration !== 0 ? `(${iteration})` : ""}`,
-        // Use detail if current step is Threats (step 3), otherwise default to "Cataloging threats"
-        subtitle: currentStep === 3 && detail ? detail : "Cataloging threats",
-        key: currentStep === 3 ? detail : "default", // Add key to trigger transition on detail change
+        // Use detail if current step is Threats (step 4), otherwise default to "Cataloging threats"
+        subtitle: currentStep === 4 && detail ? detail : "Cataloging threats",
+        key: currentStep === 4 ? detail : "default", // Add key to trigger transition on detail change
       },
       {
         icon: <Complete />,
@@ -106,7 +117,15 @@ export default function Processing({ status, iteration, id, detail }) {
         >
           <React.Fragment key={status}>
             <div className={`fade-transition ${imageVisible ? "visible" : ""}`}>
-              <img src={currentOption.image} alt={currentOption.text} className="welcome-tm-icon" />
+              {currentOption.component ? (
+                currentOption.component
+              ) : (
+                <img
+                  src={currentOption.image}
+                  alt={currentOption.text}
+                  className="welcome-tm-icon"
+                />
+              )}
             </div>
           </React.Fragment>
         </div>

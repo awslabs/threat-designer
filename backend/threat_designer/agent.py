@@ -192,6 +192,7 @@ def _create_agent_config(event: Dict[str, Any]) -> ConfigSchema:
         "model_gaps": models["gaps_model"],
         "model_struct": models["struct_model"],
         "model_summary": models["summary_model"],
+        "model_space_context": models["space_context_model"],
         "start_time": datetime.now(),
         "max_retries": DEFAULT_MAX_RETRY,
         "reasoning": thinking,
@@ -280,6 +281,8 @@ def _handle_replay_state(state: AgentState, job_id: str) -> AgentState:
                 "owner": item.get("owner"),
                 "s3_location": item["s3_location"],
                 "application_type": state.get("application_type", "hybrid"),
+                # space_id is immutable on replay — always loaded from DDB, never from event
+                "space_id": item.get("space_id") or None,
             }
         )
 
@@ -328,6 +331,7 @@ def _handle_new_state(state: AgentState, event: Dict[str, Any]) -> AgentState:
                 "owner": event.get("owner"),
                 "title": event.get("title"),
                 "application_type": state.get("application_type", "hybrid"),
+                "space_id": event.get("space_id") or None,
             }
         )
 

@@ -25,8 +25,31 @@ class ConfigSchema(TypedDict):
     model_gaps: ChatBedrockConverse
     model_struct: ChatBedrockConverse
     model_summary: ChatBedrockConverse
+    model_space_context: ChatBedrockConverse
     start_time: datetime
     reasoning: bool
+
+
+class SpaceInsightsList(BaseModel):
+    """Collection of space knowledge base insights for threat modeling context."""
+
+    insights: Annotated[
+        List[str],
+        Field(
+            description="List of insight strings extracted from the space knowledge base"
+        ),
+    ]
+
+
+class CaptureInsight(BaseModel):
+    """Tool schema for capturing a single space knowledge base insight."""
+
+    insight: Annotated[
+        str,
+        Field(
+            description="A concise description of what is relevant from the space knowledge base for threat modeling this architecture."
+        ),
+    ]
 
 
 class SummaryState(BaseModel):
@@ -352,6 +375,8 @@ class AgentState(TypedDict):
     replay: Optional[bool] = False
     instructions: Optional[str] = None
     application_type: Optional[str] = "hybrid"
+    space_id: Optional[str] = None
+    space_insights: Optional[SpaceInsightsList] = None
 
 
 def _add_or_overwrite(left, right):
@@ -401,6 +426,7 @@ class ThreatState(MessagesState):
     iteration: Optional[int] = 0
     replay: Optional[bool] = False
     application_type: Optional[str] = "hybrid"
+    space_insights: Optional[SpaceInsightsList] = None
 
 
 def _merge_flows_list(left, right):
@@ -442,6 +468,21 @@ class FlowsState(MessagesState):
     job_id: Optional[str] = None
     iteration: Optional[int] = 0
     application_type: Optional[str] = "hybrid"
+    space_insights: Optional[SpaceInsightsList] = None
+
+
+class SpaceContextState(MessagesState):
+    """Container for the internal state of the space context subgraph."""
+
+    space_id: str
+    kb_query_count: Annotated[int, _add_or_overwrite] = 0
+    space_insights: Optional[SpaceInsightsList] = None
+    image_data: Optional[str] = None
+    image_type: Optional[str] = None
+    description: Optional[str] = None
+    assumptions: Optional[List[str]] = None
+    summary: Optional[str] = None
+    job_id: Optional[str] = None
 
 
 def create_constrained_flow_models(

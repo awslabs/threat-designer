@@ -33,7 +33,13 @@ resource "aws_lambda_function" "backend" {
       SHARING_TABLE         = aws_dynamodb_table.threat_designer_sharing.id,
       LOCKS_TABLE           = aws_dynamodb_table.threat_designer_locks.id,
       ATTACK_TREE_TABLE     = aws_dynamodb_table.attack_tree_data.id,
-      COGNITO_USER_POOL_ID  = aws_cognito_user_pool.user_pool.id
+      COGNITO_USER_POOL_ID  = aws_cognito_user_pool.user_pool.id,
+      SPACES_TABLE          = aws_dynamodb_table.spaces.id,
+      SPACE_SHARING_TABLE   = aws_dynamodb_table.space_sharing.id,
+      SPACE_DOCUMENTS_TABLE = aws_dynamodb_table.space_documents.id,
+      SPACES_BUCKET         = aws_s3_bucket.spaces_bucket.id,
+      KNOWLEDGE_BASE_ID     = aws_bedrockagent_knowledge_base.spaces_kb.id,
+      KB_DATA_SOURCE_ID     = aws_bedrockagent_data_source.spaces_kb_data_source.data_source_id
     }
   }
   timeout = 600

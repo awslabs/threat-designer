@@ -22,6 +22,7 @@ const guides = [
   { title: "Replay Threat Model", slug: "replay-threat-model" },
   { title: "Using Attack Trees", slug: "using-attack-trees" },
   { title: "Using Sentry", slug: "using-sentry" },
+  { title: "Using Spaces", slug: "using-spaces" },
   { title: "Collaborate on Threat Models", slug: "collaborate-on-threat-models" },
 ];
 

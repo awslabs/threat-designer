@@ -26,7 +26,14 @@ Upload your system architecture diagram with the following specifications:
 
 #### Optional Fields
 
-**Description**  
+**Space** _(requires a Space to be created first)_
+Attach a knowledge base to enrich the threat model with organization-specific context:
+
+- The agent queries your Space before analyzing the architecture
+- Relevant insights (compliance requirements, existing controls, data classification docs) are injected into every stage of the analysis
+- See [Using Spaces](./using-spaces.md) for how to create and populate a Space
+
+**Description**
 Add context about your system or highlight specific areas of concern:
 
 - Supports markdown formatting for rich text presentation

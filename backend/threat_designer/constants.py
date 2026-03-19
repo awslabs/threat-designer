@@ -118,6 +118,7 @@ MAX_GAP_ANALYSIS_USES = 5
 class JobState(Enum):
     """Enumeration of possible job states in the threat modeling workflow."""
 
+    SPACE_CONTEXT = "SPACE_CONTEXT"
     ASSETS = "ASSETS"
     FLOW = "FLOW"
     THREAT = "THREAT"
@@ -170,6 +171,7 @@ DB_FIELD_ASSETS = "assets"
 DB_FIELD_FLOWS = "flows"
 DB_FIELD_THREATS = "threats"
 DB_FIELD_GAPS = "gap"
+DB_FIELD_SPACE_CONTEXT = "space_context"
 DB_FIELD_BACKUP = "backup"
 
 
@@ -285,11 +287,15 @@ MAX_REASONING_LEVEL = 4
 
 # Workflow node names
 WORKFLOW_NODE_IMAGE_TO_BASE64 = "image_to_base64"
+WORKFLOW_NODE_SPACE_CONTEXT = "space_context"
 WORKFLOW_NODE_ASSET = "asset"
 WORKFLOW_NODE_FLOWS = "flows"
 WORKFLOW_NODE_THREATS_TRADITIONAL = "threats_traditional"
 WORKFLOW_NODE_THREATS_AGENTIC = "threats_agentic"
 WORKFLOW_NODE_FINALIZE = "finalize"
+
+# Space context knowledge base query budget
+KB_QUERY_BUDGET = 15
 
 # ============================================================================
 # SLEEP INTERVALS

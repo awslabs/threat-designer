@@ -50,6 +50,7 @@ class StateService:
         gaps: Optional[str] = None,
         assets: Optional[str] = None,
         flows: Optional[str] = None,
+        space_context: Optional[str] = None,
         flush: int = FLUSH_MODE_REPLACE,
     ) -> None:
         """Update trail with reasoning information."""
@@ -63,6 +64,8 @@ class StateService:
                 kwargs["assets"] = assets
             if flows is not None:
                 kwargs["flows"] = flows
+            if space_context is not None:
+                kwargs["space_context"] = space_context
 
             update_trail(**kwargs)
         except Exception as e:

@@ -22,6 +22,7 @@ from constants import (
     DB_FIELD_BACKUP,
     DB_FIELD_FLOWS,
     DB_FIELD_GAPS,
+    DB_FIELD_SPACE_CONTEXT,
     DB_FIELD_ID,
     DB_FIELD_JOB_ID,
     DB_FIELD_RETRY,
@@ -239,6 +240,7 @@ def update_trail(
     flows: Optional[str] = None,
     threats: Optional[Union[str, List[str]]] = None,
     gaps: Optional[Union[str, List[str]]] = None,
+    space_context: Optional[str] = None,
     flush: int = 0,
     job_context_id: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
@@ -291,6 +293,7 @@ def update_trail(
             for field_name, field_value, db_field in [
                 ("assets", assets, DB_FIELD_ASSETS),
                 ("flows", flows, DB_FIELD_FLOWS),
+                ("space_context", space_context, DB_FIELD_SPACE_CONTEXT),
             ]:
                 if field_value is not None:
                     if not is_first:

@@ -416,3 +416,9 @@ variable "tavily_api_key" {
   default     = ""
   sensitive   = true
 }
+
+variable "kb_embedding_model_id" {
+  type        = string
+  description = "Bedrock foundation model ID to use for Spaces knowledge base embeddings"
+  default     = "amazon.titan-embed-text-v2:0"
+}

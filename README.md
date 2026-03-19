@@ -23,6 +23,7 @@
 - **Iterative Refinement** - Replay threat modeling based on your edits and additional input
 - **Multiple Export Formats** - Export results in PDF, DOCX, or JSON format
 - **AI Assistant (Sentry)** - Interact with a built-in assistant to dive deep into threat models
+- **Spaces** - Attach a knowledge base of your own documents (runbooks, policies, diagrams) to enrich threat modeling with organization-specific context
 - **Threat Catalog** - Explore and manage past threat models
 
 <picture>
@@ -78,6 +79,8 @@
 - Amazon Cognito
 - AWS Lambda
 - Amazon Bedrock AgentCore Runtime
+- Amazon Bedrock Knowledge Bases
+- Amazon OpenSearch Serverless
 - Amazon DynamoDB
 - Amazon S3
 
@@ -126,7 +129,7 @@ To enable Claude models, follow the instructions [here](https://docs.aws.amazon.
 You'll need:
 
 - A valid OpenAI API key
-- Access to GPT-5.2 or GPT-5 Mini models
+- Access to GPT-5.4 or GPT-5 Mini models
 
 You'll be prompted to enter your API key during deployment.
 
@@ -192,7 +195,7 @@ Threat Designer supports two AI providers that can be selected during deployment
 ```
 Select AI model provider:
 1) Amazon Bedrock (Claude) (default)
-2) OpenAI (GPT-5.2)
+2) OpenAI (GPT-5.4)
 ```
 
 #### Amazon Bedrock Configuration (default model)
@@ -215,7 +218,7 @@ Select AI model provider:
 **Used Models:**
 
 - **GPT-5 Mini** (default) - Faster and more cost-effective
-- **GPT-5.2** - Maximum reasoning capability
+- **GPT-5.4** - Maximum reasoning capability
 
 **Key Characteristics:**
 

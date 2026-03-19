@@ -648,7 +648,12 @@ graph TB
     IMAGE --> ROUTE_REPLAY{Route Replay?}
 
     ROUTE_REPLAY -->|replay| THREATS_ROUTER[threats<br/>Routing Node]
-    ROUTE_REPLAY -->|full| ASSET[asset<br/>Define Assets]
+    ROUTE_REPLAY -->|full| ROUTE_SPACE{Space attached?}
+
+    ROUTE_SPACE -->|yes| SPACE_CTX[space_context<br/>Knowledge Base Subgraph]
+    ROUTE_SPACE -->|no| ASSET[asset<br/>Define Assets]
+
+    SPACE_CTX --> ASSET
 
     ASSET --> FLOWS[flows<br/>Define Data Flows]
 
@@ -695,7 +700,51 @@ graph TB
 
 **Model**: Configured via `model_summary` in ConfigSchema
 
-#### 2. asset (Define Assets)
+#### 2. space_context (Knowledge Base Subgraph — Optional)
+
+**Purpose**: Query a user-managed knowledge base (Space) to extract security-relevant context before threat modeling begins
+
+**Implementation**: `workflow_space_context.py` — a standalone LangGraph subgraph
+
+**When executed**: Only when a `space_id` is attached to the job. Skipped entirely on replay.
+
+**Inputs**:
+
+- Architecture diagram and description
+- `space_id`: Identifier of the Space (Bedrock Knowledge Base partition)
+
+**Outputs**:
+
+- `space_insights`: `SpaceInsightsList` — a list of concise insights extracted from the knowledge base
+
+**Subgraph Workflow**:
+
+The subgraph implements a ReAct loop with two tools:
+
+- `query_knowledge_base(query)`: Calls the Bedrock Knowledge Base Retrieve API, filtered by `space_id`, and returns matching document excerpts
+- `capture_insight(insight)`: Records one relevant insight for injection into subsequent workflow nodes
+
+The agent issues focused queries, evaluates results, and calls `capture_insight` for anything relevant to threat modeling the submitted architecture. A query budget (`KB_QUERY_BUDGET`) caps the number of retrieve calls. When the budget is exhausted, the model is constrained to `capture_insight` only before finishing.
+
+```mermaid
+graph LR
+    AGENT[agent] -->|tool_calls| TOOLS[tools]
+    TOOLS --> AGENT
+    AGENT -->|no tool_calls| FINISH[finish]
+    FINISH --> PARENT[Parent: asset node]
+```
+
+**Context Injection**:
+
+The extracted insights are stored as `space_insights` in the workflow state. `MessageBuilder.space_insights_block()` prepends them to the prompts for the `asset`, `flows`, and `threats` nodes so that the entire downstream analysis is informed by the organization-specific context.
+
+**Trail**:
+
+Reasoning traces and the final insight list are written to the `space_context` field of the agent trail table, visible in the UI's **Context** tab.
+
+**Model**: Configured via `model_space_context` in ConfigSchema
+
+#### 3. asset (Define Assets)
 
 **Purpose**: Identify critical assets and entities in the architecture
 
@@ -726,7 +775,7 @@ graph TB
 - **Asset**: Components requiring protection (databases, APIs, data stores)
 - **Entity**: Actors interacting with the system (users, services, systems)
 
-#### 3. flows (Define Data Flows)
+#### 4. flows (Define Data Flows)
 
 **Purpose**: Map data flows, trust boundaries, and threat actors
 
@@ -772,7 +821,7 @@ graph TB
 - Organizational boundaries
 - Administrative boundaries
 
-#### 4. threats (Routing Node)
+#### 5. threats (Routing Node)
 
 **Purpose**: Passthrough node for conditional routing to threat generation
 
@@ -794,7 +843,7 @@ def route_threats_by_iteration(state: AgentState) -> str:
     return WORKFLOW_NODE_THREATS_TRADITIONAL  # Traditional node
 ```
 
-#### 5. threats_traditional (Traditional Threat Generation)
+#### 6. threats_traditional (Traditional Threat Generation)
 
 **Purpose**: Generate threats using traditional structured prompting
 
@@ -839,7 +888,7 @@ def route_threats_by_iteration(state: AgentState) -> str:
 - First iteration (`retry == 1`): Uses `threats_prompt()` for initial generation
 - Subsequent iterations: Uses `threats_improve_prompt()` for refinement
 
-#### 6. threats_agentic (Agentic Subgraph)
+#### 7. threats_agentic (Agentic Subgraph)
 
 **Purpose**: Generate threats using autonomous agent with tool-calling capabilities
 
@@ -851,7 +900,7 @@ def route_threats_by_iteration(state: AgentState) -> str:
 
 **Exit Condition**: Subgraph routes back to parent graph's `finalize` node when complete
 
-#### 7. finalize (Workflow Completion)
+#### 8. finalize (Workflow Completion)
 
 **Purpose**: Finalize workflow and persist results
 

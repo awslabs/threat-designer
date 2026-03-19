@@ -18,6 +18,7 @@ import { I18nProvider } from "@cloudscape-design/components/i18n";
 import Slider from "@cloudscape-design/components/slider";
 import FileTokenGroup from "@cloudscape-design/components/file-token-group";
 import Textarea from "@cloudscape-design/components/textarea";
+import { listSpaces } from "../../services/Spaces/spacesService";
 
 function convertArrayToObjects(arr) {
   return arr.map((item) => ({
@@ -57,6 +58,17 @@ export const SubmissionComponent = ({
     label: "Hybrid",
     value: "hybrid",
   });
+  const [spaces, setSpaces] = React.useState([]);
+  const [selectedSpaceOption, setSelectedSpaceOption] = React.useState(null);
+  React.useEffect(() => {
+    listSpaces()
+      .then((data) =>
+        setSpaces(
+          data.map((s) => ({ label: s.name, value: s.space_id, description: s.description }))
+        )
+      )
+      .catch(() => {});
+  }, []);
   const handleAddAssumption = () => {
     if (newAssumption.trim()) {
       setAssumptions((prev) => [...prev, newAssumption.trim()]);
@@ -99,7 +111,13 @@ export const SubmissionComponent = ({
       submitButtonText="Start threat modeling"
       isLoadingNextStep={loading}
       onSubmit={() => {
-        handleStart(title, text, assumptions, applicationType.value);
+        handleStart(
+          title,
+          text,
+          assumptions,
+          applicationType.value,
+          selectedSpaceOption?.value || null
+        );
       }}
       steps={[
         {
@@ -172,6 +190,48 @@ export const SubmissionComponent = ({
                     ]}
                     selectedOption={applicationType}
                     onChange={({ detail }) => setApplicationType(detail.selectedOption)}
+                  />
+                </FormField>
+                <FormField
+                  label="Space"
+                  constraintText="Optional — attach a knowledge base to enrich threat modeling context."
+                  info={
+                    <Popover
+                      header="Spaces"
+                      content={
+                        <SpaceBetween size="s">
+                          <Box>
+                            A Space is a knowledge base you manage. Upload architecture docs,
+                            runbooks, or security policies and the agent will query them before
+                            threat modeling to surface relevant context.
+                          </Box>
+                          <Box>
+                            <Box variant="h5">What to upload</Box>
+                            Network diagrams, data classification docs, compliance requirements,
+                            existing security controls, or any reference material specific to your
+                            environment.
+                          </Box>
+                          <Box>
+                            <Box variant="h5">How it works</Box>
+                            Before analyzing your architecture, the agent queries the Space and
+                            injects relevant insights into the threat modeling process.
+                          </Box>
+                        </SpaceBetween>
+                      }
+                    >
+                      <Link variant="info">Info</Link>
+                    </Popover>
+                  }
+                >
+                  <Select
+                    options={[{ label: "None", value: null }, ...spaces]}
+                    selectedOption={selectedSpaceOption || { label: "None", value: null }}
+                    onChange={({ detail }) =>
+                      setSelectedSpaceOption(
+                        detail.selectedOption.value ? detail.selectedOption : null
+                      )
+                    }
+                    placeholder="Select a space (optional)"
                   />
                 </FormField>
                 <FormField
@@ -379,7 +439,7 @@ export const SubmissionComponent = ({
                     />
                   </SpaceBetween>
                 )}
-                {(text.length > 0 || applicationType) && (
+                {(text.length > 0 || applicationType || selectedSpaceOption) && (
                   <SpaceBetween size="xs">
                     <Header
                       variant="h3"
@@ -402,6 +462,11 @@ export const SubmissionComponent = ({
                     <FormField label="Application type">
                       <Input value={applicationType.label} disabled />
                     </FormField>
+                    {selectedSpaceOption && (
+                      <FormField label="Space">
+                        <Input value={selectedSpaceOption.label} disabled />
+                      </FormField>
+                    )}
                   </SpaceBetween>
                 )}
                 {iteration && (

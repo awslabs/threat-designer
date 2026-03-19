@@ -35,3 +35,7 @@ export const getUser = async () => {
 export const getSession = () => {
   return fetchAuthSession();
 };
+
+export const validateUser = () => {
+  return fetchAuthSession({ forceRefresh: true });
+};

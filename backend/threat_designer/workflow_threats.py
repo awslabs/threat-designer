@@ -122,6 +122,14 @@ def create_agent_human_message(state: ThreatState) -> HumanMessage:
         threats=bool(threat_list and threat_list.threats),
         application_type=state.get("application_type", "hybrid"),
     )
+
+    # Inject space insights if present
+    space_insights = state.get("space_insights")
+    if space_insights and isinstance(human_msg.content, list):
+        insights_block = msg_builder.space_insights_block(space_insights)
+        if insights_block:
+            human_msg.content.insert(-1, insights_block)
+
     return human_msg
 
 

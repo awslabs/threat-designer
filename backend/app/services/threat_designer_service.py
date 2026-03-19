@@ -17,6 +17,7 @@ from exceptions.exceptions import (
     UnauthorizedError,
     ConflictError,
 )
+from services.space_service import check_space_access
 from utils.utils import create_dynamodb_item
 
 STATE = os.environ.get("JOB_STATUS_TABLE")
@@ -263,6 +264,10 @@ def invoke_lambda(owner, payload):
     is_replay = payload.get("replay", False)
     image_type = payload.get("image_type", None)
     application_type = payload.get("application_type", "hybrid")
+    space_id = payload.get("space_id") or None
+
+    if space_id and owner != "MCP":
+        check_space_access(space_id, owner)
 
     if is_replay:
         id = payload.get("id")
@@ -333,6 +338,7 @@ def invoke_lambda(owner, payload):
                         "instructions": instructions,
                         "image_type": image_type,
                         "application_type": application_type,
+                        "space_id": space_id,
                     }
                 }
             ),
@@ -345,6 +351,8 @@ def invoke_lambda(owner, payload):
             "title": title,
             "retry": reasoning,
         }
+        if space_id:
+            agent_state["space_id"] = space_id
 
         if not is_replay:
             create_dynamodb_item(agent_state, AGENT_TABLE)
@@ -425,12 +433,14 @@ def check_trail(job_id):
             flows = response["Item"].get("flows", "")
             gaps = response["Item"].get("gap", [])
             threats = response["Item"].get("threats", [])
+            space_context = response["Item"].get("space_context", "")
             return {
                 "id": job_id,
                 "assets": assets,
                 "flows": flows,
                 "gaps": gaps,
                 "threats": threats,
+                "space_context": space_context,
             }
         else:
             return {"id": job_id}

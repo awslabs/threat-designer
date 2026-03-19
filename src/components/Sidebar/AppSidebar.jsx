@@ -1,4 +1,4 @@
-import { PlusCircle, LayoutGrid } from "lucide-react";
+import { PlusCircle, LayoutGrid, Folder } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter } from "@/components/ui/sidebar";
 import { SidebarHeader } from "./SidebarHeader";
 import { NavMain } from "./NavMain";
@@ -37,6 +37,11 @@ export function AppSidebar({ user, colorMode, effectiveTheme, setThemeMode, onLo
       title: "Threat Catalog",
       url: "/threat-catalog",
       icon: LayoutGrid,
+    },
+    {
+      title: "Spaces",
+      url: "/spaces",
+      icon: Folder,
     },
   ];
 

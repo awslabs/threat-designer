@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/python:3.12-slim
+FROM python:3.12-slim
 WORKDIR /app
 
 # Define build argument with default value

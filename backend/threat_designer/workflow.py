@@ -10,6 +10,7 @@ from constants import (
     WORKFLOW_NODE_FINALIZE,
     WORKFLOW_NODE_FLOWS,
     WORKFLOW_NODE_IMAGE_TO_BASE64,
+    WORKFLOW_NODE_SPACE_CONTEXT,
     WORKFLOW_NODE_THREATS_AGENTIC,
     WORKFLOW_NODE_THREATS_TRADITIONAL,
 )
@@ -28,6 +29,7 @@ from state import AgentState, ConfigSchema
 from state_tracking_service import StateService
 from workflow_flows import flows_subgraph
 from workflow_threats import threats_subgraph
+from workflow_space_context import space_context_subgraph
 
 
 class ThreatModelingOrchestrator:
@@ -64,9 +66,9 @@ class ThreatModelingOrchestrator:
         """Finalize the workflow."""
         return self.finalization_service.finalize_workflow(state)
 
-    def route_replay(self, state: AgentState) -> str:
-        """Route based on replay flag."""
-        return self.replay_service.route_replay(state)
+    def route_after_summary(self, state: AgentState) -> str:
+        """Route after summary node: replay → threats, space_id → space_context, else → asset."""
+        return self.replay_service.route_after_summary(state)
 
     def define_threats_traditional(
         self, state: AgentState, config: RunnableConfig
@@ -83,6 +85,7 @@ workflow = StateGraph(AgentState, ConfigSchema)
 
 # Add nodes
 workflow.add_node(WORKFLOW_NODE_IMAGE_TO_BASE64, orchestrator.image_to_base64)
+workflow.add_node(WORKFLOW_NODE_SPACE_CONTEXT, space_context_subgraph)
 workflow.add_node(WORKFLOW_NODE_ASSET, orchestrator.define_assets)
 workflow.add_node(WORKFLOW_NODE_FLOWS, flows_subgraph)
 workflow.add_node(
@@ -94,11 +97,12 @@ workflow.add_node(WORKFLOW_NODE_FINALIZE, orchestrator.finalize)
 # Set entry point and edges
 workflow.set_entry_point(WORKFLOW_NODE_IMAGE_TO_BASE64)
 
-# Route from image_to_base64 based on replay flag
+# Route from image_to_base64: replay → threats directly, space_id → space_context, else → asset
 workflow.add_conditional_edges(
     WORKFLOW_NODE_IMAGE_TO_BASE64,
-    orchestrator.route_replay,
+    orchestrator.route_after_summary,
     {
+        WORKFLOW_NODE_SPACE_CONTEXT: WORKFLOW_NODE_SPACE_CONTEXT,
         WORKFLOW_NODE_ASSET: WORKFLOW_NODE_ASSET,
         WORKFLOW_NODE_THREATS_AGENTIC: WORKFLOW_NODE_THREATS_AGENTIC,
         WORKFLOW_NODE_THREATS_TRADITIONAL: WORKFLOW_NODE_THREATS_TRADITIONAL,

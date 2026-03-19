@@ -12,8 +12,16 @@ import { applyTheme } from "@cloudscape-design/components/theming";
 import { ChatSessionProvider } from "./components/Agent/ChatContext";
 import { ThemeProvider } from "./components/ThemeContext";
 import AppRefreshManager from "./AppRefreshManager";
+import { useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarInset } from "./components/ui/sidebar";
 import { AppSidebar } from "./components/Sidebar";
+import { SpacesPanel } from "./components/Spaces/SpacesPanel";
+
+function SpacesPanelSlot() {
+  const location = useLocation();
+  if (!location.pathname.startsWith("/spaces")) return null;
+  return <SpacesPanel />;
+}
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -157,12 +165,17 @@ const App = () => {
                     setThemeMode={setThemeMode}
                     onLogout={handleLogout}
                   />
-                  <SidebarInset>
-                    <AppLayoutMFE
-                      user={authUser}
-                      colorMode={colorMode}
-                      setThemeMode={setThemeMode}
-                    />
+                  <SidebarInset
+                    style={{ display: "flex", flexDirection: "row", overflow: "hidden" }}
+                  >
+                    <SpacesPanelSlot />
+                    <div style={{ flex: 1, overflow: "hidden" }}>
+                      <AppLayoutMFE
+                        user={authUser}
+                        colorMode={colorMode}
+                        setThemeMode={setThemeMode}
+                      />
+                    </div>
                   </SidebarInset>
                 </SidebarProvider>
               </SplitPanelProvider>

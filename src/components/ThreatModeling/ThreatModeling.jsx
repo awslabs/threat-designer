@@ -21,7 +21,13 @@ export default function ThreatModeling() {
     setBase64Content(base64);
   };
 
-  const handleStartThreatModeling = async (title, description, assumptions, applicationType) => {
+  const handleStartThreatModeling = async (
+    title,
+    description,
+    assumptions,
+    applicationType,
+    spaceId = null
+  ) => {
     setLoading(true);
     try {
       const results = await generateUrl(base64Content?.type);
@@ -37,7 +43,8 @@ export default function ThreatModeling() {
         null, // id
         null, // instructions
         base64Content?.type, // imageType
-        applicationType
+        applicationType,
+        spaceId
       );
       setLoading(false);
       setId(response.data.id);

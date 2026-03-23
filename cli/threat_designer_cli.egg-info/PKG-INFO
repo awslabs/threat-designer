@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: threat-designer-cli
+Version: 0.1.0
+Summary: Threat Designer CLI — local threat modeling tool
+Requires-Python: >=3.11
+Requires-Dist: prompt_toolkit>=3.0
+Requires-Dist: rich>=13.0
+Requires-Dist: InquirerPy>=0.3
+Requires-Dist: pydantic>=2.0
+Requires-Dist: pydantic-settings>=2.0
+Requires-Dist: boto3>=1.35
+Requires-Dist: langchain-aws>=0.2
+Requires-Dist: langchain-core>=0.3
+Requires-Dist: langgraph>=0.2
+Requires-Dist: python-docx>=1.1
+Requires-Dist: reportlab>=4.0
+Requires-Dist: langchain-openai>=0.2

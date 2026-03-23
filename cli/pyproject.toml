@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "threat-designer-cli"
+version = "0.1.0"
+description = "Threat Designer CLI — local threat modeling tool"
+requires-python = ">=3.11"
+dependencies = [
+    "prompt_toolkit>=3.0",
+    "rich>=13.0",
+    "InquirerPy>=0.3",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "boto3>=1.35",
+    "langchain-aws>=0.2",
+    "langchain-core>=0.3",
+    "langgraph>=0.2",
+    "python-docx>=1.1",
+    "reportlab>=4.0",
+    "langchain-openai>=0.2",
+]
+
+[project.optional-dependencies]
+
+[project.scripts]
+threat-designer = "threat_designer_cli.main:run"
+
+[tool.setuptools.packages.find]
+where = ["."]

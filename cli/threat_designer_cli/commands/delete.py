@@ -28,7 +28,9 @@ async def delete_command(console: Console, model_id: str = "") -> None:
         return
 
     if delete_model(model_id_to_delete):
-        console.print(f"[green]Deleted[/green] [cyan bold]{model_id_to_delete}[/cyan bold]")
+        console.print(
+            f"[green]Deleted[/green] [cyan bold]{model_id_to_delete}[/cyan bold]"
+        )
     else:
         console.print(f"[red]Not found:[/red] {model_id_to_delete}")
 

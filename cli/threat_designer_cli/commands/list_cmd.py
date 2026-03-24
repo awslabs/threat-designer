@@ -11,7 +11,9 @@ from ..storage import list_models
 def list_command(console: Console) -> None:
     models = list_models()
     if not models:
-        console.print("[dim]No threat models found. Use [bold]/create[/bold] to start one.[/dim]")
+        console.print(
+            "[dim]No threat models found. Use [bold]/create[/bold] to start one.[/dim]"
+        )
         return
 
     table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
@@ -25,7 +27,13 @@ def list_command(console: Console) -> None:
     for m in models:
         threat_count = str(len((m.get("threat_list") or {}).get("threats", [])))
         status = m.get("status", "UNKNOWN")
-        status_color = "green" if status == "COMPLETE" else "yellow" if status == "RUNNING" else "red"
+        status_color = (
+            "green"
+            if status == "COMPLETE"
+            else "yellow"
+            if status == "RUNNING"
+            else "red"
+        )
         description = (m.get("description") or "")[:40]
         if len(m.get("description") or "") > 40:
             description += "..."

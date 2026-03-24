@@ -11,7 +11,9 @@ def list_models() -> List[dict]:
     if not MODELS_DIR.exists():
         return []
     models = []
-    for path in sorted(MODELS_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+    for path in sorted(
+        MODELS_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True
+    ):
         try:
             models.append(json.loads(path.read_text()))
         except Exception:

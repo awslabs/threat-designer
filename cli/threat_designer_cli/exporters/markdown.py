@@ -35,7 +35,9 @@ def _assets(model: dict, lines: List[str]) -> None:
     lines.append("| Name | Type | Criticality | Description |")
     lines.append("|------|------|-------------|-------------|")
     for a in assets:
-        lines.append(f"| {a.get('name','')} | {a.get('type','')} | {a.get('criticality','')} | {a.get('description','')} |")
+        lines.append(
+            f"| {a.get('name', '')} | {a.get('type', '')} | {a.get('criticality', '')} | {a.get('description', '')} |"
+        )
     lines.append("")
 
 
@@ -50,7 +52,9 @@ def _flows(model: dict, lines: List[str]) -> None:
         lines.append("| From | To | Description |")
         lines.append("|------|----|-------------|")
         for f in data_flows:
-            lines.append(f"| {f.get('source_entity','')} | {f.get('target_entity','')} | {f.get('flow_description','')} |")
+            lines.append(
+                f"| {f.get('source_entity', '')} | {f.get('target_entity', '')} | {f.get('flow_description', '')} |"
+            )
         lines.append("")
 
     if trust_boundaries:
@@ -58,7 +62,9 @@ def _flows(model: dict, lines: List[str]) -> None:
         lines.append("| From | To | Purpose |")
         lines.append("|------|----|---------|")
         for b in trust_boundaries:
-            lines.append(f"| {b.get('source_entity','')} | {b.get('target_entity','')} | {b.get('purpose','')} |")
+            lines.append(
+                f"| {b.get('source_entity', '')} | {b.get('target_entity', '')} | {b.get('purpose', '')} |"
+            )
         lines.append("")
 
     if threat_sources:
@@ -66,7 +72,9 @@ def _flows(model: dict, lines: List[str]) -> None:
         lines.append("| Category | Description | Examples |")
         lines.append("|----------|-------------|----------|")
         for s in threat_sources:
-            lines.append(f"| {s.get('category','')} | {s.get('description','')} | {s.get('example','')} |")
+            lines.append(
+                f"| {s.get('category', '')} | {s.get('description', '')} | {s.get('example', '')} |"
+            )
         lines.append("")
 
 
@@ -84,10 +92,17 @@ def _threats(model: dict, lines: List[str]) -> None:
         by_category.setdefault(cat, []).append(t)
 
     stride_order = [
-        "Spoofing", "Tampering", "Repudiation",
-        "Information Disclosure", "Denial of Service", "Elevation of Privilege",
+        "Spoofing",
+        "Tampering",
+        "Repudiation",
+        "Information Disclosure",
+        "Denial of Service",
+        "Elevation of Privilege",
     ]
-    categories = sorted(by_category.keys(), key=lambda c: stride_order.index(c) if c in stride_order else 99)
+    categories = sorted(
+        by_category.keys(),
+        key=lambda c: stride_order.index(c) if c in stride_order else 99,
+    )
 
     for idx_cat, cat in enumerate(categories):
         lines += [f"### {cat}", ""]

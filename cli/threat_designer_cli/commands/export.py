@@ -83,13 +83,17 @@ def _run_export_wizard(model_id: str, model: dict):
 def _write_export(model: dict, out_path: str, fmt: str) -> None:
     if fmt == "markdown":
         from ..exporters.markdown import export_markdown
+
         export_markdown(model, out_path)
     elif fmt == "json":
         from ..exporters.json_export import export_json
+
         export_json(model, out_path)
     elif fmt == "word":
         from ..exporters.word import export_word
+
         export_word(model, out_path)
     elif fmt == "pdf":
         from ..exporters.pdf import export_pdf
+
         export_pdf(model, out_path)

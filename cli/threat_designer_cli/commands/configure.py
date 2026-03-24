@@ -46,37 +46,58 @@ def _run_wizard() -> Optional[CLIConfig]:
     ).execute()
 
     if provider_choice == "Amazon Bedrock":
-        aws_profile = inquirer.text(
-            message="AWS Profile (leave blank for default):",
-            default=current.aws_profile or "",
-            style=s,
-        ).execute().strip() or None
+        aws_profile = (
+            inquirer.text(
+                message="AWS Profile (leave blank for default):",
+                default=current.aws_profile or "",
+                style=s,
+            )
+            .execute()
+            .strip()
+            or None
+        )
 
-        aws_region = inquirer.text(
-            message="AWS Region:",
-            default=current.aws_region,
-            style=s,
-        ).execute().strip() or "us-west-2"
+        aws_region = (
+            inquirer.text(
+                message="AWS Region:",
+                default=current.aws_region,
+                style=s,
+            )
+            .execute()
+            .strip()
+            or "us-west-2"
+        )
 
         _CUSTOM = "__custom__"
         model = inquirer.select(
             message="Model:",
             choices=[Choice(m["id"], name=m["name"]) for m in BEDROCK_MODELS]
-                    + [Choice(_CUSTOM, name="Custom model ID...")],
-            default=current.model_id if current.provider == "bedrock" else BEDROCK_MODELS[1]["id"],
+            + [Choice(_CUSTOM, name="Custom model ID...")],
+            default=current.model_id
+            if current.provider == "bedrock"
+            else BEDROCK_MODELS[1]["id"],
             style=s,
         ).execute()
 
         if model == _CUSTOM:
-            model = inquirer.text(
-                message="Enter Bedrock model ID:",
-                default=current.model_id if current.provider == "bedrock" else "",
-                style=s,
-            ).execute().strip()
+            model = (
+                inquirer.text(
+                    message="Enter Bedrock model ID:",
+                    default=current.model_id if current.provider == "bedrock" else "",
+                    style=s,
+                )
+                .execute()
+                .strip()
+            )
 
-        model_props = next((m for m in BEDROCK_MODELS if m["id"] == model), {
-            "name": model, "adaptive": True, "supports_max": True,
-        })
+        model_props = next(
+            (m for m in BEDROCK_MODELS if m["id"] == model),
+            {
+                "name": model,
+                "adaptive": True,
+                "supports_max": True,
+            },
+        )
 
         reasoning = inquirer.select(
             message="Effort:",
@@ -95,16 +116,23 @@ def _run_wizard() -> Optional[CLIConfig]:
         )
 
     else:  # OpenAI
-        api_key = inquirer.secret(
-            message="OpenAI API Key (leave blank to use OPENAI_API_KEY env var):",
-            default="",
-            style=s,
-        ).execute().strip() or None
+        api_key = (
+            inquirer.secret(
+                message="OpenAI API Key (leave blank to use OPENAI_API_KEY env var):",
+                default="",
+                style=s,
+            )
+            .execute()
+            .strip()
+            or None
+        )
 
         model = inquirer.select(
             message="Model:",
             choices=[Choice(m["id"], name=m["name"]) for m in OPENAI_MODELS],
-            default=current.model_id if current.provider == "openai" else OPENAI_MODELS[0]["id"],
+            default=current.model_id
+            if current.provider == "openai"
+            else OPENAI_MODELS[0]["id"],
             style=s,
         ).execute()
 

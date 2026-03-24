@@ -38,8 +38,12 @@ class LocalStateService:
         pass  # agent_table is irrelevant locally
 
     @classmethod
-    def configure(cls, job_id: str, on_progress: Optional[Callable[[str], None]] = None,
-                  image_path: Optional[str] = None) -> None:
+    def configure(
+        cls,
+        job_id: str,
+        on_progress: Optional[Callable[[str], None]] = None,
+        image_path: Optional[str] = None,
+    ) -> None:
         cls._job_id = job_id
         cls._on_progress = on_progress
         cls._final_state = None
@@ -64,9 +68,17 @@ class LocalStateService:
             self.__class__._last_label = stage_label
             self.__class__._on_progress(stage_label)
 
-    def update_trail(self, job_id, threats=None, gaps=None, assets=None,
-                     flows=None, space_context=None, flush=0) -> None:
-        pass  # Trail not needed for local CLI
+    def update_trail(
+        self,
+        job_id,
+        threats=None,
+        gaps=None,
+        assets=None,
+        flows=None,
+        space_context=None,
+        flush=0,
+    ) -> None:
+        pass  # Trail not needed for CLI
 
     def finalize_workflow(self, state_dict) -> None:
         job_id = self.__class__._job_id or "unknown"

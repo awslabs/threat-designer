@@ -1,2 +1,0 @@
-[console_scripts]
-threat-designer = threat_designer_cli.main:run

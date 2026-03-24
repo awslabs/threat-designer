@@ -20,4 +20,5 @@ STYLE_DICT = {
 def inquirer_style():
     """Return a properly wrapped InquirerPy Style object."""
     from InquirerPy import get_style
+
     return get_style(STYLE_DICT, style_override=False)

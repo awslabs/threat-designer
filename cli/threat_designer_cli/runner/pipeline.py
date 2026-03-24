@@ -27,7 +27,15 @@ _patched = False  # Track whether StateService has been patched this process
 
 
 def _suppress_logging() -> None:
-    for name in ("langchain_aws", "langchain_core", "langgraph", "botocore", "boto3", "urllib3", "httpx"):
+    for name in (
+        "langchain_aws",
+        "langchain_core",
+        "langgraph",
+        "botocore",
+        "boto3",
+        "urllib3",
+        "httpx",
+    ):
         logging.getLogger(name).setLevel(logging.WARNING)
     # Silence structlog output to stderr
     logging.getLogger().setLevel(logging.WARNING)
@@ -42,14 +50,18 @@ def _ensure_backend_path() -> None:
 def _build_model_config(cfg: CLIConfig) -> dict:
     """Return a model config dict suitable for a single node."""
     if cfg.provider == "bedrock":
-        props = next((m for m in BEDROCK_MODELS if m["id"] == cfg.model_id), BEDROCK_MODELS[1])
+        props = next(
+            (m for m in BEDROCK_MODELS if m["id"] == cfg.model_id), BEDROCK_MODELS[1]
+        )
         return {
             "id": cfg.model_id,
             "max_tokens": props["max_tokens"],
             "reasoning_budget": props.get("reasoning_budget", {}),
         }
     else:
-        props = next((m for m in OPENAI_MODELS if m["id"] == cfg.model_id), OPENAI_MODELS[0])
+        props = next(
+            (m for m in OPENAI_MODELS if m["id"] == cfg.model_id), OPENAI_MODELS[0]
+        )
         return {"id": cfg.model_id, "max_tokens": props["max_tokens"]}
 
 
@@ -60,15 +72,23 @@ def _setup_env(cfg: CLIConfig) -> None:
     main_model = {n: mc for n in nodes}
 
     if cfg.provider == "bedrock":
-        props = next((m for m in BEDROCK_MODELS if m["id"] == cfg.model_id), BEDROCK_MODELS[1])
+        props = next(
+            (m for m in BEDROCK_MODELS if m["id"] == cfg.model_id), BEDROCK_MODELS[1]
+        )
         env = {
             "MODEL_PROVIDER": "bedrock",
             "MAIN_MODEL": json.dumps(main_model),
             "MODEL_STRUCT": json.dumps(mc),
             "MODEL_SUMMARY": json.dumps(mc),
-            "REASONING_MODELS": json.dumps([] if props.get("adaptive") else [cfg.model_id]),
-            "ADAPTIVE_THINKING_MODELS": json.dumps([cfg.model_id] if props.get("adaptive") else []),
-            "MODELS_SUPPORTING_MAX": json.dumps([cfg.model_id] if props.get("supports_max") else []),
+            "REASONING_MODELS": json.dumps(
+                [] if props.get("adaptive") else [cfg.model_id]
+            ),
+            "ADAPTIVE_THINKING_MODELS": json.dumps(
+                [cfg.model_id] if props.get("adaptive") else []
+            ),
+            "MODELS_SUPPORTING_MAX": json.dumps(
+                [cfg.model_id] if props.get("supports_max") else []
+            ),
             "REGION": cfg.aws_region,
             "AWS_REGION": cfg.aws_region,
         }
@@ -86,12 +106,14 @@ def _setup_env(cfg: CLIConfig) -> None:
             "OPENAI_API_KEY": cfg.effective_openai_key() or "",
         }
 
-    env.update({
-        "AGENT_STATE_TABLE": "local",
-        "JOB_STATUS_TABLE": "local",
-        "AGENT_TRAIL_TABLE": "local",
-        "LOG_LEVEL": "ERROR",
-    })
+    env.update(
+        {
+            "AGENT_STATE_TABLE": "local",
+            "JOB_STATUS_TABLE": "local",
+            "AGENT_TRAIL_TABLE": "local",
+            "LOG_LEVEL": "ERROR",
+        }
+    )
     for k, v in env.items():
         os.environ[k] = v
 
@@ -110,6 +132,7 @@ def run_workflow(
     image_path: str,
     cfg: CLIConfig,
     job_id: str,
+    assumptions: Optional[list] = None,
     iteration: int = 0,
     on_progress: Optional[Callable[[str], None]] = None,
 ) -> dict:
@@ -121,6 +144,7 @@ def run_workflow(
 
     # Patch StateService once per process (before any workflow import)
     import state_tracking_service  # type: ignore  # noqa: E402
+
     if not _patched:
         state_tracking_service.StateService = LocalStateService
         _patched = True
@@ -142,6 +166,7 @@ def run_workflow(
         "image_type": image_type,
         "title": name,
         "description": description,
+        "assumptions": assumptions or [],
         "instructions": None,
         "owner": "cli",
         "replay": False,
@@ -160,7 +185,9 @@ def run_workflow(
             "model_gaps": models["gaps_model"],
             "model_struct": models["struct_model"],
             "model_summary": models["summary_model"],
-            "model_space_context": models.get("space_context_model", models["flows_model"]),
+            "model_space_context": models.get(
+                "space_context_model", models["flows_model"]
+            ),
             "start_time": datetime.now(),
             "max_retries": DEFAULT_MAX_RETRY,
             "reasoning": cfg.reasoning_level > 0,

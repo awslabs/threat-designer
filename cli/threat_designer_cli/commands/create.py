@@ -34,7 +34,6 @@ def _render(completed: list, current_label: str, spinner: Spinner) -> Group:
     if current_label:
         if completed:
             items.append(Text(""))  # blank line separator
-        # Spinner char is 1 col wide; 4 spaces aligns label with the ● items above
         spinner.text = Text(f" {current_label}", style=_ACTIVE_COLOR)
         items.append(spinner)
     return Group(*items)
@@ -43,7 +42,9 @@ def _render(completed: list, current_label: str, spinner: Spinner) -> Group:
 async def create_command(console: Console) -> None:
     cfg = CLIConfig.load()
     if not cfg.is_configured():
-        console.print("[yellow]Run [bold]/configure[/bold] first to set up your model provider.[/yellow]")
+        console.print(
+            "[yellow]Run [bold]/configure[/bold] first to set up your model provider.[/yellow]"
+        )
         return
 
     params = await asyncio.to_thread(_run_create_wizard, cfg)
@@ -52,6 +53,7 @@ async def create_command(console: Console) -> None:
         return
 
     from ..models import effort_label
+
     job_id = str(uuid.uuid4())[:8]
     iteration_label = "Auto" if params["iteration"] == 0 else str(params["iteration"])
     console.print(
@@ -77,13 +79,14 @@ async def create_command(console: Console) -> None:
             run_workflow(
                 name=params["name"],
                 description=params["description"],
+                assumptions=params["assumptions"],
                 image_path=params["image_path"],
                 iteration=params["iteration"],
                 cfg=cfg,
                 job_id=job_id,
                 on_progress=on_progress,
             )
-        except Exception as exc:
+        except BaseException as exc:
             error_holder["error"] = exc
         finally:
             done["value"] = True
@@ -103,7 +106,7 @@ async def create_command(console: Console) -> None:
             except (KeyboardInterrupt, asyncio.CancelledError):
                 cancel_count["n"] += 1
                 if cancel_count["n"] == 1:
-                    spinner.text = Text("  Press Ctrl+C again to cancel", style="yellow")
+                    spinner.text = Text(" Press Ctrl+C again to cancel", style="yellow")
                 else:
                     cancelled["value"] = True
                     done["value"] = True
@@ -124,10 +127,15 @@ async def create_command(console: Console) -> None:
         return
 
     if error_holder["error"]:
-        console.print(f"\n[red]Error:[/red] {error_holder['error']}")
+        if isinstance(error_holder["error"], KeyboardInterrupt):
+            console.print("\n[yellow]Cancelled.[/yellow]\n")
+        else:
+            console.print(f"\n[red]Error:[/red] {error_holder['error']}")
         return
 
-    console.print(f"\n[green]Done![/green] Threat model saved as [cyan bold]{job_id}[/cyan bold]")
+    console.print(
+        f"\n[green]Done![/green] Threat model saved as [cyan bold]{job_id}[/cyan bold]"
+    )
     console.print(f"  Use [bold]/export {job_id}[/bold] to export it.\n")
 
 
@@ -141,20 +149,31 @@ def _run_create_wizard(_cfg: CLIConfig) -> Optional[dict]:
     if not name:
         return None
 
-    description = inquirer.text(
-        message="Description (optional):", default="", style=s,
-    ).execute().strip()
+    description = (
+        inquirer.text(
+            message="Description (optional):",
+            default="",
+            style=s,
+        )
+        .execute()
+        .strip()
+    )
+
+    assumptions = []
+    while True:
+        prompt = (
+            f"Assumption {len(assumptions) + 1}:"
+            if assumptions
+            else "Assumptions (optional — empty to skip):"
+        )
+        val = inquirer.text(message=prompt, default="", style=s).execute().strip()
+        if not val:
+            break
+        assumptions.append(val)
 
     image_path = inquirer.filepath(
         message="Architecture diagram path:",
         validate=lambda p: Path(p).is_file() or "File not found",
-        style=s,
-    ).execute()
-
-    app_type = inquirer.select(
-        message="Application type:",
-        choices=["hybrid", "internal", "public_facing"],
-        default="hybrid",
         style=s,
     ).execute()
 
@@ -185,7 +204,7 @@ def _run_create_wizard(_cfg: CLIConfig) -> Optional[dict]:
     return {
         "name": name,
         "description": description,
+        "assumptions": assumptions,
         "image_path": image_path,
-        "app_type": app_type,
         "iteration": iteration,
     }

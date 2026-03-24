@@ -13,6 +13,20 @@
 - 📖 [Read the AWS Blog Post](https://aws.amazon.com/blogs/machine-learning/accelerate-threat-modeling-with-generative-ai/)
 - ⭐ [Star this repo](https://github.com/awslabs/threat-designer) to support the project
 - 📚 [Getting started Guide](./quick-start-guide/quick-start.md)
+- 💻 [CLI Quick Start](./cli/README.md) — no deployment needed, runs fully local
+
+---
+
+## CLI — No Deployment Required
+
+Want to run threat modeling without deploying any AWS infrastructure? The **Threat Designer CLI** lets you generate STRIDE-based threat models entirely on your local machine, using only your existing Amazon Bedrock or OpenAI credentials.
+
+```bash
+pip install ./cli
+threat-designer
+```
+
+See the [CLI Quick Start guide](./cli/README.md) to get up and running in minutes.
 
 ---
 

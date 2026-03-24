@@ -41,6 +41,9 @@ build.zip
 CLAUDE.md
 /.kiro
 __pycache__
+*.egg-info
+*.egg-link
+.eggs/
 package-lock.json
 #
  AWS Security Agent domain verification

@@ -108,11 +108,6 @@ def export_pdf(model: dict, out_path: str) -> None:
 
     # ── Title ─────────────────────────────────────────────────────────────────
     story.append(Paragraph(title, s_title))
-    story.append(Spacer(1, 0.2 * cm))
-
-    meta = f"<b>ID:</b> {model.get('id', '—')}   <b>Created:</b> {(model.get('created_at') or '')[:10]}"
-    story.append(Paragraph(meta, ParagraphStyle("meta", fontSize=8, fontName="Helvetica",
-                                                 textColor=colors.HexColor("#666666"))))
     story.append(Spacer(1, 0.5 * cm))
 
     # ── Architecture Diagram ──────────────────────────────────────────────────

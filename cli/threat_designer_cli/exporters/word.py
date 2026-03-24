@@ -68,8 +68,12 @@ def export_word(model: dict, out_path: str) -> None:
     threats     = (model.get("threat_list") or {}).get("threats", [])
 
     # ── Title ─────────────────────────────────────────────────────────────────
-    para = doc.add_heading(title, 0)
+    para = doc.add_paragraph()
     para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = para.add_run(title)
+    run.bold = True
+    run.font.size = Pt(26)
+    run.font.color.rgb = RGBColor(0x2E, 0x74, 0xB5)
     doc.add_paragraph()
 
     # ── Architecture Diagram ──────────────────────────────────────────────────

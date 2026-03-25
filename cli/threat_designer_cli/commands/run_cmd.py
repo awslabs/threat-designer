@@ -123,6 +123,10 @@ async def run_headless(argv: list) -> None:
     # All display goes to stderr — stdout is reserved for the job ID
     err = Console(stderr=True)
 
+    # Set terminal tab title
+    sys.stderr.write("\033]0;Threat Designer\007")
+    sys.stderr.flush()
+
     job_id = str(uuid.uuid4())[:8]
     err.print(
         f"\n[cyan]{job_id}[/cyan] — [bold]{args.name}[/bold]\n"
@@ -237,6 +241,10 @@ async def run_headless(argv: list) -> None:
         while not done["value"]:
             await asyncio.sleep(0.5)
     thread.join(timeout=2)
+
+    # Reset terminal tab title
+    sys.stderr.write("\033]0;\007")
+    sys.stderr.flush()
 
     if stop_event.is_set():
         err.print("\n[yellow]Cancelled.[/yellow]")

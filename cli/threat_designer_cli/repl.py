@@ -45,6 +45,7 @@ _HELP_TEXT = (
 
 
 def _enter_alt_screen() -> None:
+    sys.stdout.write("\033]0;Threat Designer\007")
     sys.stdout.write("\033[?1049h")  # switch to alternate screen buffer
     sys.stdout.write("\033[3J")  # erase saved lines (clear scrollback)
     sys.stdout.write("\033[2J")  # clear visible screen
@@ -54,6 +55,7 @@ def _enter_alt_screen() -> None:
 
 def _exit_alt_screen() -> None:
     sys.stdout.write("\033[?1049l")
+    sys.stdout.write("\033]0;\007")
     sys.stdout.flush()
 
 

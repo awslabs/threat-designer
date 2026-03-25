@@ -1,7 +1,9 @@
 """Entry point for the threat-designer CLI."""
 
 import asyncio
+import os
 import sys
+import threading
 
 
 __version__ = "0.8.7"
@@ -28,3 +30,8 @@ def run() -> None:
             asyncio.run(start_repl())
         except KeyboardInterrupt:
             pass
+
+    # If background threads linger (e.g. cancelled LangGraph run), force exit
+    # to avoid the concurrent.futures atexit handler blocking on thread.join().
+    if threading.active_count() > 1:
+        os._exit(0)

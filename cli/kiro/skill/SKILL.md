@@ -43,7 +43,7 @@ mmdc --version 2>/dev/null && echo "ok" || npm install -g @mermaid-js/mermaid-cl
 
 If `threat-designer` is not installed, **stop here** — tell the user to install it first and do not proceed.
 
-**Determine the spec folder** — all artifacts (diagram, output, progress log, task file) live together under one `.kiro/specs/` folder:
+**Determine the spec folder** — all artifacts (diagram, output, task file) live together under one `.kiro/specs/` folder:
 
 - **If scope is `spec`:** use the user-provided spec folder directly: `SPEC_DIR=.kiro/specs/<spec-folder>`
 - **If scope is `full` or `diff`:** list existing spec folders and check if one matches the components under review. If a match is found, use it. Otherwise, create a new one:
@@ -152,7 +152,7 @@ threat-designer run \
   --effort <effort> \
   --iterations <iterations> \
   --min-likelihood <min-likelihood> \
-  [--stride <stride if provided>] > $SPEC_DIR/output.md 2> $SPEC_DIR/progress.log
+  [--stride <stride if provided>] > $SPEC_DIR/output.md
 ```
 
 Once complete, read the job ID:

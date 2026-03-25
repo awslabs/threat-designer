@@ -114,6 +114,7 @@ async def create_command(console: Console) -> None:
                 assumptions=params["assumptions"],
                 image_path=params["image_path"],
                 iteration=params["iteration"],
+                app_type=params["app_type"],
                 cfg=cfg,
                 job_id=job_id,
                 on_progress=on_progress,
@@ -287,6 +288,17 @@ def _run_create_wizard(_cfg: CLIConfig) -> Optional[dict]:
             break
         assumptions.append(val)
 
+    app_type = inquirer.select(
+        message="Application type:",
+        choices=[
+            Choice("hybrid", name="Hybrid — both public and internal components"),
+            Choice("public_facing", name="Public — internet-facing, accessible by anonymous users"),
+            Choice("internal", name="Internal — private network only, controlled access"),
+        ],
+        default="hybrid",
+        style=s,
+    ).execute()
+
     image_path = inquirer.filepath(
         message="Architecture diagram path:",
         validate=lambda p: Path(p).is_file() or "File not found",
@@ -352,6 +364,7 @@ def _run_create_wizard(_cfg: CLIConfig) -> Optional[dict]:
         "name": name,
         "description": description,
         "assumptions": assumptions,
+        "app_type": app_type,
         "image_path": image_path,
         "iteration": iteration,
         "generate_trees": generate_trees,

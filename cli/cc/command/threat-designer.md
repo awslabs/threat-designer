@@ -39,12 +39,12 @@ mmdc --version 2>/dev/null && echo "ok" || npm install -g @mermaid-js/mermaid-cl
 **Create a unique run directory** to avoid overwriting previous runs. First list existing runs, then create a new one:
 
 ```bash
-ls .claude/threat-designer/ 2>/dev/null || echo "(no previous runs)"
+ls .threat-designer/ 2>/dev/null || echo "(no previous runs)"
 RUN_ID=$(date +%Y%m%d-%H%M%S)-$(head -c 4 /dev/urandom | xxd -p)
-mkdir -p .claude/threat-designer/$RUN_ID
+mkdir -p .threat-designer/$RUN_ID
 ```
 
-All artifacts for this run go under `.claude/threat-designer/$RUN_ID/`. Use `$RUN_ID` in all paths below.
+All artifacts for this run go under `.threat-designer/$RUN_ID/`. Use `$RUN_ID` in all paths below.
 
 If `threat-designer` is not installed, **stop here** — tell the user to install it first and do not proceed.
 
@@ -79,7 +79,7 @@ Summarize what you find: services, responsibilities, communication patterns, dat
 
 ### A3 — Generate architecture diagram
 
-Write a Mermaid `flowchart TD` diagram to `.claude/threat-designer/$RUN_ID/arch.mmd`.
+Write a Mermaid `flowchart TD` diagram to `.threat-designer/$RUN_ID/arch.mmd`.
 
 **If `--scope diff`:** include only the components identified in A2 (changed components + their direct dependencies). Label each changed component with `*` (e.g., `AuthService*`).
 
@@ -95,7 +95,7 @@ Both scopes must include:
 Completeness matters more than aesthetics.
 
 ```bash
-mmdc -i .claude/threat-designer/$RUN_ID/arch.mmd -o .claude/threat-designer/$RUN_ID/arch.png -w 2400 -b white
+mmdc -i .threat-designer/$RUN_ID/arch.mmd -o .threat-designer/$RUN_ID/arch.png -w 2400 -b white
 ```
 
 ### A4 — Run threat modeling
@@ -130,7 +130,7 @@ Build the command using the values from Step 0. Always include `--min-likelihood
 ```bash
 threat-designer run \
   --name "Threat Review — $(basename $(pwd))" \
-  --image .claude/threat-designer/$RUN_ID/arch.png \
+  --image .threat-designer/$RUN_ID/arch.png \
   --app-type <public|internal|hybrid> \
   --description "<rich description from A2 — business context, tech stack, sensitive data>" \
   --assumption "<assumption 1>" \
@@ -139,13 +139,13 @@ threat-designer run \
   --effort <effort> \
   --iterations <iterations> \
   --min-likelihood <min-likelihood> \
-  [--stride <stride if provided>] > .claude/threat-designer/$RUN_ID/output.md
+  [--stride <stride if provided>] > .threat-designer/$RUN_ID/output.md
 ```
 
 **Threat modeling can take up to 20 minutes.** Use the `TaskOutput` tool to follow the background task's output and wait for it to complete — do not proceed until the task finishes. Once complete, read the job ID:
 
 ```bash
-JOB_ID=$(head -1 .claude/threat-designer/$RUN_ID/output.md)
+JOB_ID=$(head -1 .threat-designer/$RUN_ID/output.md)
 echo "Threat model: $JOB_ID"
 ```
 
@@ -157,7 +157,7 @@ The CLI will generate the full model, apply filters, and write the threat list t
 
 ### B1 — Load the threat model
 
-**If Section A was run:** the threat list is already in `.claude/threat-designer/$RUN_ID/output.md`. Read it directly — no additional command needed.
+**If Section A was run:** the threat list is already in `.threat-designer/$RUN_ID/output.md`. Read it directly — no additional command needed.
 
 **If `--model <id>` was passed** (Section A skipped), generate the formatted list — pass the same filters so the output matches what was requested:
 
@@ -200,7 +200,7 @@ Wait for all subagents to complete, then aggregate their findings into B3.
 
 ### B3 — Output
 
-Write the review to `.claude/threat-designer/$RUN_ID/threat-designer-<id>.md`, then print the path to the user.
+Write the review to `.threat-designer/$RUN_ID/threat-designer-<id>.md`, then print the path to the user.
 
 Structure the file as an **actionable task list** so Claude Code can be pointed at it to fix each issue. Every unmitigated or partially mitigated finding must be a checkbox task with enough context to act on it without re-reading the threat model.
 

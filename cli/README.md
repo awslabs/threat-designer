@@ -269,7 +269,7 @@ Arguments are passed inline after the command name.
 
 #### Output
 
-Each run creates a unique directory under `.claude/threat-designer/<run-id>/` containing all artifacts (diagram, threat list, report). Previous runs are never overwritten.
+Each run creates a unique directory under `.threat-designer/<run-id>/` containing all artifacts (diagram, threat list, report). Previous runs are never overwritten.
 
 The report (`threat-designer-<id>.md`) is structured as an actionable task list:
 
@@ -325,7 +325,7 @@ Invoke the **Threat Designer** skill from Kiro. Since Kiro skills don't accept i
 | Arguments  | Inline flags after `/threat-designer`     | Interactive prompt before starting           |
 | Scope      | `full` / `diff`                           | `full` / `diff` / `spec` (spec-folder-aware) |
 | Sub-agents | Claude Code Agent tool                    | Kiro `general-task-execution` agent          |
-| Artifacts  | `.claude/threat-designer/<run-id>/`       | `.kiro/specs/<spec-folder>/`                 |
+| Artifacts  | `.threat-designer/<run-id>/`       | `.kiro/specs/<spec-folder>/`                 |
 | Task file  | `threat-designer-<id>.md` (checkbox list) | `security_fix_tasks.md` (Kiro tasks format)  |
 
 #### Output

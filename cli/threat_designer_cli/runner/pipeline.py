@@ -12,6 +12,7 @@ import logging
 import mimetypes
 import os
 import sys
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Optional
@@ -134,7 +135,10 @@ def run_workflow(
     job_id: str,
     assumptions: Optional[list] = None,
     iteration: int = 0,
+    app_type: str = "hybrid",
     on_progress: Optional[Callable[[str], None]] = None,
+    on_event: Optional[Callable[[str], None]] = None,
+    stop_event: Optional[threading.Event] = None,
 ) -> dict:
     global _patched
 
@@ -172,7 +176,7 @@ def run_workflow(
         "replay": False,
         "iteration": iteration,
         "threat_list": ThreatsList(threats=[]),
-        "application_type": "hybrid",
+        "application_type": app_type,
     }
 
     models = initialize_models(reasoning=cfg.reasoning_level, job_id=job_id)
@@ -195,5 +199,34 @@ def run_workflow(
         "recursion_limit": 150,
     }
 
-    agent.invoke(initial_state, config=agent_config)
+    _seen_tc_ids: set = set()
+    _working_shown_ns: set = set()
+
+    for ns_tuple, (msg_chunk, metadata) in agent.stream(
+        initial_state, config=agent_config, stream_mode="messages", subgraphs=True
+    ):
+        if stop_event and stop_event.is_set():
+            break
+        if on_event:
+            ns = ns_tuple[0] if ns_tuple else ""
+            node = metadata.get("langgraph_node", "")
+            if node == "agent" and (
+                ns.startswith("flows") or ns.startswith("threats_agentic")
+            ):
+                if (
+                    hasattr(msg_chunk, "tool_call_chunks")
+                    and msg_chunk.tool_call_chunks
+                ):
+                    for tc_chunk in msg_chunk.tool_call_chunks:
+                        tc_id = tc_chunk.get("id") or ""
+                        tc_name = (tc_chunk.get("name") or "").strip()
+                        if tc_id and tc_id not in _seen_tc_ids and tc_name:
+                            _seen_tc_ids.add(tc_id)
+                            _working_shown_ns.discard(ns)
+                            on_event(tc_name)
+                elif hasattr(msg_chunk, "content") and msg_chunk.content:
+                    if ns not in _working_shown_ns:
+                        _working_shown_ns.add(ns)
+                        on_event("Working...")
+
     return LocalStateService.pop_result() or {}

@@ -1,6 +1,21 @@
-"""Shared color constants and InquirerPy style."""
+"""Shared color constants, formatting helpers, and InquirerPy style."""
 
 PURPLE = "#8575FF"
+ACTIVE_COLOR = f"bold {PURPLE}"
+DONE_COLOR = "bold green"
+TIME_COLOR = "dim"
+
+
+def fmt_duration(seconds: float) -> str:
+    s = int(seconds)
+    if s < 60:
+        return f"{seconds:.1f}s"
+    m, s = divmod(s, 60)
+    if m < 60:
+        return f"{m}m {s}s"
+    h, m = divmod(m, 60)
+    return f"{h}h {m}m {s}s"
+
 
 # Raw dict — converted via get_style() at call sites
 STYLE_DICT = {

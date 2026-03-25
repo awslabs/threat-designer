@@ -803,68 +803,68 @@ def continue_or_finish(state: AttackTreeState) -> Command:
             )
             return Command(goto="agent", update={"messages": [feedback_message]})
 
-        # Store the attack tree in DynamoDB
-        try:
-            from attack_tree_models import AttackTreeConverter
-            import boto3
-            from datetime import datetime
-            import os
+        # Store the attack tree in DynamoDB (skipped when table is not configured)
+        import os
 
-            # Convert logical structure to React Flow format
-            converter = AttackTreeConverter()
-            react_flow_data = converter.convert(attack_tree)
-
-            # Save to attack-tree-data table
-            dynamodb = boto3.resource("dynamodb")
-            attack_tree_table_name = os.environ.get("ATTACK_TREE_TABLE")
-
-            if not attack_tree_table_name:
-                raise ValueError("ATTACK_TREE_TABLE environment variable not set")
-
-            attack_tree_table = dynamodb.Table(attack_tree_table_name)
-
-            attack_tree_table.put_item(
-                Item={
-                    "attack_tree_id": attack_tree_id,
-                    "threat_model_id": state.get("threat_model_id"),
-                    "threat_name": state.get("threat_name"),
-                    "owner": state.get("owner"),
-                    "created_at": datetime.utcnow().isoformat(),
-                    "attack_tree_data": react_flow_data,
-                }
-            )
-
-            logger.debug(
-                "Successfully saved attack tree to DynamoDB",
-                node="continue",
-                attack_tree_id=attack_tree_id,
-                node_count=len(react_flow_data.get("nodes", [])),
-                edge_count=len(react_flow_data.get("edges", [])),
-            )
-        except Exception as e:
-            logger.error(
-                "Failed to save attack tree to DynamoDB",
-                node="continue",
-                attack_tree_id=attack_tree_id,
-                error=str(e),
-                exc_info=True,
-            )
-            # Update status to failed
+        attack_tree_table_name = os.environ.get("ATTACK_TREE_TABLE")
+        if attack_tree_table_name:
             try:
-                state_service.update_job_state(
-                    attack_tree_id,
-                    "failed",
-                    detail=f"Failed to save attack tree: {str(e)}",
+                from attack_tree_models import AttackTreeConverter
+                import boto3
+                from datetime import datetime
+
+                converter = AttackTreeConverter()
+                react_flow_data = converter.convert(attack_tree)
+
+                dynamodb = boto3.resource("dynamodb")
+                attack_tree_table = dynamodb.Table(attack_tree_table_name)
+
+                attack_tree_table.put_item(
+                    Item={
+                        "attack_tree_id": attack_tree_id,
+                        "threat_model_id": state.get("threat_model_id"),
+                        "threat_name": state.get("threat_name"),
+                        "owner": state.get("owner"),
+                        "created_at": datetime.utcnow().isoformat(),
+                        "attack_tree_data": react_flow_data,
+                    }
                 )
-            except Exception as status_error:
-                logger.error(
-                    "Failed to update status to failed after save error",
+
+                logger.debug(
+                    "Successfully saved attack tree to DynamoDB",
                     node="continue",
                     attack_tree_id=attack_tree_id,
-                    error=str(status_error),
+                    node_count=len(react_flow_data.get("nodes", [])),
+                    edge_count=len(react_flow_data.get("edges", [])),
                 )
-            # Re-raise to stop workflow
-            raise
+            except Exception as e:
+                logger.error(
+                    "Failed to save attack tree to DynamoDB",
+                    node="continue",
+                    attack_tree_id=attack_tree_id,
+                    error=str(e),
+                    exc_info=True,
+                )
+                try:
+                    state_service.update_job_state(
+                        attack_tree_id,
+                        "failed",
+                        detail=f"Failed to save attack tree: {str(e)}",
+                    )
+                except Exception as status_error:
+                    logger.error(
+                        "Failed to update status to failed after save error",
+                        node="continue",
+                        attack_tree_id=attack_tree_id,
+                        error=str(status_error),
+                    )
+                raise
+        else:
+            logger.debug(
+                "ATTACK_TREE_TABLE not set — skipping DynamoDB save",
+                node="continue",
+                attack_tree_id=attack_tree_id,
+            )
 
         # Save message trail (can be commented out if not needed)
         # _save_message_trail(state, attack_tree_id)

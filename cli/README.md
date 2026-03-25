@@ -20,8 +20,10 @@ The CLI is not published to PyPI — install it locally from the cloned reposito
 ```bash
 git clone <repo-url>
 cd threat-designer
-pip install ./cli
+pip install -e ./cli
 ```
+
+> **Note:** The `-e` (editable) flag is recommended — it lets the CLI find the backend agent code in the repo. If you install without `-e`, set the `THREAT_DESIGNER_REPO` environment variable to the repo root path.
 
 ---
 

@@ -21,8 +21,32 @@ from ..config import CLIConfig
 from ..models import BEDROCK_MODELS, OPENAI_MODELS
 from .local_state import LocalStateService
 
-# Path to the backend threat_designer package
-BACKEND_PATH = Path(__file__).parents[3] / "backend" / "threat_designer"
+# Path to the backend threat_designer package.
+# When pip-installed, __file__ is in site-packages so we can't rely on parents[3].
+# Try __file__-relative first (editable install / running from repo), then fall
+# back to a THREAT_DESIGNER_REPO env var, then search common locations.
+def _resolve_backend_path() -> Path:
+    # 1. Relative to source (works for editable installs / running from repo)
+    candidate = Path(__file__).parents[3] / "backend" / "threat_designer"
+    if candidate.is_dir():
+        return candidate
+    # 2. Explicit env var
+    repo = os.environ.get("THREAT_DESIGNER_REPO")
+    if repo:
+        candidate = Path(repo) / "backend" / "threat_designer"
+        if candidate.is_dir():
+            return candidate
+    # 3. Config file stores the repo root from first install
+    marker = Path.home() / ".threat-designer" / "repo_path"
+    if marker.exists():
+        candidate = Path(marker.read_text().strip()) / "backend" / "threat_designer"
+        if candidate.is_dir():
+            return candidate
+    # 4. Not found — will fail at import time with a clear error
+    return Path("__backend_not_found__")
+
+
+BACKEND_PATH = _resolve_backend_path()
 
 _patched = False  # Track whether StateService has been patched this process
 
@@ -43,9 +67,21 @@ def _suppress_logging() -> None:
 
 
 def _ensure_backend_path() -> None:
+    if not BACKEND_PATH.is_dir():
+        raise RuntimeError(
+            f"Backend not found at {BACKEND_PATH}.\n"
+            "If you installed via 'pip install ./cli', the backend path could not be resolved.\n"
+            "Fix: reinstall with 'pip install -e ./cli' (editable mode) from the repo root,\n"
+            "or set THREAT_DESIGNER_REPO=/path/to/threat-designer"
+        )
     path = str(BACKEND_PATH)
     if path not in sys.path:
         sys.path.insert(0, path)
+    # Cache the repo path for future non-editable installs
+    marker = Path.home() / ".threat-designer" / "repo_path"
+    if not marker.exists():
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(str(BACKEND_PATH.parent.parent))
 
 
 def _build_model_config(cfg: CLIConfig) -> dict:

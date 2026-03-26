@@ -31,6 +31,17 @@ def get_model(model_id: str) -> Optional[dict]:
         return None
 
 
+def save_model(model: dict) -> bool:
+    model_id = model.get("id")
+    if not model_id:
+        return False
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    (MODELS_DIR / f"{model_id}.json").write_text(
+        json.dumps(model, indent=2, default=str)
+    )
+    return True
+
+
 def delete_model(model_id: str) -> bool:
     path = MODELS_DIR / f"{model_id}.json"
     if not path.exists():

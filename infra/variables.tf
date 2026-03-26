@@ -194,7 +194,7 @@ variable "model_struct" {
     max_tokens = number
   })
   default = {
-    id         = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    id         =  "global.anthropic.claude-sonnet-4-6"
     max_tokens = 64000
   }
 }

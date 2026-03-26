@@ -21,11 +21,13 @@ def list_command(console: Console) -> None:
     table.add_column("Title", style="bold")
     table.add_column("Description", max_width=40)
     table.add_column("Threats", justify="right")
+    table.add_column("Attack Trees", justify="right")
     table.add_column("Status", justify="center")
     table.add_column("Created", no_wrap=True)
 
     for m in models:
         threat_count = str(len((m.get("threat_list") or {}).get("threats", [])))
+        attack_tree_count = str(len(m.get("attack_trees") or {}))
         status = m.get("status", "UNKNOWN")
         status_color = (
             "green"
@@ -43,6 +45,7 @@ def list_command(console: Console) -> None:
             m.get("title") or "[dim]untitled[/dim]",
             description or "[dim]—[/dim]",
             threat_count,
+            attack_tree_count if attack_tree_count != "0" else "[dim]—[/dim]",
             f"[{status_color}]{status}[/{status_color}]",
             created,
         )

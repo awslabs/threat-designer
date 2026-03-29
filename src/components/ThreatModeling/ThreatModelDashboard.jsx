@@ -4,6 +4,7 @@ import BoardItem from "@cloudscape-design/board-components/board-item";
 import Container from "@cloudscape-design/components/container";
 import Header from "@cloudscape-design/components/header";
 import Box from "@cloudscape-design/components/box";
+import ColumnLayout from "@cloudscape-design/components/column-layout";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import {
   aggregateByStrideWithLikelihood,
@@ -35,7 +36,14 @@ import ChartErrorBoundary from "./charts/ChartErrorBoundary";
  * @param {Array} props.threatCatalogData - Array of threat objects from the threat model
  * @returns {JSX.Element} The rendered dashboard with statistical charts
  */
-const ThreatModelDashboard = ({ threatCatalogData = [] }) => {
+const formatTokenCount = (n) => {
+  if (n == null) return "—";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+};
+
+const ThreatModelDashboard = ({ threatCatalogData = [], tokenUsage = null }) => {
   // Validate input data and filter out malformed threat objects
   const validThreats = useMemo(() => {
     if (!Array.isArray(threatCatalogData)) {
@@ -186,6 +194,26 @@ const ThreatModelDashboard = ({ threatCatalogData = [] }) => {
           <Box variant="p" color="text-body-secondary">
             Statistical overview of {totalThreats} identified threat{totalThreats !== 1 ? "s" : ""}
           </Box>
+          {tokenUsage && (
+            <ColumnLayout columns={4} variant="text-grid">
+              <div>
+                <Box variant="awsui-key-label">Input tokens</Box>
+                <Box variant="p">{formatTokenCount(tokenUsage.input_tokens)}</Box>
+              </div>
+              <div>
+                <Box variant="awsui-key-label">Output tokens</Box>
+                <Box variant="p">{formatTokenCount(tokenUsage.output_tokens)}</Box>
+              </div>
+              <div>
+                <Box variant="awsui-key-label">Cache read</Box>
+                <Box variant="p">{formatTokenCount(tokenUsage.cache_read_input_tokens)}</Box>
+              </div>
+              <div>
+                <Box variant="awsui-key-label">Cache write</Box>
+                <Box variant="p">{formatTokenCount(tokenUsage.cache_creation_input_tokens)}</Box>
+              </div>
+            </ColumnLayout>
+          )}
         </SpaceBetween>
       </Container>
 
@@ -283,6 +311,8 @@ const ThreatModelDashboard = ({ threatCatalogData = [] }) => {
  * Only re-render if the threatCatalogData prop has actually changed
  */
 const arePropsEqual = (prevProps, nextProps) => {
+  if (prevProps.tokenUsage !== nextProps.tokenUsage) return false;
+
   // Handle null/undefined cases
   if (!prevProps.threatCatalogData && !nextProps.threatCatalogData) {
     return true;

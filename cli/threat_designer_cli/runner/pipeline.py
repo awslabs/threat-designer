@@ -21,6 +21,7 @@ from ..config import CLIConfig
 from ..models import BEDROCK_MODELS, OPENAI_MODELS
 from .local_state import LocalStateService
 
+
 # Path to the backend threat_designer package.
 # When pip-installed, __file__ is in site-packages so we can't rely on parents[3].
 # Try __file__-relative first (editable install / running from repo), then fall
@@ -216,6 +217,11 @@ def run_workflow(
     }
 
     models = initialize_models(reasoning=cfg.reasoning_level, job_id=job_id)
+
+    from monitoring import TokenUsageTracker  # type: ignore  # noqa: E402
+
+    token_tracker = TokenUsageTracker()
+
     agent_config = {
         "configurable": {
             "model_assets": models["assets_model"],
@@ -231,7 +237,9 @@ def run_workflow(
             "start_time": datetime.now(),
             "max_retries": DEFAULT_MAX_RETRY,
             "reasoning": cfg.reasoning_level > 0,
+            "token_tracker": token_tracker,
         },
+        "callbacks": [token_tracker],
         "recursion_limit": 150,
     }
 
@@ -265,4 +273,8 @@ def run_workflow(
                         _working_shown_ns.add(ns)
                         on_event("Working...")
 
-    return LocalStateService.pop_result() or {}
+    token_tracker.log_totals(job_id)
+
+    result = LocalStateService.pop_result() or {}
+    result["_token_usage"] = token_tracker.totals
+    return result

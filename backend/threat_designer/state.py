@@ -1,5 +1,6 @@
 """Module containing state classes and data models for the threat designer application."""
 
+import functools
 import operator
 from datetime import datetime
 from langgraph.graph import MessagesState
@@ -47,7 +48,7 @@ class CaptureInsight(BaseModel):
     insight: Annotated[
         str,
         Field(
-            description="A concise description of what is relevant from the space knowledge base for threat modeling this architecture."
+            description="One crisp sentence (max 30 words) stating what the KB revealed and why it matters for this architecture's threat model."
         ),
     ]
 
@@ -114,8 +115,37 @@ class TrustBoundary(BaseModel):
     ]
 
 
+class GapFinding(BaseModel):
+    """A specific gap identified in the threat catalog."""
+
+    target: Annotated[
+        str,
+        Field(
+            description="The asset or component name where the gap exists. Must match an asset name from the architecture."
+        ),
+    ]
+    stride_category: Annotated[
+        Literal[*[category.value for category in StrideCategory]],
+        Field(
+            description="The STRIDE category that is missing or underrepresented for this target."
+        ),
+    ]
+    severity: Annotated[
+        Literal["CRITICAL", "MAJOR", "MINOR"],
+        Field(
+            description="CRITICAL = no coverage for a high-criticality asset/category, MAJOR = weak coverage, MINOR = calibration or quality issue."
+        ),
+    ]
+    description: Annotated[
+        str,
+        Field(
+            description="Actionable description of what is missing and why it matters. Max 40 words. Use imperative voice."
+        ),
+    ]
+
+
 class ContinueThreatModeling(BaseModel):
-    """Tool to share the gap analysis for threat modeling."""
+    """Structured gap analysis result for threat modeling."""
 
     stop: Annotated[
         bool,
@@ -123,17 +153,12 @@ class ContinueThreatModeling(BaseModel):
             description="Should stop threat generation (True) if catalog is comprehensive, or continue (False) if gaps remain."
         ),
     ]
-    gap: Annotated[
-        Optional[str],
+    gaps: Annotated[
+        Optional[List[GapFinding]],
         Field(
-            description="""Concise list of identified gaps to improve the threat model. \n
-            Each gap must be maximum 40 words. \n
-            Format as a bulleted list with each gap on a new line. \n
-            Gaps should be actionable and specific. \n
-            Very important! When referencing threats, do not use abbreviations. Instead you need to reference the full name of the threat, which is their unique identifier. \n
-            Required only when 'stop' is False. \n"""
+            description="Specific gaps identified in the threat catalog, each tied to a target asset and STRIDE category. Required when 'stop' is False. Empty list when 'stop' is True."
         ),
-    ] = ""
+    ] = []
     rating: Annotated[
         int,
         Field(
@@ -294,8 +319,9 @@ class ThreatsList(BaseModel):
         return ThreatsList(threats=filtered_threats)
 
 
+@functools.lru_cache(maxsize=16)
 def create_constrained_threat_model(
-    asset_names: set[str], source_categories: set[str]
+    asset_names: frozenset[str], source_categories: frozenset[str]
 ) -> tuple[type[BaseModel], type[BaseModel]]:
     """Create Threat and ThreatsList models with Literal-constrained target/source fields.
 
@@ -377,6 +403,7 @@ class AgentState(TypedDict):
     application_type: Optional[str] = "hybrid"
     space_id: Optional[str] = None
     space_insights: Optional[SpaceInsightsList] = None
+    token_usage: Optional[dict] = None
 
 
 def _add_or_overwrite(left, right):
@@ -408,7 +435,7 @@ def _overwrite_or_last(left, right):
 
 
 class ThreatState(MessagesState):
-    """Container for the internal state of the subgraph."""
+    """Container for the internal state of the threats subgraph."""
 
     threat_list: Annotated[ThreatsList, operator.add]
     tool_use: Annotated[int, _add_or_overwrite] = 0

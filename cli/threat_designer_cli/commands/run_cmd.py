@@ -256,6 +256,12 @@ async def run_headless(argv: list) -> None:
 
     model = get_model(job_id)
 
+    # Print token usage to stderr
+    if model:
+        from .create import _print_token_usage
+
+        _print_token_usage(err, model)
+
     if model and (args.min_likelihood or args.stride):
         before = len((model.get("threat_list") or {}).get("threats") or [])
         apply_threat_filters(model, args.min_likelihood, args.stride)

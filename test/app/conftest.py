@@ -133,6 +133,7 @@ def mock_environment():
     return {
         "JOB_STATUS_TABLE": "test-status-table",
         "AGENT_STATE_TABLE": "test-agent-table",
+        "BACKUP_TABLE": "test-backup-table",
         "LOCKS_TABLE": "test-locks-table",
         "SHARING_TABLE": "test-sharing-table",
         "ARCHITECTURE_BUCKET": "test-bucket",

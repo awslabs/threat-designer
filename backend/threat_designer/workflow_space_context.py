@@ -9,13 +9,13 @@ import os
 from typing import Any, List
 
 import boto3
-from constants import KB_QUERY_BUDGET, JobState
+from constants import KB_QUERY_BUDGET, MAX_SPACE_INSIGHTS, JobState
 from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_core.runnables.config import RunnableConfig
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph
 from langgraph.types import Command
-from message_builder import MessageBuilder, list_to_string
+from message_builder import MessageBuilder, inject_bedrock_cache_points, list_to_string
 from monitoring import logger
 from prompt_provider import create_space_context_system_prompt
 from state import CaptureInsight, SpaceContextState, SpaceInsightsList, ConfigSchema
@@ -196,7 +196,7 @@ def agent_node(state: SpaceContextState, config: RunnableConfig) -> Command:
         model=model, tools=bound_tools, tool_choice="auto"
     )
 
-    response = model_with_tools.invoke(messages, config)
+    response = model_with_tools.invoke(inject_bedrock_cache_points(messages), config)
 
     # Track query count delta
     query_delta = 0
@@ -260,6 +260,9 @@ def should_continue(state: SpaceContextState) -> str:
     messages = state["messages"]
     last_message = messages[-1]
     if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+        # Cap: if already at max insights, skip to finish
+        if _count_insights_from_messages(messages) >= MAX_SPACE_INSIGHTS:
+            return "finish"
         return "tools"
     return "finish"
 

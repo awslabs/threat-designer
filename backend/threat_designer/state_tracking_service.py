@@ -80,9 +80,11 @@ class StateService:
             raise StateUpdateError(f"Failed to finalize workflow: {str(e)}")
 
     @with_error_context("backup update")
-    def update_with_backup(self, job_id: str) -> None:
-        """Update item with backup."""
+    def update_with_backup(self, job_id: str, backup_table: str = None) -> None:
+        """Store a backup of the item in the dedicated backup table."""
         try:
-            update_item_with_backup(job_id, self.agent_table)
+            update_item_with_backup(
+                job_id, self.agent_table, backup_table or self.agent_table
+            )
         except Exception as e:
             raise StateUpdateError(f"Failed to update with backup: {str(e)}")

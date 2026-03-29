@@ -62,9 +62,9 @@ class ThreatModelingOrchestrator:
         """Define assets from architecture analysis."""
         return self.asset_service.define_assets(state, config)
 
-    def finalize(self, state: AgentState) -> Command:
+    def finalize(self, state: AgentState, config: RunnableConfig) -> Command:
         """Finalize the workflow."""
-        return self.finalization_service.finalize_workflow(state)
+        return self.finalization_service.finalize_workflow(state, config)
 
     def route_after_summary(self, state: AgentState) -> str:
         """Route after summary node: replay → threats, space_id → space_context, else → asset."""

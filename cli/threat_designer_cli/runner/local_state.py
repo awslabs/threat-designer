@@ -101,7 +101,7 @@ def _serialize_state(state_dict, job_id: str) -> dict:
         "status": "COMPLETE",
         "created_at": datetime.now().isoformat(),
     }
-    skip = {"image_data", "image_type", "space_insights", "next_step", "stop"}
+    skip = {"image_data", "image_type", "next_step", "stop"}
     for key, val in state_dict.items():
         if key in skip:
             continue

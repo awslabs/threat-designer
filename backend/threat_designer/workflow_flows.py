@@ -29,7 +29,7 @@ from tools import (
     flows_stats,
 )
 from state import FlowsState, ConfigSchema, create_constrained_flow_models
-from message_builder import MessageBuilder, list_to_string
+from message_builder import MessageBuilder, inject_bedrock_cache_points, list_to_string
 from prompt_provider import create_flows_agent_system_prompt
 
 
@@ -216,8 +216,8 @@ def agent_node(state: FlowsState, config: RunnableConfig) -> Command:
         model=model, tools=session_tools, tool_choice="auto"
     )
 
-    # Invoke model
-    response = model_with_tools.invoke(messages, config)
+    # Invoke model with cache breakpoints for ReAct loop efficiency
+    response = model_with_tools.invoke(inject_bedrock_cache_points(messages), config)
 
     # Update status based on tool calls
     if hasattr(response, "tool_calls") and response.tool_calls:

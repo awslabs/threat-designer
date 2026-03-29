@@ -1,5 +1,7 @@
 """
-This module defines the state sub-graph and orchestrates the threat generation logic in auto mode
+Single-agent threats subgraph.
+
+Pipeline: agent_init → agent ⇄ tools → validate → Command(goto="finalize", graph=PARENT)
 """
 
 from config import config as app_config
@@ -10,10 +12,11 @@ from constants import (
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph import StateGraph
-from langgraph.types import Command, Overwrite
 from langgraph.prebuilt import ToolNode
+from langgraph.types import Command, Overwrite
 from model_service import ModelService
 from monitoring import logger
+from partitioner import compute_partitions
 from state_tracking_service import StateService
 from tools import (
     read_threat_catalog,
@@ -23,406 +26,281 @@ from tools import (
     catalog_stats,
     create_dynamic_add_threats_tool,
 )
-from state import ThreatState, ConfigSchema, create_constrained_threat_model
-from message_builder import MessageBuilder, list_to_string
-from prompt_provider import create_agent_system_prompt
-
-
-tools = [add_threats, remove_threat, read_threat_catalog, catalog_stats, gap_analysis]
-
-
-def _build_session_tools(state: ThreatState) -> list:
-    """Build a session-specific tools list with dynamic add_threats if possible.
-
-    Extracts asset names and source categories from state, creates a
-    constrained Threat model, and returns a tools list with the dynamic
-    add_threats tool replacing the static one.  Falls back to the static
-    tools list on any failure.
-    """
-    assets = state.get("assets")
-    system_architecture = state.get("system_architecture")
-
-    asset_names: set[str] = set()
-    if assets and assets.assets:
-        asset_names = {a.name for a in assets.assets}
-
-    source_cats: set[str] = set()
-    if system_architecture and system_architecture.threat_sources:
-        source_cats = {s.category for s in system_architecture.threat_sources}
-
-    if not asset_names and not source_cats:
-        return tools
-
-    try:
-        _, DynThreatsList = create_constrained_threat_model(asset_names, source_cats)
-        dynamic_add_threats = create_dynamic_add_threats_tool(DynThreatsList)
-        session_tools = [
-            dynamic_add_threats,
-            remove_threat,
-            read_threat_catalog,
-            catalog_stats,
-            gap_analysis,
-        ]
-        logger.debug(
-            "Dynamic add_threats tool created",
-            asset_count=len(asset_names),
-            source_count=len(source_cats),
-        )
-        return session_tools
-    except Exception as e:
-        logger.warning(
-            "Failed to create dynamic threat model, falling back to static tools",
-            error=str(e),
-        )
-        return tools
-
-
-def dynamic_tool_node(state: ThreatState) -> Command:
-    """Tool node that uses session-specific dynamic tools."""
-    session_tools = _build_session_tools(state)
-    node = ToolNode(session_tools)
-    return node.invoke(state)
+from state import (
+    ThreatState,
+    ConfigSchema,
+    ThreatsList,
+    create_constrained_threat_model,
+)
+from message_builder import MessageBuilder, inject_bedrock_cache_points, list_to_string
+from prompt_provider import create_threats_agent_system_prompt
 
 
 # Initialize state service for tracking job state and trails
 state_service = StateService(app_config.agent_state_table)
 
+# Pre-compute STRIDE categories for validation checks
+ALL_STRIDE = {c.value for c in StrideCategory}
 
-def create_agent_human_message(state: ThreatState) -> HumanMessage:
-    """Create initial human message with architecture context for the agent.
+# Shared model service (stateless helper, safe to reuse)
+model_service = ModelService()
 
-    Args:
-        state: Current ThreatState containing assets, flows, and threat list
 
-    Returns:
-        HumanMessage with architecture context and starred threats if in replay mode
-    """
-    msg_builder = MessageBuilder(
+# ============================================================================
+# Helpers
+# ============================================================================
+
+
+def _build_message_builder(state) -> MessageBuilder:
+    """Create a MessageBuilder from state fields."""
+    return MessageBuilder(
         state.get("image_data"),
         state.get("description", ""),
         list_to_string(state.get("assumptions", [])),
         state.get("image_type"),
     )
 
-    # Check for starred threats in replay mode
-    starred_threats = []
-    threat_list = state.get("threat_list")
-    if threat_list and threat_list.threats:
-        starred_threats = [t for t in threat_list.threats if t.starred]
 
-    # Get assets and system architecture from state
+def _build_tools(state: ThreatState) -> list:
+    """Build full-scope tools for the threats agent."""
     assets = state.get("assets")
     system_architecture = state.get("system_architecture")
 
-    # Delegate all enrichment to MessageBuilder
-    human_msg = msg_builder.create_threat_agent_message(
+    asset_names: frozenset[str] = frozenset()
+    if assets and assets.assets:
+        asset_names = frozenset(a.name for a in assets.assets)
+
+    source_cats: frozenset[str] = frozenset()
+    if system_architecture and system_architecture.threat_sources:
+        source_cats = frozenset(s.category for s in system_architecture.threat_sources)
+
+    if not asset_names and not source_cats:
+        return [
+            add_threats,
+            remove_threat,
+            read_threat_catalog,
+            catalog_stats,
+            gap_analysis,
+        ]
+
+    try:
+        _, DynThreatsList = create_constrained_threat_model(asset_names, source_cats)
+        dynamic_add = create_dynamic_add_threats_tool(DynThreatsList)
+        return [
+            dynamic_add,
+            remove_threat,
+            read_threat_catalog,
+            catalog_stats,
+            gap_analysis,
+        ]
+    except Exception:
+        return [
+            add_threats,
+            remove_threat,
+            read_threat_catalog,
+            catalog_stats,
+            gap_analysis,
+        ]
+
+
+# ============================================================================
+# agent_init
+# ============================================================================
+
+
+def agent_init(state: ThreatState, config: RunnableConfig) -> Command:
+    """Compute partitions, build system+human messages for the threats agent."""
+    job_id = state.get("job_id", "unknown")
+    assets = state.get("assets")
+    system_architecture = state.get("system_architecture")
+    instructions = state.get("instructions")
+    app_type = state.get("application_type", "hybrid")
+
+    state_service.update_job_state(
+        job_id, JobState.THREAT.value, detail="Initializing threat analysis"
+    )
+
+    # Compute partition groups for guidance
+    asset_names = [a.name for a in assets.assets] if assets and assets.assets else []
+    data_flows = system_architecture.data_flows if system_architecture else []
+    trust_boundaries = (
+        system_architecture.trust_boundaries if system_architecture else []
+    )
+    partitions = compute_partitions(asset_names, data_flows, trust_boundaries)
+
+    logger.info(
+        "Partition guidance computed",
+        node="agent_init",
+        job_id=job_id,
+        num_groups=len(partitions),
+        group_sizes=[len(p) for p in partitions],
+    )
+
+    # Build system prompt
+    system_prompt = create_threats_agent_system_prompt(
+        instructions, application_type=app_type
+    )
+
+    # Build human message with partition guidance
+    msg_builder = _build_message_builder(state)
+
+    # Check for starred threats in replay mode
+    starred_threats = None
+    threat_list = state.get("threat_list")
+    if threat_list and threat_list.threats:
+        starred = [t for t in threat_list.threats if t.starred]
+        if starred:
+            starred_threats = starred
+
+    human_message = msg_builder.create_threats_agent_message(
         assets=assets,
         system_architecture=system_architecture,
-        starred_threats=starred_threats if starred_threats else None,
-        threats=bool(threat_list and threat_list.threats),
-        application_type=state.get("application_type", "hybrid"),
+        partitions=partitions,
+        starred_threats=starred_threats,
     )
 
     # Inject space insights if present
     space_insights = state.get("space_insights")
-    if space_insights and isinstance(human_msg.content, list):
+    if space_insights and isinstance(human_message.content, list):
         insights_block = msg_builder.space_insights_block(space_insights)
         if insights_block:
-            human_msg.content.insert(-1, insights_block)
+            human_message.content.insert(-1, insights_block)
 
-    return human_msg
+    return Command(update={"messages": [system_prompt, human_message]})
+
+
+# ============================================================================
+# agent (ReAct node)
+# ============================================================================
 
 
 def agent_node(state: ThreatState, config: RunnableConfig) -> Command:
-    """Agent node that invokes the LLM with tool-calling capabilities.
-
-    This node implements the ReAct pattern where the agent reasons about
-    the threat modeling task and calls tools to build the threat catalog.
-
-    Args:
-        state: Current ThreatState with messages and context
-        config: Runtime configuration with model references
-
-    Returns:
-        Command with updated messages containing the agent's response
-    """
+    """Single ReAct agent node for threat modeling."""
     job_id = state.get("job_id", "unknown")
-    tool_use = state.get("tool_use", 0)
-    gap_tool_use = state.get("gap_tool_use", 0)
 
-    # Initialize messages if empty
-    if not state.get("messages"):
-        # Update job state to indicate threat generation has started
-        state_service.update_job_state(job_id, JobState.THREAT.value, 0)
+    state_service.update_job_state(
+        job_id, JobState.THREAT.value, detail="Analyzing threats"
+    )
 
-        logger.debug(
-            "Agent node invoked - initializing messages and updated job state",
-            node="agent",
-            job_id=job_id,
-            job_state=JobState.THREAT.value,
-            tool_use=tool_use,
-            gap_tool_use=gap_tool_use,
-        )
-
-        # Create initial system prompt with optional instructions
-        instructions = state.get("instructions")
-        app_type = state.get("application_type", "hybrid")
-        system_prompt = create_agent_system_prompt(
-            instructions, application_type=app_type
-        )
-
-        # Create initial human message with context
-        human_message = create_agent_human_message(state)
-
-        messages = [system_prompt, human_message]
-    else:
-        logger.debug(
-            "Agent node invoked - continuing conversation",
-            node="agent",
-            job_id=job_id,
-            message_count=len(state["messages"]),
-            tool_use=tool_use,
-            gap_tool_use=gap_tool_use,
-        )
-        messages = state["messages"]
-
-    # Update status to "Thinking" while agent is reasoning
-    state_service.update_job_state(job_id, JobState.THREAT.value, detail="Thinking")
-
-    # Get model from config
+    messages = state["messages"]
     model = config["configurable"].get("model_threats_agent")
-
-    # Build session-specific tools with dynamic add_threats
-    session_tools = _build_session_tools(state)
-
-    # Bind tools to model with "auto" tool choice
-    model_service = ModelService()
+    session_tools = _build_tools(state)
     model_with_tools = model_service.get_model_with_tools(
         model=model, tools=session_tools, tool_choice="auto"
     )
+    response = model_with_tools.invoke(inject_bedrock_cache_points(messages), config)
 
-    # Invoke model
-    response = model_with_tools.invoke(messages, config)
-
-    # Update status based on tool calls
     if hasattr(response, "tool_calls") and response.tool_calls:
-        # Get the first tool call to set appropriate status
         first_tool = response.tool_calls[0].get("name", "unknown")
-
-        # Set status message based on tool being called
-        if first_tool == "add_threats":
-            detail = "Adding threats"
-        elif first_tool == "delete_threats":
-            detail = "Deleting threats"
-        elif first_tool == "read_threat_catalog":
-            detail = "Reviewing catalog"
-        elif first_tool == "gap_analysis":
-            detail = "Reviewing for gaps"
-        elif first_tool == "catalog_stats":
-            detail = "Checking catalog stats"
-        elif first_tool == "remove_threat":
-            detail = "Removing threat"
-        else:
-            detail = f"Calling {first_tool} tool"
-
+        detail_map = {
+            "add_threats": "Adding threats",
+            "remove_threat": "Removing threat",
+            "read_threat_catalog": "Reviewing catalog",
+            "catalog_stats": "Checking coverage",
+            "gap_analysis": "Running gap analysis",
+        }
+        detail = detail_map.get(first_tool, f"Calling {first_tool}")
         state_service.update_job_state(job_id, JobState.THREAT.value, detail=detail)
-
-        logger.debug(
-            "Agent made tool calls",
-            node="agent",
-            job_id=job_id,
-            tool_calls=[tc.get("name", "unknown") for tc in response.tool_calls],
-            tool_call_count=len(response.tool_calls),
-        )
-    else:
-        logger.debug("Agent completed without tool calls", node="agent", job_id=job_id)
 
     return Command(update={"messages": [response]})
 
 
 def should_continue(state: ThreatState):
-    """Route to tools or continue based on LLM decision.
-
-    Args:
-        state: Current ThreatState with messages
-
-    Returns:
-        str: "tools" if tool calls exist, "continue" if agent is done
-    """
-    job_id = state.get("job_id", "unknown")
+    """Route agent to tools or validation."""
     messages = state["messages"]
     last_message = messages[-1]
-
-    # Check if agent wants to continue with tool calls
     if last_message.tool_calls:
-        logger.debug(
-            "Routing to tools node",
-            node="should_continue",
-            job_id=job_id,
-            route="tools",
-        )
         return "tools"
-
-    # No tool calls means the agent is done - route to continue for validation
-    logger.debug(
-        "Agent completed without tool calls - routing to continue node",
-        node="should_continue",
-        job_id=job_id,
-        route="continue",
-    )
-    return "continue"
+    return "validate"
 
 
-def continue_or_finish(state: ThreatState) -> Command:
-    """Validate catalog completeness and route to agent or parent finalize.
+# ============================================================================
+# tools
+# ============================================================================
 
-    This function checks if the threat catalog is empty. If empty, it injects
-    a human feedback message and routes back to the agent node to continue
-    threat generation. It also checks if gap analysis was performed. If the catalog
-    has threats and gap analysis was done, it extracts reasoning trails and routes
-    to the parent graph's finalize node.
 
-    Args:
-        state: Current ThreatState containing the threat_list and messages
+def dynamic_tool_node(state: ThreatState) -> Command:
+    """Tool node using full-scope dynamic tools."""
+    session_tools = _build_tools(state)
+    node = ToolNode(session_tools)
+    return node.invoke(state)
 
-    Returns:
-        Command: Routing command to either agent node or parent finalize node
-    """
+
+# ============================================================================
+# validate
+# ============================================================================
+
+
+def validate_node(state: ThreatState) -> Command:
+    """Validate catalog and route to parent finalize."""
     job_id = state.get("job_id", "unknown")
     threat_list = state.get("threat_list")
     gap_tool_use = state.get("gap_tool_use", 0)
 
-    # Check if catalog is empty or has zero threats
+    # Check empty catalog
     if not threat_list or len(threat_list.threats) == 0:
-        logger.warning(
-            "Continue node detected empty catalog - routing back to agent",
-            node="continue",
-            job_id=job_id,
-            route="agent",
-            threat_count=0,
+        feedback = HumanMessage(
+            content="The threat catalog is empty. You must add threats using the add_threats tool."
         )
-        # Inject feedback message instructing agent to add threats
-        feedback_message = HumanMessage(
-            content="The threat catalog is empty. You must add threats to the catalog using the add_threats tool."
-        )
-        return Command(goto="agent", update={"messages": [feedback_message]})
+        return Command(goto="agent", update={"messages": [feedback]})
 
     # Check STRIDE coverage
-    all_stride_categories = {category.value for category in StrideCategory}
-    catalog_stride_categories = {
-        threat.stride_category for threat in threat_list.threats
-    }
-    missing_stride_categories = all_stride_categories - catalog_stride_categories
-
-    # Combine coverage feedback if gaps exist
-    if missing_stride_categories:
-        feedback_parts = ["Coverage gaps detected:"]
-
-        if missing_stride_categories:
-            feedback_parts.append(
-                f"- Missing STRIDE categories: {', '.join(sorted(missing_stride_categories))}"
-            )
-
-        feedback_parts.append("\nPlease add threats to address these gaps.")
-
-        feedback_content = "\n".join(feedback_parts)
-
-        logger.warning(
-            "Coverage gaps detected - routing back to agent",
-            node="continue",
-            job_id=job_id,
-            route="agent",
-            missing_stride_categories=list(missing_stride_categories)
-            if missing_stride_categories
-            else None,
+    catalog_stride = {t.stride_category for t in threat_list.threats}
+    missing = ALL_STRIDE - catalog_stride
+    if missing:
+        feedback = HumanMessage(
+            content=f"Missing STRIDE categories: {', '.join(sorted(missing))}. Please add threats to cover these gaps."
         )
+        return Command(goto="agent", update={"messages": [feedback]})
 
-        # Inject feedback message requesting threats for missing coverage
-        feedback_message = HumanMessage(content=feedback_content)
-        return Command(goto="agent", update={"messages": [feedback_message]})
-
-    # Check if gap analysis was never performed
+    # Check gap analysis was performed
     if gap_tool_use == 0:
-        logger.debug(
-            "Gap analysis not performed - routing back to agent",
-            node="continue",
-            job_id=job_id,
-            route="agent",
-            gap_tool_use=gap_tool_use,
+        feedback = HumanMessage(
+            content="You have not performed gap analysis yet. Please call gap_analysis before finishing."
         )
-        # Inject feedback message requesting gap analysis
-        feedback_message = HumanMessage(
-            content="You have not performed gap analysis yet. Please use the gap_analysis tool to validate the completeness of the threat catalog before finishing."
-        )
-        return Command(goto="agent", update={"messages": [feedback_message]})
+        return Command(goto="agent", update={"messages": [feedback]})
 
-    # Extract reasoning trails from messages (oldest to latest)
+    # Extract reasoning trails from messages
     reasoning_trails = []
     messages = state.get("messages", [])
     for msg in messages:
-        # Check if message has reasoning content in content list
         if hasattr(msg, "content") and isinstance(msg.content, list):
-            for content_block in msg.content:
-                if isinstance(content_block, dict):
-                    # Anthropic/Bedrock format: {"type": "thinking", "thinking": "..."}
-                    if content_block.get("type") == "thinking":
-                        reasoning_trails.append(content_block.get("thinking", ""))
-                    # Anthropic extended thinking format: {"type": "reasoning_content", "reasoning_content": {"text": "..."}}
-                    elif content_block.get("type") == "reasoning_content":
-                        reasoning_content = content_block.get("reasoning_content", {})
-                        if isinstance(reasoning_content, dict):
-                            text = reasoning_content.get("text", "")
-                            if text:
-                                reasoning_trails.append(text)
-                    # OpenAI format: {"type": "reasoning", "summary": [{"type": "summary_text", "text": "..."}]}
-                    elif content_block.get("type") == "reasoning":
-                        summary = content_block.get("summary", [])
+            for block in msg.content:
+                if isinstance(block, dict):
+                    if block.get("type") == "thinking":
+                        reasoning_trails.append(block.get("thinking", ""))
+                    elif block.get("type") == "reasoning_content":
+                        rc = block.get("reasoning_content", {})
+                        if isinstance(rc, dict) and rc.get("text"):
+                            reasoning_trails.append(rc["text"])
+                    elif block.get("type") == "reasoning":
+                        summary = block.get("summary", [])
                         if isinstance(summary, list):
-                            # Collect all summary texts from this message
-                            summary_texts = []
-                            for summary_item in summary:
-                                if (
-                                    isinstance(summary_item, dict)
-                                    and summary_item.get("type") == "summary_text"
-                                ):
-                                    text = summary_item.get("text", "")
-                                    if text:
-                                        # Strip whitespace from each text to ensure clean joining
-                                        summary_texts.append(text.strip())
-                            # Combine all summary texts into one reasoning trail item
-                            # Use double newlines for better rendering in UI
-                            if summary_texts:
-                                combined_reasoning = "\n\n".join(summary_texts)
-                                reasoning_trails.append(combined_reasoning)
-        # Check for reasoning in additional_kwargs (alternative OpenAI format)
+                            texts = [
+                                s.get("text", "").strip()
+                                for s in summary
+                                if isinstance(s, dict)
+                                and s.get("type") == "summary_text"
+                                and s.get("text")
+                            ]
+                            if texts:
+                                reasoning_trails.append("\n\n".join(texts))
         elif hasattr(msg, "additional_kwargs"):
             thinking = msg.additional_kwargs.get("reasoning_content")
             if thinking:
                 reasoning_trails.append(thinking)
 
-    # Update trail with reasoning if any was found
     if reasoning_trails:
-        logger.debug(
-            "Extracted reasoning trails from agent messages",
-            node="continue",
-            job_id=job_id,
-            reasoning_count=len(reasoning_trails),
-        )
         state_service.update_trail(job_id=job_id, threats=reasoning_trails)
 
-    # Reset status detail before routing to finalize
     state_service.update_job_state(job_id, JobState.THREAT.value, detail=None)
 
-    # Route to parent finalize node when catalog has threats
     logger.debug(
-        "Continue node routing to parent finalize",
-        node="continue",
+        "Routing to parent finalize",
+        node="validate",
         job_id=job_id,
-        route="finalize",
-        graph="parent",
         threat_count=len(threat_list.threats),
     )
-    # Use Overwrite to bypass the reducer (operator.add) for threat_list
     return Command(
         goto="finalize",
         update={"threat_list": Overwrite(threat_list)},
@@ -430,30 +308,26 @@ def continue_or_finish(state: ThreatState) -> Command:
     )
 
 
-# Create workflow graph for agentic threats subgraph
+# ============================================================================
+# Build the threats subgraph
+# ============================================================================
+
 workflow = StateGraph(ThreatState, ConfigSchema)
 
-# Add agent node for agentic workflow
+# Nodes
+workflow.add_node("agent_init", agent_init)
 workflow.add_node("agent", agent_node)
-
-# Add tools node with dynamic tool support
 workflow.add_node("tools", dynamic_tool_node)
+workflow.add_node("validate", validate_node)
 
-# Add continue node for catalog validation
-workflow.add_node("continue", continue_or_finish)
+# Entry → agent_init → agent
+workflow.set_entry_point("agent_init")
+workflow.add_edge("agent_init", "agent")
 
-# Set entry point to agent
-workflow.set_entry_point("agent")
-
-# Add conditional edge from agent using should_continue
-# Routes to "tools" if tool calls exist, "continue" if no tool calls
+# Agent ReAct loop
 workflow.add_conditional_edges("agent", should_continue)
-
-# Add edge from tools back to agent
 workflow.add_edge("tools", "agent")
 
-# Conditional routing from continue node is handled by the continue_or_finish function
-# which returns Command with goto="agent" or goto="finalize" with graph=Command.PARENT
+# validate routes to parent via Command(graph=Command.PARENT) or loops back to agent
 
-# Compile the subgraph
 threats_subgraph = workflow.compile()

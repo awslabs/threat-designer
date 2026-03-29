@@ -19,7 +19,6 @@ from constants import (
     AWS_SERVICE_DYNAMODB,
     AWS_SERVICE_S3,
     DB_FIELD_ASSETS,
-    DB_FIELD_BACKUP,
     DB_FIELD_FLOWS,
     DB_FIELD_GAPS,
     DB_FIELD_SPACE_CONTEXT,
@@ -458,6 +457,12 @@ def create_dynamodb_item(
                 "retry": agent_state.get("retry"),
                 "timestamp": current_utc,
                 "application_type": agent_state.get("application_type"),
+                "token_usage": agent_state.get("token_usage"),
+                "space_insights": (
+                    unwrap_overwrite(agent_state.get("space_insights")).dict()
+                    if agent_state.get("space_insights")
+                    else None
+                ),
             }
 
             # Remove None values to avoid DynamoDB issues
@@ -497,14 +502,21 @@ def create_dynamodb_item(
 
 @with_error_context("update item with backup")
 def update_item_with_backup(
-    job_id: str, table_name: str, job_context_id: Optional[str] = None
+    job_id: str,
+    table_name: str,
+    backup_table_name: str,
+    job_context_id: Optional[str] = None,
 ) -> None:
     """
-    Update DynamoDB item with backup of original data.
+    Store a backup of the DynamoDB item in a dedicated backup table.
+
+    Storing the backup in a separate table avoids exceeding the 400 KB DynamoDB
+    item size limit on large threat models.
 
     Args:
-        job_id: The primary key of the item to update.
-        table_name: The name of the DynamoDB table.
+        job_id: The primary key of the item to back up.
+        table_name: The source DynamoDB table name.
+        backup_table_name: The dedicated backup DynamoDB table name.
         job_context_id: Optional job context for operation tracking.
 
     Raises:
@@ -519,9 +531,10 @@ def update_item_with_backup(
             )
 
             dynamodb = boto3.resource(AWS_SERVICE_DYNAMODB, region_name=REGION)
-            table = dynamodb.Table(table_name)
+            source_table = dynamodb.Table(table_name)
+            backup_table = dynamodb.Table(backup_table_name)
 
-            response = table.get_item(Key={DB_FIELD_JOB_ID: job_id})
+            response = source_table.get_item(Key={DB_FIELD_JOB_ID: job_id})
 
             if "Item" not in response:
                 logger.warning(
@@ -531,21 +544,14 @@ def update_item_with_backup(
                     f"Item with job_id {job_id} not found in table {table_name}"
                 )
 
-            item = response["Item"]
-            backup_data = copy.deepcopy(item)
+            backup_data = copy.deepcopy(response["Item"])
 
-            # Remove existing backup to avoid nested backups
-            if DB_FIELD_BACKUP in backup_data:
-                del backup_data[DB_FIELD_BACKUP]
-
-            item[DB_FIELD_BACKUP] = backup_data
-
-            response = table.put_item(Item=item)
+            backup_table.put_item(Item=backup_data)
 
             logger.debug(
                 "Item backup created successfully",
                 job_id=job_id,
-                table=table_name,
+                backup_table=backup_table_name,
                 backup_keys=list(backup_data.keys()),
             )
 

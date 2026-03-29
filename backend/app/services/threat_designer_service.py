@@ -24,6 +24,7 @@ STATE = os.environ.get("JOB_STATUS_TABLE")
 FUNCTION = os.environ.get("THREAT_MODELING_LAMBDA")
 AGENT_CORE_RUNTIME = os.environ.get("THREAT_MODELING_AGENT")
 AGENT_TABLE = os.environ.get("AGENT_STATE_TABLE")
+BACKUP_TABLE = os.environ.get("BACKUP_TABLE")
 AGENT_TRAIL_TABLE = os.environ.get("AGENT_TRAIL_TABLE")
 SHARING_TABLE = os.environ.get("SHARING_TABLE")
 ARCHITECTURE_BUCKET = os.environ.get("ARCHITECTURE_BUCKET")
@@ -45,6 +46,7 @@ tracer = Tracer()
 
 table = dynamodb.Table(STATE)
 trail_table = dynamodb.Table(AGENT_TRAIL_TABLE)
+backup_table = dynamodb.Table(BACKUP_TABLE)
 
 
 def convert_decimals(obj):
@@ -207,7 +209,8 @@ def get_all_by_owner(table, owner: str):
         query_params = {
             "IndexName": "owner-job-index",
             "KeyConditionExpression": "#owner = :owner_value",
-            "ExpressionAttributeNames": {"#owner": "owner"},
+            "ProjectionExpression": _CATALOG_PROJECTION,
+            "ExpressionAttributeNames": {**_CATALOG_PROJECTION_NAMES},
             "ExpressionAttributeValues": {":owner_value": owner},
         }
 
@@ -294,28 +297,17 @@ def invoke_lambda(owner, payload):
         table.put_item(Item=state_item)
         LOG.info(f"State initialized to START for job {id}")
 
-        # Step 2: If this is a replay, create backup BEFORE starting the agent
+        # Step 2: If this is a replay, store backup in the dedicated backup table
         if is_replay:
             agent_table = dynamodb.Table(AGENT_TABLE)
 
-            # Get current item
             response = agent_table.get_item(Key={"job_id": id})
 
             if "Item" in response:
-                item = response["Item"]
-                backup_data = copy.deepcopy(item)
+                backup_data = copy.deepcopy(response["Item"])
+                backup_table.put_item(Item=backup_data)
 
-                # Remove existing backup to avoid nested backups
-                if "backup" in backup_data:
-                    del backup_data["backup"]
-
-                # Set the backup
-                item["backup"] = backup_data
-
-                # Update the item with backup
-                agent_table.put_item(Item=item)
-
-                LOG.info(f"Backup created for job_id: {id} before replay")
+                LOG.info(f"Backup stored in backup table for job_id: {id}")
             else:
                 LOG.warning(f"Item not found for backup during replay: {id}")
 
@@ -617,12 +609,20 @@ def restore(job_id, owner):
             # For restore, we need at least EDIT access
             require_access(job_id, owner, required_level="EDIT")
 
-        if "backup" not in item:
+        backup_response = backup_table.get_item(Key={"job_id": job_id})
+        if "Item" not in backup_response:
             LOG.warning(f"No backup found for job {job_id}")
             raise NotFoundError
 
-        backup_data = item["backup"]
-        response = agent_table.put_item(Item=backup_data)
+        backup_data = backup_response["Item"]
+
+        agent_table.put_item(Item=backup_data)
+
+        # Clean up the backup after successful restore
+        try:
+            backup_table.delete_item(Key={"job_id": job_id})
+        except Exception as e:
+            LOG.warning(f"Failed to delete backup for {job_id}: {e}")
 
         current_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
@@ -755,11 +755,16 @@ def encode_single_cursor(last_evaluated_key: dict) -> str | None:
     return base64.b64encode(cursor_bytes).decode("utf-8")
 
 
+# Fields to fetch from DynamoDB for catalog listing (avoids reading heavy fields)
+_CATALOG_PROJECTION = "job_id, #owner, title, summary, #ts, s3_location, threat_list"
+_CATALOG_PROJECTION_NAMES = {"#owner": "owner", "#ts": "timestamp"}
+
+
 def _slim_catalog_item(item: dict) -> dict:
     """
     Return a lightweight copy of a threat model item for catalog listing.
-    Keeps only the fields the UI needs and strips heavy nested data
-    from threat_list (retaining only each threat's likelihood for badge counts).
+    Keeps only the fields the UI needs and computes pre-aggregated stats
+    from threat_list so the frontend doesn't need to iterate threats.
     """
     slim = {
         "job_id": item.get("job_id"),
@@ -773,22 +778,30 @@ def _slim_catalog_item(item: dict) -> dict:
         "shared_by": item.get("shared_by"),
     }
 
-    # Keep only likelihood from each threat for badge counts
+    # Compute likelihood counts server-side
+    high = 0
+    medium = 0
+    low = 0
     threat_list = item.get("threat_list")
     if isinstance(threat_list, dict):
         threats = threat_list.get("threats")
         if isinstance(threats, list):
-            slim["threat_list"] = {
-                "threats": [
-                    {"likelihood": t.get("likelihood")}
-                    for t in threats
-                    if isinstance(t, dict)
-                ]
-            }
-        else:
-            slim["threat_list"] = {"threats": []}
-    else:
-        slim["threat_list"] = {"threats": []}
+            for t in threats:
+                if isinstance(t, dict):
+                    likelihood = t.get("likelihood")
+                    if likelihood == "High":
+                        high += 1
+                    elif likelihood == "Medium":
+                        medium += 1
+                    elif likelihood == "Low":
+                        low += 1
+
+    slim["stats"] = {
+        "total": high + medium + low,
+        "high": high,
+        "medium": medium,
+        "low": low,
+    }
 
     return slim
 
@@ -850,7 +863,8 @@ def fetch_owned_paginated(owner: str, limit: int, cursor: str = None) -> dict:
         query_params = {
             "IndexName": "owner-timestamp-index",
             "KeyConditionExpression": "#owner = :owner_value",
-            "ExpressionAttributeNames": {"#owner": "owner"},
+            "ProjectionExpression": _CATALOG_PROJECTION,
+            "ExpressionAttributeNames": {**_CATALOG_PROJECTION_NAMES},
             "ExpressionAttributeValues": {":owner_value": owner},
             "ScanIndexForward": False,
             "Limit": limit + 1,
@@ -1117,11 +1131,15 @@ def _get_all_shared(sharing_table, table, owner):
                 break
             query_params["ExclusiveStartKey"] = last_key
 
-        # Fetch full threat model details for each shared record
+        # Fetch slim threat model details for each shared record
         shared_items = []
         for sharing_record in all_sharing_records:
             threat_model_id = sharing_record["threat_model_id"]
-            tm_response = table.get_item(Key={"job_id": threat_model_id})
+            tm_response = table.get_item(
+                Key={"job_id": threat_model_id},
+                ProjectionExpression=_CATALOG_PROJECTION,
+                ExpressionAttributeNames=_CATALOG_PROJECTION_NAMES,
+            )
 
             if "Item" in tm_response:
                 item = tm_response["Item"]
@@ -1274,6 +1292,12 @@ def delete_tm(job_id, owner, force_release=False):
         # Delete from DynamoDB
         delete_dynamodb_item(table, key, owner)
 
+        # Delete backup if it exists
+        try:
+            backup_table.delete_item(Key={"job_id": job_id})
+        except Exception as e:
+            LOG.warning(f"Error deleting backup for {job_id}: {e}")
+
         # Delete S3 object
         delete_s3_object(object_key)
 
@@ -1372,8 +1396,10 @@ def delete_session(job_id, session_id, owner, override_execution_owner=False):
         key = {"job_id": job_id}
         item = fetch_results(job_id).get("item")
         object_key = item.get("s3_location")
-        backup = item.get("backup")
-        if not backup:
+
+        has_backup = "Item" in backup_table.get_item(Key={"job_id": job_id})
+
+        if not has_backup:
             if not object_key:
                 LOG.info(f"Object key not found for job_id: {job_id}")
                 raise InternalError()
@@ -1536,7 +1562,11 @@ def _batch_fetch_threat_models(threat_model_ids: list) -> dict:
 
             response = dynamodb.batch_get_item(
                 RequestItems={
-                    AGENT_TABLE: {"Keys": [{"job_id": tm_id} for tm_id in chunk]}
+                    AGENT_TABLE: {
+                        "Keys": [{"job_id": tm_id} for tm_id in chunk],
+                        "ProjectionExpression": _CATALOG_PROJECTION,
+                        "ExpressionAttributeNames": _CATALOG_PROJECTION_NAMES,
+                    }
                 }
             )
 

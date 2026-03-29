@@ -447,27 +447,9 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
                         </Box>
                         <div style={{ display: "flex", justifyContent: "flex-end" }}>
                           <SpaceBetween direction="horizontal" size="xs">
-                            <Badge color="severity-high">
-                              {item?.threat_list?.threats
-                                ? item.threat_list.threats.filter(
-                                    (threat) => threat.likelihood === "High"
-                                  ).length || "-"
-                                : "-"}
-                            </Badge>
-                            <Badge color="severity-medium">
-                              {item?.threat_list?.threats
-                                ? item.threat_list.threats.filter(
-                                    (threat) => threat.likelihood === "Medium"
-                                  ).length || "-"
-                                : "-"}
-                            </Badge>
-                            <Badge color="severity-low">
-                              {item?.threat_list?.threats
-                                ? item.threat_list.threats.filter(
-                                    (threat) => threat.likelihood === "Low"
-                                  ).length || "-"
-                                : "-"}
-                            </Badge>
+                            <Badge color="severity-high">{item?.stats?.high || "-"}</Badge>
+                            <Badge color="severity-medium">{item?.stats?.medium || "-"}</Badge>
+                            <Badge color="severity-low">{item?.stats?.low || "-"}</Badge>
                           </SpaceBetween>
                         </div>
                       </div>

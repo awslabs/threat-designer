@@ -57,7 +57,7 @@ Control how thoroughly the agent analyzes your architecture:
   - Be aware: higher iteration counts may increase the risk of hallucinations
   - Processing time increases with iteration count
 
-**Reasoning Boost**  
+**Reasoning Boost**
 Enhance the depth of threat analysis:
 
 - **None**: Standard analysis without enhanced reasoning
@@ -80,7 +80,7 @@ Typical processing times:
 - **Minimum**: 20 minutes for simple architectures
 - **Typical**: 30 minutes for most systems
 - **Factors affecting duration**:
-  - Architecture complexity and size
+  - Architecture complexity and number of assets
   - Selected iteration count (Auto or Manual)
   - Reasoning boost level
   - Configured Large Language Model

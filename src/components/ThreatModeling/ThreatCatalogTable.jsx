@@ -126,12 +126,7 @@ export const ThreatCatalogTable = ({ results, onItemsChange, pagination, onLoadM
       header: "High",
       cell: (item) => (
         <Box textAlign="center">
-          <Badge color="severity-high">
-            {item?.threat_list?.threats
-              ? item.threat_list.threats.filter((threat) => threat.likelihood === "High").length ||
-                "0"
-              : "0"}
-          </Badge>
+          <Badge color="severity-high">{item?.stats?.high || "0"}</Badge>
         </Box>
       ),
       width: 80,
@@ -141,12 +136,7 @@ export const ThreatCatalogTable = ({ results, onItemsChange, pagination, onLoadM
       header: "Medium",
       cell: (item) => (
         <Box textAlign="center">
-          <Badge color="severity-medium">
-            {item?.threat_list?.threats
-              ? item.threat_list.threats.filter((threat) => threat.likelihood === "Medium")
-                  .length || "0"
-              : "0"}
-          </Badge>
+          <Badge color="severity-medium">{item?.stats?.medium || "0"}</Badge>
         </Box>
       ),
       width: 80,
@@ -156,12 +146,7 @@ export const ThreatCatalogTable = ({ results, onItemsChange, pagination, onLoadM
       header: "Low",
       cell: (item) => (
         <Box textAlign="center">
-          <Badge color="severity-low">
-            {item?.threat_list?.threats
-              ? item.threat_list.threats.filter((threat) => threat.likelihood === "Low").length ||
-                "0"
-              : "0"}
-          </Badge>
+          <Badge color="severity-low">{item?.stats?.low || "0"}</Badge>
         </Box>
       ),
       width: 80,

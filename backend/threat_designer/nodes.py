@@ -271,12 +271,20 @@ class WorkflowFinalizationService:
     def __init__(self, state_service: StateService):
         self.state_service = state_service
 
-    def finalize_workflow(self, state: AgentState) -> Command:
+    def finalize_workflow(
+        self, state: AgentState, config: RunnableConfig = None
+    ) -> Command:
         """Finalize the threat modeling workflow."""
         job_id = state.get("job_id", "unknown")
 
         with operation_context("finalize_workflow", job_id):
             try:
+                # Capture token usage from tracker before persisting
+                if config:
+                    tracker = config.get("configurable", {}).get("token_tracker")
+                    if tracker:
+                        state["token_usage"] = tracker.totals
+
                 self.state_service.update_job_state(job_id, JobState.FINALIZE.value)
                 self.state_service.finalize_workflow(state)
                 time.sleep(FINALIZATION_SLEEP_SECONDS)

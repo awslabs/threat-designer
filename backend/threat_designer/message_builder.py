@@ -3,9 +3,76 @@
 import os
 from typing import Any, Dict, List
 
+from langchain_core.messages import SystemMessage
 from langchain_core.messages.human import HumanMessage
 
 from constants import ENV_MODEL_PROVIDER, MODEL_PROVIDER_BEDROCK
+
+# ---------------------------------------------------------------------------
+# Bedrock prompt-caching helpers
+# ---------------------------------------------------------------------------
+
+_CACHE_POINT = {"cachePoint": {"type": "default"}}
+
+
+def _has_trailing_cache_point(content: list) -> bool:
+    """Check whether the last content block is already a cachePoint."""
+    if not content:
+        return False
+    last = content[-1]
+    return isinstance(last, dict) and "cachePoint" in last
+
+
+def inject_bedrock_cache_points(messages: list) -> list:
+    """Return a shallow copy of *messages* with Bedrock cache breakpoints.
+
+    Two breakpoints are placed (Bedrock allows up to 4):
+      1. **System message** — caches the prompt + tool definitions prefix.
+      2. **Last message** — rolling boundary so the cached prefix grows
+         with each ReAct iteration.
+
+    Original messages are never mutated. For non-Bedrock providers the
+    input is returned unchanged.
+    """
+    provider = os.environ.get(ENV_MODEL_PROVIDER, MODEL_PROVIDER_BEDROCK)
+    if provider != MODEL_PROVIDER_BEDROCK or not messages:
+        return messages
+
+    result = list(messages)  # shallow copy of the list
+
+    # 1. System message
+    if isinstance(result[0], SystemMessage):
+        sys_content = result[0].content
+        if isinstance(sys_content, str):
+            result[0] = result[0].model_copy(
+                update={
+                    "content": [{"type": "text", "text": sys_content}, _CACHE_POINT]
+                }
+            )
+        elif isinstance(sys_content, list) and not _has_trailing_cache_point(
+            sys_content
+        ):
+            result[0] = result[0].model_copy(
+                update={"content": list(sys_content) + [_CACHE_POINT]}
+            )
+
+    # 2. Last message (rolling boundary) — skip if same as system message
+    if len(result) > 1:
+        last_content = result[-1].content
+        if isinstance(last_content, str):
+            result[-1] = result[-1].model_copy(
+                update={
+                    "content": [{"type": "text", "text": last_content}, _CACHE_POINT]
+                }
+            )
+        elif isinstance(last_content, list) and not _has_trailing_cache_point(
+            last_content
+        ):
+            result[-1] = result[-1].model_copy(
+                update={"content": list(last_content) + [_CACHE_POINT]}
+            )
+
+    return result
 
 
 class MessageBuilder:
@@ -356,6 +423,83 @@ Using any other values will result in validation errors. These are the ONLY acce
 
         base_message = self.base_msg(caching=True)
         base_message.extend(gap_msg)
+        return HumanMessage(content=base_message)
+
+    def create_threats_agent_message(
+        self,
+        assets=None,
+        system_architecture=None,
+        partitions=None,
+        starred_threats=None,
+    ) -> HumanMessage:
+        """Create threats agent message with optional analysis group guidance.
+
+        Args:
+            assets: Full assets object
+            system_architecture: Full system architecture
+            partitions: List of asset name lists from compute_partitions()
+            starred_threats: Starred threats to preserve
+
+        Returns:
+            HumanMessage with architecture context and optional analysis groups
+        """
+        base_message = self.base_msg(caching=True, details=True)
+
+        if assets:
+            base_message.append(
+                {
+                    "type": "text",
+                    "text": f"<identified_assets_and_entities>{str(assets)}</identified_assets_and_entities>",
+                }
+            )
+
+        if system_architecture:
+            base_message.append(
+                {
+                    "type": "text",
+                    "text": f"<data_flows>{str(system_architecture)}</data_flows>",
+                }
+            )
+
+        # Valid values (full scope)
+        valid_values = "\n\n<valid_values_for_threats>\n"
+        valid_values += "**IMPORTANT: When creating threats using the add_threats tool, you MUST use ONLY these values for the following fields:**\n\n"
+        valid_values += "**Valid Target Assets (for the 'target' field):**\n"
+        valid_values += self._format_asset_list(assets)
+        valid_values += "\n\n**Valid Threat Sources (for the 'source' field):**\n"
+        valid_values += self._format_threat_sources(system_architecture)
+        valid_values += "\n\nUsing any other values will result in validation errors.\n"
+        valid_values += "</valid_values_for_threats>"
+        base_message.append({"type": "text", "text": valid_values})
+
+        # Analysis groups guidance (only when >1 partition)
+        if partitions and len(partitions) > 1:
+            groups_text = "\n\n<analysis_groups>\n"
+            groups_text += "Work through these asset groups in order to ensure systematic coverage:\n\n"
+            for i, group in enumerate(partitions, 1):
+                group_names = ", ".join([f'"{name}"' for name in group])
+                groups_text += f"Group {i}: {group_names}\n"
+            groups_text += "\nThese groups are based on data-flow connectivity and trust boundaries. "
+            groups_text += "Analyze each group before moving to the next, but you may add threats targeting any asset.\n"
+            groups_text += "</analysis_groups>"
+            base_message.append({"type": "text", "text": groups_text})
+
+        if starred_threats:
+            starred_context = "\n\n<starred_threats>\nThe following threats have been marked as important by the user and must be preserved:\n"
+            for threat in starred_threats:
+                starred_context += f"- {threat.name}: {threat.description}\n"
+            starred_context += "</starred_threats>"
+            base_message.append({"type": "text", "text": starred_context})
+
+        base_message.append(
+            {
+                "type": "text",
+                "text": "Perform a comprehensive threat modeling and fill the threat catalog. Make sure to honor your grounding rules.",
+            }
+        )
+
+        base_message.extend(self._add_cache_point_if_bedrock())
+
         return HumanMessage(content=base_message)
 
     def space_insights_block(self, space_insights) -> Dict[str, Any]:

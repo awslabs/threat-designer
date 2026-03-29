@@ -2,11 +2,14 @@
 
 import logging
 import os
+import threading
 import time
 from contextlib import contextmanager
-from typing import Generator
+from typing import Any, Generator
 
 import structlog
+from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.outputs import LLMResult
 from constants import (
     ENV_LOG_LEVEL,
     ENV_TRACEBACK_ENABLED,
@@ -94,3 +97,65 @@ def _get_error_message_for_operation(operation_name: str, original_error: str) -
         return f"{ERROR_VALIDATION_FAILED}: {original_error}"
     else:
         return f"Failed to {operation_name}: {original_error}"
+
+
+# ---------------------------------------------------------------------------
+# Token usage tracking
+# ---------------------------------------------------------------------------
+
+
+class TokenUsageTracker(BaseCallbackHandler):
+    """Thread-safe callback that accumulates token usage across all LLM calls.
+
+    Attach to the LangGraph config via ``"callbacks": [tracker]``.
+    After the graph completes, call :meth:`log_totals` to emit the summary.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._lock = threading.Lock()
+        self.input_tokens = 0
+        self.output_tokens = 0
+        self.cache_read_input_tokens = 0
+        self.cache_creation_input_tokens = 0
+        self.total_calls = 0
+
+    # Called after every LLM invocation (including inside subgraphs / Send workers)
+    def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
+        for gen_list in response.generations:
+            for gen in gen_list:
+                msg = getattr(gen, "message", None)
+                usage = getattr(msg, "usage_metadata", None) if msg else None
+                if not usage:
+                    continue
+                details = usage.get("input_token_details") or {}
+                with self._lock:
+                    self.total_calls += 1
+                    self.input_tokens += usage.get("input_tokens", 0)
+                    self.output_tokens += usage.get("output_tokens", 0)
+                    self.cache_read_input_tokens += details.get("cache_read", 0)
+                    self.cache_creation_input_tokens += details.get("cache_creation", 0)
+
+    @property
+    def totals(self) -> dict:
+        with self._lock:
+            return {
+                "input_tokens": self.input_tokens,
+                "output_tokens": self.output_tokens,
+                "cache_read_input_tokens": self.cache_read_input_tokens,
+                "cache_creation_input_tokens": self.cache_creation_input_tokens,
+                "total_calls": self.total_calls,
+            }
+
+    def log_totals(self, job_id: str) -> None:
+        """Emit an INFO-level log with accumulated token usage."""
+        t = self.totals
+        logger.info(
+            "Token usage",
+            job_id=job_id,
+            input_tokens=t["input_tokens"],
+            output_tokens=t["output_tokens"],
+            cache_read_input_tokens=t["cache_read_input_tokens"],
+            cache_creation_input_tokens=t["cache_creation_input_tokens"],
+            total_calls=t["total_calls"],
+        )

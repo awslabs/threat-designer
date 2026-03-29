@@ -31,7 +31,7 @@ from constants import (
 )
 from exceptions import ThreatModelingError, ValidationError
 from model_utils import initialize_models
-from monitoring import logger, operation_context, with_error_context
+from monitoring import TokenUsageTracker, logger, operation_context, with_error_context
 from state import AgentState, AssetsList, FlowsList, ThreatsList
 from utils import fetch_results, parse_s3_image_to_base64, update_job_state
 from workflow import ConfigSchema, agent
@@ -129,8 +129,16 @@ def _run_agent_async(state: Dict, config: Dict, job_id: str, agent_config: Dict)
                     iteration=state.get("iteration", 0),
                 )
 
+                # Attach token usage tracker to capture all LLM calls
+                token_tracker = TokenUsageTracker()
+                config.setdefault("callbacks", []).append(token_tracker)
+                config["configurable"]["token_tracker"] = token_tracker
+
                 # Execute the threat modeling workflow
                 agent.invoke(state, config=config)
+
+                # Log accumulated token usage
+                token_tracker.log_totals(job_id)
 
                 logger.debug(
                     "Threat modeling completed successfully",
@@ -539,7 +547,11 @@ async def handler(request: InvocationRequest, http_request: Request) -> Dict[str
             )
 
             # Create full configuration for the agent
-            config = {"configurable": agent_config, "recursion_limit": 100}
+            config = {
+                "configurable": agent_config,
+                "recursion_limit": 100,
+                "max_concurrency": 3,
+            }
 
             # Submit the agent execution to run in background
             loop = asyncio.get_event_loop()

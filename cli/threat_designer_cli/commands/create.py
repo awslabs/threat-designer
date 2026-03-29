@@ -192,6 +192,7 @@ async def create_command(console: Console) -> None:
     model = get_model(job_id)
     if model:
         _print_summary(console, model)
+        _print_token_usage(console, model)
 
     if params.get("generate_trees") and model:
         threats = (model.get("threat_list") or {}).get("threats", [])
@@ -256,6 +257,32 @@ def _print_summary(console: Console, model: dict) -> None:
     )
 
 
+def _print_token_usage(console: Console, model: dict) -> None:
+    usage = model.get("token_usage")
+    if not usage:
+        return
+
+    def _fmt(n: int) -> str:
+        if n >= 1_000_000:
+            return f"{n / 1_000_000:.1f}M"
+        if n >= 1_000:
+            return f"{n / 1_000:.1f}K"
+        return str(n)
+
+    parts = [
+        f"In: [bold]{_fmt(usage['input_tokens'])}[/bold]",
+        f"Out: [bold]{_fmt(usage['output_tokens'])}[/bold]",
+    ]
+    cache_read = usage.get("cache_read_input_tokens", 0)
+    cache_create = usage.get("cache_creation_input_tokens", 0)
+    if cache_read or cache_create:
+        parts.append(f"Cache read: [bold]{_fmt(cache_read)}[/bold]")
+        parts.append(f"Cache write: [bold]{_fmt(cache_create)}[/bold]")
+    parts.append(f"Calls: [bold]{usage.get('total_calls', 0)}[/bold]")
+
+    console.print(f"  Tokens: {' | '.join(parts)}")
+
+
 def _run_create_wizard(_cfg: CLIConfig) -> Optional[dict]:
     from InquirerPy import inquirer
     from InquirerPy.base.control import Choice
@@ -292,8 +319,13 @@ def _run_create_wizard(_cfg: CLIConfig) -> Optional[dict]:
         message="Application type:",
         choices=[
             Choice("hybrid", name="Hybrid — both public and internal components"),
-            Choice("public_facing", name="Public — internet-facing, accessible by anonymous users"),
-            Choice("internal", name="Internal — private network only, controlled access"),
+            Choice(
+                "public_facing",
+                name="Public — internet-facing, accessible by anonymous users",
+            ),
+            Choice(
+                "internal", name="Internal — private network only, controlled access"
+            ),
         ],
         default="hybrid",
         style=s,

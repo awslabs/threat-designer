@@ -14,13 +14,17 @@ from typing import List, Annotated, Dict, Any
 from message_builder import MessageBuilder, list_to_string
 from model_service import ModelService
 from prompt_provider import gap_prompt
-from constants import MAX_GAP_ANALYSIS_USES, MAX_ADD_THREATS_USES, JobState
+from constants import (
+    MAX_GAP_ANALYSIS_USES,
+    MAX_ADD_THREATS_USES,
+    MIN_GAP_THRESHOLD,
+    JobState,
+)
 from monitoring import logger
 from config import config as app_config
 from state_tracking_service import StateService
 from pydantic import BaseModel
 import json
-import time
 from collections import Counter
 
 # Initialize state service for status updates
@@ -305,19 +309,49 @@ def _unwrap_value(value, default=None):
     return value if value is not None else default
 
 
-@tool(
-    name_or_callable="add_threats",
-    description=""" Used to add new threats to the existing catalog""",
-)
-def add_threats(threats: ThreatsList, runtime: ToolRuntime):
+def _format_structured_gaps(gap_result, remaining_invocations: int) -> str:
+    """Format structured gap analysis result into an actionable message for the agent."""
+    lines = [
+        f"Gap Analysis (rating {gap_result.rating}/10) — {remaining_invocations} gap_analysis invocations remaining\n"
+    ]
+
+    if gap_result.gaps:
+        # Group by severity for clear prioritization
+        by_severity = {"CRITICAL": [], "MAJOR": [], "MINOR": []}
+        for gap in gap_result.gaps:
+            by_severity.get(gap.severity, by_severity["MINOR"]).append(gap)
+
+        for severity in ["CRITICAL", "MAJOR", "MINOR"]:
+            gaps = by_severity[severity]
+            if not gaps:
+                continue
+            lines.append(f"**{severity} gaps:**")
+            for g in gaps:
+                lines.append(f"- [{g.stride_category}] {g.target}: {g.description}")
+            lines.append("")
+
+    lines.append(
+        "Address the gaps above by adding threats with add_threats. Focus on CRITICAL gaps first."
+    )
+
+    return "\n".join(lines)
+
+
+def _handle_add_threats(
+    threats,
+    runtime: ToolRuntime,
+    max_uses: int = MAX_ADD_THREATS_USES,
+    max_gap_uses: int = MAX_GAP_ANALYSIS_USES,
+    enable_gap_fallback: bool = True,
+):
+    """Shared handler for add_threats (static and dynamic variants)."""
     tool_use = _unwrap_value(runtime.state.get("tool_use", 0), 0)
     gap_tool_use = _unwrap_value(runtime.state.get("gap_tool_use", 0), 0)
     job_id = runtime.state.get("job_id", "unknown")
 
     # Check limit
-    if tool_use >= MAX_ADD_THREATS_USES:
-        # Check if gap_analysis is still available
-        if gap_tool_use < MAX_GAP_ANALYSIS_USES:
+    if tool_use >= max_uses:
+        if enable_gap_fallback and gap_tool_use < max_gap_uses:
             error_msg = "You must call gap_analysis to verify the current threat model first. Afterwards you can use the tool again to add other threats if needed."
         else:
             error_msg = (
@@ -325,10 +359,10 @@ def add_threats(threats: ThreatsList, runtime: ToolRuntime):
                 "You can only delete threats or proceed to finish."
             )
         logger.warning(
-            "Tool usage limit exceeded - gap_analysis required",
+            "Tool usage limit exceeded",
             tool="add_threats",
             current_usage=tool_use,
-            max_usage=MAX_ADD_THREATS_USES,
+            max_usage=max_uses,
             gap_tool_use=gap_tool_use,
             job_id=job_id,
         )
@@ -338,7 +372,6 @@ def add_threats(threats: ThreatsList, runtime: ToolRuntime):
     assets = runtime.state.get("assets")
     system_architecture = runtime.state.get("system_architecture")
 
-    # Build sets of valid asset names and threat source categories
     valid_asset_names = set()
     if assets and assets.assets:
         valid_asset_names = {asset.name for asset in assets.assets}
@@ -356,11 +389,9 @@ def add_threats(threats: ThreatsList, runtime: ToolRuntime):
     for threat in threats.threats:
         violations = []
 
-        # Check if target is a valid asset
         if threat.target not in valid_asset_names:
             violations.append(f"Invalid target '{threat.target}' - not in asset list")
 
-        # Check if source is a valid threat source
         if threat.source not in valid_threat_sources:
             violations.append(
                 f"Invalid source '{threat.source}' - not in threat sources"
@@ -376,14 +407,11 @@ def add_threats(threats: ThreatsList, runtime: ToolRuntime):
                 job_id=job_id,
             )
         else:
-            # Ensure starred=False (only users can star threats)
             threat.starred = False
             valid_threats.append(threat)
 
-    # Create ThreatsList with only valid threats
     valid_threats_list = ThreatsList(threats=valid_threats)
 
-    # Update status
     valid_count = len(valid_threats)
     invalid_count = len(invalid_threats)
 
@@ -394,23 +422,21 @@ def add_threats(threats: ThreatsList, runtime: ToolRuntime):
             detail=f"{valid_count} threats added to catalog",
         )
 
-    # Build response message
     if invalid_count == 0:
-        tool_use_delta = 1  # Increment by 1
+        tool_use_delta = 1
         new_tool_use = tool_use + tool_use_delta
         response_msg = f"Successfully added: {valid_count} threats."
         logger.debug(
             "Tool invoked successfully - all threats valid",
             tool="add_threats",
             usage_count=new_tool_use,
-            max_usage=MAX_ADD_THREATS_USES,
+            max_usage=max_uses,
             threats_added=valid_count,
-            remaining_invocations=MAX_ADD_THREATS_USES - new_tool_use,
+            remaining_invocations=max_uses - new_tool_use,
             job_id=job_id,
         )
     else:
-        # Format invalid threats for response
-        tool_use_delta = 0  # No increment if all threats invalid
+        tool_use_delta = 0
         new_tool_use = tool_use
         invalid_details = []
         for invalid in invalid_threats:
@@ -432,19 +458,17 @@ Please ensure:
             "Tool invoked with validation failures",
             tool="add_threats",
             usage_count=new_tool_use,
-            max_usage=MAX_ADD_THREATS_USES,
+            max_usage=max_uses,
             threats_added=valid_count,
             threats_rejected=invalid_count,
-            remaining_invocations=MAX_ADD_THREATS_USES - new_tool_use,
+            remaining_invocations=max_uses - new_tool_use,
             job_id=job_id,
         )
-
-    time.sleep(5)
 
     return Command(
         update={
             "threat_list": valid_threats_list,
-            "tool_use": tool_use_delta,  # Send delta, not absolute value
+            "tool_use": tool_use_delta,
             "messages": [
                 ToolMessage(
                     response_msg,
@@ -455,7 +479,20 @@ Please ensure:
     )
 
 
-def create_dynamic_add_threats_tool(threats_list_model: type[BaseModel]):
+@tool(
+    name_or_callable="add_threats",
+    description=""" Used to add new threats to the existing catalog""",
+)
+def add_threats(threats: ThreatsList, runtime: ToolRuntime):
+    return _handle_add_threats(threats, runtime)
+
+
+def create_dynamic_add_threats_tool(
+    threats_list_model: type[BaseModel],
+    max_uses: int = MAX_ADD_THREATS_USES,
+    max_gap_uses: int = MAX_GAP_ANALYSIS_USES,
+    enable_gap_fallback: bool = True,
+):
     """Create an add_threats tool bound to a dynamic ThreatsList model.
 
     The returned tool has the same name, description, and handler logic as the
@@ -465,6 +502,9 @@ def create_dynamic_add_threats_tool(threats_list_model: type[BaseModel]):
 
     Args:
         threats_list_model: Dynamic ThreatsList with Literal-constrained fields.
+        max_uses: Maximum add_threats calls before requiring gap_analysis.
+        max_gap_uses: Maximum gap_analysis uses (for the gap fallback message).
+        enable_gap_fallback: If True, suggest gap_analysis when budget exceeded.
 
     Returns:
         A langchain tool instance with the constrained schema.
@@ -475,141 +515,12 @@ def create_dynamic_add_threats_tool(threats_list_model: type[BaseModel]):
         description=""" Used to add new threats to the existing catalog""",
     )
     def dynamic_add_threats(threats: threats_list_model, runtime: ToolRuntime):
-        tool_use = _unwrap_value(runtime.state.get("tool_use", 0), 0)
-        gap_tool_use = _unwrap_value(runtime.state.get("gap_tool_use", 0), 0)
-        job_id = runtime.state.get("job_id", "unknown")
-
-        # Check limit
-        if tool_use >= MAX_ADD_THREATS_USES:
-            if gap_tool_use < MAX_GAP_ANALYSIS_USES:
-                error_msg = "You must call gap_analysis to verify the current threat model first. Afterwards you can use the tool again to add other threats if needed."
-            else:
-                error_msg = (
-                    "You have consumed all your tool calls. "
-                    "You can only delete threats or proceed to finish."
-                )
-            logger.warning(
-                "Tool usage limit exceeded - gap_analysis required",
-                tool="add_threats",
-                current_usage=tool_use,
-                max_usage=MAX_ADD_THREATS_USES,
-                gap_tool_use=gap_tool_use,
-                job_id=job_id,
-            )
-            return error_msg
-
-        # Get valid assets and threat sources from state
-        assets = runtime.state.get("assets")
-        system_architecture = runtime.state.get("system_architecture")
-
-        valid_asset_names = set()
-        if assets and assets.assets:
-            valid_asset_names = {asset.name for asset in assets.assets}
-
-        valid_threat_sources = set()
-        if system_architecture and system_architecture.threat_sources:
-            valid_threat_sources = {
-                source.category for source in system_architecture.threat_sources
-            }
-
-        # Validate threats and separate valid from invalid
-        valid_threats = []
-        invalid_threats = []
-
-        for threat in threats.threats:
-            violations = []
-
-            if threat.target not in valid_asset_names:
-                violations.append(
-                    f"Invalid target '{threat.target}' - not in asset list"
-                )
-
-            if threat.source not in valid_threat_sources:
-                violations.append(
-                    f"Invalid source '{threat.source}' - not in threat sources"
-                )
-
-            if violations:
-                invalid_threats.append({"name": threat.name, "violations": violations})
-                logger.warning(
-                    "Threat validation failed for dynamic tools",
-                    tool="add_threats",
-                    threat_name=threat.name,
-                    violations=violations,
-                    job_id=job_id,
-                )
-            else:
-                threat.starred = False
-                valid_threats.append(threat)
-
-        valid_threats_list = ThreatsList(threats=valid_threats)
-
-        valid_count = len(valid_threats)
-        invalid_count = len(invalid_threats)
-
-        if valid_count > 0:
-            state_service.update_job_state(
-                job_id,
-                JobState.THREAT.value,
-                detail=f"{valid_count} threats added to catalog",
-            )
-
-        if invalid_count == 0:
-            tool_use_delta = 1
-            new_tool_use = tool_use + tool_use_delta
-            response_msg = f"Successfully added: {valid_count} threats."
-            logger.debug(
-                "Tool invoked successfully - all threats valid",
-                tool="add_threats",
-                usage_count=new_tool_use,
-                max_usage=MAX_ADD_THREATS_USES,
-                threats_added=valid_count,
-                remaining_invocations=MAX_ADD_THREATS_USES - new_tool_use,
-                job_id=job_id,
-            )
-        else:
-            tool_use_delta = 0
-            new_tool_use = tool_use
-            invalid_details = []
-            for invalid in invalid_threats:
-                violations_str = "; ".join(invalid["violations"])
-                invalid_details.append(f"  - {invalid['name']}: {violations_str}")
-
-            invalid_summary = "\n".join(invalid_details)
-
-            response_msg = f"""Successfully added: {valid_count} threats. \n
-
-{invalid_count} threats were NOT added due to validation failures: \n
-{invalid_summary} \n
-
-Please ensure:
-- Threat 'target' matches an asset name from the asset list: {valid_asset_names} \n
-- Threat 'source' matches a threat source category from the data flow threat sources" {valid_threat_sources}"""
-
-            logger.warning(
-                "Tool invoked with validation failures",
-                tool="add_threats",
-                usage_count=new_tool_use,
-                max_usage=MAX_ADD_THREATS_USES,
-                threats_added=valid_count,
-                threats_rejected=invalid_count,
-                remaining_invocations=MAX_ADD_THREATS_USES - new_tool_use,
-                job_id=job_id,
-            )
-
-        time.sleep(5)
-
-        return Command(
-            update={
-                "threat_list": valid_threats_list,
-                "tool_use": tool_use_delta,
-                "messages": [
-                    ToolMessage(
-                        response_msg,
-                        tool_call_id=runtime.tool_call_id,
-                    )
-                ],
-            }
+        return _handle_add_threats(
+            threats,
+            runtime,
+            max_uses=max_uses,
+            max_gap_uses=max_gap_uses,
+            enable_gap_fallback=enable_gap_fallback,
         )
 
     return dynamic_add_threats
@@ -641,8 +552,6 @@ def remove_threat(
     updated_threat_list = current_threat_list
     for threat_name in threats:
         updated_threat_list = updated_threat_list.remove(threat_name)
-
-    time.sleep(5)
 
     return Command(
         update={
@@ -676,8 +585,6 @@ def read_threat_catalog(
     state_service.update_job_state(
         job_id, JobState.THREAT.value, detail="Reviewing catalog"
     )
-
-    time.sleep(5)
 
     # Check if there are any threats
     if not current_threat_list or not current_threat_list.threats:
@@ -775,22 +682,25 @@ def gap_analysis(runtime: ToolRuntime) -> str:
     tool_use = _unwrap_value(runtime.state.get("tool_use", 0), 0)
     job_id = runtime.state.get("job_id", "unknown")
 
-    # Check if threat catalog has at least 25 threats
+    min_threats = MIN_GAP_THRESHOLD
+    max_gap = MAX_GAP_ANALYSIS_USES
+
+    # Check if threat catalog has enough threats
     threat_list = runtime.state.get("threat_list")
     threat_count = (
         len(threat_list.threats) if threat_list and threat_list.threats else 0
     )
 
-    if threat_count < 30:
+    if threat_count < min_threats:
         error_msg = (
-            f"Gap analysis requires at least 30 threats in the catalog. "
+            f"Gap analysis requires at least {min_threats} threats in the catalog. "
             f"Current count: {threat_count}. Please add more threats before performing gap analysis."
         )
         logger.warning(
             "Gap analysis rejected - insufficient threats",
             tool="gap_analysis",
             current_threat_count=threat_count,
-            required_threat_count=30,
+            required_threat_count=min_threats,
             job_id=job_id,
         )
         # Reset tool_use counter so agent can continue adding threats
@@ -807,7 +717,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
         )
 
     # Check limit
-    if gap_tool_use >= MAX_GAP_ANALYSIS_USES:
+    if gap_tool_use >= max_gap:
         remaining_add_threats = MAX_ADD_THREATS_USES - tool_use
         error_msg = (
             "You have consumed all your tool calls. "
@@ -817,7 +727,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
             "Tool usage limit exceeded",
             tool="gap_analysis",
             current_usage=gap_tool_use,
-            max_usage=MAX_GAP_ANALYSIS_USES,
+            max_usage=max_gap,
             remaining_add_threats=remaining_add_threats,
             job_id=job_id,
         )
@@ -848,9 +758,8 @@ def gap_analysis(runtime: ToolRuntime) -> str:
             indent=2,
         )
 
-    # Get previous gap analysis results
-    gap = state.get("gap", [])
-    gap_str = "\n".join(gap) if gap else ""
+    # Fresh run each time — no previous gaps passed
+    gap_str = ""
 
     # Get threat sources for validation
     threat_sources_str = None
@@ -863,12 +772,14 @@ def gap_analysis(runtime: ToolRuntime) -> str:
             [f"  - {category}" for category in source_categories]
         )
 
+    # Always use full asset list — gap analysis should evaluate cross-cutting coverage
+    assets = state.get("assets")
+    all_assets = assets.assets if assets else []
+
     # Create gap analysis message (with threat sources, without KPIs — gap analysis focuses on semantic coverage)
     human_message = msg_builder.create_gap_analysis_message(
-        json.dumps(
-            [asset.model_dump() for asset in state.get("assets").assets], indent=2
-        )
-        if state.get("assets")
+        json.dumps([asset.model_dump() for asset in all_assets], indent=2)
+        if all_assets
         else "",
         json.dumps(
             [flow.model_dump() for flow in state.get("system_architecture").data_flows],
@@ -902,7 +813,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
             "Invoking gap analysis model",
             tool="gap_analysis",
             usage_count=gap_tool_use + 1,
-            max_usage=MAX_GAP_ANALYSIS_USES,
+            max_usage=max_gap,
             job_id=job_id,
         )
 
@@ -923,15 +834,11 @@ def gap_analysis(runtime: ToolRuntime) -> str:
             "tool_use": Overwrite(0),
         }
 
-        # Update gap in state
-        if not gap_result.stop and gap_result.gap:
-            update_dict["gap"] = [gap_result.gap]
-
         # Format result message
         if gap_result.stop:
             update_dict["messages"] = [
                 ToolMessage(
-                    "Gap Analysis: The threat catalog is comprehensive and complete. No actionable gaps identified. You may proceed to finish or continue refining.",
+                    f"Gap Analysis (rating {gap_result.rating}/10): The threat catalog is comprehensive and complete. No actionable gaps identified. You may proceed to finish or continue refining.",
                     tool_call_id=runtime.tool_call_id,
                 )
             ]
@@ -945,11 +852,16 @@ def gap_analysis(runtime: ToolRuntime) -> str:
             )
             return Command(update=update_dict)
         else:
+            # Format structured gaps into actionable message
+            gaps_msg = _format_structured_gaps(gap_result, max_gap - new_gap_tool_use)
+
+            # Store serialized gaps in state for audit trail
+            if gap_result.gaps:
+                update_dict["gap"] = [gaps_msg]
+
             update_dict["messages"] = [
                 ToolMessage(
-                    f"""
-                    You have {MAX_GAP_ANALYSIS_USES - new_gap_tool_use} more gap_analysis invocations left \n\n
-                    Gap identified: {gap_result.gap}""",
+                    gaps_msg,
                     tool_call_id=runtime.tool_call_id,
                 )
             ]
@@ -958,16 +870,13 @@ def gap_analysis(runtime: ToolRuntime) -> str:
                 tool="gap_analysis",
                 usage_count=new_gap_tool_use,
                 gaps_found=True,
-                gaps=gap_result.gap,
+                gap_count=len(gap_result.gaps) if gap_result.gaps else 0,
                 rating=gap_result.rating,
                 tool_use_reset=True,
                 job_id=job_id,
             )
 
-            # Return Command with state updates and result message
-            return Command(
-                update=update_dict,
-            )
+            return Command(update=update_dict)
 
     except Exception as e:
         # Log error with full context - counters not reset on failure

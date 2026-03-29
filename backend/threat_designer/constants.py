@@ -106,8 +106,11 @@ SUMMARY_MAX_WORDS_DEFAULT = 40
 # Example: 10 * (3 + 1) = 40 total add_threats calls possible
 #
 # When both limits are exhausted, the agent can only delete threats or finish.
-MAX_ADD_THREATS_USES = 3
+MAX_ADD_THREATS_USES = 5
 MAX_GAP_ANALYSIS_USES = 5
+
+# Minimum threats required before gap analysis can run
+MIN_GAP_THRESHOLD = 25
 
 
 # ============================================================================
@@ -240,6 +243,7 @@ OPENAI_GPT5_FAMILY_MODELS: List[str] = [
     "gpt-5.1-2025-11-13",
     "gpt-5-2025-08-07",
     "gpt-5-mini-2025-08-07",
+    "gpt-5.4-2026-03-05",
 ]
 
 
@@ -295,7 +299,10 @@ WORKFLOW_NODE_THREATS_AGENTIC = "threats_agentic"
 WORKFLOW_NODE_FINALIZE = "finalize"
 
 # Space context knowledge base query budget
-KB_QUERY_BUDGET = 15
+KB_QUERY_BUDGET = 10
+
+# Maximum number of space insights to capture before moving on
+MAX_SPACE_INSIGHTS = 20
 
 # ============================================================================
 # SLEEP INTERVALS

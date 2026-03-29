@@ -34,6 +34,7 @@ os.environ["THREAT_MODELING_AGENT"] = (
 os.environ["REGION"] = "us-east-1"
 os.environ["SHARING_TABLE"] = "test-sharing-table"
 os.environ["LOCKS_TABLE"] = "test-locks-table"
+os.environ["BACKUP_TABLE"] = "test-backup-table"
 
 from services import attack_tree_service
 from services.attack_tree_service import (
@@ -1144,6 +1145,7 @@ class TestCascadeDeletion:
         mock_state_table = Mock()
         mock_sharing_table = Mock()
         mock_sharing_table.query.return_value = {"Items": []}
+        mock_backup_table = Mock()
 
         def table_selector(table_name):
             if "status" in table_name.lower():
@@ -1152,6 +1154,8 @@ class TestCascadeDeletion:
                 return mock_attack_tree_table
             elif "sharing" in table_name.lower():
                 return mock_sharing_table
+            elif "backup" in table_name.lower():
+                return mock_backup_table
             return mock_agent_table
 
         mock_attack_tree_dynamodb.Table.side_effect = table_selector
@@ -1265,6 +1269,7 @@ class TestCascadeDeletion:
         mock_state_table = Mock()
         mock_sharing_table = Mock()
         mock_sharing_table.query.return_value = {"Items": []}
+        mock_backup_table = Mock()
 
         def table_selector(table_name):
             if "status" in table_name.lower():
@@ -1273,6 +1278,8 @@ class TestCascadeDeletion:
                 return mock_attack_tree_table
             elif "sharing" in table_name.lower():
                 return mock_sharing_table
+            elif "backup" in table_name.lower():
+                return mock_backup_table
             return mock_agent_table
 
         mock_attack_tree_dynamodb.Table.side_effect = table_selector
@@ -1365,6 +1372,7 @@ class TestCascadeDeletion:
         mock_state_table = Mock()
         mock_sharing_table = Mock()
         mock_sharing_table.query.return_value = {"Items": []}
+        mock_backup_table = Mock()
 
         def table_selector(table_name):
             if "status" in table_name.lower():
@@ -1373,6 +1381,8 @@ class TestCascadeDeletion:
                 return mock_attack_tree_table
             elif "sharing" in table_name.lower():
                 return mock_sharing_table
+            elif "backup" in table_name.lower():
+                return mock_backup_table
             return mock_agent_table
 
         mock_attack_tree_dynamodb.Table.side_effect = table_selector

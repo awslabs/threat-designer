@@ -140,6 +140,20 @@ resource "aws_dynamodb_table" "threat_designer_locks" {
   }
 }
 
+resource "aws_dynamodb_table" "threat_designer_backup" {
+  #checkov:skip=CKV_AWS_119
+  #checkov:skip=CKV_AWS_28
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "job_id"
+  name                        = "${local.prefix}-backup"
+  deletion_protection_enabled = var.deletion_protection_enabled
+
+  attribute {
+    name = "job_id"
+    type = "S"
+  }
+}
+
 resource "aws_dynamodb_table" "attack_tree_data" {
   #checkov:skip=CKV_AWS_119
   #checkov:skip=CKV_AWS_28

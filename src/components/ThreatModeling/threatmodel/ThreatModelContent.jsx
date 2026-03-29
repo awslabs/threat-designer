@@ -75,10 +75,11 @@ const ThreatModelContent = React.memo(
     }, [response?.item?.threat_list?.threats]);
 
     // Memoize the dashboard component to prevent re-rendering when switching views
+    const tokenUsage = response?.item?.token_usage || null;
     const dashboardComponent = useMemo(() => {
       if (!showDashboard || !results) return null;
-      return <ThreatModelDashboard threatCatalogData={threatCatalogData} />;
-    }, [showDashboard, results, threatCatalogData]);
+      return <ThreatModelDashboard threatCatalogData={threatCatalogData} tokenUsage={tokenUsage} />;
+    }, [showDashboard, results, threatCatalogData, tokenUsage]);
 
     // Memoize the threat list component to prevent re-rendering when switching views
     const threatListComponent = useMemo(() => {

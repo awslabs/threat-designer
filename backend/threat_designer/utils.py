@@ -48,20 +48,32 @@ from langgraph.types import Overwrite
 
 logger = structlog.get_logger()
 
+# Shared DynamoDB resource (lazy-initialized, thread-safe after first call)
+_dynamodb_resource = None
 
-def unwrap_overwrite(value: Any) -> Any:
-    """
-    Unwrap LangGraph Overwrite objects to get the actual value.
+
+def _get_dynamodb():
+    """Return a shared boto3 DynamoDB resource, creating it on first call."""
+    global _dynamodb_resource
+    if _dynamodb_resource is None:
+        _dynamodb_resource = boto3.resource(AWS_SERVICE_DYNAMODB, region_name=REGION)
+    return _dynamodb_resource
+
+
+def unwrap_overwrite(value: Any, default: Any = None) -> Any:
+    """Unwrap LangGraph Overwrite objects to get the actual value.
 
     Args:
         value: Any value that might be wrapped in Overwrite
+        default: Fallback if value is None
 
     Returns:
-        The unwrapped value, or the original value if not wrapped
+        The unwrapped value, the original value, or default if None.
     """
-    # Check if value is an Overwrite instance by checking for the 'value' attribute
     if isinstance(value, Overwrite):
         return value.value
+    if value is None:
+        return default
     return value
 
 
@@ -137,7 +149,7 @@ def update_job_state(
 
     with operation_context("update_job_state", context_id):
         try:
-            dynamodb = boto3.resource(AWS_SERVICE_DYNAMODB, region_name=REGION)
+            dynamodb = _get_dynamodb()
             table = dynamodb.Table(JOB_STATUS_TABLE)
 
             # Check if session was cancelled - skip update and reset flag if so
@@ -183,13 +195,12 @@ def update_job_state(
                 expr_names[f"#{DB_FIELD_RETRY}"] = DB_FIELD_RETRY
                 expr_values[f":{DB_FIELD_RETRY}"] = retry
 
-            # Add detail if provided (or remove it if None)
+            # Add detail if provided, or remove stale detail
             if detail is not None:
                 update_expr += ", #detail = :detail"
                 expr_names["#detail"] = "detail"
                 expr_values[":detail"] = detail
-            elif detail is None and retry is None:
-                # If detail is explicitly None and we're not setting retry, remove the detail field
+            else:
                 update_expr += " REMOVE #detail"
                 expr_names["#detail"] = "detail"
 
@@ -279,7 +290,7 @@ def update_trail(
         )
 
         try:
-            dynamodb = boto3.resource(AWS_SERVICE_DYNAMODB, region_name=REGION)
+            dynamodb = _get_dynamodb()
             table = dynamodb.Table(TRAIL_TABLE)
 
             # Build update expression
@@ -316,42 +327,12 @@ def update_trail(
                         update_expr += ", "
 
                     if flush == FLUSH_MODE_REPLACE:
-                        # Replace the entire list
                         update_expr += f"#{db_field} = :{db_field}"
                         expr_values[f":{db_field}"] = field_list
-                        logger.debug(
-                            f"Replacing {field_name} list",
-                            job_id=job_id,
-                            items_count=len(field_list),
-                        )
                     else:
-                        # Check if field exists and append or create
-                        try:
-                            response = table.get_item(
-                                Key={DB_FIELD_ID: job_id}, ProjectionExpression=db_field
-                            )
-                            if db_field in response.get("Item", {}):
-                                update_expr += f"#{db_field} = list_append(#{db_field}, :{db_field})"
-                                logger.debug(
-                                    f"Appending to existing {field_name} list",
-                                    job_id=job_id,
-                                    items_count=len(field_list),
-                                )
-                            else:
-                                update_expr += f"#{db_field} = :{db_field}"
-                                logger.debug(
-                                    f"Creating new {field_name} list",
-                                    job_id=job_id,
-                                    items_count=len(field_list),
-                                )
-                        except ClientError as e:
-                            logger.warning(
-                                f"Could not check existing {field_name}, creating new list",
-                                job_id=job_id,
-                                error=str(e),
-                            )
-                            update_expr += f"#{db_field} = :{db_field}"
-
+                        # Atomic append-or-create using if_not_exists
+                        update_expr += f"#{db_field} = list_append(if_not_exists(#{db_field}, :empty_{db_field}), :{db_field})"
+                        expr_values[f":empty_{db_field}"] = []
                         expr_values[f":{db_field}"] = field_list
 
                     expr_names[f"#{db_field}"] = db_field
@@ -427,7 +408,7 @@ def create_dynamodb_item(
 
             logger.debug("Creating DynamoDB item", job_id=job_id, table=table_name)
 
-            dynamodb = boto3.resource(AWS_SERVICE_DYNAMODB, region_name=REGION)
+            dynamodb = _get_dynamodb()
             table = dynamodb.Table(table_name)
 
             current_utc = datetime.now(timezone.utc).isoformat()
@@ -463,6 +444,8 @@ def create_dynamodb_item(
                     if agent_state.get("space_insights")
                     else None
                 ),
+                "parent_id": agent_state.get("parent_id"),
+                "space_id": agent_state.get("space_id"),
             }
 
             # Remove None values to avoid DynamoDB issues

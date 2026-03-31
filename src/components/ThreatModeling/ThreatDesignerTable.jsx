@@ -4,7 +4,15 @@ import ButtonDropdown from "@cloudscape-design/components/button-dropdown";
 import { ModalComponent } from "./ModalForm";
 
 export const ThreatTableComponent = React.memo(
-  ({ headers, data, updateData, type, title = "Table", emptyMsg = "No data" }) => {
+  ({
+    headers,
+    data,
+    updateData,
+    type,
+    title = "Table",
+    emptyMsg = "No data",
+    isReadOnly = false,
+  }) => {
     const [openModal, setOpenModal] = React.useState(false);
     const [selectedIndex, setSelectedIndex] = React.useState(-1);
     const [selectedItems, setSelectedItems] = React.useState([]);
@@ -66,36 +74,38 @@ export const ThreatTableComponent = React.memo(
           header={
             <Header
               actions={
-                <ButtonDropdown
-                  onItemClick={(itemClickDetails) => {
-                    setAction(itemClickDetails.detail.id);
-                    if (
-                      itemClickDetails.detail.id === "edit" ||
-                      itemClickDetails.detail.id === "add"
-                    ) {
-                      handleModal();
-                    }
-                    if (itemClickDetails.detail.id === "delete") {
-                      updateData(type, selectedIndex, null);
-                      setSelectedItems([]);
-                    }
-                  }}
-                  items={[
-                    { id: "add", text: "Add", disabled: false },
-                    {
-                      id: "edit",
-                      text: "Edit",
-                      disabled: selectedItems.length === 0,
-                    },
-                    {
-                      id: "delete",
-                      text: "Delete",
-                      disabled: selectedItems.length === 0,
-                    },
-                  ]}
-                  ariaLabel={`Edit ${title} Table`}
-                  variant="icon"
-                />
+                !isReadOnly && (
+                  <ButtonDropdown
+                    onItemClick={(itemClickDetails) => {
+                      setAction(itemClickDetails.detail.id);
+                      if (
+                        itemClickDetails.detail.id === "edit" ||
+                        itemClickDetails.detail.id === "add"
+                      ) {
+                        handleModal();
+                      }
+                      if (itemClickDetails.detail.id === "delete") {
+                        updateData(type, selectedIndex, null);
+                        setSelectedItems([]);
+                      }
+                    }}
+                    items={[
+                      { id: "add", text: "Add", disabled: false },
+                      {
+                        id: "edit",
+                        text: "Edit",
+                        disabled: selectedItems.length === 0,
+                      },
+                      {
+                        id: "delete",
+                        text: "Delete",
+                        disabled: selectedItems.length === 0,
+                      },
+                    ]}
+                    ariaLabel={`Edit ${title} Table`}
+                    variant="icon"
+                  />
+                )
               }
             >
               {title}

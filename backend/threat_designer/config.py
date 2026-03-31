@@ -3,7 +3,6 @@
 from constants import (
     DEFAULT_MAX_EXECUTION_TIME_MINUTES,
     DEFAULT_MAX_RETRY,
-    DEFAULT_REASONING_ENABLED,
     DEFAULT_SUMMARY_MAX_WORDS,
     ENV_AGENT_STATE_TABLE,
     ENV_MODEL_PROVIDER,
@@ -32,7 +31,6 @@ class ThreatModelingConfig(BaseSettings):
         ge=MIN_EXECUTION_TIME_MINUTES,
         le=MAX_EXECUTION_TIME_MINUTES,
     )
-    reasoning_enabled: bool = Field(default=DEFAULT_REASONING_ENABLED)
     summary_max_words: int = Field(
         default=DEFAULT_SUMMARY_MAX_WORDS, ge=MIN_SUMMARY_WORDS, le=MAX_SUMMARY_WORDS
     )

@@ -2,6 +2,7 @@ import React from "react";
 import BreadcrumbGroup from "@cloudscape-design/components/breadcrumb-group";
 import Header from "@cloudscape-design/components/header";
 import SpaceBetween from "@cloudscape-design/components/space-between";
+import Link from "@cloudscape-design/components/link";
 import ThreatModelActions from "./ThreatModelActions";
 
 /**
@@ -37,6 +38,9 @@ const ThreatModelHeader = React.memo(
     onActionClick,
     showDashboard,
     onToggleDashboard,
+    parentId,
+    parentTitle,
+    onCompare,
   }) => {
     return (
       <SpaceBetween size="xxl">
@@ -54,6 +58,30 @@ const ThreatModelHeader = React.memo(
               showDashboard={showDashboard}
               onToggleDashboard={onToggleDashboard}
             />
+          }
+          description={
+            parentId ? (
+              <span>
+                Derived from:{" "}
+                <Link variant="secondary" href={`/${parentId}`}>
+                  {parentTitle || parentId}
+                </Link>
+                {onCompare && (
+                  <>
+                    {" · "}
+                    <Link
+                      variant="secondary"
+                      onFollow={(e) => {
+                        e.preventDefault();
+                        onCompare();
+                      }}
+                    >
+                      Compare
+                    </Link>
+                  </>
+                )}
+              </span>
+            ) : undefined
           }
         >
           <SpaceBetween direction="horizontal" size="xs">

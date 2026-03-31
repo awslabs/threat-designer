@@ -7,7 +7,7 @@ import ButtonGroup from "@cloudscape-design/components/button-group";
 import TextContent from "../HelpPanel/IndividualContent/TextContent";
 import { colorTextEmpty } from "@cloudscape-design/design-tokens";
 
-const DescriptionSection = memo(({ description, updateTM }) => {
+const DescriptionSection = memo(({ description, updateTM, isReadOnly = false }) => {
   const [value, setValue] = useState(description);
   const [editMode, setEditMode] = useState(false);
 
@@ -30,46 +30,48 @@ const DescriptionSection = memo(({ description, updateTM }) => {
       <div style={{ marginBottom: "10px" }}>
         <SpaceBetween direction="horizontal" size="m">
           <Header>Description</Header>
-          <ButtonGroup
-            onItemClick={({ detail }) => {
-              if (detail.id === "edit") {
-                handleEdit();
+          {!isReadOnly && (
+            <ButtonGroup
+              onItemClick={({ detail }) => {
+                if (detail.id === "edit") {
+                  handleEdit();
+                }
+                if (detail.id === "confirm") {
+                  handleConfirm();
+                }
+                if (detail.id === "cancel") {
+                  handleCancel();
+                }
+              }}
+              ariaLabel="actions"
+              items={
+                editMode
+                  ? [
+                      {
+                        type: "icon-button",
+                        id: "confirm",
+                        iconName: "check",
+                        text: "Confirm",
+                      },
+                      {
+                        type: "icon-button",
+                        id: "cancel",
+                        iconName: "close",
+                        text: "Cancel",
+                      },
+                    ]
+                  : [
+                      {
+                        type: "icon-button",
+                        id: "edit",
+                        iconName: "edit",
+                        text: "Edit",
+                      },
+                    ]
               }
-              if (detail.id === "confirm") {
-                handleConfirm();
-              }
-              if (detail.id === "cancel") {
-                handleCancel();
-              }
-            }}
-            ariaLabel="actions"
-            items={
-              editMode
-                ? [
-                    {
-                      type: "icon-button",
-                      id: "confirm",
-                      iconName: "check",
-                      text: "Confirm",
-                    },
-                    {
-                      type: "icon-button",
-                      id: "cancel",
-                      iconName: "close",
-                      text: "Cancel",
-                    },
-                  ]
-                : [
-                    {
-                      type: "icon-button",
-                      id: "edit",
-                      iconName: "edit",
-                      text: "Edit",
-                    },
-                  ]
-            }
-            variant="icon"
-          />
+              variant="icon"
+            />
+          )}
         </SpaceBetween>
       </div>
       {!editMode ? (

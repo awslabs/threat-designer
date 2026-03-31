@@ -357,13 +357,18 @@ export const pollAttackTreeStatus = async (
 
       // Wait before next poll (with cancellation support)
       await new Promise((resolve, reject) => {
-        const timeout = setTimeout(resolve, intervalMs);
+        const abortHandler = () => {
+          clearTimeout(timeout);
+          reject(new Error("Polling cancelled"));
+        };
+        const timeout = setTimeout(() => {
+          if (signal) {
+            signal.removeEventListener("abort", abortHandler);
+          }
+          resolve();
+        }, intervalMs);
 
         if (signal) {
-          const abortHandler = () => {
-            clearTimeout(timeout);
-            reject(new Error("Polling cancelled"));
-          };
           signal.addEventListener("abort", abortHandler, { once: true });
         }
       });

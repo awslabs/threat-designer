@@ -70,6 +70,9 @@ function ChatInterface({ user, inTools }) {
   // Get available tools from functions context
   const { availableTools = [] } = functions;
 
+  // Track previous tools key via ref to avoid toolItems in its own effect deps
+  const prevToolsKeyRef = useRef("");
+
   // Initialize tool items when availableTools changes
   useEffect(() => {
     if (availableTools && availableTools.length > 0) {
@@ -77,11 +80,11 @@ function ChatInterface({ user, inTools }) {
         .map((tool) => `${tool.id}-${tool.name || tool.content || tool.id}`)
         .join(",");
 
-      const prevToolsKey = toolItems.map((item) => `${item.id}-${item.content}`).join(",");
-
-      if (prevToolsKey === toolsKey && toolsInitialized) {
+      if (prevToolsKeyRef.current === toolsKey && toolsInitialized) {
         return;
       }
+
+      prevToolsKeyRef.current = toolsKey;
 
       const savedToolsConfig = localStorage.getItem(TOOLS_CONFIG_KEY);
       let savedTools = {};
@@ -102,7 +105,7 @@ function ChatInterface({ user, inTools }) {
 
       setToolItems(newItems);
     }
-  }, [availableTools, toolsInitialized, toolItems, setToolItems]);
+  }, [availableTools, toolsInitialized, setToolItems]);
 
   // Save budget to localStorage when it changes
   const handleBudgetChange = useCallback(

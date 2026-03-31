@@ -1,5 +1,5 @@
 // React imports
-import { useEffect, useReducer, useCallback, useMemo, useContext, useRef } from "react";
+import { useState, useEffect, useReducer, useCallback, useMemo, useContext, useRef } from "react";
 
 // Third-party imports
 import { useParams, useNavigate } from "react-router";
@@ -10,6 +10,7 @@ import ThreatModelAlerts from "./threatmodel/ThreatModelAlerts";
 import ThreatModelHeader from "./threatmodel/ThreatModelHeader";
 import ThreatModelContent from "./threatmodel/ThreatModelContent";
 import ConflictResolutionModal from "./ConflictResolutionModal";
+import VersionCompareModal from "./VersionCompareModal";
 import { InfoContent } from "../HelpPanel/InfoContent";
 import {
   ThreatModelProvider,
@@ -32,6 +33,13 @@ import { useSplitPanel } from "../../SplitPanelContext";
 import { ChatSessionFunctionsContext } from "../Agent/ChatContext";
 import { SENTRY_ENABLED } from "../Agent/context/constants";
 import { clearThreatModelCache } from "../../services/ThreatDesigner/attackTreeCache";
+import {
+  generateUrl,
+  createVersion,
+  getThreatModelingResults,
+  getCollaborators,
+} from "../../services/ThreatDesigner/stats";
+import { uploadFile } from "./docs";
 
 // Styles
 import "./ThreatModeling.css";
@@ -115,7 +123,7 @@ const ThreatModelInner = () => {
 
   // Memoized callback for polling status changes
   const handleStatusChange = useCallback(
-    async (status) => {
+    async (status, data) => {
       if (status === "COMPLETE") {
         try {
           await fetchThreatModelData();
@@ -124,15 +132,11 @@ const ThreatModelInner = () => {
           dispatch({ type: THREAT_MODEL_ACTIONS.SET_RESULTS, payload: true });
         } catch (error) {
           console.error("Error getting threat modeling results:", error);
-          dispatch({ type: THREAT_MODEL_ACTIONS.SET_PROCESSING, payload: false });
-          dispatch({ type: THREAT_MODEL_ACTIONS.SET_STOPPING, payload: false });
-          dispatch({ type: THREAT_MODEL_ACTIONS.SET_RESULTS, payload: false });
+          dispatch({ type: THREAT_MODEL_ACTIONS.SET_FAILED });
         }
       } else if (status === "FAILED") {
-        dispatch({ type: THREAT_MODEL_ACTIONS.SET_PROCESSING, payload: false });
-        dispatch({ type: THREAT_MODEL_ACTIONS.SET_STOPPING, payload: false });
-        dispatch({ type: THREAT_MODEL_ACTIONS.SET_RESULTS, payload: false });
-        showAlert("ErrorThreatModeling");
+        dispatch({ type: THREAT_MODEL_ACTIONS.SET_FAILED });
+        showAlert("ErrorThreatModeling", false, data?.detail || null);
       }
     },
     [fetchThreatModelData, showAlert, dispatch]
@@ -218,8 +222,30 @@ const ThreatModelInner = () => {
       hideAlert();
       dismissedResponseSnapshot.current = null;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [response, previousResponse, alert.visible, alert.state]);
+  }, [response, previousResponse, alert.visible, alert.state, showAlert, hideAlert]);
+
+  // Fetch parent data when this is a derived threat model
+  const [parentData, setParentData] = useState(null);
+  const parentId = response?.item?.parent_id;
+  useEffect(() => {
+    if (!parentId) return;
+    getThreatModelingResults(parentId)
+      .then((res) => setParentData(res.data?.item))
+      .catch(() => setParentData(null));
+  }, [parentId]);
+
+  const handleCompare = useCallback(() => {
+    dispatch({ type: THREAT_MODEL_ACTIONS.OPEN_MODAL, modal: "compare" });
+  }, [dispatch]);
+
+  // Fetch collaborator count for version modal
+  const [collaboratorCount, setCollaboratorCount] = useState(0);
+  useEffect(() => {
+    if (!id || !contextState.isOwner) return;
+    getCollaborators(id)
+      .then((res) => setCollaboratorCount(res.data?.collaborators?.length || 0))
+      .catch(() => setCollaboratorCount(0));
+  }, [id, contextState.isOwner]);
 
   // Actions hook - encapsulates all user action handlers
   // Provides handlers for save, delete, replay, stop, restore, and conflict resolution
@@ -253,6 +279,58 @@ const ThreatModelInner = () => {
       await handleReplay(iteration, reasoning, instructions, applicationType);
     },
     [handleReplay, dispatch]
+  );
+
+  // Version handler - uploads new diagram and creates a new version
+  const handleVersion = useCallback(
+    async ({
+      title,
+      base64,
+      fileType,
+      description,
+      assumptions,
+      reasoning,
+      mirrorAttackTrees,
+      mirrorSharing,
+    }) => {
+      try {
+        // 1. Get presigned URL and upload new diagram
+        const urlResponse = await generateUrl(fileType);
+        const presignedUrl = urlResponse.data.presigned;
+        const s3Key = urlResponse.data.name;
+
+        // Upload the file
+        await uploadFile(base64, presignedUrl, fileType);
+
+        // 2. Call version API
+        const versionResponse = await createVersion(
+          id,
+          s3Key,
+          title,
+          description,
+          assumptions,
+          reasoning,
+          mirrorAttackTrees,
+          mirrorSharing,
+          fileType
+        );
+
+        const newId = versionResponse.data.id;
+
+        // 3. Close modal and navigate to new version
+        dispatch({ type: THREAT_MODEL_ACTIONS.CLOSE_MODAL, modal: "version" });
+
+        if (lockManagerRef.current) {
+          await lockManagerRef.current.releaseLock().catch(console.error);
+        }
+
+        navigate(`/${newId}`);
+      } catch (error) {
+        console.error("Error creating new version:", error);
+        throw error;
+      }
+    },
+    [id, dispatch, lockManagerRef, navigate]
   );
 
   // Breadcrumb navigation handler
@@ -307,6 +385,7 @@ const ThreatModelInner = () => {
         rm: () => dispatch({ type: THREAT_MODEL_ACTIONS.OPEN_MODAL, modal: "delete" }),
         st: () => handleStop(),
         re: () => dispatch({ type: THREAT_MODEL_ACTIONS.OPEN_MODAL, modal: "replay" }),
+        ev: () => dispatch({ type: THREAT_MODEL_ACTIONS.OPEN_MODAL, modal: "version" }),
         tr: () => handleHelpButtonClick(<InfoContent context={"All"} />),
         "cp-doc": () => handleDownload("docx"),
         "cp-pdf": () => handleDownload("pdf"),
@@ -365,6 +444,9 @@ const ThreatModelInner = () => {
           onActionClick={onActionClick}
           showDashboard={contextState.showDashboard}
           onToggleDashboard={handleToggleDashboard}
+          parentId={parentId}
+          parentTitle={parentData?.title || parentId}
+          onCompare={parentData ? handleCompare : undefined}
         />
         <ThreatModelAlerts
           alert={alert}
@@ -405,8 +487,20 @@ const ThreatModelInner = () => {
           onSharingModalChange={(v) => handleModalChange("sharing", v)}
           showDashboard={contextState.showDashboard}
           isTransitioning={contextState.isTransitioning}
+          onVersionModalChange={(v) => handleModalChange("version", v)}
+          onVersion={handleVersion}
+          collaboratorCount={collaboratorCount}
         />
       </SpaceBetween>
+
+      {/* Version Compare Modal — conditionally mounted so each open gets fresh data */}
+      {contextState.modals.compare && parentData && response?.item && (
+        <VersionCompareModal
+          onDismiss={() => handleModalChange("compare", false)}
+          parentData={parentData}
+          currentData={response.item}
+        />
+      )}
 
       {/* Conflict Resolution Modal */}
       <ConflictResolutionModal

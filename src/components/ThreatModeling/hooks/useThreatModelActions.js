@@ -168,8 +168,9 @@ export const useThreatModelActions = ({
           await lockManagerRef.current.releaseLock().catch(console.error);
         }
         clearSession(response?.job_id);
-        navigate("/");
-        // No need to set stopping to false - we're navigating away
+        // Navigate to parent if this was a version job, otherwise go home
+        const parentId = stopResponse.data.parent_id;
+        navigate(parentId ? `/${parentId}` : "/");
       } else {
         // Unknown state - reset stopping
         setStopping?.(false);

@@ -334,7 +334,7 @@ const preprocessCitations = (content, webSearchResults) => {
 
     const urls = parseMultipleCitations(refContent, webSearchResults);
     if (urls.length > 0) {
-      return `<cite data-urls="${urls.join(",")}"></cite>`;
+      return `<cite data-urls="${urls.map(escapeHtmlAttr).join(",")}"></cite>`;
     }
     // If can't resolve any, keep original text
     return match;

@@ -78,6 +78,17 @@ Attach a personal knowledge base to your threat models to surface organization-s
 
 **Start here if**: You want the agent to incorporate your own documentation—compliance requirements, existing controls, data classification policies—into the threat modeling analysis.
 
+### [How to Version Threat Models](./versioning-threat-models.md)
+
+Create new versions of existing threat models when your architecture changes. This guide covers:
+
+- Understanding when to use versioning vs. replay
+- Uploading a new architecture diagram and configuring version options
+- How the AI agent diffs architectures and incrementally updates assets, flows, boundaries, and threats
+- Monitoring progress and reviewing versioned results
+
+**Start here if**: Your architecture has changed and you want to update your threat model incrementally without starting from scratch.
+
 ---
 
 ### [How to Collaborate on Threat Models](./collaborate-on-threat-models.md)
@@ -102,7 +113,8 @@ For the best experience with Threat Designer, we recommend this workflow:
 4. **Collaborate** → Share with team members for review and collective input ([Collaboration Guide](./collaborate-on-threat-models.md))
 5. **Enhance** → Use Sentry to explore gaps, improve descriptions, and add missing threats ([Sentry Guide](./using-sentry.md))
 6. **Refine** → Replay with updated parameters or instructions to expand your analysis ([Replay Guide](./replay-threat-model.md))
-7. **Iterate** → Repeat steps 2-6 as your architecture evolves or your understanding deepens
+7. **Version** → When your architecture changes, create a new version to incrementally update the analysis ([Versioning Guide](./versioning-threat-models.md))
+8. **Iterate** → Repeat steps 2-7 as your architecture evolves or your understanding deepens
 
 ---
 
@@ -117,6 +129,7 @@ For the best experience with Threat Designer, we recommend this workflow:
 | Share with team members               | [Collaborate](./collaborate-on-threat-models.md)    | 2-5 min                            |
 | Ask AI questions about threats        | [Sentry](./using-sentry.md)                         | Ongoing                            |
 | Update with new parameters            | [Replay](./replay-threat-model.md)                  | 5 min setup + 5-20 min processing  |
+| Update after architecture changes     | [Versioning](./versioning-threat-models.md)         | 5 min setup + 5-15 min processing  |
 
 ---
 

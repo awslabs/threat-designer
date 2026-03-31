@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import PropTypes from "prop-types";
 import Button from "@cloudscape-design/components/button";
 import Box from "@cloudscape-design/components/box";
@@ -29,15 +29,6 @@ const EditorControls = ({
   const reactFlowInstance = useReactFlow();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [nodePreview, setNodePreview] = useState(null);
-  const reactFlowWrapperRef = useRef(null);
-
-  // Get the React Flow wrapper element
-  useEffect(() => {
-    const wrapper = document.querySelector(".react-flow");
-    if (wrapper) {
-      reactFlowWrapperRef.current = wrapper;
-    }
-  }, []);
 
   // Handle node type selection from dropdown
   const handleSelectNodeType = useCallback((nodeType) => {
@@ -64,7 +55,7 @@ const EditorControls = ({
 
   // Handle canvas click to place node
   useEffect(() => {
-    if (!nodePreview || !reactFlowWrapperRef.current) return;
+    if (!nodePreview) return;
 
     const handleCanvasClick = (event) => {
       // Only handle clicks on the React Flow canvas
@@ -73,10 +64,9 @@ const EditorControls = ({
       }
 
       // Get canvas coordinates from click event
-      const reactFlowBounds = reactFlowWrapperRef.current.getBoundingClientRect();
-      const position = reactFlowInstance.project({
-        x: event.clientX - reactFlowBounds.left,
-        y: event.clientY - reactFlowBounds.top,
+      const position = reactFlowInstance.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
       });
 
       // Call the onAddNode callback with node type and position

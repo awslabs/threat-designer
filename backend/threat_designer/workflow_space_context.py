@@ -15,7 +15,12 @@ from langchain_core.runnables.config import RunnableConfig
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph
 from langgraph.types import Command
-from message_builder import MessageBuilder, inject_bedrock_cache_points, list_to_string
+from message_builder import (
+    MessageBuilder,
+    extract_reasoning_trails,
+    inject_bedrock_cache_points,
+    list_to_string,
+)
 from monitoring import logger
 from prompt_provider import create_space_context_system_prompt
 from state import CaptureInsight, SpaceContextState, SpaceInsightsList, ConfigSchema
@@ -24,6 +29,10 @@ from state_tracking_service import StateService
 from config import config as app_config
 
 state_service = StateService(app_config.agent_state_table)
+
+from model_service import ModelService
+
+_model_service = ModelService()
 
 KNOWLEDGE_BASE_ID = os.environ.get("KNOWLEDGE_BASE_ID", "")
 _bedrock_agent_client = None
@@ -188,11 +197,8 @@ def agent_node(state: SpaceContextState, config: RunnableConfig) -> Command:
     else:
         bound_tools = tools
 
-    from model_service import ModelService
-
     model = config["configurable"].get("model_space_context")
-    model_service = ModelService()
-    model_with_tools = model_service.get_model_with_tools(
+    model_with_tools = _model_service.get_model_with_tools(
         model=model, tools=bound_tools, tool_choice="auto"
     )
 
@@ -267,39 +273,6 @@ def should_continue(state: SpaceContextState) -> str:
     return "finish"
 
 
-def _extract_reasoning_trails(messages: list) -> List[str]:
-    """Extract thinking/reasoning content blocks from agent messages (same pattern as other nodes)."""
-    trails = []
-    for msg in messages:
-        if hasattr(msg, "content") and isinstance(msg.content, list):
-            for block in msg.content:
-                if isinstance(block, dict):
-                    if block.get("type") == "thinking":
-                        trails.append(block.get("thinking", ""))
-                    elif block.get("type") == "reasoning_content":
-                        reasoning_content = block.get("reasoning_content", {})
-                        if isinstance(reasoning_content, dict):
-                            text = reasoning_content.get("text", "")
-                            if text:
-                                trails.append(text)
-                    elif block.get("type") == "reasoning":
-                        summary = block.get("summary", [])
-                        if isinstance(summary, list):
-                            texts = [
-                                s.get("text", "").strip()
-                                for s in summary
-                                if isinstance(s, dict)
-                                and s.get("type") == "summary_text"
-                            ]
-                            if texts:
-                                trails.append("\n\n".join(texts))
-        elif hasattr(msg, "additional_kwargs"):
-            thinking = msg.additional_kwargs.get("reasoning_content")
-            if thinking:
-                trails.append(thinking)
-    return trails
-
-
 def finish_node(state: SpaceContextState) -> Command:
     """Extract insights from message history and return to parent graph."""
     job_id = state.get("job_id", "unknown")
@@ -318,7 +291,7 @@ def finish_node(state: SpaceContextState) -> Command:
         job_id, JobState.SPACE_CONTEXT.value, detail=final_detail
     )
 
-    trail_parts = _extract_reasoning_trails(messages)
+    trail_parts = extract_reasoning_trails(messages)
     if insights:
         trail_parts.append("\n".join(f"- {i}" for i in insights))
     else:

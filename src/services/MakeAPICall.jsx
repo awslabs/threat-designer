@@ -20,7 +20,6 @@ export async function makeApiCall(
 ) {
   const url = config.controlPlaneAPI + endpoint;
   const defaultOptions = {
-    withCredentials: true,
     ...axiosOptions,
     ...(signal && { signal }),
   };

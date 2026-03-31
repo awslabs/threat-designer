@@ -48,6 +48,12 @@ export const useThreatModelPolling = (threatModelId, onStatusChange) => {
   const intervalRef = useRef(null);
   // Ref to track if polling should be active (not in terminal state)
   const shouldPollRef = useRef(true);
+  // Ref to always access the latest onStatusChange without restarting polling
+  const onStatusChangeRef = useRef(onStatusChange);
+
+  useEffect(() => {
+    onStatusChangeRef.current = onStatusChange;
+  }, [onStatusChange]);
 
   useEffect(() => {
     // Reset terminal state flag when threatModelId or trigger changes
@@ -127,9 +133,9 @@ export const useThreatModelPolling = (threatModelId, onStatusChange) => {
           setLoading(false);
 
           // Call the callback only once per terminal state
-          if (!hasProcessedTerminalState.current && onStatusChange) {
+          if (!hasProcessedTerminalState.current && onStatusChangeRef.current) {
             hasProcessedTerminalState.current = true;
-            onStatusChange(currentStatus, {
+            onStatusChangeRef.current(currentStatus, {
               retry,
               detail,
               sessionId: sessionIdValue,
@@ -156,9 +162,9 @@ export const useThreatModelPolling = (threatModelId, onStatusChange) => {
           setLoading(false);
 
           // Call the callback only once per terminal state
-          if (!hasProcessedTerminalState.current && onStatusChange) {
+          if (!hasProcessedTerminalState.current && onStatusChangeRef.current) {
             hasProcessedTerminalState.current = true;
-            onStatusChange(currentStatus, {
+            onStatusChangeRef.current(currentStatus, {
               retry,
               detail,
               sessionId: sessionIdValue,

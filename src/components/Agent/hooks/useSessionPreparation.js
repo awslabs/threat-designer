@@ -78,11 +78,12 @@ export function useSessionPreparation({ sessionId, tools, thinkingBudget }) {
     prepareSessionRef.current = prepareSession;
   }, [prepareSession]);
 
-  // Initial mount effect
+  // Initial mount effect — delay first call by 2s, then call immediately on dep changes
   useEffect(() => {
     if (isFirstMount.current) {
+      isFirstMount.current = false;
       const timer = setTimeout(() => {
-        isFirstMount.current = false;
+        prepareSession();
       }, 2000);
       return () => clearTimeout(timer);
     }

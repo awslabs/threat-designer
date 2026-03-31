@@ -11,7 +11,6 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from models import InvocationRequest
 from fastapi.middleware.cors import CORSMiddleware
-import boto3
 from config import ThreatModelingConfig
 from constants import (
     ENV_AGENT_STATE_TABLE,
@@ -32,11 +31,17 @@ from constants import (
 from exceptions import ThreatModelingError, ValidationError
 from model_utils import initialize_models
 from monitoring import TokenUsageTracker, logger, operation_context, with_error_context
-from state import AgentState, AssetsList, FlowsList, ThreatsList
+from state import (
+    AgentState,
+    AssetsList,
+    FlowsList,
+    SpaceInsightsList,
+    ThreatsList,
+    TaskStatus,
+)
 from utils import fetch_results, parse_s3_image_to_base64, update_job_state
 from workflow import ConfigSchema, agent
 
-dynamodb = boto3.resource("dynamodb")
 S3_BUCKET = os.environ.get(ENV_ARCHITECTURE_BUCKET)
 AGENT_TABLE = os.environ.get(ENV_AGENT_STATE_TABLE)
 
@@ -183,7 +188,7 @@ def _create_agent_config(event: Dict[str, Any]) -> ConfigSchema:
     Returns:
         ConfigSchema: Properly typed configuration for the agent
     """
-    reasoning = int(event.get("reasoning", str(REASONING_DISABLED)))
+    reasoning = int(event.get("reasoning") or REASONING_DISABLED)
     models = initialize_models(reasoning)
     thinking = reasoning != REASONING_DISABLED
 
@@ -200,6 +205,8 @@ def _create_agent_config(event: Dict[str, Any]) -> ConfigSchema:
         "model_gaps": models["gaps_model"],
         "model_struct": models["struct_model"],
         "model_summary": models["summary_model"],
+        "model_version": models["version_model"],
+        "model_version_diff": models["version_diff_model"],
         "model_space_context": models["space_context_model"],
         "start_time": datetime.now(),
         "max_retries": DEFAULT_MAX_RETRY,
@@ -221,21 +228,122 @@ def _initialize_state(event: Dict[str, Any], job_id: str) -> AgentState:
     with operation_context("initialize_state", job_id):
         state = AgentState()
         state["job_id"] = job_id
-        state["iteration"] = event.get("iteration", REASONING_DISABLED)
+        state["iteration"] = event.get("iteration", 0)
         state["instructions"] = (event.get("instructions") or "").strip() or None
         state["application_type"] = event.get("application_type", "hybrid")
 
+        version_mode = event.get("version", False)
         replay_mode = event.get("replay", False)
         logger.debug(
             "Initializing state",
             job_id=job_id,
             replay_mode=replay_mode,
+            version_mode=version_mode,
             iteration=state["iteration"],
         )
 
+        if version_mode:
+            return _handle_version_state(state, event, job_id)
         if replay_mode:
             return _handle_replay_state(state, job_id)
         return _handle_new_state(state, event)
+
+
+@with_error_context("handle version state")
+def _handle_version_state(
+    state: AgentState, event: Dict[str, Any], job_id: str
+) -> AgentState:
+    """
+    Initialize state for versioning an existing threat model with a new architecture diagram.
+
+    Args:
+        state: Current agent state
+        event: Event containing version configuration
+        job_id: New job ID for the versioned model
+
+    Returns:
+        AgentState: State loaded from parent with version fields set
+    """
+    prev_job_id = event["previous_job_id"]
+
+    with operation_context("handle_version", job_id):
+        logger.debug(
+            "Loading version state",
+            job_id=job_id,
+            previous_job_id=prev_job_id,
+        )
+
+        results = fetch_results(prev_job_id, AGENT_TABLE)
+        item = results["item"]
+
+        # Parse stored data back into proper types
+        assets = AssetsList(**item["assets"]) if item.get("assets") else None
+        system_architecture = (
+            FlowsList(**item["system_architecture"])
+            if item.get("system_architecture")
+            else None
+        )
+        threat_list_data = item.get("threat_list", {"threats": []})
+        threat_list = ThreatsList(**threat_list_data)
+
+        space_insights = (
+            SpaceInsightsList(**item["space_insights"])
+            if item.get("space_insights")
+            else None
+        )
+
+        # Old image for diff node
+        previous_image_data = parse_s3_image_to_base64(S3_BUCKET, item["s3_location"])
+        if not previous_image_data:
+            raise ThreatModelingError(
+                f"Failed to fetch previous architecture image from S3: {item['s3_location']}"
+            )
+
+        # New image from upload
+        new_image_data = parse_s3_image_to_base64(S3_BUCKET, event["s3_location"])
+        if not new_image_data:
+            raise ThreatModelingError(
+                f"Failed to fetch new architecture image from S3: {event['s3_location']}"
+            )
+
+        state.update(
+            {
+                "version": True,
+                "previous_image_data": previous_image_data,
+                "image_data": new_image_data,
+                "image_type": event.get("image_type"),
+                "s3_location": event["s3_location"],
+                "assets": assets,
+                "system_architecture": system_architecture,
+                "threat_list": threat_list,
+                "description": event.get("description", item.get("description", "")),
+                "assumptions": event.get("assumptions", item.get("assumptions", [])),
+                "summary": item.get("summary"),
+                "title": event.get("title") or item.get("title"),
+                "owner": item.get("owner"),
+                "parent_id": prev_job_id,
+                "mirror_attack_trees": event.get("mirror_attack_trees", False),
+                "application_type": item.get("application_type", "hybrid"),
+                "space_id": item.get("space_id") or None,
+                "space_insights": space_insights,
+                "version_tasks": {
+                    "assets": TaskStatus.PENDING,
+                    "data_flows": TaskStatus.PENDING,
+                    "trust_boundaries": TaskStatus.PENDING,
+                    "threats": TaskStatus.PENDING,
+                },
+            }
+        )
+
+        logger.debug(
+            "Successfully loaded version state",
+            job_id=job_id,
+            previous_job_id=prev_job_id,
+            has_assets=assets is not None,
+            has_system_architecture=system_architecture is not None,
+            threat_count=len(threat_list.threats),
+        )
+        return state
 
 
 @with_error_context("handle replay state")
@@ -273,6 +381,12 @@ def _handle_replay_state(state: AgentState, job_id: str) -> AgentState:
 
         threat_list = ThreatsList(**threat_list_data)
 
+        space_insights = (
+            SpaceInsightsList(**item["space_insights"])
+            if item.get("space_insights")
+            else None
+        )
+
         state.update(
             {
                 "replay": True,
@@ -291,6 +405,8 @@ def _handle_replay_state(state: AgentState, job_id: str) -> AgentState:
                 "application_type": state.get("application_type", "hybrid"),
                 # space_id is immutable on replay — always loaded from DDB, never from event
                 "space_id": item.get("space_id") or None,
+                "space_insights": space_insights,
+                "parent_id": item.get("parent_id"),
             }
         )
 

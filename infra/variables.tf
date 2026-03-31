@@ -45,22 +45,6 @@ variable "provisioned_lambda_concurrency" {
   default     = 12
 }
 
-variable "reasoning_models" {
-  type = list(string)
-  default = [
-    "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-    "eu.anthropic.claude-sonnet-4-20250514-v1:0",
-    "us.anthropic.claude-opus-4-1-20250805-v1:0",
-    "global.anthropic.claude-opus-4-6-v1",
-    "global.anthropic.claude-sonnet-4-6",
-    "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    "global.anthropic.claude-sonnet-4-20250514-v1:0",
-    "global.anthropic.claude-haiku-4-5-20251001-v1:0",
-    "global.anthropic.claude-opus-4-5-20251101-v1:0"
-  ]
-}
-
-
 variable "adaptive_thinking_models" {
   type        = list(string)
   description = "List of model IDs that support adaptive thinking"
@@ -101,6 +85,11 @@ variable "model_main" {
       reasoning_budget = map(number)
     })
     attack_tree = object({
+      id               = string
+      max_tokens       = number
+      reasoning_budget = map(number)
+    })
+    version = object({
       id               = string
       max_tokens       = number
       reasoning_budget = map(number)
@@ -158,6 +147,16 @@ variable "model_main" {
       }
     }
     attack_tree = {
+      id         = "global.anthropic.claude-opus-4-6-v1"
+      max_tokens = 128000
+      reasoning_budget = {
+        "1" = 16000
+        "2" = 24000
+        "3" = 38000
+        "4" = 63999
+      }
+    }
+    version = {
       id         = "global.anthropic.claude-opus-4-6-v1"
       max_tokens = 128000
       reasoning_budget = {
@@ -286,6 +285,11 @@ variable "openai_model_main" {
       max_tokens       = number
       reasoning_effort = map(string)
     })
+    version = object({
+      id               = string
+      max_tokens       = number
+      reasoning_effort = map(string)
+    })
   })
   description = "OpenAI model configurations for main workflow stages"
   default = {
@@ -355,6 +359,17 @@ variable "openai_model_main" {
         "4" = "xhigh"
       }
     }
+    version = {
+      id         = "gpt-5.4-2026-03-05"
+      max_tokens = 128000
+      reasoning_effort = {
+        "0" = "none"
+        "1" = "low"
+        "2" = "medium"
+        "3" = "high"
+        "4" = "xhigh"
+      }
+    }
   }
 }
 
@@ -400,12 +415,6 @@ variable "openai_model_summary" {
     id         = "gpt-5.4-2026-03-05"
     max_tokens = 4000
   }
-}
-
-variable "openai_reasoning_models" {
-  type        = list(string)
-  description = "List of OpenAI GPT-5 models that support reasoning"
-  default     = ["gpt-5.4-2026-03-05", "gpt-5.2-2025-12-11", "gpt-5.1-2025-11-13", "gpt-5-2025-08-07", "gpt-5-mini-2025-08-07"]
 }
 
 

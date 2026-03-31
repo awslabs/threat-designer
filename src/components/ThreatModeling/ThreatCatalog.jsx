@@ -41,23 +41,25 @@ export const ThreatComponent = React.memo((props) => {
                   onOpenAttackTree={props?.onOpenAttackTree}
                   disabled={!props?.onOpenAttackTree}
                 />
-                <ButtonDropdown
-                  onItemClick={(itemClickDetails) => {
-                    setAction(itemClickDetails.detail.id);
-                    if (itemClickDetails.detail.id === "edit") {
-                      handleModal();
-                    }
-                    if (itemClickDetails.detail.id === "delete") {
-                      props?.updateData(props?.type, props?.index, null);
-                    }
-                  }}
-                  items={[
-                    { id: "edit", text: "Edit", disabled: false },
-                    { id: "delete", text: "Delete", disabled: false },
-                  ]}
-                  ariaLabel={`Edit ${props?.data?.name} Threat`}
-                  variant="icon"
-                />
+                {!props?.isReadOnly && (
+                  <ButtonDropdown
+                    onItemClick={(itemClickDetails) => {
+                      setAction(itemClickDetails.detail.id);
+                      if (itemClickDetails.detail.id === "edit") {
+                        handleModal();
+                      }
+                      if (itemClickDetails.detail.id === "delete") {
+                        props?.updateData(props?.type, props?.index, null);
+                      }
+                    }}
+                    items={[
+                      { id: "edit", text: "Edit", disabled: false },
+                      { id: "delete", text: "Delete", disabled: false },
+                    ]}
+                    ariaLabel={`Edit ${props?.data?.name} Threat`}
+                    variant="icon"
+                  />
+                )}
               </SpaceBetween>
             }
           >
@@ -76,6 +78,7 @@ export const ThreatComponent = React.memo((props) => {
                     iconName="star"
                     pressedIconName="star-filled"
                     variant="icon"
+                    disabled={props?.isReadOnly}
                   />
                 </div>
                 <div>{props?.data?.name}</div>

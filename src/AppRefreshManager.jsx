@@ -1,9 +1,6 @@
 import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
 
 const AppRefreshManager = ({ children }) => {
-  const location = useLocation();
-
   useEffect(() => {
     let lastActiveTime = Date.now();
     let refreshTimeout;
@@ -96,7 +93,7 @@ const AppRefreshManager = ({ children }) => {
       clearInterval(interval);
       clearTimeout(refreshTimeout);
     };
-  }, [location]);
+  }, []);
 
   return children;
 };

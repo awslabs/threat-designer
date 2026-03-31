@@ -387,7 +387,6 @@ deploy_backend() {
        ! VITE_COGNITO_REGION=$(terraform output -raw region) || \
        ! VITE_USER_POOL_ID=$(terraform output -raw user_pool_id) || \
        ! VITE_APP_CLIENT_ID=$(terraform output -raw app_client_id) || \
-       ! VITE_REASONING_ENABLED=$(terraform output -raw reasoning_enabled) || \
        ! VITE_COGNITO_DOMAIN=$(terraform output -raw cognito_domain); then
         echo -e "${RED}Failed to get one or more required Terraform outputs. Exiting...${NC}"
         exit 1
@@ -423,7 +422,6 @@ VITE_APP_CLIENT_ID=$VITE_APP_CLIENT_ID
 VITE_COGNITO_DOMAIN=$VITE_COGNITO_DOMAIN
 VITE_REDIRECT_SIGN_IN=$VITE_REDIRECT_SIGN_IN
 VITE_REDIRECT_SIGN_OUT=$VITE_REDIRECT_SIGN_OUT
-VITE_REASONING_ENABLED=$VITE_REASONING_ENABLED
 VITE_MODEL_PROVIDER=$MODEL_PROVIDER
 EOF
 

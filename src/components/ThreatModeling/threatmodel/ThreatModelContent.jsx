@@ -7,6 +7,7 @@ import ThreatModelingOutput from "../ResultsComponent";
 import ThreatModelDashboard from "../ThreatModelDashboard";
 import Processing from "../ProcessingComponent";
 import { ReplayModalComponent } from "../ReplayModal";
+import { VersionModalComponent } from "../VersionModal";
 import DeleteModal from "../DeleteModal";
 import SharingModal from "../SharingModal";
 import { useThreatModelContext } from "../ThreatModelContext";
@@ -63,6 +64,9 @@ const ThreatModelContent = React.memo(
     onDeleteModalChange,
     onDelete,
     onSharingModalChange,
+    onVersionModalChange,
+    onVersion,
+    collaboratorCount,
   }) => {
     // Get shared state from context
     const { state } = useThreatModelContext();
@@ -174,7 +178,7 @@ const ThreatModelContent = React.memo(
                     }
                     header={alertMessages[alert.state].title}
                   >
-                    {alertMessages[alert.state].msg}
+                    {alert.data || alertMessages[alert.state].msg}
                   </Alert>
                 </div>
               )}
@@ -205,6 +209,17 @@ const ThreatModelContent = React.memo(
           setVisible={onSharingModalChange}
           threatModelId={threatModelId}
           isOwner={isOwner}
+        />
+
+        {/* Version Modal */}
+        <VersionModalComponent
+          visible={modals.version}
+          setVisible={onVersionModalChange}
+          currentTitle={response?.item?.title || ""}
+          currentDescription={response?.item?.description || ""}
+          currentAssumptions={response?.item?.assumptions || []}
+          collaboratorCount={collaboratorCount}
+          onVersion={onVersion}
         />
       </>
     );

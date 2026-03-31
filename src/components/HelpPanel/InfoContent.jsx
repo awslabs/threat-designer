@@ -14,6 +14,7 @@ export function InfoContent({ context }) {
       break;
     case "Assets":
       tabs = AssetsInfoTabs;
+      break;
     case "Flows":
       tabs = FlowsInfoTab;
       break;

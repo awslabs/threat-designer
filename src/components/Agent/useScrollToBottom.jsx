@@ -165,7 +165,7 @@ export function useScrollToBottom(ref) {
         mutationObserverRef.current.disconnect();
       }
     };
-  }, [checkScrollPosition, ref.current]);
+  }, [checkScrollPosition, ref]);
 
   return { showButton, scrollToBottom, setShowButton, checkScrollPosition };
 }

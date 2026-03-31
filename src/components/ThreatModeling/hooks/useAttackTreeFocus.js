@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { getFocusedSubgraph } from "../AttackTree/graphUtils";
 import { getLayoutedElements } from "../AttackTree/layoutUtils";
 
@@ -15,10 +15,10 @@ import { getLayoutedElements } from "../AttackTree/layoutUtils";
  * @param {Function} params.setNodes - React Flow setNodes function to update displayed nodes
  * @param {Function} params.setEdges - React Flow setEdges function to update displayed edges
  * @param {Object} params.reactFlowInstance - React Flow instance for fitView operations
+ * @param {string|null} params.focusedNodeId - Currently focused node ID (lifted state)
+ * @param {Function} params.setFocusedNodeId - Setter for focused node ID (lifted state)
  *
- * @returns {Object} Focus mode state and handlers
- * @returns {string|null} returns.focusedNodeId - Currently focused node ID (null if not in focus mode)
- * @returns {Function} returns.setFocusedNodeId - Function to manually set focused node
+ * @returns {Object} Focus mode handlers
  * @returns {Function} returns.onNodeClick - Click handler for nodes (toggles focus on gate nodes)
  */
 export const useAttackTreeFocus = ({
@@ -27,8 +27,9 @@ export const useAttackTreeFocus = ({
   setNodes,
   setEdges,
   reactFlowInstance,
+  focusedNodeId,
+  setFocusedNodeId,
 }) => {
-  const [focusedNodeId, setFocusedNodeId] = useState(null);
   const shouldFitViewRef = useRef(true); // Track if we should fitView on focus change
   const currentNodesRef = useRef([]); // Track current display nodes to preserve positions
 
@@ -37,15 +38,18 @@ export const useAttackTreeFocus = ({
    * Only gate nodes (AND/OR) can be focused
    * Clicking a focused node again will exit focus mode
    */
-  const onNodeClick = useCallback((_event, node) => {
-    // Reset handle scales when clicking any node
-    window.dispatchEvent(new Event("resetHandleScales"));
+  const onNodeClick = useCallback(
+    (_event, node) => {
+      // Reset handle scales when clicking any node
+      window.dispatchEvent(new Event("resetHandleScales"));
 
-    // Only allow focusing on gate nodes (AND/OR), not leaf attacks or root
-    if (node.type === "and-gate" || node.type === "or-gate") {
-      setFocusedNodeId((prevId) => (prevId === node.id ? null : node.id));
-    }
-  }, []);
+      // Only allow focusing on gate nodes (AND/OR), not leaf attacks or root
+      if (node.type === "and-gate" || node.type === "or-gate") {
+        setFocusedNodeId((prevId) => (prevId === node.id ? null : node.id));
+      }
+    },
+    [setFocusedNodeId]
+  );
 
   /**
    * Apply focus mode when entering focus mode
@@ -152,8 +156,6 @@ export const useAttackTreeFocus = ({
   }, [focusedNodeId, reactFlowInstance]);
 
   return {
-    focusedNodeId,
-    setFocusedNodeId,
     onNodeClick,
   };
 };

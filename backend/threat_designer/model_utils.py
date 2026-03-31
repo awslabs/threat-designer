@@ -6,6 +6,7 @@ It handles the creation of LangChain-compatible model clients with various confi
 AWS Bedrock and OpenAI providers.
 """
 
+import functools
 import json
 import os
 from dataclasses import dataclass
@@ -26,7 +27,6 @@ from constants import (
     ENV_MODEL_SUMMARY,
     ENV_MODELS_SUPPORTING_MAX,
     ENV_OPENAI_API_KEY,
-    ENV_REASONING_MODELS,
     ENV_REGION,
     MODEL_PROVIDER_BEDROCK,
     MODEL_PROVIDER_OPENAI,
@@ -69,13 +69,14 @@ class ModelConfigurations:
     threats_agent_model: ModelConfig
     gaps_model: ModelConfig
     attack_tree_model: ModelConfig
+    version_model: ModelConfig | None
     struct_model: ModelConfig
     summary_model: ModelConfig
-    reasoning_models: list[str]
     adaptive_thinking_models: list[str]
     models_supporting_max: list[str]
 
 
+@functools.lru_cache(maxsize=None)
 @with_error_context("load model configurations")
 def _load_model_configs() -> ModelConfigurations:
     """
@@ -97,9 +98,9 @@ def _load_model_configs() -> ModelConfigurations:
         threats_agent_model = model_main.get("threats_agent")
         gaps_model = model_main.get("gaps")
         attack_tree_model = model_main.get("attack_tree")
+        version_model = model_main.get("version")
         struct_model = json.loads(os.environ.get(ENV_MODEL_STRUCT, "{}"))
         summary_model = json.loads(os.environ.get(ENV_MODEL_SUMMARY, "{}"))
-        reasoning_models = json.loads(os.environ.get(ENV_REASONING_MODELS, "[]"))
         adaptive_thinking_models = json.loads(
             os.environ.get(ENV_ADAPTIVE_THINKING_MODELS, "[]")
         )
@@ -121,6 +122,12 @@ def _load_model_configs() -> ModelConfigurations:
             missing_configs.append("gaps")
         if not attack_tree_model:
             missing_configs.append("attack_tree")
+        if not version_model:
+            logger.warning(
+                "Version model not configured in MAIN_MODEL, falling back to threats_agent config. "
+                "Add a 'version' key to MAIN_MODEL to use a dedicated model for version runs."
+            )
+            version_model = threats_agent_model
         if not struct_model:
             missing_configs.append("struct")
         if not summary_model:
@@ -152,9 +159,9 @@ def _load_model_configs() -> ModelConfigurations:
             attack_tree_model_id=attack_tree_model.get("id")
             if attack_tree_model
             else None,
+            version_model_id=version_model.get("id") if version_model else None,
             struct_model_id=struct_model.get("id") if struct_model else None,
             summary_model_id=summary_model.get("id") if summary_model else None,
-            reasoning_models_count=len(reasoning_models),
             adaptive_thinking_models_count=len(adaptive_thinking_models),
             models_supporting_max_count=len(models_supporting_max),
         )
@@ -166,9 +173,9 @@ def _load_model_configs() -> ModelConfigurations:
             threats_agent_model=threats_agent_model,
             gaps_model=gaps_model,
             attack_tree_model=attack_tree_model,
+            version_model=version_model,
             struct_model=struct_model,
             summary_model=summary_model,
-            reasoning_models=reasoning_models,
             adaptive_thinking_models=adaptive_thinking_models,
             models_supporting_max=models_supporting_max,
         )
@@ -250,17 +257,15 @@ def _build_standard_model_config(
 
 def _build_main_model_config(
     model_config: ModelConfig,
-    reasoning_models: list,
     reasoning: int,
     client: boto3.client,
     region: str,
 ) -> dict:
     """
-    Build configuration dictionary for main model with optional reasoning.
+    Build configuration dictionary for main model with reasoning.
 
     Args:
         model_config: Model configuration with id and max_tokens.
-        reasoning_models: List of model IDs that support reasoning.
         reasoning: Reasoning level (0 disables reasoning).
         client: Bedrock runtime client.
         region: AWS region name.
@@ -270,10 +275,7 @@ def _build_main_model_config(
     """
     config = _build_standard_model_config(model_config, client, region)
 
-    # Add reasoning configuration if enabled and supported
-    reasoning_enabled = reasoning != 0 and model_config["id"] in reasoning_models
-
-    if reasoning_enabled:
+    if reasoning != 0:
         config["additional_model_request_fields"] = {
             "thinking": {
                 "type": REASONING_THINKING_TYPE,
@@ -288,14 +290,6 @@ def _build_main_model_config(
             model_id=model_config["id"],
             token_budget=reasoning,
         )
-    else:
-        if reasoning != 0:
-            logger.warning(
-                "Reasoning requested but not supported by model",
-                model_id=model_config["id"],
-                reasoning_level=reasoning,
-                supported_models=reasoning_models,
-            )
 
     return config
 
@@ -398,17 +392,11 @@ def _initialize_bedrock_models(
                     model_config, effective_reasoning, client, region
                 )
             else:
-                budget_key = (
-                    str(effective_reasoning)
-                    if effective_reasoning > 0
-                    else str(effective_reasoning)
-                )
+                budget_key = str(effective_reasoning)
                 budget = model_config.get("reasoning_budget", {}).get(
                     budget_key, model_config.get("reasoning_budget", {}).get(str(3), 0)
                 )
-                return _build_main_model_config(
-                    model_config, configs.reasoning_models, budget, client, region
-                )
+                return _build_main_model_config(model_config, budget, client, region)
 
         assets_config = _build_config_for_model(configs.assets_model)
         flows_config = _build_config_for_model(configs.flows_model)
@@ -416,6 +404,10 @@ def _initialize_bedrock_models(
         threats_agent_config = _build_config_for_model(configs.threats_agent_model)
         gaps_config = _build_config_for_model(configs.gaps_model)
         attack_tree_config = _build_config_for_model(configs.attack_tree_model)
+        version_config = _build_config_for_model(configs.version_model)
+        version_diff_config = _build_standard_model_config(
+            configs.version_model, client, region
+        )
 
         struct_config = _build_standard_model_config(
             configs.struct_model, client, region
@@ -434,6 +426,8 @@ def _initialize_bedrock_models(
             "threats_agent_model": ChatBedrockConverse(**threats_agent_config),
             "gaps_model": ChatBedrockConverse(**gaps_config),
             "attack_tree_agent_model": ChatBedrockConverse(**attack_tree_config),
+            "version_model": ChatBedrockConverse(**version_config),
+            "version_diff_model": ChatBedrockConverse(**version_diff_config),
             "struct_model": ChatBedrockConverse(**struct_config),
             "summary_model": ChatBedrockConverse(**summary_config),
             "space_context_model": ChatBedrockConverse(**flows_config),
@@ -448,6 +442,7 @@ def _initialize_bedrock_models(
             threats_agent_model_id=configs.threats_agent_model["id"],
             gaps_model_id=configs.gaps_model["id"],
             attack_tree_model_id=configs.attack_tree_model["id"],
+            version_model_id=configs.version_model["id"],
             struct_model_id=configs.struct_model["id"],
             summary_model_id=configs.summary_model["id"],
         )
@@ -467,7 +462,6 @@ def _initialize_bedrock_models(
 def _create_openai_model(
     model_config: ModelConfig,
     reasoning: int,
-    reasoning_models: list,
     reasoning_effort_map: dict = None,
 ) -> Any:
     """
@@ -475,8 +469,7 @@ def _create_openai_model(
 
     Args:
         model_config: Model configuration with id, max_tokens, and optional reasoning_effort map.
-        reasoning: Reasoning level (0-3).
-        reasoning_models: List of model IDs that support reasoning.
+        reasoning: Reasoning level (0-4).
         reasoning_effort_map: Optional dict mapping reasoning levels to effort strings. If not provided, uses model_config.
 
     Returns:
@@ -510,51 +503,39 @@ def _create_openai_model(
     }
 
     # Add reasoning effort if applicable
-    if model_id in reasoning_models:
-        # OpenAI GPT-5 models always have reasoning enabled
-        # Use provided reasoning_effort_map or get from model_config
-        effort_map = reasoning_effort_map or model_config.get("reasoning_effort", {})
+    effort_map = reasoning_effort_map or model_config.get("reasoning_effort", {})
+    reasoning_effort = effort_map.get(str(reasoning))
 
-        # Look up the effort value from the config map
-        reasoning_effort = effort_map.get(str(reasoning))
-
-        # If no mapping exists for this level and reasoning is 0, skip reasoning config entirely
-        # (e.g. struct/summary models that have no reasoning_effort map)
-        if reasoning_effort is None:
-            if reasoning == 0:
-                logger.debug(
-                    "No reasoning effort mapping for level 0, skipping reasoning config",
-                    model_id=model_id,
-                )
-            else:
-                reasoning_effort = "low"
-                config["reasoning"] = {
-                    "effort": reasoning_effort,
-                    "summary": "detailed",
-                }
-                logger.debug(
-                    "Reasoning configured with fallback for OpenAI model",
-                    model_id=model_id,
-                    reasoning_level=reasoning,
-                    reasoning_effort=reasoning_effort,
-                )
+    # If no mapping exists for this level and reasoning is 0, skip reasoning config entirely
+    # (e.g. struct/summary models that have no reasoning_effort map)
+    if reasoning_effort is None:
+        if reasoning == 0:
+            logger.debug(
+                "No reasoning effort mapping for level 0, skipping reasoning config",
+                model_id=model_id,
+            )
         else:
+            reasoning_effort = "low"
             config["reasoning"] = {
                 "effort": reasoning_effort,
                 "summary": "detailed",
             }
             logger.debug(
-                "Reasoning configured for OpenAI model",
+                "Reasoning configured with fallback for OpenAI model",
                 model_id=model_id,
                 reasoning_level=reasoning,
                 reasoning_effort=reasoning_effort,
             )
-    elif reasoning != 0:
-        logger.warning(
-            "Reasoning requested but model does not support it",
+    else:
+        config["reasoning"] = {
+            "effort": reasoning_effort,
+            "summary": "detailed",
+        }
+        logger.debug(
+            "Reasoning configured for OpenAI model",
             model_id=model_id,
             reasoning_level=reasoning,
-            supported_models=reasoning_models,
+            reasoning_effort=reasoning_effort,
         )
 
     return ChatOpenAI(**config)
@@ -605,33 +586,21 @@ def _initialize_openai_models(
         logger.debug("Building OpenAI model configurations")
 
         models = {
-            "assets_model": _create_openai_model(
-                configs.assets_model, reasoning, configs.reasoning_models
-            ),
-            "flows_model": _create_openai_model(
-                configs.flows_model, reasoning, configs.reasoning_models
-            ),
-            "threats_model": _create_openai_model(
-                configs.threats_model, reasoning, configs.reasoning_models
-            ),
+            "assets_model": _create_openai_model(configs.assets_model, reasoning),
+            "flows_model": _create_openai_model(configs.flows_model, reasoning),
+            "threats_model": _create_openai_model(configs.threats_model, reasoning),
             "threats_agent_model": _create_openai_model(
-                configs.threats_agent_model, reasoning, configs.reasoning_models
+                configs.threats_agent_model, reasoning
             ),
-            "gaps_model": _create_openai_model(
-                configs.gaps_model, reasoning, configs.reasoning_models
-            ),
+            "gaps_model": _create_openai_model(configs.gaps_model, reasoning),
             "attack_tree_agent_model": _create_openai_model(
-                configs.attack_tree_model, reasoning, configs.reasoning_models
+                configs.attack_tree_model, reasoning
             ),
-            "struct_model": _create_openai_model(
-                configs.struct_model, 0, configs.reasoning_models
-            ),
-            "summary_model": _create_openai_model(
-                configs.summary_model, 0, configs.reasoning_models
-            ),
-            "space_context_model": _create_openai_model(
-                configs.flows_model, reasoning, configs.reasoning_models
-            ),
+            "version_model": _create_openai_model(configs.version_model, reasoning),
+            "version_diff_model": _create_openai_model(configs.version_model, 0),
+            "struct_model": _create_openai_model(configs.struct_model, 0),
+            "summary_model": _create_openai_model(configs.summary_model, 0),
+            "space_context_model": _create_openai_model(configs.flows_model, reasoning),
         }
 
         logger.debug(
@@ -643,6 +612,7 @@ def _initialize_openai_models(
             threats_agent_model_id=configs.threats_agent_model["id"],
             gaps_model_id=configs.gaps_model["id"],
             attack_tree_model_id=configs.attack_tree_model["id"],
+            version_model_id=configs.version_model["id"],
             struct_model_id=configs.struct_model["id"],
             summary_model_id=configs.summary_model["id"],
         )

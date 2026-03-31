@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   getThreatModelingResults,
   getDownloadUrl,
@@ -56,6 +56,20 @@ export const useThreatModelData = (
   // Refs for tracking changes and versions
   const previousResponse = useRef(null);
   const lastKnownServerTimestamp = useRef(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Reset refs when navigating to a different threat model
+  useEffect(() => {
+    previousResponse.current = null;
+    lastKnownServerTimestamp.current = null;
+  }, [threatModelId]);
 
   /**
    * Initialize threat model session context for Sentry agent
@@ -261,6 +275,9 @@ export const useThreatModelData = (
       }
 
       const base64Data = await blobToBase64(architectureDiagram);
+
+      // Guard against setState on unmounted component
+      if (!mountedRef.current) return;
 
       setBase64Content(base64Data);
       setResponse(resultsResponse.data);

@@ -37,7 +37,6 @@ export const SubmissionComponent = ({
   reasoning,
   setReasoning,
 }) => {
-  const isReasoningEnabled = import.meta.env.VITE_REASONING_ENABLED === "true";
   const maxReasoning = 4;
   const reasoningLabels = [
     { value: "0", label: "None" },
@@ -326,7 +325,6 @@ export const SubmissionComponent = ({
                 >
                   <Slider
                     i18nStrings={I18nProvider}
-                    disabled={!isReasoningEnabled}
                     onChange={({ detail }) => setReasoning(detail.value)}
                     value={reasoning}
                     valueFormatter={(value) =>

@@ -23,6 +23,7 @@ const guides = [
   { title: "Using Attack Trees", slug: "using-attack-trees" },
   { title: "Using Sentry", slug: "using-sentry" },
   { title: "Using Spaces", slug: "using-spaces" },
+  { title: "Versioning Threat Models", slug: "versioning-threat-models" },
   { title: "Collaborate on Threat Models", slug: "collaborate-on-threat-models" },
 ];
 

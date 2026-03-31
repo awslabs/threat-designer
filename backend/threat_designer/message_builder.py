@@ -12,6 +12,7 @@ from constants import ENV_MODEL_PROVIDER, MODEL_PROVIDER_BEDROCK
 # Bedrock prompt-caching helpers
 # ---------------------------------------------------------------------------
 
+_MODEL_PROVIDER = os.environ.get(ENV_MODEL_PROVIDER, MODEL_PROVIDER_BEDROCK)
 _CACHE_POINT = {"cachePoint": {"type": "default"}}
 
 
@@ -34,8 +35,7 @@ def inject_bedrock_cache_points(messages: list) -> list:
     Original messages are never mutated. For non-Bedrock providers the
     input is returned unchanged.
     """
-    provider = os.environ.get(ENV_MODEL_PROVIDER, MODEL_PROVIDER_BEDROCK)
-    if provider != MODEL_PROVIDER_BEDROCK or not messages:
+    if _MODEL_PROVIDER != MODEL_PROVIDER_BEDROCK or not messages:
         return messages
 
     result = list(messages)  # shallow copy of the list
@@ -136,6 +136,19 @@ class MessageBuilder:
             return [{"cachePoint": {"type": "default"}}]
         return []
 
+    def _build_valid_values_block(self, assets, system_architecture) -> str:
+        """Build the valid_values_for_threats XML block used in threat messages."""
+        return (
+            "<valid_values_for_threats>\n"
+            "**IMPORTANT: When creating threats using the add_threats tool, you MUST use ONLY these values for the following fields:**\n\n"
+            "**Valid Target Assets (for the 'target' field):**\n"
+            f"{self._format_asset_list(assets)}\n\n"
+            "**Valid Threat Sources (for the 'source' field):**\n"
+            f"{self._format_threat_sources(system_architecture)}\n\n"
+            "Using any other values will result in validation errors.\n"
+            "</valid_values_for_threats>"
+        )
+
     def base_msg(
         self, caching: bool = False, details: bool = True
     ) -> List[Dict[str, Any]]:
@@ -216,25 +229,13 @@ class MessageBuilder:
     def create_threat_message(self, assets, flows) -> HumanMessage:
         """Create threat analysis message."""
 
-        valid_values_text = f"""<valid_values_for_threats>
-**IMPORTANT: When creating threats using the add_threats tool, you MUST use ONLY these values for the following fields:**
-
-**Valid Target Assets (for the 'target' field):**
-{self._format_asset_list(assets)}
-
-**Valid Threat Sources (for the 'source' field):**
-{self._format_threat_sources(flows)}
-
-Using any other values will result in validation errors. These are the ONLY acceptable values extracted from the identified assets and threat sources above.
-</valid_values_for_threats>"""
-
         threat_msg = [
             {
                 "type": "text",
                 "text": f"<identified_assets_and_entities>{assets}</identified_assets_and_entities>",
             },
             {"type": "text", "text": f"<data_flow>{flows}</data_flow>"},
-            {"type": "text", "text": valid_values_text},
+            {"type": "text", "text": self._build_valid_values_block(assets, flows)},
             {"type": "text", "text": "Define threats and mitigations for the solution"},
         ]
 
@@ -246,18 +247,6 @@ Using any other values will result in validation errors. These are the ONLY acce
         self, assets, flows, threat_list: str
     ) -> HumanMessage:
         """Create threat improvement analysis message."""
-
-        valid_values_text = f"""<valid_values_for_threats>
-**IMPORTANT: When creating threats using the add_threats tool, you MUST use ONLY these values for the following fields:**
-
-**Valid Target Assets (for the 'target' field):**
-{self._format_asset_list(assets)}
-
-**Valid Threat Sources (for the 'source' field):**
-{self._format_threat_sources(flows)}
-
-Using any other values will result in validation errors. These are the ONLY acceptable values extracted from the identified assets and threat sources above.
-</valid_values_for_threats>"""
 
         threat_msg = [
             {
@@ -272,7 +261,7 @@ Using any other values will result in validation errors. These are the ONLY acce
 
         threat_msg.extend(
             [
-                {"type": "text", "text": valid_values_text},
+                {"type": "text", "text": self._build_valid_values_block(assets, flows)},
                 {"type": "text", "text": f"<threats>{threat_list}</threats>"},
                 {
                     "type": "text",
@@ -283,80 +272,6 @@ Using any other values will result in validation errors. These are the ONLY acce
 
         base_message = self.base_msg(caching=True)
         base_message.extend(threat_msg)
-        return HumanMessage(content=base_message)
-
-    def create_threat_agent_message(
-        self,
-        assets=None,
-        system_architecture=None,
-        starred_threats=None,
-        threats=True,
-        application_type: str = "hybrid",
-    ) -> HumanMessage:
-        """Create threat agent message with full context enrichment.
-
-        Args:
-            assets: Assets object containing identified assets
-            system_architecture: SystemArchitecture object with data flows and threat sources
-            starred_threats: List of starred threats to preserve
-            threats: Whether threats exist in catalog
-
-        Returns:
-            HumanMessage with architecture diagram, context information, valid values, and user request
-        """
-        # Start with base message (architecture diagram, description, assumptions) with caching
-        base_message = self.base_msg(caching=True, details=True)
-
-        # Add assets as separate text object
-        if assets:
-            base_message.append(
-                {
-                    "type": "text",
-                    "text": f"<identified_assets_and_entities>{str(assets)}</identified_assets_and_entities>",
-                }
-            )
-
-        # Add flows as separate text object
-        if system_architecture:
-            base_message.append(
-                {
-                    "type": "text",
-                    "text": f"<data_flows>{str(system_architecture)}</data_flows>",
-                }
-            )
-
-        # Build valid_values_for_threats section
-        valid_values = "\n\n<valid_values_for_threats>\n"
-        valid_values += "**IMPORTANT: When creating threats using the add_threats tool, you MUST use ONLY these values for the following fields:**\n\n"
-        valid_values += "**Valid Target Assets (for the 'target' field):**\n"
-        valid_values += self._format_asset_list(assets) + "\n\n"
-        valid_values += "**Valid Threat Sources (for the 'source' field):**\n"
-        valid_values += self._format_threat_sources(system_architecture) + "\n\n"
-        valid_values += "Using any other values will result in validation errors. These are the ONLY acceptable values extracted from the identified assets and threat sources above.\n"
-        valid_values += "</valid_values_for_threats>"
-
-        base_message.append({"type": "text", "text": valid_values})
-
-        # Add starred threats as separate text object if present
-        if starred_threats:
-            starred_context = "\n\n<starred_threats>\nThe following threats have been marked as important by the user and must be preserved:\n"
-            for threat in starred_threats:
-                starred_context += f"- {threat.name}: {threat.description}\n"
-            starred_context += "</starred_threats>"
-            base_message.append({"type": "text", "text": starred_context})
-
-        # Add user message requesting threat modeling (this should be last before checkpoint)
-
-        base_message.append(
-            {
-                "type": "text",
-                "text": "Perform a comprehensive threat modeling and fill the threat catalog. Make sure to honor your grounding rules.",
-            }
-        )
-
-        # Add cache point at the end for better optimization
-        base_message.extend(self._add_cache_point_if_bedrock())
-
         return HumanMessage(content=base_message)
 
     def create_gap_analysis_message(
@@ -462,15 +377,12 @@ Using any other values will result in validation errors. These are the ONLY acce
             )
 
         # Valid values (full scope)
-        valid_values = "\n\n<valid_values_for_threats>\n"
-        valid_values += "**IMPORTANT: When creating threats using the add_threats tool, you MUST use ONLY these values for the following fields:**\n\n"
-        valid_values += "**Valid Target Assets (for the 'target' field):**\n"
-        valid_values += self._format_asset_list(assets)
-        valid_values += "\n\n**Valid Threat Sources (for the 'source' field):**\n"
-        valid_values += self._format_threat_sources(system_architecture)
-        valid_values += "\n\nUsing any other values will result in validation errors.\n"
-        valid_values += "</valid_values_for_threats>"
-        base_message.append({"type": "text", "text": valid_values})
+        base_message.append(
+            {
+                "type": "text",
+                "text": self._build_valid_values_block(assets, system_architecture),
+            }
+        )
 
         # Analysis groups guidance (only when >1 partition)
         if partitions and len(partitions) > 1:
@@ -520,6 +432,42 @@ Using any other values will result in validation errors. These are the ONLY acce
         lines.append("</space_knowledge_insights>")
 
         return {"type": "text", "text": "\n".join(lines)}
+
+
+def extract_reasoning_trails(messages: list) -> List[str]:
+    """Extract thinking/reasoning content blocks from agent messages.
+
+    Handles Bedrock (thinking, reasoning_content) and OpenAI (reasoning/summary)
+    formats, plus the additional_kwargs fallback.
+    """
+    trails: List[str] = []
+    for msg in messages:
+        if hasattr(msg, "content") and isinstance(msg.content, list):
+            for block in msg.content:
+                if isinstance(block, dict):
+                    if block.get("type") == "thinking":
+                        trails.append(block.get("thinking", ""))
+                    elif block.get("type") == "reasoning_content":
+                        rc = block.get("reasoning_content", {})
+                        if isinstance(rc, dict) and rc.get("text"):
+                            trails.append(rc["text"])
+                    elif block.get("type") == "reasoning":
+                        summary = block.get("summary", [])
+                        if isinstance(summary, list):
+                            texts = [
+                                s.get("text", "").strip()
+                                for s in summary
+                                if isinstance(s, dict)
+                                and s.get("type") == "summary_text"
+                                and s.get("text")
+                            ]
+                            if texts:
+                                trails.append("\n\n".join(texts))
+        elif hasattr(msg, "additional_kwargs"):
+            thinking = msg.additional_kwargs.get("reasoning_content")
+            if thinking:
+                trails.append(thinking)
+    return trails
 
 
 def list_to_string(str_list: List[str]) -> str:

@@ -26,7 +26,7 @@ export function useThreatSelector({ sessionId, textareaRef, onHeightChange }) {
     }
   }, [functions, sessionId]);
 
-  const availableThreats = getAvailableThreats();
+  const availableThreats = useMemo(() => getAvailableThreats(), [getAvailableThreats]);
 
   // Filter threats based on search text
   const filteredThreats = useMemo(() => {

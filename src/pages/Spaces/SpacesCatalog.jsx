@@ -101,7 +101,8 @@ export default function SpacesCatalog() {
     setLoadingShareUsers(true);
     try {
       const session = await fetchAuthSession();
-      const token = session.tokens.idToken.toString();
+      const token = session.tokens?.idToken?.toString();
+      if (!token) throw new Error("No authentication token available");
       const url = new URL(`${config.controlPlaneAPI}/threat-designer/users`);
       if (query) url.searchParams.append("search", query);
       url.searchParams.append("limit", "50");

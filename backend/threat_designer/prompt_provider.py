@@ -14,10 +14,13 @@ except ImportError:
 
 if _provider == MODEL_PROVIDER_OPENAI:
     from prompts_gpt import (  # noqa: F401
+        APPLICATION_TYPE_DESCRIPTIONS,
         asset_prompt,
+        create_version_agent_system_prompt,
         create_flows_agent_system_prompt,
         create_space_context_system_prompt,
         create_threats_agent_system_prompt,
+        version_diff_prompt,
         gap_prompt,
         structure_prompt,
         summary_prompt,
@@ -26,10 +29,13 @@ if _provider == MODEL_PROVIDER_OPENAI:
     )
 else:
     from prompts import (  # noqa: F401
+        APPLICATION_TYPE_DESCRIPTIONS,
         asset_prompt,
+        create_version_agent_system_prompt,
         create_flows_agent_system_prompt,
         create_space_context_system_prompt,
         create_threats_agent_system_prompt,
+        version_diff_prompt,
         gap_prompt,
         structure_prompt,
         summary_prompt,

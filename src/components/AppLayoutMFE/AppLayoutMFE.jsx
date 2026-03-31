@@ -3,7 +3,6 @@ import { AppLayout, SplitPanel } from "@cloudscape-design/components";
 import Main from "../../Main";
 import "@cloudscape-design/global-styles/index.css";
 import "./AppLayoutMFE.css";
-import "./AppLayoutMFE.css";
 import { useSplitPanel } from "../../SplitPanelContext";
 import { useLocation } from "react-router-dom";
 import Agent from "../../pages/Agent/Agent";
@@ -76,9 +75,11 @@ function AppLayoutMFE({ user }) {
     }
   };
 
-  if (!isValidUUID(trimmedPath)) {
-    functions.setisVisible(false);
-  }
+  useEffect(() => {
+    if (!isValidUUID(trimmedPath)) {
+      functions.setisVisible(false);
+    }
+  }, [trimmedPath]);
 
   useEffect(() => {
     setSplitPanelOpen(false);

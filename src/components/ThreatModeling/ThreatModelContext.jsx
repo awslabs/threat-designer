@@ -13,6 +13,7 @@ export const THREAT_MODEL_ACTIONS = {
   SET_RESPONSE: "SET_RESPONSE",
   SET_PROCESSING: "SET_PROCESSING",
   SET_RESULTS: "SET_RESULTS",
+  SET_FAILED: "SET_FAILED",
   SET_STOPPING: "SET_STOPPING",
   SET_READ_ONLY: "SET_READ_ONLY",
   SET_OWNER: "SET_OWNER",
@@ -38,6 +39,8 @@ const initialState = {
     delete: false,
     sharing: false,
     conflict: false,
+    version: false,
+    compare: false,
   },
   conflictData: null,
 };
@@ -59,6 +62,9 @@ function threatModelReducer(state, action) {
 
     case THREAT_MODEL_ACTIONS.SET_RESULTS:
       return { ...state, results: action.payload, processing: !action.payload };
+
+    case THREAT_MODEL_ACTIONS.SET_FAILED:
+      return { ...state, processing: false, results: false, stopping: false };
 
     case THREAT_MODEL_ACTIONS.SET_STOPPING:
       return { ...state, stopping: action.payload };

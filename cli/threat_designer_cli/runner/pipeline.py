@@ -118,9 +118,6 @@ def _setup_env(cfg: CLIConfig) -> None:
             "MAIN_MODEL": json.dumps(main_model),
             "MODEL_STRUCT": json.dumps(mc),
             "MODEL_SUMMARY": json.dumps(mc),
-            "REASONING_MODELS": json.dumps(
-                [] if props.get("adaptive") else [cfg.model_id]
-            ),
             "ADAPTIVE_THINKING_MODELS": json.dumps(
                 [cfg.model_id] if props.get("adaptive") else []
             ),
@@ -138,7 +135,6 @@ def _setup_env(cfg: CLIConfig) -> None:
             "MAIN_MODEL": json.dumps(main_model),
             "MODEL_STRUCT": json.dumps(mc),
             "MODEL_SUMMARY": json.dumps(mc),
-            "REASONING_MODELS": json.dumps([cfg.model_id]),
             "ADAPTIVE_THINKING_MODELS": json.dumps([]),
             "MODELS_SUPPORTING_MAX": json.dumps([]),
             "OPENAI_API_KEY": cfg.effective_openai_key() or "",

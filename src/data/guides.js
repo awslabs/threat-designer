@@ -6,6 +6,7 @@ import replayThreatModelMd from "../../quick-start-guide/replay-threat-model.md?
 import usingAttackTreesMd from "../../quick-start-guide/using-attack-trees.md?raw";
 import usingSentryMd from "../../quick-start-guide/using-sentry.md?raw";
 import usingSpacesMd from "../../quick-start-guide/using-spaces.md?raw";
+import versioningThreatModelsMd from "../../quick-start-guide/versioning-threat-models.md?raw";
 import collaborateMd from "../../quick-start-guide/collaborate-on-threat-models.md?raw";
 
 // Guide metadata and content mapping
@@ -37,6 +38,10 @@ export const guides = {
   "using-spaces": {
     title: "Using Spaces",
     content: usingSpacesMd,
+  },
+  "versioning-threat-models": {
+    title: "Versioning Threat Models",
+    content: versioningThreatModelsMd,
   },
   "collaborate-on-threat-models": {
     title: "Collaborate on Threat Models",

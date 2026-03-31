@@ -59,6 +59,15 @@ const ThreatModelActions = React.memo(
           id: "re",
           disabled: !showResults || isReadOnly,
         },
+        ...(isOwner
+          ? [
+              {
+                text: "Create new version",
+                id: "ev",
+                disabled: !showResults,
+              },
+            ]
+          : []),
         {
           text: "Trail",
           id: "tr",

@@ -7,6 +7,8 @@ from typing import Any, Dict
 from config import ThreatModelingConfig, config
 from constants import (
     WORKFLOW_NODE_ASSET,
+    WORKFLOW_NODE_VERSION_DIFF,
+    WORKFLOW_NODE_VERSION_AGENT,
     WORKFLOW_NODE_FINALIZE,
     WORKFLOW_NODE_FLOWS,
     WORKFLOW_NODE_IMAGE_TO_BASE64,
@@ -27,6 +29,7 @@ from nodes import (
 )
 from state import AgentState, ConfigSchema
 from state_tracking_service import StateService
+from workflow_version import version_subgraph
 from workflow_flows import flows_subgraph
 from workflow_threats import threats_subgraph
 from workflow_space_context import space_context_subgraph
@@ -92,16 +95,18 @@ workflow.add_node(
     WORKFLOW_NODE_THREATS_TRADITIONAL, orchestrator.define_threats_traditional
 )
 workflow.add_node(WORKFLOW_NODE_THREATS_AGENTIC, threats_subgraph)
+workflow.add_node(WORKFLOW_NODE_VERSION_DIFF, version_subgraph)
 workflow.add_node(WORKFLOW_NODE_FINALIZE, orchestrator.finalize)
 
 # Set entry point and edges
 workflow.set_entry_point(WORKFLOW_NODE_IMAGE_TO_BASE64)
 
-# Route from image_to_base64: replay → threats directly, space_id → space_context, else → asset
+# Route from image_to_base64: version → version_diff, replay → threats, space_id → space_context, else → asset
 workflow.add_conditional_edges(
     WORKFLOW_NODE_IMAGE_TO_BASE64,
     orchestrator.route_after_summary,
     {
+        WORKFLOW_NODE_VERSION_DIFF: WORKFLOW_NODE_VERSION_DIFF,
         WORKFLOW_NODE_SPACE_CONTEXT: WORKFLOW_NODE_SPACE_CONTEXT,
         WORKFLOW_NODE_ASSET: WORKFLOW_NODE_ASSET,
         WORKFLOW_NODE_THREATS_AGENTIC: WORKFLOW_NODE_THREATS_AGENTIC,

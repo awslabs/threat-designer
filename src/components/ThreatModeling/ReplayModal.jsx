@@ -25,7 +25,6 @@ export const ReplayModalComponent = ({
   const [reasoning, setReasoning] = useState("0");
   const [text, setText] = useState(null);
   const [applicationType, setApplicationType] = useState(null);
-  const isReasoningEnabled = import.meta.env.VITE_REASONING_ENABLED === "true";
   const maxReasoning = 4;
 
   const applicationTypeOptions = [
@@ -115,7 +114,6 @@ export const ReplayModalComponent = ({
           >
             <Slider
               i18nStrings={I18nProvider}
-              disabled={!isReasoningEnabled}
               onChange={({ detail }) => setReasoning(detail.value)}
               value={reasoning}
               valueFormatter={(value) =>

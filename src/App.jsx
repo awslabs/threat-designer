@@ -23,6 +23,17 @@ function SpacesPanelSlot() {
   return <SpacesPanel />;
 }
 
+const getSystemTheme = () => {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+};
+
+const getEffectiveTheme = (mode) => {
+  if (mode === "system") {
+    return getSystemTheme();
+  }
+  return mode;
+};
+
 const App = () => {
   const [loading, setLoading] = useState(true);
   const [authUser, setAuthUser] = useState(null);
@@ -33,29 +44,7 @@ const App = () => {
   });
 
   // Make effectiveTheme a state variable
-  const [effectiveTheme, setEffectiveTheme] = useState(() => {
-    const getSystemTheme = () => {
-      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    };
-    const getEffectiveTheme = (mode) => {
-      if (mode === "system") {
-        return getSystemTheme();
-      }
-      return mode;
-    };
-    return getEffectiveTheme(colorMode);
-  });
-
-  const getSystemTheme = () => {
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  };
-
-  const getEffectiveTheme = (mode) => {
-    if (mode === "system") {
-      return getSystemTheme();
-    }
-    return mode;
-  };
+  const [effectiveTheme, setEffectiveTheme] = useState(() => getEffectiveTheme(colorMode));
 
   const setThemeMode = (mode) => {
     const validModes = ["SYSTEM", "LIGHT", "DARK"];

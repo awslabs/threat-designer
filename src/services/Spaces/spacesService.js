@@ -10,7 +10,9 @@ const instance = axios.create({
 
 instance.interceptors.request.use(async (axiosConfig) => {
   const session = await fetchAuthSession();
-  axiosConfig.headers.Authorization = `Bearer ${session.tokens.idToken.toString()}`;
+  const token = session.tokens?.idToken?.toString();
+  if (!token) throw new Error("No authentication token available");
+  axiosConfig.headers.Authorization = `Bearer ${token}`;
   return axiosConfig;
 });
 

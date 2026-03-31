@@ -32,7 +32,12 @@ from state import (
     ThreatsList,
     create_constrained_threat_model,
 )
-from message_builder import MessageBuilder, inject_bedrock_cache_points, list_to_string
+from message_builder import (
+    MessageBuilder,
+    extract_reasoning_trails,
+    inject_bedrock_cache_points,
+    list_to_string,
+)
 from prompt_provider import create_threats_agent_system_prompt
 
 
@@ -261,34 +266,8 @@ def validate_node(state: ThreatState) -> Command:
         return Command(goto="agent", update={"messages": [feedback]})
 
     # Extract reasoning trails from messages
-    reasoning_trails = []
     messages = state.get("messages", [])
-    for msg in messages:
-        if hasattr(msg, "content") and isinstance(msg.content, list):
-            for block in msg.content:
-                if isinstance(block, dict):
-                    if block.get("type") == "thinking":
-                        reasoning_trails.append(block.get("thinking", ""))
-                    elif block.get("type") == "reasoning_content":
-                        rc = block.get("reasoning_content", {})
-                        if isinstance(rc, dict) and rc.get("text"):
-                            reasoning_trails.append(rc["text"])
-                    elif block.get("type") == "reasoning":
-                        summary = block.get("summary", [])
-                        if isinstance(summary, list):
-                            texts = [
-                                s.get("text", "").strip()
-                                for s in summary
-                                if isinstance(s, dict)
-                                and s.get("type") == "summary_text"
-                                and s.get("text")
-                            ]
-                            if texts:
-                                reasoning_trails.append("\n\n".join(texts))
-        elif hasattr(msg, "additional_kwargs"):
-            thinking = msg.additional_kwargs.get("reasoning_content")
-            if thinking:
-                reasoning_trails.append(thinking)
+    reasoning_trails = extract_reasoning_trails(messages)
 
     if reasoning_trails:
         state_service.update_trail(job_id=job_id, threats=reasoning_trails)

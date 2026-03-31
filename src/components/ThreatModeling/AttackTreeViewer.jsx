@@ -35,6 +35,9 @@ const AttackTreeFlow = ({
   // Editor state management
   const historyManager = useHistoryManager();
 
+  // Focus state - lifted here so both operations and focus hooks share it
+  const [focusedNodeId, setFocusedNodeId] = useState(null);
+
   // Connection error state (needed by operations hook)
   const [connectionError, setConnectionError] = useState(null);
   const connectionErrorTimeoutRef = useRef(null);
@@ -118,20 +121,22 @@ const AttackTreeFlow = ({
     initialNodes: [],
     initialEdges: [],
     setConnectionError,
-    setFocusedNodeId: (id) => setFocusedNodeId(id),
-    focusedNodeId: null, // Will be set by focus hook
+    setFocusedNodeId,
+    focusedNodeId,
     connectionErrorTimeoutRef,
     lastConnectionErrorRef,
     reactFlowInstance,
   });
 
   // Focus hook - manages focus mode for viewing subgraphs
-  const { focusedNodeId, setFocusedNodeId, onNodeClick } = useAttackTreeFocus({
+  const { onNodeClick } = useAttackTreeFocus({
     allNodes,
     allEdges,
     setNodes,
     setEdges,
     reactFlowInstance,
+    focusedNodeId,
+    setFocusedNodeId,
   });
 
   // Layout hook - manages automatic layout and fitView operations

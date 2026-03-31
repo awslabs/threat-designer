@@ -57,7 +57,6 @@ export const useThreatModelInterrupts = (
    */
   const handleThreatUpdates = useCallback(
     (toolName, threatsPayload) => {
-      // Validate payload format before processing
       if (!Array.isArray(threatsPayload)) {
         console.error(
           "Invalid threat payload format - expected array, got:",
@@ -66,75 +65,65 @@ export const useThreatModelInterrupts = (
         return;
       }
 
-      if (!response?.item?.threat_list?.threats) {
-        console.error("Cannot update threats - response data not available");
-        return;
-      }
+      setResponse((prev) => {
+        if (!prev?.item?.threat_list?.threats) {
+          console.error("Cannot update threats - response data not available");
+          return prev;
+        }
 
-      // Create a shallow copy of the threats array to avoid mutating state directly
-      let updatedThreats = [...response.item.threat_list.threats];
+        let updatedThreats = [...prev.item.threat_list.threats];
 
-      switch (toolName) {
-        case "add_threats":
-          // ADD OPERATION: Append new threats to the end of the existing list
-          // This preserves the order of existing threats while adding new ones
-          updatedThreats = [...updatedThreats, ...threatsPayload];
-          break;
+        switch (toolName) {
+          case "add_threats":
+            updatedThreats = [...updatedThreats, ...threatsPayload];
+            break;
 
-        case "edit_threats":
-          // EDIT OPERATION: Replace existing threats by matching their names
-          // Threats are identified by their 'name' property which acts as a unique key
-          // IMPORTANT: Preserve user-only fields (like 'notes') that the LLM cannot see
-          threatsPayload.forEach((newThreat) => {
-            const existingIndex = updatedThreats.findIndex(
-              (existingThreat) => existingThreat.name === newThreat.name
+          case "edit_threats":
+            threatsPayload.forEach((newThreat) => {
+              const existingIndex = updatedThreats.findIndex(
+                (existingThreat) => existingThreat.name === newThreat.name
+              );
+              if (existingIndex !== -1) {
+                const existingThreat = updatedThreats[existingIndex];
+                updatedThreats[existingIndex] = {
+                  ...newThreat,
+                  notes: existingThreat.notes,
+                };
+              } else {
+                console.warn("Threat not found for editing:", newThreat.name);
+              }
+            });
+            break;
+
+          case "delete_threats": {
+            const threatNamesToDelete = threatsPayload.map((threat) => threat.name);
+            updatedThreats = updatedThreats.filter(
+              (existingThreat) => !threatNamesToDelete.includes(existingThreat.name)
             );
-            if (existingIndex !== -1) {
-              // Found matching threat - merge with existing to preserve user-only fields
-              // The 'notes' field is excluded from LLM context, so we must preserve it
-              const existingThreat = updatedThreats[existingIndex];
-              updatedThreats[existingIndex] = {
-                ...newThreat,
-                notes: existingThreat.notes, // Preserve user notes from existing threat
-              };
-            } else {
-              // Threat name not found - this could indicate a sync issue
-              console.warn("Threat not found for editing:", newThreat.name);
-            }
-          });
-          break;
+            break;
+          }
 
-        case "delete_threats":
-          // DELETE OPERATION: Remove threats by filtering out matching names
-          // Extract all threat names to delete for efficient filtering
-          const threatNamesToDelete = threatsPayload.map((threat) => threat.name);
+          default:
+            console.warn("Unknown threat operation:", toolName);
+            return prev;
+        }
 
-          // Filter keeps only threats whose names are NOT in the delete list
-          updatedThreats = updatedThreats.filter(
-            (existingThreat) => !threatNamesToDelete.includes(existingThreat.name)
-          );
-          break;
+        const newState = {
+          ...prev,
+          item: {
+            ...prev.item,
+            threat_list: {
+              ...prev.item.threat_list,
+              threats: updatedThreats,
+            },
+          },
+        };
 
-        default:
-          console.warn("Unknown threat operation:", toolName);
-          return;
-      }
-
-      // Create new state object with updated threats
-      // We need to create new objects at each level to ensure React detects the change
-      const newState = { ...response };
-      newState.item = { ...newState.item };
-      newState.item.threat_list = { ...newState.item.threat_list };
-      newState.item.threat_list.threats = updatedThreats;
-
-      // Update the Sentry session context with the new threat model data
-      // This ensures the agent has the latest context for future interactions
-      initializeThreatModelSession(newState.item);
-
-      // Update the component state to trigger a re-render with the new data
-      setResponse(newState);
+        initializeThreatModelSession(newState.item);
+        return newState;
+      });
     },
-    [response, initializeThreatModelSession, setResponse]
+    [initializeThreatModelSession, setResponse]
   );
 
   /**

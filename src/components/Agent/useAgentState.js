@@ -6,13 +6,13 @@ const STORAGE_KEYS = {
   TOOLS_CONFIG: "toolsConfig",
 };
 
-const initialState = {
+const createInitialState = () => ({
   budget: localStorage.getItem(STORAGE_KEYS.THINKING_BUDGET) || "1",
   thinkingEnabled: localStorage.getItem(STORAGE_KEYS.THINKING_ENABLED) !== "false",
   toolItems: [],
   toolsInitialized: false,
   isFirstMountComplete: false,
-};
+});
 
 function agentReducer(state, action) {
   switch (action.type) {
@@ -32,7 +32,7 @@ function agentReducer(state, action) {
 }
 
 export function useAgentState() {
-  const [state, dispatch] = useReducer(agentReducer, initialState);
+  const [state, dispatch] = useReducer(agentReducer, undefined, createInitialState);
 
   const setBudget = useCallback((budget) => {
     dispatch({ type: "SET_BUDGET", payload: budget });

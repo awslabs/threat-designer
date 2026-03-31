@@ -13,6 +13,7 @@ from langgraph.types import Command, Overwrite
 from typing import List, Annotated, Dict, Any
 from message_builder import MessageBuilder, list_to_string
 from model_service import ModelService
+from utils import unwrap_overwrite
 from prompt_provider import gap_prompt
 from constants import (
     MAX_GAP_ANALYSIS_USES,
@@ -29,6 +30,148 @@ from collections import Counter
 
 # Initialize state service for status updates
 state_service = StateService(app_config.agent_state_table)
+
+
+# ============================================================================
+# Shared Validation Helpers
+# ============================================================================
+
+
+def validate_entity_references(items, valid_asset_names, entity_type, id_field):
+    """Validate source_entity/target_entity references against known asset names.
+
+    Args:
+        items: List of items with source_entity and target_entity fields.
+        valid_asset_names: Set of valid asset/entity names.
+        entity_type: Label for error messages (e.g. "data flow", "trust boundary").
+        id_field: Field name to use as identifier in invalid results (e.g. "flow_description", "purpose").
+
+    Returns:
+        Tuple of (valid_items, invalid_items) where invalid_items is a list of
+        {"id": str, "violations": list[str]} dicts.
+    """
+    valid = []
+    invalid = []
+    for item in items:
+        violations = []
+        if valid_asset_names and item.source_entity not in valid_asset_names:
+            violations.append(
+                f"Invalid source_entity '{item.source_entity}' - not in asset list"
+            )
+        if valid_asset_names and item.target_entity not in valid_asset_names:
+            violations.append(
+                f"Invalid target_entity '{item.target_entity}' - not in asset list"
+            )
+        if violations:
+            invalid.append({"id": getattr(item, id_field), "violations": violations})
+        else:
+            valid.append(item)
+    return valid, invalid
+
+
+def validate_threats(
+    threats, valid_asset_names, valid_threat_sources, existing_names=None
+):
+    """Validate threats against asset names, threat sources, and existing threat names.
+
+    Args:
+        threats: List of threat objects.
+        valid_asset_names: Set of valid target names.
+        valid_threat_sources: Set of valid source categories.
+        existing_names: Optional set of existing threat names for dedup.
+
+    Returns:
+        Tuple of (valid_threats, invalid_threats) where invalid_threats is a list of
+        {"id": str, "violations": list[str]} dicts.
+    """
+    existing = set(existing_names) if existing_names else set()
+    valid = []
+    invalid = []
+    for threat in threats:
+        violations = []
+        if existing and threat.name in existing:
+            violations.append(f"Threat '{threat.name}' already exists")
+        if valid_asset_names and threat.target not in valid_asset_names:
+            violations.append(f"Invalid target '{threat.target}' - not in asset list")
+        if valid_threat_sources and threat.source not in valid_threat_sources:
+            violations.append(
+                f"Invalid source '{threat.source}' - not in threat sources"
+            )
+        if violations:
+            invalid.append({"id": threat.name, "violations": violations})
+        else:
+            threat.starred = False
+            valid.append(threat)
+            existing.add(threat.name)
+    return valid, invalid
+
+
+def format_validation_response(
+    entity_type, valid_count, invalid_items, valid_names=None
+):
+    """Build a human-readable response message from validation results.
+
+    Args:
+        entity_type: Label (e.g. "data flows", "threats").
+        valid_count: Number of valid items added.
+        invalid_items: List of {"id": str, "violations": list[str]} dicts.
+        valid_names: Optional set of valid names to include in error hint.
+
+    Returns:
+        Response message string.
+    """
+    if not invalid_items:
+        return f"Added {valid_count} {entity_type}."
+
+    invalid_details = [
+        f"  - {inv['id']}: {'; '.join(inv['violations'])}" for inv in invalid_items
+    ]
+    msg = (
+        f"Added {valid_count} {entity_type}.\n\n"
+        f"{len(invalid_items)} {entity_type} NOT added due to validation:\n"
+        f"{chr(10).join(invalid_details)}"
+    )
+    if valid_names:
+        msg += f"\n\nValid names: {sorted(valid_names)}"
+    return msg
+
+
+def delete_by_field(items, field_name, values_to_remove):
+    """Remove items from a list by matching a field value.
+
+    Args:
+        items: List of objects.
+        field_name: Attribute name to match against.
+        values_to_remove: Set or list of values to remove.
+
+    Returns:
+        Tuple of (remaining_items, deleted_count, not_found) where not_found is
+        a sorted list of values that weren't matched.
+    """
+    remove_set = set(values_to_remove)
+    existing_values = {getattr(item, field_name) for item in items}
+    remaining = [item for item in items if getattr(item, field_name) not in remove_set]
+    deleted_count = len(items) - len(remaining)
+    not_found = sorted(remove_set - existing_values)
+    return remaining, deleted_count, not_found
+
+
+def format_delete_response(entity_type, deleted_count, remaining_count, not_found):
+    """Build a response message for delete operations.
+
+    Args:
+        entity_type: Label (e.g. "data flows", "threats").
+        deleted_count: Number deleted.
+        remaining_count: Number remaining after deletion.
+        not_found: List of values that weren't found.
+
+    Returns:
+        Response message string.
+    """
+    msg = f"Deleted {deleted_count} {entity_type}. Remaining: {remaining_count}."
+    if not_found:
+        msg += f"\nNot found: {not_found}"
+    return msg
 
 
 # ============================================================================
@@ -302,13 +445,6 @@ No threats in catalog yet.
     return "\n".join(output)
 
 
-def _unwrap_value(value, default=None):
-    """Unwrap Overwrite objects to get the actual value."""
-    if isinstance(value, Overwrite):
-        return value.value
-    return value if value is not None else default
-
-
 def _format_structured_gaps(gap_result, remaining_invocations: int) -> str:
     """Format structured gap analysis result into an actionable message for the agent."""
     lines = [
@@ -345,8 +481,8 @@ def _handle_add_threats(
     enable_gap_fallback: bool = True,
 ):
     """Shared handler for add_threats (static and dynamic variants)."""
-    tool_use = _unwrap_value(runtime.state.get("tool_use", 0), 0)
-    gap_tool_use = _unwrap_value(runtime.state.get("gap_tool_use", 0), 0)
+    tool_use = unwrap_overwrite(runtime.state.get("tool_use", 0), 0)
+    gap_tool_use = unwrap_overwrite(runtime.state.get("gap_tool_use", 0), 0)
     job_id = runtime.state.get("job_id", "unknown")
 
     # Check limit
@@ -371,47 +507,20 @@ def _handle_add_threats(
     # Get valid assets and threat sources from state
     assets = runtime.state.get("assets")
     system_architecture = runtime.state.get("system_architecture")
+    valid_asset_names = (
+        {a.name for a in assets.assets} if assets and assets.assets else set()
+    )
+    valid_threat_sources = (
+        {s.category for s in system_architecture.threat_sources}
+        if system_architecture and system_architecture.threat_sources
+        else set()
+    )
 
-    valid_asset_names = set()
-    if assets and assets.assets:
-        valid_asset_names = {asset.name for asset in assets.assets}
-
-    valid_threat_sources = set()
-    if system_architecture and system_architecture.threat_sources:
-        valid_threat_sources = {
-            source.category for source in system_architecture.threat_sources
-        }
-
-    # Validate threats and separate valid from invalid
-    valid_threats = []
-    invalid_threats = []
-
-    for threat in threats.threats:
-        violations = []
-
-        if threat.target not in valid_asset_names:
-            violations.append(f"Invalid target '{threat.target}' - not in asset list")
-
-        if threat.source not in valid_threat_sources:
-            violations.append(
-                f"Invalid source '{threat.source}' - not in threat sources"
-            )
-
-        if violations:
-            invalid_threats.append({"name": threat.name, "violations": violations})
-            logger.warning(
-                "Threat validation failed",
-                tool="add_threats",
-                threat_name=threat.name,
-                violations=violations,
-                job_id=job_id,
-            )
-        else:
-            threat.starred = False
-            valid_threats.append(threat)
+    valid_threats, invalid_threats = validate_threats(
+        threats.threats, valid_asset_names, valid_threat_sources
+    )
 
     valid_threats_list = ThreatsList(threats=valid_threats)
-
     valid_count = len(valid_threats)
     invalid_count = len(invalid_threats)
 
@@ -424,45 +533,14 @@ def _handle_add_threats(
 
     if invalid_count == 0:
         tool_use_delta = 1
-        new_tool_use = tool_use + tool_use_delta
-        response_msg = f"Successfully added: {valid_count} threats."
-        logger.debug(
-            "Tool invoked successfully - all threats valid",
-            tool="add_threats",
-            usage_count=new_tool_use,
-            max_usage=max_uses,
-            threats_added=valid_count,
-            remaining_invocations=max_uses - new_tool_use,
-            job_id=job_id,
+        response_msg = format_validation_response(
+            "threats", valid_count, invalid_threats
         )
     else:
         tool_use_delta = 0
-        new_tool_use = tool_use
-        invalid_details = []
-        for invalid in invalid_threats:
-            violations_str = "; ".join(invalid["violations"])
-            invalid_details.append(f"  - {invalid['name']}: {violations_str}")
-
-        invalid_summary = "\n".join(invalid_details)
-
-        response_msg = f"""Successfully added: {valid_count} threats. \n
-
-{invalid_count} threats were NOT added due to validation failures: \n
-{invalid_summary} \n
-
-Please ensure:
-- Threat 'target' matches an asset name from the asset list: {valid_asset_names} \n
-- Threat 'source' matches a threat source category from the data flow threat sources" {valid_threat_sources}"""
-
-        logger.warning(
-            "Tool invoked with validation failures",
-            tool="add_threats",
-            usage_count=new_tool_use,
-            max_usage=max_uses,
-            threats_added=valid_count,
-            threats_rejected=invalid_count,
-            remaining_invocations=max_uses - new_tool_use,
-            job_id=job_id,
+        hint_names = valid_asset_names | valid_threat_sources
+        response_msg = format_validation_response(
+            "threats", valid_count, invalid_threats, hint_names
         )
 
     return Command(
@@ -678,8 +756,8 @@ def gap_analysis(runtime: ToolRuntime) -> str:
     """Perform gap analysis on the current threat catalog."""
 
     # Get current gap_tool_use counter (unwrap Overwrite if present)
-    gap_tool_use = _unwrap_value(runtime.state.get("gap_tool_use", 0), 0)
-    tool_use = _unwrap_value(runtime.state.get("tool_use", 0), 0)
+    gap_tool_use = unwrap_overwrite(runtime.state.get("gap_tool_use", 0), 0)
+    tool_use = unwrap_overwrite(runtime.state.get("tool_use", 0), 0)
     job_id = runtime.state.get("job_id", "unknown")
 
     min_threats = MIN_GAP_THRESHOLD
@@ -904,69 +982,33 @@ def gap_analysis(runtime: ToolRuntime) -> str:
 )
 def add_data_flows(data_flows: DataFlowsList, runtime: ToolRuntime) -> Command:
     """Add data flows with entity validation against known assets."""
+    return _handle_add_data_flows(data_flows, runtime)
+
+
+def _handle_add_data_flows(data_flows, runtime: ToolRuntime) -> Command:
+    """Shared handler for add_data_flows (static and dynamic variants)."""
     job_id = runtime.state.get("job_id", "unknown")
     assets = runtime.state.get("assets")
+    valid_asset_names = (
+        {a.name for a in assets.assets} if assets and assets.assets else set()
+    )
 
-    # Build set of valid asset names
-    valid_asset_names = set()
-    if assets and assets.assets:
-        valid_asset_names = {asset.name for asset in assets.assets}
+    valid_flows, invalid_flows = validate_entity_references(
+        data_flows.data_flows, valid_asset_names, "data flow", "flow_description"
+    )
 
-    # Partition into valid/invalid
-    valid_flows = []
-    invalid_flows = []
-
-    for flow in data_flows.data_flows:
-        violations = []
-        if flow.source_entity not in valid_asset_names:
-            violations.append(
-                f"Invalid source_entity '{flow.source_entity}' - not in asset list"
-            )
-        if flow.target_entity not in valid_asset_names:
-            violations.append(
-                f"Invalid target_entity '{flow.target_entity}' - not in asset list"
-            )
-        if violations:
-            invalid_flows.append(
-                {"description": flow.flow_description, "violations": violations}
-            )
-            logger.warning(
-                "Data flow validation failed",
-                tool="add_data_flows",
-                flow_description=flow.flow_description,
-                violations=violations,
-                job_id=job_id,
-            )
-        else:
-            valid_flows.append(flow)
-
-    valid_count = len(valid_flows)
-    invalid_count = len(invalid_flows)
-
-    if valid_count > 0:
+    if valid_flows:
         state_service.update_job_state(
-            job_id,
-            JobState.FLOW.value,
-            detail=f"Adding {valid_count} data flows",
+            job_id, JobState.FLOW.value, detail=f"Adding {len(valid_flows)} data flows"
         )
 
-    # Build response message
-    if invalid_count == 0:
-        response_msg = f"Successfully added {valid_count} data flows."
-    else:
-        invalid_details = []
-        for inv in invalid_flows:
-            violations_str = "; ".join(inv["violations"])
-            invalid_details.append(f"  - {inv['description']}: {violations_str}")
-        invalid_summary = "\n".join(invalid_details)
-        response_msg = (
-            f"Successfully added {valid_count} data flows.\n\n"
-            f"{invalid_count} data flows were NOT added due to validation failures:\n"
-            f"{invalid_summary}\n\n"
-            f"Valid asset names: {sorted(valid_asset_names)}"
-        )
+    response_msg = format_validation_response(
+        "data flows",
+        len(valid_flows),
+        invalid_flows,
+        valid_asset_names if invalid_flows else None,
+    )
 
-    # Build delta FlowsList with only valid flows
     delta = FlowsList(data_flows=valid_flows, trust_boundaries=[], threat_sources=[])
 
     return Command(
@@ -986,72 +1028,39 @@ def add_trust_boundaries(
     trust_boundaries: TrustBoundariesList, runtime: ToolRuntime
 ) -> Command:
     """Add trust boundaries with entity validation against known assets."""
+    return _handle_add_trust_boundaries(trust_boundaries, runtime)
+
+
+def _handle_add_trust_boundaries(trust_boundaries, runtime: ToolRuntime) -> Command:
+    """Shared handler for add_trust_boundaries (static and dynamic variants)."""
     job_id = runtime.state.get("job_id", "unknown")
     assets = runtime.state.get("assets")
+    valid_asset_names = (
+        {a.name for a in assets.assets} if assets and assets.assets else set()
+    )
 
-    # Build set of valid asset names
-    valid_asset_names = set()
-    if assets and assets.assets:
-        valid_asset_names = {asset.name for asset in assets.assets}
+    valid_bounds, invalid_bounds = validate_entity_references(
+        trust_boundaries.trust_boundaries,
+        valid_asset_names,
+        "trust boundary",
+        "purpose",
+    )
 
-    # Partition into valid/invalid
-    valid_boundaries = []
-    invalid_boundaries = []
-
-    for boundary in trust_boundaries.trust_boundaries:
-        violations = []
-        if boundary.source_entity not in valid_asset_names:
-            violations.append(
-                f"Invalid source_entity '{boundary.source_entity}' - not in asset list"
-            )
-        if boundary.target_entity not in valid_asset_names:
-            violations.append(
-                f"Invalid target_entity '{boundary.target_entity}' - not in asset list"
-            )
-        if violations:
-            invalid_boundaries.append(
-                {"purpose": boundary.purpose, "violations": violations}
-            )
-            logger.warning(
-                "Trust boundary validation failed",
-                tool="add_trust_boundaries",
-                purpose=boundary.purpose,
-                violations=violations,
-                job_id=job_id,
-            )
-        else:
-            valid_boundaries.append(boundary)
-
-    valid_count = len(valid_boundaries)
-    invalid_count = len(invalid_boundaries)
-
-    if valid_count > 0:
+    if valid_bounds:
         state_service.update_job_state(
             job_id,
             JobState.FLOW.value,
-            detail=f"Adding {valid_count} trust boundaries",
+            detail=f"Adding {len(valid_bounds)} trust boundaries",
         )
 
-    # Build response message
-    if invalid_count == 0:
-        response_msg = f"Successfully added {valid_count} trust boundaries."
-    else:
-        invalid_details = []
-        for inv in invalid_boundaries:
-            violations_str = "; ".join(inv["violations"])
-            invalid_details.append(f"  - {inv['purpose']}: {violations_str}")
-        invalid_summary = "\n".join(invalid_details)
-        response_msg = (
-            f"Successfully added {valid_count} trust boundaries.\n\n"
-            f"{invalid_count} trust boundaries were NOT added due to validation failures:\n"
-            f"{invalid_summary}\n\n"
-            f"Valid asset names: {sorted(valid_asset_names)}"
-        )
-
-    # Build delta FlowsList with only valid boundaries
-    delta = FlowsList(
-        data_flows=[], trust_boundaries=valid_boundaries, threat_sources=[]
+    response_msg = format_validation_response(
+        "trust boundaries",
+        len(valid_bounds),
+        invalid_bounds,
+        valid_asset_names if invalid_bounds else None,
     )
+
+    delta = FlowsList(data_flows=[], trust_boundaries=valid_bounds, threat_sources=[])
 
     return Command(
         update={
@@ -1097,14 +1106,7 @@ def add_threat_sources(
 
 
 def create_dynamic_add_data_flows_tool(data_flows_list_model: type):
-    """Create an add_data_flows tool with Literal-constrained entity fields.
-
-    Args:
-        data_flows_list_model: Dynamic DataFlowsList with Literal-constrained fields.
-
-    Returns:
-        A langchain tool instance with the constrained schema.
-    """
+    """Create an add_data_flows tool with Literal-constrained entity fields."""
 
     @tool(
         name_or_callable="add_data_flows",
@@ -1113,82 +1115,13 @@ def create_dynamic_add_data_flows_tool(data_flows_list_model: type):
     def dynamic_add_data_flows(
         data_flows: data_flows_list_model, runtime: ToolRuntime
     ) -> Command:
-        """Add data flows with entity validation against known assets."""
-        job_id = runtime.state.get("job_id", "unknown")
-        assets = runtime.state.get("assets")
-
-        valid_asset_names = set()
-        if assets and assets.assets:
-            valid_asset_names = {asset.name for asset in assets.assets}
-
-        valid_flows = []
-        invalid_flows = []
-
-        for flow in data_flows.data_flows:
-            violations = []
-            if flow.source_entity not in valid_asset_names:
-                violations.append(
-                    f"Invalid source_entity '{flow.source_entity}' - not in asset list"
-                )
-            if flow.target_entity not in valid_asset_names:
-                violations.append(
-                    f"Invalid target_entity '{flow.target_entity}' - not in asset list"
-                )
-            if violations:
-                invalid_flows.append(
-                    {"description": flow.flow_description, "violations": violations}
-                )
-            else:
-                valid_flows.append(flow)
-
-        valid_count = len(valid_flows)
-        invalid_count = len(invalid_flows)
-
-        if valid_count > 0:
-            state_service.update_job_state(
-                job_id, JobState.FLOW.value, detail=f"Adding {valid_count} data flows"
-            )
-
-        if invalid_count == 0:
-            response_msg = f"Successfully added {valid_count} data flows."
-        else:
-            invalid_details = [
-                f"  - {inv['description']}: {'; '.join(inv['violations'])}"
-                for inv in invalid_flows
-            ]
-            response_msg = (
-                f"Successfully added {valid_count} data flows.\n\n"
-                f"{invalid_count} data flows were NOT added due to validation failures:\n"
-                f"{chr(10).join(invalid_details)}\n\n"
-                f"Valid asset names: {sorted(valid_asset_names)}"
-            )
-
-        delta = FlowsList(
-            data_flows=valid_flows, trust_boundaries=[], threat_sources=[]
-        )
-
-        return Command(
-            update={
-                "flows_list": delta,
-                "tool_use": 1,
-                "messages": [
-                    ToolMessage(response_msg, tool_call_id=runtime.tool_call_id)
-                ],
-            }
-        )
+        return _handle_add_data_flows(data_flows, runtime)
 
     return dynamic_add_data_flows
 
 
 def create_dynamic_add_trust_boundaries_tool(trust_boundaries_list_model: type):
-    """Create an add_trust_boundaries tool with Literal-constrained entity fields.
-
-    Args:
-        trust_boundaries_list_model: Dynamic TrustBoundariesList with Literal-constrained fields.
-
-    Returns:
-        A langchain tool instance with the constrained schema.
-    """
+    """Create an add_trust_boundaries tool with Literal-constrained entity fields."""
 
     @tool(
         name_or_callable="add_trust_boundaries",
@@ -1197,71 +1130,7 @@ def create_dynamic_add_trust_boundaries_tool(trust_boundaries_list_model: type):
     def dynamic_add_trust_boundaries(
         trust_boundaries: trust_boundaries_list_model, runtime: ToolRuntime
     ) -> Command:
-        """Add trust boundaries with entity validation against known assets."""
-        job_id = runtime.state.get("job_id", "unknown")
-        assets = runtime.state.get("assets")
-
-        valid_asset_names = set()
-        if assets and assets.assets:
-            valid_asset_names = {asset.name for asset in assets.assets}
-
-        valid_boundaries = []
-        invalid_boundaries = []
-
-        for boundary in trust_boundaries.trust_boundaries:
-            violations = []
-            if boundary.source_entity not in valid_asset_names:
-                violations.append(
-                    f"Invalid source_entity '{boundary.source_entity}' - not in asset list"
-                )
-            if boundary.target_entity not in valid_asset_names:
-                violations.append(
-                    f"Invalid target_entity '{boundary.target_entity}' - not in asset list"
-                )
-            if violations:
-                invalid_boundaries.append(
-                    {"purpose": boundary.purpose, "violations": violations}
-                )
-            else:
-                valid_boundaries.append(boundary)
-
-        valid_count = len(valid_boundaries)
-        invalid_count = len(invalid_boundaries)
-
-        if valid_count > 0:
-            state_service.update_job_state(
-                job_id,
-                JobState.FLOW.value,
-                detail=f"Adding {valid_count} trust boundaries",
-            )
-
-        if invalid_count == 0:
-            response_msg = f"Successfully added {valid_count} trust boundaries."
-        else:
-            invalid_details = [
-                f"  - {inv['purpose']}: {'; '.join(inv['violations'])}"
-                for inv in invalid_boundaries
-            ]
-            response_msg = (
-                f"Successfully added {valid_count} trust boundaries.\n\n"
-                f"{invalid_count} trust boundaries were NOT added due to validation failures:\n"
-                f"{chr(10).join(invalid_details)}\n\n"
-                f"Valid asset names: {sorted(valid_asset_names)}"
-            )
-
-        delta = FlowsList(
-            data_flows=[], trust_boundaries=valid_boundaries, threat_sources=[]
-        )
-
-        return Command(
-            update={
-                "flows_list": delta,
-                "tool_use": 1,
-                "messages": [
-                    ToolMessage(response_msg, tool_call_id=runtime.tool_call_id)
-                ],
-            }
-        )
+        return _handle_add_trust_boundaries(trust_boundaries, runtime)
 
     return dynamic_add_trust_boundaries
 
@@ -1280,34 +1149,20 @@ def delete_data_flows(
     job_id = runtime.state.get("job_id", "unknown")
     current_flows = runtime.state.get("flows_list")
 
-    descriptions_to_remove = set(flow_descriptions)
-    remaining_flows = []
-    removed_count = 0
-    found_descriptions = set()
-
-    for flow in current_flows.data_flows:
-        if flow.flow_description in descriptions_to_remove:
-            removed_count += 1
-            found_descriptions.add(flow.flow_description)
-        else:
-            remaining_flows.append(flow)
-
-    not_found = sorted(descriptions_to_remove - found_descriptions)
-
-    state_service.update_job_state(
-        job_id,
-        JobState.FLOW.value,
-        detail=f"Removed {removed_count} data flows",
+    remaining, deleted_count, not_found = delete_by_field(
+        current_flows.data_flows, "flow_description", flow_descriptions
     )
 
-    # Build response
-    response_msg = f"Successfully removed {removed_count} data flows."
-    if not_found:
-        response_msg += f"\n\nNot found: {not_found}"
+    state_service.update_job_state(
+        job_id, JobState.FLOW.value, detail=f"Removed {deleted_count} data flows"
+    )
 
-    # Use Overwrite to replace the entire flows_list
+    response_msg = format_delete_response(
+        "data flows", deleted_count, len(remaining), not_found
+    )
+
     updated_flows = FlowsList(
-        data_flows=remaining_flows,
+        data_flows=remaining,
         trust_boundaries=current_flows.trust_boundaries,
         threat_sources=current_flows.threat_sources,
     )
@@ -1334,35 +1189,21 @@ def delete_trust_boundaries(
     job_id = runtime.state.get("job_id", "unknown")
     current_flows = runtime.state.get("flows_list")
 
-    purposes_to_remove = set(boundary_purposes)
-    remaining_boundaries = []
-    removed_count = 0
-    found_purposes = set()
-
-    for boundary in current_flows.trust_boundaries:
-        if boundary.purpose in purposes_to_remove:
-            removed_count += 1
-            found_purposes.add(boundary.purpose)
-        else:
-            remaining_boundaries.append(boundary)
-
-    not_found = sorted(purposes_to_remove - found_purposes)
-
-    state_service.update_job_state(
-        job_id,
-        JobState.FLOW.value,
-        detail=f"Removed {removed_count} trust boundaries",
+    remaining, deleted_count, not_found = delete_by_field(
+        current_flows.trust_boundaries, "purpose", boundary_purposes
     )
 
-    # Build response
-    response_msg = f"Successfully removed {removed_count} trust boundaries."
-    if not_found:
-        response_msg += f"\n\nNot found: {not_found}"
+    state_service.update_job_state(
+        job_id, JobState.FLOW.value, detail=f"Removed {deleted_count} trust boundaries"
+    )
 
-    # Use Overwrite to replace the entire flows_list
+    response_msg = format_delete_response(
+        "trust boundaries", deleted_count, len(remaining), not_found
+    )
+
     updated_flows = FlowsList(
         data_flows=current_flows.data_flows,
-        trust_boundaries=remaining_boundaries,
+        trust_boundaries=remaining,
         threat_sources=current_flows.threat_sources,
     )
 
@@ -1388,36 +1229,22 @@ def delete_threat_sources(
     job_id = runtime.state.get("job_id", "unknown")
     current_flows = runtime.state.get("flows_list")
 
-    categories_to_remove = set(source_categories)
-    remaining_sources = []
-    removed_count = 0
-    found_categories = set()
-
-    for source in current_flows.threat_sources:
-        if source.category in categories_to_remove:
-            removed_count += 1
-            found_categories.add(source.category)
-        else:
-            remaining_sources.append(source)
-
-    not_found = sorted(categories_to_remove - found_categories)
-
-    state_service.update_job_state(
-        job_id,
-        JobState.FLOW.value,
-        detail=f"Removed {removed_count} threat sources",
+    remaining, deleted_count, not_found = delete_by_field(
+        current_flows.threat_sources, "category", source_categories
     )
 
-    # Build response
-    response_msg = f"Successfully removed {removed_count} threat sources."
-    if not_found:
-        response_msg += f"\n\nNot found: {not_found}"
+    state_service.update_job_state(
+        job_id, JobState.FLOW.value, detail=f"Removed {deleted_count} threat sources"
+    )
 
-    # Use Overwrite to replace the entire flows_list
+    response_msg = format_delete_response(
+        "threat sources", deleted_count, len(remaining), not_found
+    )
+
     updated_flows = FlowsList(
         data_flows=current_flows.data_flows,
         trust_boundaries=current_flows.trust_boundaries,
-        threat_sources=remaining_sources,
+        threat_sources=remaining,
     )
 
     return Command(

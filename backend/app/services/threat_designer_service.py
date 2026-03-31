@@ -265,6 +265,7 @@ def invoke_lambda(owner, payload):
     reasoning = payload.get("reasoning", 0)
     instructions = payload.get("instructions", None)
     is_replay = payload.get("replay", False)
+    is_version = payload.get("version", False)
     image_type = payload.get("image_type", None)
     application_type = payload.get("application_type", "hybrid")
     space_id = payload.get("space_id") or None
@@ -276,6 +277,13 @@ def invoke_lambda(owner, payload):
         id = payload.get("id")
     else:
         id = generate_random_uuid()
+
+    # Version-specific fields
+    previous_job_id = payload.get("id") if is_version else None
+    mirror_attack_trees = (
+        payload.get("mirror_attack_trees", False) if is_version else False
+    )
+    mirror_sharing = payload.get("mirror_sharing", False) if is_version else False
 
     description = payload.get("description", " ")
     assumptions = payload.get("assumptions", [])
@@ -294,6 +302,9 @@ def invoke_lambda(owner, payload):
             "execution_owner": owner,
             "updated_at": current_time,
         }
+        if is_version and previous_job_id:
+            state_item["parent_id"] = previous_job_id
+            state_item["mirror_attack_trees"] = mirror_attack_trees
         table.put_item(Item=state_item)
         LOG.info(f"State initialized to START for job {id}")
 
@@ -311,29 +322,36 @@ def invoke_lambda(owner, payload):
             else:
                 LOG.warning(f"Item not found for backup during replay: {id}")
 
+        # Step 2b: If version with mirror_sharing, copy sharing records from parent
+        if is_version and mirror_sharing and previous_job_id:
+            _copy_sharing_records(previous_job_id, id)
+
         # Step 3: Invoke the agent
+        agent_input = {
+            "s3_location": s3_location,
+            "id": id,
+            "reasoning": reasoning,
+            "iteration": iteration,
+            "description": description,
+            "assumptions": assumptions,
+            "owner": owner,
+            "title": title,
+            "replay": is_replay,
+            "instructions": instructions,
+            "image_type": image_type,
+            "application_type": application_type,
+            "space_id": space_id,
+        }
+
+        if is_version:
+            agent_input["version"] = True
+            agent_input["previous_job_id"] = previous_job_id
+            agent_input["mirror_attack_trees"] = mirror_attack_trees
+
         agent_core_client.invoke_agent_runtime(
             agentRuntimeArn=AGENT_CORE_RUNTIME,
             runtimeSessionId=session_id,
-            payload=json.dumps(
-                {
-                    "input": {
-                        "s3_location": s3_location,
-                        "id": id,
-                        "reasoning": reasoning,
-                        "iteration": iteration,
-                        "description": description,
-                        "assumptions": assumptions,
-                        "owner": owner,
-                        "title": title,
-                        "replay": is_replay,
-                        "instructions": instructions,
-                        "image_type": image_type,
-                        "application_type": application_type,
-                        "space_id": space_id,
-                    }
-                }
-            ),
+            payload=json.dumps({"input": agent_input}),
         )
 
         agent_state = {
@@ -345,8 +363,13 @@ def invoke_lambda(owner, payload):
         }
         if space_id:
             agent_state["space_id"] = space_id
+        if is_version and previous_job_id:
+            agent_state["parent_id"] = previous_job_id
 
         if not is_replay:
+            # For version, set is_shared if sharing was mirrored
+            if is_version and mirror_sharing:
+                agent_state["is_shared"] = True
             create_dynamodb_item(agent_state, AGENT_TABLE)
 
         return {"id": id}
@@ -371,6 +394,63 @@ def invoke_lambda(owner, payload):
         except Exception as update_error:
             LOG.error(f"Failed to update state to FAILED: {update_error}")
         raise InternalError(e)
+
+
+def _copy_sharing_records(source_job_id, target_job_id):
+    """Copy sharing records from one threat model to another."""
+    try:
+        sharing_table = dynamodb.Table(SHARING_TABLE)
+        current_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+        # Query all sharing records for the source (with pagination)
+        items = []
+        query_params = {
+            "KeyConditionExpression": "threat_model_id = :tm_id",
+            "ExpressionAttributeValues": {":tm_id": source_job_id},
+        }
+        while True:
+            response = sharing_table.query(**query_params)
+            items.extend(response.get("Items", []))
+            last_key = response.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            query_params["ExclusiveStartKey"] = last_key
+
+        with sharing_table.batch_writer() as batch:
+            for item in items:
+                new_item = copy.deepcopy(item)
+                new_item["threat_model_id"] = target_job_id
+                new_item["shared_at"] = current_time
+                batch.put_item(Item=new_item)
+
+        LOG.info(
+            f"Copied {len(items)} sharing records from {source_job_id} to {target_job_id}"
+        )
+    except Exception as e:
+        LOG.error(f"Failed to copy sharing records: {e}")
+
+
+def _delete_sharing_records(job_id):
+    """Delete all sharing records for a threat model."""
+    try:
+        sharing_table = dynamodb.Table(SHARING_TABLE)
+        response = sharing_table.query(
+            KeyConditionExpression="threat_model_id = :tm_id",
+            ExpressionAttributeValues={":tm_id": job_id},
+        )
+        items = response.get("Items", [])
+        if items:
+            with sharing_table.batch_writer() as batch:
+                for item in items:
+                    batch.delete_item(
+                        Key={
+                            "threat_model_id": item["threat_model_id"],
+                            "user_id": item["user_id"],
+                        }
+                    )
+            LOG.info(f"Deleted {len(items)} sharing records for {job_id}")
+    except Exception as e:
+        LOG.error(f"Failed to delete sharing records: {e}")
 
 
 @tracer.capture_method
@@ -1405,10 +1485,17 @@ def delete_session(job_id, session_id, owner, override_execution_owner=False):
                 raise InternalError()
             delete_dynamodb_item(agent_table, key, owner)
             delete_s3_object(object_key)
+            # Also delete sharing records if this was a version job
+            parent_id = state_item.get("parent_id")
+            if parent_id:
+                _delete_sharing_records(job_id)
             # Also delete from state table
             state_table.delete_item(Key={"id": job_id})
             LOG.info(f"State table item deleted for job_id: {job_id}")
-            return {"job_id": job_id, "state": "Deleted"}
+            result = {"job_id": job_id, "state": "Deleted"}
+            if parent_id:
+                result["parent_id"] = parent_id
+            return result
         restore(job_id, owner)
         return {"job_id": job_id, "state": "Restored"}
     except Exception as e:

@@ -39,7 +39,7 @@ export function GuideViewer() {
     // For external links or non-.md links, render normally
     if (!href || !href.endsWith(".md") || href.startsWith("http")) {
       return (
-        <a href={href} {...props}>
+        <a href={href} rel="noopener noreferrer" {...props}>
           {children}
         </a>
       );

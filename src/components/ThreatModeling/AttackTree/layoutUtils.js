@@ -47,7 +47,7 @@ export const getLayoutedElements = (nodes, edges, direction = "LR") => {
   });
 
   // Find the root node's dagre position
-  const rootDagreNode = dagreNodes.find((n) => n.type === "root");
+  const rootDagreNode = dagreNodes.find((n) => n.type === "root-goal");
 
   // Calculate offset to center root at (0, 0)
   const offsetX = rootDagreNode ? -rootDagreNode.dagreX : 0;
@@ -84,13 +84,13 @@ export const getLayoutedElements = (nodes, edges, direction = "LR") => {
 };
 
 function getEstimatedWidth(type) {
-  if (type === "root") return 180;
+  if (type === "root-goal") return 180;
   return 220;
 }
 
 function getEstimatedHeight(type) {
   switch (type) {
-    case "root":
+    case "root-goal":
       return 100;
     case "and-gate":
     case "or-gate":

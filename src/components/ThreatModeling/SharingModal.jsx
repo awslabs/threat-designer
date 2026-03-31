@@ -25,7 +25,6 @@ const SharingModal = ({ visible, setVisible, threatModelId, isOwner }) => {
   // Fetch collaborators when modal opens
   useEffect(() => {
     if (visible && threatModelId) {
-      fetchUsers();
       fetchCollaborators();
     }
   }, [visible, threatModelId]);
@@ -116,7 +115,9 @@ const SharingModal = ({ visible, setVisible, threatModelId, isOwner }) => {
 
   const getAuthToken = async () => {
     const session = await fetchAuthSession();
-    return session.tokens.idToken.toString();
+    const token = session.tokens?.idToken?.toString();
+    if (!token) throw new Error("No authentication token available");
+    return token;
   };
 
   const handleAddCollaborator = async () => {

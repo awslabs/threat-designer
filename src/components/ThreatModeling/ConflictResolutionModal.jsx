@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Modal from "@cloudscape-design/components/modal";
 import Box from "@cloudscape-design/components/box";
 import SpaceBetween from "@cloudscape-design/components/space-between";
@@ -167,78 +167,78 @@ const ConflictResolutionModal = ({
     return differences;
   };
 
-  // Compare threats
-  const threatDiffs = compareArrays(
-    localChanges.threat_list?.threats,
-    serverState.threat_list?.threats,
-    "threats"
-  );
+  const {
+    threatDiffs,
+    assetDiffs,
+    flowDiffs,
+    boundaryDiffs,
+    sourceDiffs,
+    assumptionDiffs,
+    descriptionChanged,
+    totalDifferences,
+  } = useMemo(() => {
+    const threatDiffs = compareArrays(
+      localChanges.threat_list?.threats,
+      serverState.threat_list?.threats,
+      "threats"
+    );
+    const assetDiffs = compareArrays(
+      localChanges.assets?.assets,
+      serverState.assets?.assets,
+      "assets"
+    );
+    const flowDiffs = compareArrays(
+      localChanges.system_architecture?.data_flows,
+      serverState.system_architecture?.data_flows,
+      "flows"
+    );
+    const boundaryDiffs = compareArrays(
+      localChanges.system_architecture?.trust_boundaries,
+      serverState.system_architecture?.trust_boundaries,
+      "boundaries"
+    );
+    const sourceDiffs = compareArrays(
+      localChanges.system_architecture?.threat_sources,
+      serverState.system_architecture?.threat_sources,
+      "sources"
+    );
 
-  // Compare assets
-  const assetDiffs = compareArrays(
-    localChanges.assets?.assets,
-    serverState.assets?.assets,
-    "assets"
-  );
-
-  // Compare data flows
-  const flowDiffs = compareArrays(
-    localChanges.system_architecture?.data_flows,
-    serverState.system_architecture?.data_flows,
-    "flows"
-  );
-
-  // Compare trust boundaries
-  const boundaryDiffs = compareArrays(
-    localChanges.system_architecture?.trust_boundaries,
-    serverState.system_architecture?.trust_boundaries,
-    "boundaries"
-  );
-
-  // Compare threat sources
-  const sourceDiffs = compareArrays(
-    localChanges.system_architecture?.threat_sources,
-    serverState.system_architecture?.threat_sources,
-    "sources"
-  );
-
-  // Compare assumptions (array of strings)
-  const compareAssumptions = () => {
     const localAssumptions = localChanges.assumptions || [];
     const serverAssumptions = serverState.assumptions || [];
-
-    const differences = [];
-
-    // Find added assumptions
+    const assumptionDiffs = [];
     localAssumptions.forEach((assumption, index) => {
       if (!serverAssumptions.includes(assumption)) {
-        differences.push({ type: "added", item: assumption, index });
+        assumptionDiffs.push({ type: "added", item: assumption, index });
       }
     });
-
-    // Find deleted assumptions
     serverAssumptions.forEach((assumption, index) => {
       if (!localAssumptions.includes(assumption)) {
-        differences.push({ type: "deleted", item: assumption, index });
+        assumptionDiffs.push({ type: "deleted", item: assumption, index });
       }
     });
 
-    return differences;
-  };
+    const descriptionChanged = localChanges.description !== serverState.description;
 
-  const assumptionDiffs = compareAssumptions();
+    const totalDifferences =
+      threatDiffs.length +
+      assetDiffs.length +
+      flowDiffs.length +
+      boundaryDiffs.length +
+      sourceDiffs.length +
+      assumptionDiffs.length +
+      (descriptionChanged ? 1 : 0);
 
-  // Compare description (simple string comparison)
-  const descriptionChanged = localChanges.description !== serverState.description;
-
-  const totalDifferences =
-    threatDiffs.length +
-    assetDiffs.length +
-    flowDiffs.length +
-    boundaryDiffs.length +
-    sourceDiffs.length +
-    assumptionDiffs.length +
-    (descriptionChanged ? 1 : 0);
+    return {
+      threatDiffs,
+      assetDiffs,
+      flowDiffs,
+      boundaryDiffs,
+      sourceDiffs,
+      assumptionDiffs,
+      descriptionChanged,
+      totalDifferences,
+    };
+  }, [localChanges, serverState]);
 
   const renderDiffItem = (diff) => {
     const getDisplayName = (item) => {

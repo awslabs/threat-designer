@@ -29,7 +29,12 @@ from tools import (
     flows_stats,
 )
 from state import FlowsState, ConfigSchema, create_constrained_flow_models
-from message_builder import MessageBuilder, inject_bedrock_cache_points, list_to_string
+from message_builder import (
+    MessageBuilder,
+    extract_reasoning_trails,
+    inject_bedrock_cache_points,
+    list_to_string,
+)
 from prompt_provider import create_flows_agent_system_prompt
 
 
@@ -47,6 +52,9 @@ tools = [
 # Initialize state service for tracking job state and trails
 state_service = StateService(app_config.agent_state_table)
 
+# Shared model service (stateless helper, safe to reuse)
+model_service = ModelService()
+
 
 def _build_session_tools(state: FlowsState) -> list:
     """Build session-specific tools with dynamic add tools if asset names are available.
@@ -57,9 +65,9 @@ def _build_session_tools(state: FlowsState) -> list:
     """
     assets = state.get("assets")
 
-    asset_names: set[str] = set()
+    asset_names: frozenset[str] = frozenset()
     if assets and assets.assets:
-        asset_names = {a.name for a in assets.assets}
+        asset_names = frozenset(a.name for a in assets.assets)
 
     if not asset_names:
         return tools
@@ -211,7 +219,6 @@ def agent_node(state: FlowsState, config: RunnableConfig) -> Command:
     session_tools = _build_session_tools(state)
 
     # Bind tools to model with "auto" tool choice
-    model_service = ModelService()
     model_with_tools = model_service.get_model_with_tools(
         model=model, tools=session_tools, tool_choice="auto"
     )
@@ -348,40 +355,8 @@ def continue_or_finish(state: FlowsState) -> Command:
         return Command(goto="agent", update={"messages": [feedback_message]})
 
     # FlowsList is complete — extract reasoning trails
-    reasoning_trails = []
     messages = state.get("messages", [])
-    for msg in messages:
-        if hasattr(msg, "content") and isinstance(msg.content, list):
-            for content_block in msg.content:
-                if isinstance(content_block, dict):
-                    # Bedrock format
-                    if content_block.get("type") == "thinking":
-                        reasoning_trails.append(content_block.get("thinking", ""))
-                    elif content_block.get("type") == "reasoning_content":
-                        reasoning_content = content_block.get("reasoning_content", {})
-                        if isinstance(reasoning_content, dict):
-                            text = reasoning_content.get("text", "")
-                            if text:
-                                reasoning_trails.append(text)
-                    # OpenAI format
-                    elif content_block.get("type") == "reasoning":
-                        summary = content_block.get("summary", [])
-                        if isinstance(summary, list):
-                            summary_texts = []
-                            for summary_item in summary:
-                                if (
-                                    isinstance(summary_item, dict)
-                                    and summary_item.get("type") == "summary_text"
-                                ):
-                                    text = summary_item.get("text", "")
-                                    if text:
-                                        summary_texts.append(text.strip())
-                            if summary_texts:
-                                reasoning_trails.append("\n\n".join(summary_texts))
-        elif hasattr(msg, "additional_kwargs"):
-            thinking = msg.additional_kwargs.get("reasoning_content")
-            if thinking:
-                reasoning_trails.append(thinking)
+    reasoning_trails = extract_reasoning_trails(messages)
 
     # Update trail with reasoning if any was found
     if reasoning_trails:

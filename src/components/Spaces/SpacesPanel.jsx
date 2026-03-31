@@ -30,7 +30,7 @@ export function SpacesPanel() {
 
   useEffect(() => {
     load();
-  }, [location.pathname === "/spaces"]);
+  }, [location.pathname]);
 
   async function load() {
     setLoading(true);

@@ -43,6 +43,57 @@ const formatTokenCount = (n) => {
   return String(n);
 };
 
+// LocalStorage key for persisting board layout
+const BOARD_LAYOUT_KEY = "threatModelDashboardLayout";
+
+// Default board items configuration
+const getDefaultBoardItems = () => [
+  {
+    id: "stride-chart",
+    rowSpan: 5,
+    columnSpan: 2,
+    data: { type: "stride" },
+  },
+  {
+    id: "likelihood-chart",
+    rowSpan: 5,
+    columnSpan: 2,
+    data: { type: "likelihood" },
+  },
+  {
+    id: "target-chart",
+    rowSpan: 5,
+    columnSpan: 2,
+    data: { type: "target" },
+  },
+  {
+    id: "source-chart",
+    rowSpan: 5,
+    columnSpan: 2,
+    data: { type: "source" },
+  },
+];
+
+// Load board layout from localStorage or use default
+const loadBoardLayout = () => {
+  try {
+    const saved = localStorage.getItem(BOARD_LAYOUT_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const defaultItems = getDefaultBoardItems();
+      const hasAllItems = defaultItems.every((defaultItem) =>
+        parsed.some((savedItem) => savedItem.id === defaultItem.id)
+      );
+      if (hasAllItems) {
+        return parsed;
+      }
+    }
+  } catch (error) {
+    console.warn("Failed to load board layout from localStorage:", error);
+  }
+  return getDefaultBoardItems();
+};
+
 const ThreatModelDashboard = ({ threatCatalogData = [], tokenUsage = null }) => {
   // Validate input data and filter out malformed threat objects
   const validThreats = useMemo(() => {
@@ -95,6 +146,21 @@ const ThreatModelDashboard = ({ threatCatalogData = [], tokenUsage = null }) => 
   // Calculate total threats
   const totalThreats = validThreats.length;
 
+  // Board items configuration with localStorage persistence
+  const [boardItems, setBoardItems] = React.useState(loadBoardLayout);
+
+  // Handle board item changes (drag/resize) and save to localStorage
+  const handleItemsChange = React.useCallback((event) => {
+    const newItems = event.detail.items;
+    setBoardItems(newItems);
+
+    try {
+      localStorage.setItem(BOARD_LAYOUT_KEY, JSON.stringify(newItems));
+    } catch (error) {
+      console.warn("Failed to save board layout to localStorage:", error);
+    }
+  }, []);
+
   // Handle empty threat catalog
   if (totalThreats === 0) {
     return (
@@ -113,77 +179,6 @@ const ThreatModelDashboard = ({ threatCatalogData = [], tokenUsage = null }) => 
       </Container>
     );
   }
-
-  // LocalStorage key for persisting board layout
-  const BOARD_LAYOUT_KEY = "threatModelDashboardLayout";
-
-  // Default board items configuration
-  // Board: 2 columns × 5 rows
-  // Each chart: spans full width (2 columns) and full height (5 rows)
-  // Charts are stacked vertically
-  const getDefaultBoardItems = () => [
-    {
-      id: "stride-chart",
-      rowSpan: 5,
-      columnSpan: 2,
-      data: { type: "stride" },
-    },
-    {
-      id: "likelihood-chart",
-      rowSpan: 5,
-      columnSpan: 2,
-      data: { type: "likelihood" },
-    },
-    {
-      id: "target-chart",
-      rowSpan: 5,
-      columnSpan: 2,
-      data: { type: "target" },
-    },
-    {
-      id: "source-chart",
-      rowSpan: 5,
-      columnSpan: 2,
-      data: { type: "source" },
-    },
-  ];
-
-  // Load board layout from localStorage or use default
-  const loadBoardLayout = () => {
-    try {
-      const saved = localStorage.getItem(BOARD_LAYOUT_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Validate that saved layout has all required items
-        const defaultItems = getDefaultBoardItems();
-        const hasAllItems = defaultItems.every((defaultItem) =>
-          parsed.some((savedItem) => savedItem.id === defaultItem.id)
-        );
-        if (hasAllItems) {
-          return parsed;
-        }
-      }
-    } catch (error) {
-      console.warn("Failed to load board layout from localStorage:", error);
-    }
-    return getDefaultBoardItems();
-  };
-
-  // Board items configuration with localStorage persistence
-  const [boardItems, setBoardItems] = React.useState(loadBoardLayout);
-
-  // Handle board item changes (drag/resize) and save to localStorage
-  const handleItemsChange = React.useCallback((event) => {
-    const newItems = event.detail.items;
-    setBoardItems(newItems);
-
-    // Save to localStorage
-    try {
-      localStorage.setItem(BOARD_LAYOUT_KEY, JSON.stringify(newItems));
-    } catch (error) {
-      console.warn("Failed to save board layout to localStorage:", error);
-    }
-  }, []);
 
   return (
     <SpaceBetween size="l">

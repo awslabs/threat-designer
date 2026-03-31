@@ -330,7 +330,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
             <Header counter={`(${filteredThreats.length})`} variant="h2">
               Threat Catalog
             </Header>
-            <Button onClick={handleModal}>Add Threat</Button>
+            {!isReadOnly && <Button onClick={handleModal}>Add Threat</Button>}
           </SpaceBetween>
           <PropertyFilter
             query={query}

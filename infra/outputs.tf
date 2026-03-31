@@ -41,19 +41,6 @@ output "temporary_password" {
 }
 
 
-output "reasoning_models" {
-  value = var.reasoning_models
-}
-
-output "reasoning_enabled" {
-  value = alltrue([
-    contains(var.reasoning_models, var.model_main.assets.id),
-    contains(var.reasoning_models, var.model_main.flows.id),
-    contains(var.reasoning_models, var.model_main.gaps.id),
-    contains(var.reasoning_models, var.model_main.threats.id)
-  ]) ? "true" : "false"
-}
-
 output "sentry_enabled" {
   description = "Whether Sentry feature is enabled"
   value       = var.enable_sentry

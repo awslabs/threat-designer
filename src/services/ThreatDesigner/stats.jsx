@@ -11,7 +11,8 @@ const instance = axios.create({
 instance.interceptors.request.use(async (config) => {
   try {
     const session = await fetchAuthSession();
-    const token = session.tokens.idToken.toString();
+    const token = session.tokens?.idToken?.toString();
+    if (!token) throw new Error("No authentication token available");
     config.headers.Authorization = `Bearer ${token}`;
 
     // Add cache-busting timestamp to GET requests to prevent browser caching
@@ -158,10 +159,41 @@ async function getSharedThreatModels(limit, cursor = null) {
   return instance.get(`/shared?${params.toString()}`);
 }
 
+async function getCollaborators(id) {
+  return instance.get(`/${id}/collaborators`);
+}
+
+async function createVersion(
+  currentId,
+  s3Location,
+  title,
+  description,
+  assumptions,
+  reasoning,
+  mirrorAttackTrees,
+  mirrorSharing,
+  imageType
+) {
+  const postData = {
+    version: true,
+    id: currentId,
+    s3_location: s3Location,
+    title,
+    description,
+    assumptions,
+    reasoning,
+    mirror_attack_trees: mirrorAttackTrees,
+    mirror_sharing: mirrorSharing,
+    image_type: imageType,
+  };
+  return instance.post("", postData);
+}
+
 export {
   getThreatModelingStatus,
   getThreatModelingResults,
   startThreatModeling,
+  createVersion,
   generateUrl,
   updateTm,
   getDownloadUrl,
@@ -172,4 +204,5 @@ export {
   getThreatModelingTrail,
   restoreTm,
   stopTm,
+  getCollaborators,
 };

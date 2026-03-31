@@ -13,6 +13,7 @@ export function useActionButtons({ actionButtons, onToggleButton, onDropdownClic
 
   const dropdownRefs = useRef({});
   const buttonRefs = useRef({});
+  const closeTimeoutRef = useRef(null);
 
   // Initialize toggle states
   useEffect(() => {
@@ -39,13 +40,22 @@ export function useActionButtons({ actionButtons, onToggleButton, onDropdownClic
       setIsClosing(false);
     } else {
       setIsClosing(true);
-      setTimeout(() => {
+      closeTimeoutRef.current = setTimeout(() => {
         setDropdownStates((prev) => ({ ...prev, [buttonId]: false }));
         setActiveDropdown((current) => (current === buttonId ? null : current));
         setVisibleDropdown((current) => (current === buttonId ? null : current));
         setIsClosing(false);
       }, 200);
     }
+  }, []);
+
+  // Clean up close timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Handle click outside to close dropdowns

@@ -83,6 +83,7 @@ const ChatMessage = React.memo(
     const isEnd = message?.[message.length - 1]?.end === true;
     const hasScrolled = useRef(false);
     const messageRef = useRef(null);
+    const thinkingStartTimesRef = useRef(new Map());
 
     // Use pre-computed blocks from buffering layer, fallback to empty array
     const blocks = messageBlocks || [];
@@ -111,12 +112,16 @@ const ChatMessage = React.memo(
             currentUnifiedGroup.contentBlocks.push(block);
           } else {
             // Start a new unified group
+            const groupId = `unified_${block.id || result.length}`;
+            if (!thinkingStartTimesRef.current.has(groupId)) {
+              thinkingStartTimesRef.current.set(groupId, Date.now());
+            }
             currentUnifiedGroup = {
               type: "unified_thinking",
               contentBlocks: [block], // Array preserving order of think/tool blocks
-              id: `unified_${block.id || result.length}`,
+              id: groupId,
               isGroupComplete: false,
-              thinkingStartTime: Date.now(),
+              thinkingStartTime: thinkingStartTimesRef.current.get(groupId),
             };
           }
           return;
@@ -129,12 +134,16 @@ const ChatMessage = React.memo(
             currentUnifiedGroup.contentBlocks.push(block);
           } else {
             // Tool without preceding think - start a new unified group
+            const groupId = `unified_${block.id || result.length}`;
+            if (!thinkingStartTimesRef.current.has(groupId)) {
+              thinkingStartTimesRef.current.set(groupId, Date.now());
+            }
             currentUnifiedGroup = {
               type: "unified_thinking",
               contentBlocks: [block], // Array preserving order
-              id: `unified_${block.id || result.length}`,
+              id: groupId,
               isGroupComplete: false,
-              thinkingStartTime: Date.now(),
+              thinkingStartTime: thinkingStartTimesRef.current.get(groupId),
             };
           }
           return;

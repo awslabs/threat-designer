@@ -18,7 +18,6 @@ resource "aws_bedrockagentcore_agent_runtime" "threat_designer" {
       MAIN_MODEL               = jsonencode(var.model_main),
       MODEL_STRUCT             = jsonencode(var.model_struct),
       MODEL_SUMMARY            = jsonencode(var.model_summary),
-      REASONING_MODELS         = jsonencode(var.reasoning_models),
       ADAPTIVE_THINKING_MODELS = jsonencode(var.adaptive_thinking_models),
       MODELS_SUPPORTING_MAX   = jsonencode(var.models_supporting_max)
     } : {},
@@ -27,7 +26,6 @@ resource "aws_bedrockagentcore_agent_runtime" "threat_designer" {
       MAIN_MODEL       = jsonencode(var.openai_model_main),
       MODEL_STRUCT     = jsonencode(var.openai_model_struct),
       MODEL_SUMMARY    = jsonencode(var.openai_model_summary),
-      REASONING_MODELS = jsonencode(var.openai_reasoning_models)
     } : {}
   )
   agent_runtime_artifact {

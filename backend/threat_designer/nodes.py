@@ -229,7 +229,7 @@ class ThreatDefinitionService:
                 )
             else:
                 system_prompt = SystemMessage(
-                    content=threats_improve_prompt(application_type=app_type)
+                    content=threats_prompt(application_type=app_type)
                 )
         return [system_prompt, human_message]
 
@@ -287,6 +287,25 @@ class WorkflowFinalizationService:
 
                 self.state_service.update_job_state(job_id, JobState.FINALIZE.value)
                 self.state_service.finalize_workflow(state)
+
+                # Copy matching attack trees from parent if this is a version run
+                if state.get("mirror_attack_trees") and state.get("parent_id"):
+                    try:
+                        from version_utils import copy_matching_attack_trees
+
+                        copy_matching_attack_trees(
+                            parent_id=state["parent_id"],
+                            new_job_id=job_id,
+                            new_threat_list=state.get("threat_list"),
+                        )
+                    except Exception as e:
+                        logger.error(
+                            "Failed to copy attack trees",
+                            job_id=job_id,
+                            parent_id=state["parent_id"],
+                            error=str(e),
+                        )
+
                 time.sleep(FINALIZATION_SLEEP_SECONDS)
                 self.state_service.update_job_state(job_id, JobState.COMPLETE.value)
                 return Command(goto=END)
@@ -329,10 +348,14 @@ class ReplayService:
         """
         from constants import (
             WORKFLOW_NODE_ASSET,
+            WORKFLOW_NODE_VERSION_DIFF,
             WORKFLOW_NODE_SPACE_CONTEXT,
             WORKFLOW_NODE_THREATS_AGENTIC,
             WORKFLOW_NODE_THREATS_TRADITIONAL,
         )
+
+        if state.get("version", False):
+            return WORKFLOW_NODE_VERSION_DIFF
 
         if not state.get("replay", False):
             # New run: check for attached space
@@ -357,7 +380,3 @@ class ReplayService:
                 error_str = str(e)
                 logger.error("Replay routing failed", error=error_str)
                 raise e
-
-    def route_replay(self, state: AgentState) -> str:
-        """Deprecated: use route_after_summary. Kept for backward compat."""
-        return self.route_after_summary(state)

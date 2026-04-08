@@ -431,3 +431,9 @@ variable "kb_embedding_model_id" {
   description = "Bedrock foundation model ID to use for Spaces knowledge base embeddings"
   default     = "amazon.titan-embed-text-v2:0"
 }
+
+variable "prefix" {
+  type        = string
+  description = "Optional prefix to prepend to all resource names, enabling multiple independent deployments in the same AWS account. If not provided, resources are named with the default 'threat-designer' prefix."
+  default     = null
+}

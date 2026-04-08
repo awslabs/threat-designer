@@ -67,7 +67,9 @@ resource "null_resource" "docker_build_push" {
   count      = var.enable_sentry ? 1 : 0
   depends_on = [aws_ecr_repository.sentry]
 
-  triggers = {
+  triggers = var.prebuilt_sentry_image != "" ? {
+    source_image = var.prebuilt_sentry_image
+  } : {
     dockerfile_hash   = filemd5("${path.module}/../backend/sentry/Dockerfile")
     requirements_hash = filemd5("${path.module}/../backend/sentry/requirements.txt")
     source_hash       = sha256(join("", [for f in fileset("${path.module}/../backend/sentry", "**") : filesha256("${path.module}/../backend/sentry/${f}")]))
@@ -75,19 +77,20 @@ resource "null_resource" "docker_build_push" {
 
   provisioner "local-exec" {
     working_dir = "${path.module}/../backend/sentry"
-    command     = <<-EOT
-      # Get ECR login token
-      aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
-      aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${aws_ecr_repository.sentry[0].repository_url}
-      
-      # Ensure buildx is set up
-      docker buildx create --use --name multiarch 2>/dev/null || docker buildx use multiarch
-      
-      # Build and push image for ARM64
-      docker buildx build --platform linux/arm64 --build-arg AWS_REGION=${var.region} \
-        -t ${aws_ecr_repository.sentry[0].repository_url}:latest \
-        --push .
-    EOT
+    command = (var.prebuilt_sentry_image != ""
+      ? join("\n", [
+        "aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${aws_ecr_repository.sentry[0].repository_url}",
+        "docker pull ${var.prebuilt_sentry_image}",
+        "docker tag ${var.prebuilt_sentry_image} ${aws_ecr_repository.sentry[0].repository_url}:latest",
+        "docker push ${aws_ecr_repository.sentry[0].repository_url}:latest"
+      ])
+      : join("\n", [
+        "aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws",
+        "aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${aws_ecr_repository.sentry[0].repository_url}",
+        "docker buildx create --use --name multiarch 2>/dev/null || docker buildx use multiarch",
+        "docker buildx build --platform linux/arm64 --build-arg AWS_REGION=${var.region} -t ${aws_ecr_repository.sentry[0].repository_url}:latest --push ."
+      ])
+    )
   }
 }
 

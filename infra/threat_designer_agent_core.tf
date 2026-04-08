@@ -57,7 +57,9 @@ resource "aws_ecr_repository" "threat-designer" {
 resource "null_resource" "docker_agent_build_push" {
   depends_on = [aws_ecr_repository.threat-designer]
 
-  triggers = {
+  triggers = var.prebuilt_agent_image != "" ? {
+    source_image = var.prebuilt_agent_image
+  } : {
     dockerfile_hash   = filemd5("${path.module}/../backend/threat_designer/Dockerfile")
     requirements_hash = filemd5("${path.module}/../backend/threat_designer/requirements.txt")
     source_hash       = sha256(join("", [for f in fileset("${path.module}/../backend/threat_designer", "**") : filesha256("${path.module}/../backend/threat_designer/${f}")]))
@@ -65,19 +67,20 @@ resource "null_resource" "docker_agent_build_push" {
 
   provisioner "local-exec" {
     working_dir = "${path.module}/../backend/threat_designer"
-    command     = <<-EOT
-      # Get ECR login token
-      aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
-      aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${aws_ecr_repository.threat-designer.repository_url}
-      
-      # Ensure buildx is set up
-      docker buildx create --use --name multiarch 2>/dev/null || docker buildx use multiarch
-      
-      # Build and push image for ARM64
-      docker buildx build --platform linux/arm64 --build-arg AWS_REGION=${var.region} \
-        -t ${aws_ecr_repository.threat-designer.repository_url}:latest \
-        --push .
-    EOT
+    command = (var.prebuilt_agent_image != ""
+      ? join("\n", [
+        "aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${aws_ecr_repository.threat-designer.repository_url}",
+        "docker pull ${var.prebuilt_agent_image}",
+        "docker tag ${var.prebuilt_agent_image} ${aws_ecr_repository.threat-designer.repository_url}:latest",
+        "docker push ${aws_ecr_repository.threat-designer.repository_url}:latest"
+      ])
+      : join("\n", [
+        "aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws",
+        "aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${aws_ecr_repository.threat-designer.repository_url}",
+        "docker buildx create --use --name multiarch 2>/dev/null || docker buildx use multiarch",
+        "docker buildx build --platform linux/arm64 --build-arg AWS_REGION=${var.region} -t ${aws_ecr_repository.threat-designer.repository_url}:latest --push ."
+      ])
+    )
   }
 }
 

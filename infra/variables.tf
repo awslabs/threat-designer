@@ -431,3 +431,15 @@ variable "kb_embedding_model_id" {
   description = "Bedrock foundation model ID to use for Spaces knowledge base embeddings"
   default     = "amazon.titan-embed-text-v2:0"
 }
+
+variable "prebuilt_agent_image" {
+  type        = string
+  description = "Pre-built container image URI for the threat designer agent. When set, the image is pulled, re-tagged and pushed to ECR instead of building from source."
+  default     = ""
+}
+
+variable "prebuilt_sentry_image" {
+  type        = string
+  description = "Pre-built container image URI for the sentry assistant. When set, the image is pulled, re-tagged and pushed to ECR instead of building from source."
+  default     = ""
+}

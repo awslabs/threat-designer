@@ -30,7 +30,7 @@ resource "aws_bedrockagentcore_agent_runtime" "threat_designer" {
   )
   agent_runtime_artifact {
     container_configuration {
-      container_uri = "${aws_ecr_repository.threat-designer.repository_url}:latest"
+      container_uri = local.agent_container_uri
     }
   }
   network_configuration {
@@ -45,6 +45,7 @@ resource "aws_bedrockagentcore_agent_runtime" "threat_designer" {
 
 
 resource "aws_ecr_repository" "threat-designer" {
+  count                = local.use_external_agent_ecr ? 0 : 1
   name                 = "${local.prefix}-agent"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
@@ -55,6 +56,7 @@ resource "aws_ecr_repository" "threat-designer" {
 }
 
 resource "null_resource" "docker_agent_build_push" {
+  count      = local.use_external_agent_ecr ? 0 : 1
   depends_on = [aws_ecr_repository.threat-designer]
 
   triggers = {
@@ -68,14 +70,14 @@ resource "null_resource" "docker_agent_build_push" {
     command     = <<-EOT
       # Get ECR login token
       aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
-      aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${aws_ecr_repository.threat-designer.repository_url}
+      aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${aws_ecr_repository.threat-designer[0].repository_url}
       
       # Ensure buildx is set up
       docker buildx create --use --name multiarch 2>/dev/null || docker buildx use multiarch
       
       # Build and push image for ARM64
       docker buildx build --platform linux/arm64 --build-arg AWS_REGION=${var.region} \
-        -t ${aws_ecr_repository.threat-designer.repository_url}:latest \
+        -t ${aws_ecr_repository.threat-designer[0].repository_url}:latest \
         --push .
     EOT
   }
@@ -135,7 +137,7 @@ resource "aws_iam_role_policy" "threat_designer_agent_core_policy" {
           "ecr:GetDownloadUrlForLayer"
         ],
         "Resource" : [
-          "${aws_ecr_repository.threat-designer.arn}"
+          "${local.agent_ecr_arn}"
         ]
       },
       {

@@ -432,6 +432,9 @@ variable "kb_embedding_model_id" {
   default     = "amazon.titan-embed-text-v2:0"
 }
 
+variable "prefix" {
+  type        = string
+  description = "Optional prefix to prepend to all resource names, enabling multiple independent deployments in the same AWS account. If not provided, resources are named with the default 'threat-designer' prefix."
 variable "api_gateway_waf_arn" {
   type        = string
   description = "ARN of an existing WAF Web ACL (REGIONAL scope) to associate with the API Gateway stage. If not provided, no WAF is attached."

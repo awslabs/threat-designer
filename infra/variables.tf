@@ -431,3 +431,15 @@ variable "kb_embedding_model_id" {
   description = "Bedrock foundation model ID to use for Spaces knowledge base embeddings"
   default     = "amazon.titan-embed-text-v2:0"
 }
+
+variable "api_gateway_waf_arn" {
+  type        = string
+  description = "ARN of an existing WAF Web ACL (REGIONAL scope) to associate with the API Gateway stage. If not provided, no WAF is attached."
+  default     = null
+}
+
+variable "amplify_waf_arn" {
+  type        = string
+  description = "ARN of an existing WAF Web ACL (CLOUDFRONT scope) to associate with the Amplify app. If not provided, no WAF is attached."
+  default     = null
+}

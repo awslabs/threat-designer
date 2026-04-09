@@ -431,3 +431,9 @@ variable "kb_embedding_model_id" {
   description = "Bedrock foundation model ID to use for Spaces knowledge base embeddings"
   default     = "amazon.titan-embed-text-v2:0"
 }
+
+variable "custom_domain_name" {
+  type        = string
+  description = "Optional custom domain name to associate with the Amplify app (e.g. app.example.com). If not provided, the default Amplify-generated URL is used."
+  default     = null
+}

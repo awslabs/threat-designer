@@ -44,6 +44,16 @@ resource "aws_bedrockagentcore_agent_runtime" "threat_designer" {
 }
 
 
+moved {
+  from = aws_ecr_repository.threat-designer
+  to   = aws_ecr_repository.threat-designer[0]
+}
+
+moved {
+  from = null_resource.docker_agent_build_push
+  to   = null_resource.docker_agent_build_push[0]
+}
+
 resource "aws_ecr_repository" "threat-designer" {
   count                = local.use_external_agent_ecr ? 0 : 1
   name                 = "${local.prefix}-agent"

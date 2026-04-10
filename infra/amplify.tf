@@ -54,3 +54,14 @@ resource "aws_iam_role_policy" "amplify_iam_policy" {
   role   = aws_iam_role.amplify_iam_role.id
   policy = templatefile("${path.module}/templates/amplify_execution_role_policy.json", {})
 }
+
+resource "aws_amplify_domain_association" "domain" {
+  count       = var.custom_domain_name != null ? 1 : 0
+  app_id      = aws_amplify_app.threat-designer.id
+  domain_name = var.custom_domain_name
+
+  sub_domain {
+    branch_name = aws_amplify_branch.develop.branch_name
+    prefix      = ""
+  }
+}

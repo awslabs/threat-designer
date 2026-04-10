@@ -23,8 +23,8 @@ resource "aws_lambda_function" "backend" {
     variables = {
       LOG_LEVEL             = "INFO",
       REGION                = var.region,
-      PORTAL_REDIRECT_URL   = "https://${aws_amplify_branch.develop.branch_name}.${aws_amplify_app.threat-designer.default_domain}"
-      TRUSTED_ORIGINS       = "https://${aws_amplify_branch.develop.branch_name}.${aws_amplify_app.threat-designer.default_domain}, http://localhost:5173"
+      PORTAL_REDIRECT_URL   = var.custom_domain_name != null ? "https://${var.custom_domain_name}" : "https://${aws_amplify_branch.develop.branch_name}.${aws_amplify_app.threat-designer.default_domain}"
+      TRUSTED_ORIGINS       = var.custom_domain_name != null ? "https://${var.custom_domain_name}, http://localhost:5173" : "https://${aws_amplify_branch.develop.branch_name}.${aws_amplify_app.threat-designer.default_domain}, http://localhost:5173"
       THREAT_MODELING_AGENT = aws_bedrockagentcore_agent_runtime.threat_designer.agent_runtime_arn,
       AGENT_STATE_TABLE     = aws_dynamodb_table.threat_designer_state.id,
       BACKUP_TABLE          = aws_dynamodb_table.threat_designer_backup.id,

@@ -417,8 +417,6 @@ variable "openai_model_summary" {
   }
 }
 
-
-
 variable "tavily_api_key" {
   type        = string
   description = "Tavily API key for web search and content extraction (optional)"
@@ -435,5 +433,18 @@ variable "kb_embedding_model_id" {
 variable "custom_domain_name" {
   type        = string
   description = "Optional custom domain name to associate with the Amplify app (e.g. app.example.com). If not provided, the default Amplify-generated URL is used."
+variable "prefix" {
+  type        = string
+  description = "Optional prefix to prepend to all resource names, enabling multiple independent deployments in the same AWS account. If not provided, resources are named with the default 'threat-designer' prefix."
+
+variable "api_gateway_waf_arn" {
+  type        = string
+  description = "ARN of an existing WAF Web ACL (REGIONAL scope) to associate with the API Gateway stage. If not provided, no WAF is attached."
+  default     = null
+}
+
+variable "amplify_waf_arn" {
+  type        = string
+  description = "ARN of an existing WAF Web ACL (CLOUDFRONT scope) to associate with the Amplify app. If not provided, no WAF is attached."
   default     = null
 }

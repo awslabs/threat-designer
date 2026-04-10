@@ -1,5 +1,5 @@
 locals {
-  prefix                = "threat-designer"
+  prefix                = var.prefix != null ? "${var.prefix}-threat-designer" : "threat-designer"
   lambda_src_path       = "../backend/app"
   building_path         = "./build/"
   api_lambda_invoke_url = "arn:aws:apigateway:${var.region}:lambda:path/2015-03-31/functions/${aws_lambda_alias.backend.arn}/invocations"

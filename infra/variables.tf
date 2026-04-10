@@ -430,6 +430,28 @@ variable "kb_embedding_model_id" {
   default     = "amazon.titan-embed-text-v2:0"
 }
 
+variable "external_agent_ecr_arn" {
+  type        = string
+  description = "ARN of an external ECR repository containing the threat designer agent image. When set, skips local ECR creation and docker build."
+  default     = ""
+}
+
+variable "external_sentry_ecr_arn" {
+  type        = string
+  description = "ARN of an external ECR repository containing the sentry assistant image. When set, skips local ECR creation and docker build."
+  default     = ""
+}
+
+variable "agent_image_tag" {
+  type        = string
+  description = "Image tag to use for the threat designer agent container."
+  default     = "latest"
+}
+
+variable "sentry_image_tag" {
+  type        = string
+  description = "Image tag to use for the sentry assistant container."
+  default     = "latest"
 variable "custom_domain_name" {
   type        = string
   description = "Optional custom domain name to associate with the Amplify app (e.g. app.example.com). If not provided, the default Amplify-generated URL is used."

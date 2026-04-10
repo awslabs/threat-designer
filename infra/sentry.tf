@@ -35,7 +35,7 @@ resource "aws_bedrockagentcore_agent_runtime" "sentry" {
   }
   agent_runtime_artifact {
     container_configuration {
-      container_uri = "${aws_ecr_repository.sentry[0].repository_url}:latest"
+      container_uri = local.sentry_container_uri
     }
   }
   network_configuration {
@@ -53,7 +53,7 @@ resource "aws_bedrockagentcore_agent_runtime" "sentry" {
 
 
 resource "aws_ecr_repository" "sentry" {
-  count                = var.enable_sentry ? 1 : 0
+  count                = var.enable_sentry && !local.use_external_sentry_ecr ? 1 : 0
   name                 = "${local.prefix}-sentry"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
@@ -64,7 +64,7 @@ resource "aws_ecr_repository" "sentry" {
 }
 
 resource "null_resource" "docker_build_push" {
-  count      = var.enable_sentry ? 1 : 0
+  count      = var.enable_sentry && !local.use_external_sentry_ecr ? 1 : 0
   depends_on = [aws_ecr_repository.sentry]
 
   triggers = {
@@ -135,7 +135,7 @@ resource "aws_iam_role_policy" "agent_core_policy" {
           "ecr:GetDownloadUrlForLayer"
         ],
         "Resource" : [
-          "${aws_ecr_repository.sentry[0].arn}"
+          "${local.sentry_ecr_arn}"
         ]
       },
       {

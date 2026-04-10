@@ -1,12 +1,12 @@
 
-langgraph==1.0.10
-langchain-aws==1.3.0
-langchain-openai==1.1.7
+langgraph==1.1.6
+langchain-aws==1.4.3
+langchain-openai==1.1.12
 langchain-tavily>=0.2.16
-langgraph-checkpoint-aws==1.0.5
-langchain-mcp-adapters==0.2.1
-uv==0.9.6
-uvicorn[standard]==0.37.0
+langgraph-checkpoint-aws==1.0.6
+langchain-mcp-adapters==0.2.2
+uv==0.11.6
+uvicorn[standard]==0.44.0
 fastapi==0.116.1
 httpx==0.28.1
 PyJWT==2.12.0

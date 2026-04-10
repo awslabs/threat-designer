@@ -2,7 +2,7 @@ langgraph==1.1.6
 langchain-aws==1.4.3
 langchain-openai==1.1.12
 langchain==1.2.15
-uv==0.9.6
+uv==0.11.6
 uvicorn[standard]==0.37.0
 fastapi==0.116.1
 httpx==0.28.1

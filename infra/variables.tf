@@ -452,12 +452,19 @@ variable "sentry_image_tag" {
   type        = string
   description = "Image tag to use for the sentry assistant container."
   default     = "latest"
+}
+
 variable "custom_domain_name" {
   type        = string
   description = "Optional custom domain name to associate with the Amplify app (e.g. app.example.com). If not provided, the default Amplify-generated URL is used."
+  default     = null
+}
+
 variable "prefix" {
   type        = string
   description = "Optional prefix to prepend to all resource names, enabling multiple independent deployments in the same AWS account. If not provided, resources are named with the default 'threat-designer' prefix."
+  default     = null
+}
 
 variable "api_gateway_waf_arn" {
   type        = string

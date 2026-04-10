@@ -13,7 +13,7 @@ locals {
     "http://localhost:3000",
     "https://${aws_amplify_branch.develop.branch_name}.${aws_amplify_app.threat-designer.default_domain}",
     "http://localhost:5173"
-  ]
+  ], var.custom_domain_name != null ? ["https://${var.custom_domain_name}"] : [])
 
   use_external_agent_ecr  = var.external_agent_ecr_arn != ""
   use_external_sentry_ecr = var.external_sentry_ecr_arn != ""
@@ -27,5 +27,4 @@ locals {
 
   agent_ecr_arn  = local.use_external_agent_ecr ? var.external_agent_ecr_arn : aws_ecr_repository.threat-designer[0].arn
   sentry_ecr_arn = local.use_external_sentry_ecr ? var.external_sentry_ecr_arn : aws_ecr_repository.sentry[0].arn
-  ], var.custom_domain_name != null ? ["https://${var.custom_domain_name}"] : [])
 }

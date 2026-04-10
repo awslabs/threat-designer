@@ -9,9 +9,9 @@ locals {
   environment           = var.env
   powertools_layer_arn  = "arn:aws:lambda:${var.region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-${var.python_layer}-x86_64:25"
   python_version        = "python${var.python_runtime}"
-  allowed_origins = [
+  allowed_origins = concat([
     "http://localhost:3000",
     "https://${aws_amplify_branch.develop.branch_name}.${aws_amplify_app.threat-designer.default_domain}",
     "http://localhost:5173"
-  ]
+  ], var.custom_domain_name != null ? ["https://${var.custom_domain_name}"] : [])
 }

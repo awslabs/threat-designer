@@ -58,8 +58,14 @@ resource "aws_cognito_user_pool_client" "client" {
   allowed_oauth_scopes                 = ["email", "openid", "profile"]
 
   # Using your specific Amplify app domain
-  callback_urls = ["https://${aws_amplify_branch.develop.branch_name}.${aws_amplify_app.threat-designer.default_domain}"]
-  logout_urls   = ["https://${aws_amplify_branch.develop.branch_name}.${aws_amplify_app.threat-designer.default_domain}"]
+  callback_urls = concat(
+    ["https://${aws_amplify_branch.develop.branch_name}.${aws_amplify_app.threat-designer.default_domain}"],
+    var.custom_domain_name != null ? ["https://${var.custom_domain_name}"] : []
+  )
+  logout_urls = concat(
+    ["https://${aws_amplify_branch.develop.branch_name}.${aws_amplify_app.threat-designer.default_domain}"],
+    var.custom_domain_name != null ? ["https://${var.custom_domain_name}"] : []
+  )
 
   explicit_auth_flows = [
     "ALLOW_USER_SRP_AUTH",

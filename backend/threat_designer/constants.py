@@ -301,7 +301,6 @@ WORKFLOW_NODE_FLOWS = "flows"
 WORKFLOW_NODE_THREATS_TRADITIONAL = "threats_traditional"
 WORKFLOW_NODE_THREATS_AGENTIC = "threats_agentic"
 WORKFLOW_NODE_VERSION_DIFF = "version_diff"
-WORKFLOW_NODE_VERSION_AGENT = "version_agent"
 WORKFLOW_NODE_FINALIZE = "finalize"
 
 # Space context knowledge base query budget

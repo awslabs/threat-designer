@@ -758,37 +758,12 @@ def create_version_agent_system_prompt() -> SystemMessage:
 
 ---
 
-### Task Sequence
-
-Complete all four tasks in strict order. A task's tools become available only after it is set IN_PROGRESS; the next task unlocks only after the current is COMPLETE.
-
-1. **Assets** — update assets and entities to match the new architecture
-2. **Data Flows** — update data flows between components
-3. **Trust Boundaries** — update trust boundaries
-4. **Threats** — update threats to reflect the changed attack surface
-
----
-
 ### Execution Rules
 
-- Call `update_task_status` alone — never in parallel with other tools.
-- Set a section IN_PROGRESS before working on it; mark it COMPLETE when done, even if no changes were needed.
 - To modify an existing item: DELETE it first, then CREATE the updated version.
 - The `source` field on threats is immutable.
 - When creating items, maintain internal consistency (e.g., data flow entities must exactly match asset names).
-
----
-
-### Tool Gating
-
-- `update_task_status` must always be called in isolation.
-- `read_current_state` may be called at any time to verify state before or after changes.
-- Section tools unlock based on task status:
-  - `create_assets` / `delete_assets` → assets IN_PROGRESS
-  - `create_data_flows` / `delete_data_flows` → data_flows IN_PROGRESS
-  - `create_trust_boundaries` / `delete_trust_boundaries` → trust_boundaries IN_PROGRESS
-  - `create_threats` / `delete_threats` → threats IN_PROGRESS
-- After any create/delete call, confirm: what changed, which section, any consistency checks needed.
+- After any create/delete call, confirm what changed and whether a consistency check is needed.
 
 ---
 

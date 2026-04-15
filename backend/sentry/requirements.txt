@@ -5,6 +5,7 @@ langchain-openai==1.1.12
 langchain-tavily>=0.2.16
 langgraph-checkpoint-aws==1.0.6
 langchain-mcp-adapters==0.2.2
+langchain-task-steering>=0.1.6
 uv==0.11.6
 uvicorn[standard]==0.44.0
 fastapi==0.116.1

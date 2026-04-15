@@ -37,7 +37,6 @@ from state import (
     FlowsList,
     SpaceInsightsList,
     ThreatsList,
-    TaskStatus,
 )
 from utils import fetch_results, parse_s3_image_to_base64, update_job_state
 from workflow import ConfigSchema, agent
@@ -326,12 +325,6 @@ def _handle_version_state(
                 "application_type": item.get("application_type", "hybrid"),
                 "space_id": item.get("space_id") or None,
                 "space_insights": space_insights,
-                "version_tasks": {
-                    "assets": TaskStatus.PENDING,
-                    "data_flows": TaskStatus.PENDING,
-                    "trust_boundaries": TaskStatus.PENDING,
-                    "threats": TaskStatus.PENDING,
-                },
             }
         )
 

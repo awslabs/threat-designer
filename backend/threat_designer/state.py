@@ -6,8 +6,6 @@ from datetime import datetime
 from langgraph.graph import MessagesState
 from typing import Annotated, List, Literal, Optional, TypedDict
 
-from enum import Enum
-
 from constants import (
     MITIGATION_MAX_ITEMS,
     MITIGATION_MIN_ITEMS,
@@ -33,23 +31,6 @@ class ConfigSchema(TypedDict):
     model_space_context: ChatBedrockConverse
     start_time: datetime
     reasoning: bool
-
-
-class TaskStatus(str, Enum):
-    """Status of a version task section."""
-
-    PENDING = "pending"
-    IN_PROGRESS = "in_progress"
-    COMPLETE = "complete"
-
-
-class VersionTasks(TypedDict):
-    """Task checklist for version workflow sections."""
-
-    assets: TaskStatus
-    data_flows: TaskStatus
-    trust_boundaries: TaskStatus
-    threats: TaskStatus
 
 
 class VersionDiffResult(BaseModel):
@@ -445,7 +426,6 @@ class AgentState(TypedDict):
     version: Optional[bool] = False
     architecture_diff: Optional[str] = None
     previous_image_data: Optional[str] = None
-    version_tasks: Optional[VersionTasks] = None
     parent_id: Optional[str] = None
     mirror_attack_trees: Optional[bool] = False
 
@@ -553,13 +533,16 @@ class VersionState(MessagesState):
     job_id: Optional[str] = None
     architecture_diff: Optional[str] = None
     version_proceed: Optional[bool] = True
-    version_tasks: Optional[VersionTasks] = None
     image_data: Optional[str] = None
     image_type: Optional[str] = None
     previous_image_data: Optional[str] = None
     application_type: Optional[str] = "hybrid"
     space_insights: Optional[SpaceInsightsList] = None
     trail_msg_idx: Optional[int] = 0
+    # Task steering middleware fields
+    task_statuses: Optional[dict] = None
+    task_message_starts: Optional[dict] = None
+    nudge_count: Optional[int] = 0
 
 
 class SpaceContextState(MessagesState):

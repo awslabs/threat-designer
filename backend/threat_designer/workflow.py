@@ -8,7 +8,6 @@ from config import ThreatModelingConfig, config
 from constants import (
     WORKFLOW_NODE_ASSET,
     WORKFLOW_NODE_VERSION_DIFF,
-    WORKFLOW_NODE_VERSION_AGENT,
     WORKFLOW_NODE_FINALIZE,
     WORKFLOW_NODE_FLOWS,
     WORKFLOW_NODE_IMAGE_TO_BASE64,

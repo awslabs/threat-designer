@@ -25,7 +25,6 @@ from constants import (
     ENV_MODEL_PROVIDER,
     ENV_MODEL_STRUCT,
     ENV_MODEL_SUMMARY,
-    ENV_MODELS_SUPPORTING_MAX,
     ENV_OPENAI_API_KEY,
     ENV_REGION,
     MODEL_PROVIDER_BEDROCK,
@@ -73,7 +72,6 @@ class ModelConfigurations:
     struct_model: ModelConfig
     summary_model: ModelConfig
     adaptive_thinking_models: list[str]
-    models_supporting_max: list[str]
 
 
 @functools.lru_cache(maxsize=None)
@@ -103,9 +101,6 @@ def _load_model_configs() -> ModelConfigurations:
         summary_model = json.loads(os.environ.get(ENV_MODEL_SUMMARY, "{}"))
         adaptive_thinking_models = json.loads(
             os.environ.get(ENV_ADAPTIVE_THINKING_MODELS, "[]")
-        )
-        models_supporting_max = json.loads(
-            os.environ.get(ENV_MODELS_SUPPORTING_MAX, "[]")
         )
 
         # Validate required configurations
@@ -163,7 +158,6 @@ def _load_model_configs() -> ModelConfigurations:
             struct_model_id=struct_model.get("id") if struct_model else None,
             summary_model_id=summary_model.get("id") if summary_model else None,
             adaptive_thinking_models_count=len(adaptive_thinking_models),
-            models_supporting_max_count=len(models_supporting_max),
         )
 
         return ModelConfigurations(
@@ -177,7 +171,6 @@ def _load_model_configs() -> ModelConfigurations:
             struct_model=struct_model,
             summary_model=summary_model,
             adaptive_thinking_models=adaptive_thinking_models,
-            models_supporting_max=models_supporting_max,
         )
 
     except json.JSONDecodeError as e:
@@ -224,7 +217,10 @@ def _create_bedrock_client(
 
 
 def _build_standard_model_config(
-    model_config: ModelConfig, client: boto3.client, region: str
+    model_config: ModelConfig,
+    client: boto3.client,
+    region: str,
+    adaptive_models: list[str] | None = None,
 ) -> dict:
     """
     Build standard model configuration dictionary.
@@ -233,6 +229,8 @@ def _build_standard_model_config(
         model_config: Model configuration with id and max_tokens.
         client: Bedrock runtime client.
         region: AWS region name.
+        adaptive_models: List of model IDs that use adaptive thinking
+            (temperature is deprecated for these models).
 
     Returns:
         dict: Standard model configuration.
@@ -242,9 +240,12 @@ def _build_standard_model_config(
         "region_name": region,
         "max_tokens": model_config["max_tokens"],
         "model_id": model_config["id"],
-        "temperature": MODEL_TEMPERATURE_DEFAULT,
         "stop": STOP_SEQUENCES,
     }
+
+    # Adaptive models (e.g. Opus 4.7) don't support the temperature parameter
+    if not adaptive_models or model_config["id"] not in adaptive_models:
+        config["temperature"] = MODEL_TEMPERATURE_DEFAULT
 
     logger.debug(
         "Standard model config built",
@@ -304,6 +305,9 @@ def _build_adaptive_model_config(
     Build configuration dictionary for adaptive thinking models (e.g., Claude Opus 4.6).
 
     Uses effort-level-based parameters instead of token budgets.
+    If the model config includes an ``effort_map``, it is used to resolve the
+    effort string for the given reasoning level.  Otherwise falls back to the
+    global ``ADAPTIVE_EFFORT_MAP``.
 
     Args:
         model_config: Model configuration with id and max_tokens.
@@ -314,15 +318,20 @@ def _build_adaptive_model_config(
     Returns:
         dict: Model configuration with adaptive thinking parameters if reasoning > 0.
     """
-    config = _build_standard_model_config(model_config, client, region)
+    # Pass model ID as adaptive so temperature is omitted
+    config = _build_standard_model_config(
+        model_config, client, region, adaptive_models=[model_config["id"]]
+    )
 
     if reasoning != 0:
-        effort = ADAPTIVE_EFFORT_MAP.get(reasoning, "low")
+        # Per-model effort_map takes precedence over the global default
+        effort_map = model_config.get("effort_map") or ADAPTIVE_EFFORT_MAP
+        # Keys coming from JSON env vars are strings
+        effort = effort_map.get(str(reasoning)) or effort_map.get(reasoning, "low")
         config["additional_model_request_fields"] = {
-            "thinking": {"type": ADAPTIVE_THINKING_TYPE},
+            "thinking": {"type": ADAPTIVE_THINKING_TYPE, "display": "summarized"},
             "output_config": {"effort": effort},
         }
-        config["temperature"] = MODEL_TEMPERATURE_REASONING
 
         logger.debug(
             "Adaptive thinking enabled for model",
@@ -374,25 +383,12 @@ def _initialize_bedrock_models(
 
         def _build_config_for_model(model_config: ModelConfig) -> dict:
             """Build the appropriate config based on whether the model is adaptive."""
-            nonlocal reasoning
-            # Cap level 4 (Max) to 3 (High) if model doesn't support Max
-            effective_reasoning = reasoning
-            if (
-                reasoning == 4
-                and model_config["id"] not in configs.models_supporting_max
-            ):
-                effective_reasoning = 3
-                logger.debug(
-                    "Capping reasoning from Max to High - model not in models_supporting_max",
-                    model_id=model_config["id"],
-                )
-
             if model_config["id"] in configs.adaptive_thinking_models:
                 return _build_adaptive_model_config(
-                    model_config, effective_reasoning, client, region
+                    model_config, reasoning, client, region
                 )
             else:
-                budget_key = str(effective_reasoning)
+                budget_key = str(reasoning)
                 budget = model_config.get("reasoning_budget", {}).get(
                     budget_key, model_config.get("reasoning_budget", {}).get(str(3), 0)
                 )
@@ -405,15 +401,16 @@ def _initialize_bedrock_models(
         gaps_config = _build_config_for_model(configs.gaps_model)
         attack_tree_config = _build_config_for_model(configs.attack_tree_model)
         version_config = _build_config_for_model(configs.version_model)
+        adaptive = configs.adaptive_thinking_models
         version_diff_config = _build_standard_model_config(
-            configs.version_model, client, region
+            configs.version_model, client, region, adaptive
         )
 
         struct_config = _build_standard_model_config(
-            configs.struct_model, client, region
+            configs.struct_model, client, region, adaptive
         )
         summary_config = _build_standard_model_config(
-            configs.summary_model, client, region
+            configs.summary_model, client, region, adaptive
         )
 
         # Initialize models

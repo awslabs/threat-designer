@@ -48,8 +48,9 @@ REASONING_CONFIG = _parse_reasoning_config()
 ADAPTIVE_THINKING_MODELS = json.loads(os.environ.get("ADAPTIVE_THINKING_MODELS", "[]"))
 ADAPTIVE_EFFORT_MAP = {1: "low", 2: "medium", 3: "high", 4: "max"}
 
-# Models that support "Max" reasoning level
-MODELS_SUPPORTING_MAX = json.loads(os.environ.get("MODELS_SUPPORTING_MAX", "[]"))
+# Per-model effort map (overrides ADAPTIVE_EFFORT_MAP when set)
+_raw_effort_map = os.environ.get("EFFORT_MAP")
+EFFORT_MAP = json.loads(_raw_effort_map) if _raw_effort_map else None
 
 # OpenAI reasoning effort mapping (fallback for backward compatibility)
 OPENAI_REASONING_EFFORT_MAP = {0: "none", 1: "low", 2: "medium", 3: "high", 4: "xhigh"}
@@ -100,10 +101,6 @@ def create_model_config(budget_level: int = 1) -> dict:
 
 def _create_bedrock_model_config(budget_level: int = 1) -> dict:
     """Create Bedrock model configuration based on budget level"""
-    # Cap level 4 (Max) to 3 (High) if model doesn't support Max
-    if budget_level == 4 and MODEL_ID not in MODELS_SUPPORTING_MAX:
-        budget_level = 3
-
     base_config = {
         "max_tokens": MAX_TOKENS,
         "model_id": MODEL_ID,
@@ -117,9 +114,12 @@ def _create_bedrock_model_config(budget_level: int = 1) -> dict:
 
     # Check if the model supports adaptive thinking
     if MODEL_ID in ADAPTIVE_THINKING_MODELS:
-        effort = ADAPTIVE_EFFORT_MAP.get(budget_level, "low")
+        effort_map = EFFORT_MAP or ADAPTIVE_EFFORT_MAP
+        effort = effort_map.get(str(budget_level)) or effort_map.get(
+            budget_level, "low"
+        )
         base_config["additional_model_request_fields"] = {
-            "thinking": {"type": "adaptive"},
+            "thinking": {"type": "adaptive", "display": "summarized"},
             "output_config": {"effort": effort},
         }
     else:

@@ -18,8 +18,7 @@ resource "aws_bedrockagentcore_agent_runtime" "threat_designer" {
       MAIN_MODEL               = jsonencode(var.model_main),
       MODEL_STRUCT             = jsonencode(var.model_struct),
       MODEL_SUMMARY            = jsonencode(var.model_summary),
-      ADAPTIVE_THINKING_MODELS = jsonencode(var.adaptive_thinking_models),
-      MODELS_SUPPORTING_MAX   = jsonencode(var.models_supporting_max)
+      ADAPTIVE_THINKING_MODELS = jsonencode(var.adaptive_thinking_models)
     } : {},
     var.model_provider == "openai" ? {
       OPENAI_API_KEY   = var.openai_api_key,

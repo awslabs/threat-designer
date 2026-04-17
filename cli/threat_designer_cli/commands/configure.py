@@ -10,7 +10,13 @@ from rich.console import Console
 from rich.panel import Panel
 
 from ..config import CLIConfig
-from ..models import BEDROCK_MODELS, OPENAI_MODELS, REASONING_LEVELS, effort_label
+from ..models import (
+    BEDROCK_MODELS,
+    OPENAI_MODELS,
+    effort_label,
+    lookup_model,
+    reasoning_levels_for_model,
+)
 from ..styles import inquirer_style
 
 
@@ -20,11 +26,12 @@ async def configure_command(console: Console) -> None:
         console.print("[dim]Configure cancelled.[/dim]")
         return
     cfg.save()
+    model_props = lookup_model(cfg.provider, cfg.model_id)
     console.print(
         Panel(
             f"[green]Provider:[/green] {cfg.provider}\n"
             f"[green]Model:[/green]    {cfg.model_name}\n"
-            f"[green]Effort:[/green]   {effort_label(cfg.reasoning_level)}",
+            f"[green]Effort:[/green]   {effort_label(cfg.reasoning_level, model_props)}",
             title="[bold green]Configuration saved[/bold green]",
             expand=False,
         )
@@ -75,7 +82,7 @@ def _run_wizard() -> Optional[CLIConfig]:
             + [Choice(_CUSTOM, name="Custom model ID...")],
             default=current.model_id
             if current.provider == "bedrock"
-            else BEDROCK_MODELS[1]["id"],
+            else BEDROCK_MODELS[0]["id"],
             style=s,
         ).execute()
 
@@ -99,9 +106,10 @@ def _run_wizard() -> Optional[CLIConfig]:
             },
         )
 
+        levels = reasoning_levels_for_model(model_props)
         reasoning = inquirer.select(
             message="Effort:",
-            choices=[Choice(r["value"], name=r["name"]) for r in REASONING_LEVELS],
+            choices=[Choice(r["value"], name=r["name"]) for r in levels],
             default=current.reasoning_level if current.provider == "bedrock" else 2,
             style=s,
         ).execute()
@@ -138,9 +146,10 @@ def _run_wizard() -> Optional[CLIConfig]:
 
         model_props = next(m for m in OPENAI_MODELS if m["id"] == model)
 
+        levels = reasoning_levels_for_model(model_props)
         reasoning = inquirer.select(
             message="Effort:",
-            choices=[Choice(r["value"], name=r["name"]) for r in REASONING_LEVELS],
+            choices=[Choice(r["value"], name=r["name"]) for r in levels],
             default=current.reasoning_level if current.provider == "openai" else 2,
             style=s,
         ).execute()

@@ -158,11 +158,12 @@ def _print_welcome(console: Console) -> None:
     configured = cfg.is_configured()
 
     if configured:
-        from .models import effort_label
+        from .models import effort_label, lookup_model
 
+        model_props = lookup_model(cfg.provider, cfg.model_id)
         status = (
             f"[#8575FF]{cfg.model_name}[/#8575FF]  |  "
-            f"Effort: [#8575FF]{effort_label(cfg.reasoning_level)}[/#8575FF]"
+            f"Effort: [#8575FF]{effort_label(cfg.reasoning_level, model_props)}[/#8575FF]"
         )
     else:
         status = "[yellow]Not configured — run /configure to get started[/yellow]"

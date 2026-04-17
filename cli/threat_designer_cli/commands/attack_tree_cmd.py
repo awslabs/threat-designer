@@ -17,6 +17,14 @@ from ..storage import get_model, list_models, save_model
 from ..styles import ACTIVE_COLOR, inquirer_style
 
 
+def _fmt_tokens(n: int) -> str:
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n / 1_000:.1f}K"
+    return str(n)
+
+
 async def _run_attack_tree_loop(
     console: Console,
     cfg: CLIConfig,
@@ -62,43 +70,60 @@ async def _run_attack_tree_loop(
         thread = threading.Thread(target=worker, daemon=True)
         thread.start()
 
-        spinner = Spinner("dots", style=ACTIVE_COLOR)
-        _text_generating = Text(" Generating attack tree", style=ACTIVE_COLOR)
-        _text_cancel = Text(" Press Ctrl+C again to cancel", style="yellow")
         cancel_count = {"n": 0}
-        with Live(console=console, refresh_per_second=12) as live:
+        prev_snapshot: tuple = ()
+        spinner = Spinner(
+            "dots", text=Text(" Initializing", style=ACTIVE_COLOR), style=ACTIVE_COLOR
+        )
+        with Live(spinner, console=console, refresh_per_second=8) as live:
             while not result_holder["done"]:
                 try:
-                    if cancel_count["n"] == 0:
-                        spinner.text = _text_generating
-                    log_lines = [
-                        Text(f"   \u2514 {entry}", style="dim") for entry in tool_log
-                    ]
-                    live.update(Group(spinner, *log_lines))
-                    await asyncio.sleep(0.083)
+                    if cancel_count["n"] > 0:
+                        spinner.text = Text(
+                            " Press Ctrl+C again to cancel", style="yellow"
+                        )
+                    elif tool_log:
+                        spinner.text = Text(f" {tool_log[-1]}", style=ACTIVE_COLOR)
+                    snapshot = (len(tool_log), cancel_count["n"])
+                    if snapshot != prev_snapshot:
+                        prev_snapshot = snapshot
+                        items: list = [spinner]
+                        for entry in tool_log:
+                            items.append(Text(f"   \u2514 {entry}", style="dim"))
+                        live.update(Group(*items))
+                    await asyncio.sleep(0.15)
                 except (KeyboardInterrupt, asyncio.CancelledError):
                     cancel_count["n"] += 1
-                    if cancel_count["n"] == 1:
-                        spinner.text = _text_cancel
-                    else:
+                    if cancel_count["n"] >= 2:
                         stop_event.set()
                         result_holder["cancelled"] = True
                         result_holder["done"] = True
                         break
+            # Final static frame
             if not result_holder["cancelled"]:
                 header = Text()
                 if result_holder["tree"]:
                     node_count = len(result_holder["tree"].get("nodes", []))
+                    usage = result_holder["tree"].get("token_usage")
                     header.append("●  ", style="bold green")
                     header.append("Generated attack tree", style="white")
                     header.append(f"  {node_count} nodes", style="dim")
+                    if usage:
+                        header.append(
+                            f"  (In: {_fmt_tokens(usage['input_tokens'])}"
+                            f"  Out: {_fmt_tokens(usage['output_tokens'])})",
+                            style="dim",
+                        )
                 elif result_holder["error"]:
                     header.append("●  ", style="bold red")
                     header.append("Failed", style="white")
-                log_lines = [
-                    Text(f"   \u2514 {entry}", style="dim") for entry in tool_log
-                ]
-                live.update(Group(header, *log_lines))
+                else:
+                    header.append("●  ", style="bold red")
+                    header.append("No result", style="white")
+                items = [header]
+                for entry in tool_log:
+                    items.append(Text(f"   \u2514 {entry}", style="dim"))
+                live.update(Group(*items))
         thread.join(timeout=2)
 
         if result_holder["cancelled"]:
@@ -106,9 +131,9 @@ async def _run_attack_tree_loop(
             model_data["attack_trees"] = attack_trees
             return True
 
-        if result_holder["error"] and not result_holder["tree"]:
-            console.print(f"[red]Failed:[/red] {result_holder['error']}")
-        elif result_holder["tree"]:
+        if result_holder["error"]:
+            console.print(f"[red]Error:[/red] {result_holder['error']}")
+        if result_holder["tree"]:
             attack_trees[threat_name] = result_holder["tree"]
 
     model_data["attack_trees"] = attack_trees
@@ -148,6 +173,37 @@ async def attack_tree_command(console: Console, model_id: str = "") -> None:
     cancelled = await _run_attack_tree_loop(console, cfg, model_data, selected)
 
     if not cancelled and model_data.get("attack_trees"):
+        # Aggregate token usage across all generated trees
+        totals = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_read": 0,
+            "cache_create": 0,
+            "calls": 0,
+        }
+        for tree in model_data["attack_trees"].values():
+            u = tree.get("token_usage")
+            if u:
+                totals["input_tokens"] += u.get("input_tokens", 0)
+                totals["output_tokens"] += u.get("output_tokens", 0)
+                totals["cache_read"] += u.get("cache_read_input_tokens", 0)
+                totals["cache_create"] += u.get("cache_creation_input_tokens", 0)
+                totals["calls"] += u.get("total_calls", 0)
+        if totals["input_tokens"] or totals["output_tokens"]:
+            parts = [
+                f"In: [bold]{_fmt_tokens(totals['input_tokens'])}[/bold]",
+                f"Out: [bold]{_fmt_tokens(totals['output_tokens'])}[/bold]",
+            ]
+            if totals["cache_read"] or totals["cache_create"]:
+                parts.append(
+                    f"Cache read: [bold]{_fmt_tokens(totals['cache_read'])}[/bold]"
+                )
+                parts.append(
+                    f"Cache write: [bold]{_fmt_tokens(totals['cache_create'])}[/bold]"
+                )
+            parts.append(f"Calls: [bold]{totals['calls']}[/bold]")
+            console.print(f"\n  Tokens: {' | '.join(parts)}")
+
         save_model(model_data)
         console.print(
             f"\n[green]Saved![/green] Use [bold]/export {model_id_selected}[/bold] "

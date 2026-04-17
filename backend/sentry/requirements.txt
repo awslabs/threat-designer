@@ -1,7 +1,7 @@
 
 langgraph==1.1.6
 langchain-aws==1.4.3
-langchain-openai==1.1.12
+langchain-openai==1.1.14
 langchain-tavily>=0.2.16
 langgraph-checkpoint-aws==1.0.6
 langchain-mcp-adapters==0.2.2

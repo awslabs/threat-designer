@@ -24,8 +24,8 @@ from rich.text import Text
 
 from ..config import CLIConfig
 from ..formatters import apply_threat_filters, format_threats_markdown
-from ..models import effort_label
-from ..runner.pipeline import run_workflow
+from ..models import effort_label, lookup_model, reasoning_levels_for_model
+from ..runner.pipeline import run_pipeline, to_model_format, TASK_LABELS
 from ..storage import get_model, save_model
 from ..styles import (
     ACTIVE_COLOR,
@@ -34,7 +34,15 @@ from ..styles import (
     fmt_duration,
 )
 
-_EFFORT_MAP = {"off": 0, "low": 1, "medium": 2, "high": 3, "max": 4}
+_EFFORT_CHOICES = ["off", "low", "medium", "high", "xhigh", "max"]
+
+
+def _effort_to_level(effort: str, model_props: dict | None) -> int:
+    """Resolve a CLI effort string (off/low/.../max) to the reasoning level for this model."""
+    for lvl in reasoning_levels_for_model(model_props):
+        if lvl["effort"] == effort:
+            return lvl["value"]
+    raise ValueError(f"Model does not support effort '{effort}'")
 
 
 def _parse_args(argv: list) -> argparse.Namespace:
@@ -64,9 +72,9 @@ def _parse_args(argv: list) -> argparse.Namespace:
     )
     p.add_argument(
         "--effort",
-        choices=list(_EFFORT_MAP),
+        choices=_EFFORT_CHOICES,
         default=None,
-        help="Override configured effort level (off/low/medium/high/max)",
+        help="Override configured effort level (off/low/medium/high/xhigh/max — availability varies by model)",
     )
     p.add_argument(
         "--iterations",
@@ -118,7 +126,14 @@ async def run_headless(argv: list) -> None:
     args.app_type = _APP_TYPE_MAP[args.app_type]
 
     if args.effort is not None:
-        cfg = cfg.model_copy(update={"reasoning_level": _EFFORT_MAP[args.effort]})
+        model_props = lookup_model(cfg.provider, cfg.model_id)
+        try:
+            cfg = cfg.model_copy(
+                update={"reasoning_level": _effort_to_level(args.effort, model_props)}
+            )
+        except ValueError as exc:
+            sys.stderr.write(f"error: {exc}\n")
+            sys.exit(1)
 
     # All display goes to stderr — stdout is reserved for the job ID
     err = Console(stderr=True)
@@ -127,10 +142,11 @@ async def run_headless(argv: list) -> None:
     sys.stderr.write("\033]0;Threat Designer\007")
     sys.stderr.flush()
 
+    model_props = lookup_model(cfg.provider, cfg.model_id)
     job_id = str(uuid.uuid4())[:8]
     err.print(
         f"\n[cyan]{job_id}[/cyan] — [bold]{args.name}[/bold]\n"
-        f"Model: {cfg.model_name}  |  Effort: {effort_label(cfg.reasoning_level)}"
+        f"Model: {cfg.model_name}  |  Effort: {effort_label(cfg.reasoning_level, model_props)}"
         f"  |  Iterations: {args.iterations}\n"
     )
 
@@ -138,6 +154,7 @@ async def run_headless(argv: list) -> None:
 
     completed: list = []
     event_log: list = []
+    task_statuses: dict = {}
     current = {"label": "Initializing", "start": time.monotonic()}
     error_holder: dict = {"error": None}
     done = {"value": False}
@@ -168,21 +185,45 @@ async def run_headless(argv: list) -> None:
                 return
         event_log.append(label)
 
+    def on_pipeline_event(event_type: str, detail: str) -> None:
+        if event_type == "task" and " -> " in detail:
+            task_name, status = detail.split(" -> ", 1)
+            task_statuses[task_name] = status
+            if status == "in_progress":
+                label = TASK_LABELS.get(task_name, task_name.replace("_", " ").title())
+                on_progress(label)
+        elif event_type == "tool":
+            _on_event(detail)
+
     def worker() -> None:
         try:
-            run_workflow(
-                name=args.name,
+            result = run_pipeline(
+                image_path=args.image,
                 description=args.description,
                 assumptions=args.assumptions,
-                image_path=args.image,
+                model_id=cfg.model_id,
+                region=cfg.aws_region,
+                reasoning_effort=effort_label(cfg.reasoning_level, model_props),
+                application_type=args.app_type,
                 iteration=args.iterations,
-                app_type=args.app_type,
-                cfg=cfg,
-                job_id=job_id,
-                on_progress=on_progress,
-                on_event=_on_event,
+                on_event=on_pipeline_event,
+                aws_profile=cfg.aws_profile,
                 stop_event=stop_event,
+                provider=cfg.provider,
+                openai_api_key=cfg.effective_openai_key(),
             )
+            if not (stop_event and stop_event.is_set()):
+                on_progress("Complete")
+                model = to_model_format(
+                    result,
+                    job_id=job_id,
+                    name=args.name,
+                    description=args.description,
+                    assumptions=args.assumptions,
+                    app_type=args.app_type,
+                    image_path=args.image,
+                )
+                save_model(model)
         except BaseException as exc:
             error_holder["error"] = exc
         finally:
@@ -191,25 +232,36 @@ async def run_headless(argv: list) -> None:
     thread = _threading.Thread(target=worker, daemon=True)
     thread.start()
 
-    from .create import _render  # deferred to avoid circular import
+    from .create import _render, _render_task_bar  # deferred to avoid circular import
 
     spinner = Spinner("dots", style=ACTIVE_COLOR)
     cancel_count = {"n": 0}
+    prev_snapshot: tuple = ()
 
     if is_tty:
-        with Live(console=err, refresh_per_second=12) as live:
+        with Live(spinner, console=err, refresh_per_second=8) as live:
             while not done["value"]:
                 try:
-                    live.update(
-                        _render(
-                            completed,
-                            current["label"],
-                            spinner,
-                            event_log,
-                            cancel_count["n"] > 0,
-                        )
+                    snapshot = (
+                        len(completed),
+                        current["label"],
+                        len(event_log),
+                        cancel_count["n"],
+                        tuple(task_statuses.items()),
                     )
-                    await asyncio.sleep(0.083)
+                    if snapshot != prev_snapshot:
+                        prev_snapshot = snapshot
+                        live.update(
+                            _render(
+                                completed,
+                                current["label"],
+                                spinner,
+                                event_log,
+                                cancel_count["n"] > 0,
+                                task_statuses,
+                            ),
+                        )
+                    await asyncio.sleep(0.15)
                 except (KeyboardInterrupt, asyncio.CancelledError):
                     cancel_count["n"] += 1
                     if cancel_count["n"] == 1:
@@ -221,6 +273,12 @@ async def run_headless(argv: list) -> None:
                         done["value"] = True
                         break
             # Final static frame
+            from rich.console import Group
+
+            final_items: list = []
+            if task_statuses:
+                final_items.append(_render_task_bar(task_statuses))
+                final_items.append(Text(""))
             final = Text()
             for idx, (label, duration, *rest) in enumerate(completed):
                 events = rest[0] if rest else []
@@ -236,7 +294,8 @@ async def run_headless(argv: list) -> None:
                     final.append("\n")
                 final.append("●  ", style=_DONE_COLOR)
                 final.append("Complete", style="white")
-            live.update(final)
+            final_items.append(final)
+            live.update(Group(*final_items))
     else:
         while not done["value"]:
             await asyncio.sleep(0.5)

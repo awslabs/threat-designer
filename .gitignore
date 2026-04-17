@@ -46,6 +46,7 @@ __pycache__
 .eggs/
 package-lock.json
 cli/build
+cli/dist
 cli/threat_designer_cli.egg-info
 #
  AWS Security Agent domain verification

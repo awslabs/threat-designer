@@ -15,10 +15,13 @@ from rich.spinner import Spinner
 from rich.text import Text
 
 from ..config import CLIConfig
-from ..runner.pipeline import run_workflow
+from ..models import effort_label, lookup_model
+from ..runner.pipeline import run_pipeline, to_model_format, TASK_LABELS
+from ..storage import save_model
 from ..styles import (
     ACTIVE_COLOR,
     DONE_COLOR as _DONE_COLOR,
+    PURPLE as _PURPLE,
     TIME_COLOR as _TIME_COLOR,
     fmt_duration,
     inquirer_style,
@@ -27,6 +30,33 @@ from ..styles import (
 _LIKELIHOOD_ORDER = ["High", "Medium", "Low"]
 _LIKELIHOOD_RANK = {lk: i for i, lk in enumerate(_LIKELIHOOD_ORDER)}
 
+# Short labels for the task status bar (ordered)
+_TASK_BAR_ITEMS = [
+    ("summary", "Summary"),
+    ("assets", "Assets"),
+    ("data_flows", "Flows"),
+    ("trust_boundaries", "Boundaries"),
+    ("threat_sources", "Sources"),
+    ("threats", "Threats"),
+]
+
+
+def _render_task_bar(task_statuses: dict) -> Text:
+    """Render a compact task status bar: ● label  ● label  ..."""
+    bar = Text()
+    for i, (task_name, short_label) in enumerate(_TASK_BAR_ITEMS):
+        if i:
+            bar.append("  ")
+        status = task_statuses.get(task_name, "pending")
+        if status == "complete":
+            bar.append("●", style="bold green")
+        elif status == "in_progress":
+            bar.append("●", style=f"bold {_PURPLE}")
+        else:
+            bar.append("●", style="dim")
+        bar.append(f" {short_label}", style="white" if status != "pending" else "dim")
+    return bar
+
 
 def _render(
     completed: list,
@@ -34,8 +64,12 @@ def _render(
     spinner: Spinner,
     event_log: Optional[list] = None,
     cancel_pending: bool = False,
+    task_statuses: Optional[dict] = None,
 ) -> Group:
     items = []
+    if task_statuses:
+        items.append(_render_task_bar(task_statuses))
+        items.append(Text(""))
     for label, duration, *rest in completed:
         events = rest[0] if rest else []
         t = Text()
@@ -70,17 +104,17 @@ async def create_command(console: Console) -> None:
         console.print("[dim]Cancelled.[/dim]")
         return
 
-    from ..models import effort_label
-
+    model_props = lookup_model(cfg.provider, cfg.model_id)
     job_id = str(uuid.uuid4())[:8]
     iteration_label = "Auto" if params["iteration"] == 0 else str(params["iteration"])
     console.print(
         f"\nStarting [cyan]{job_id}[/cyan] — [bold]{params['name']}[/bold]\n"
-        f"Model: {cfg.model_name}  |  Effort: {effort_label(cfg.reasoning_level)}  |  Iterations: {iteration_label}\n"
+        f"Model: {cfg.model_name}  |  Effort: {effort_label(cfg.reasoning_level, model_props)}  |  Iterations: {iteration_label}\n"
     )
 
     completed: list = []
     event_log: list = []
+    task_statuses: dict = {}
     current = {"label": "Initializing", "start": time.monotonic()}
     error_holder: dict = {"error": None}
     done = {"value": False}
@@ -106,21 +140,45 @@ async def create_command(console: Console) -> None:
                 return
         event_log.append(label)
 
+    def on_pipeline_event(event_type: str, detail: str) -> None:
+        if event_type == "task" and " -> " in detail:
+            task_name, status = detail.split(" -> ", 1)
+            task_statuses[task_name] = status
+            if status == "in_progress":
+                label = TASK_LABELS.get(task_name, task_name.replace("_", " ").title())
+                on_progress(label)
+        elif event_type == "tool":
+            _on_event(detail)
+
     def worker() -> None:
         try:
-            run_workflow(
-                name=params["name"],
+            result = run_pipeline(
+                image_path=params["image_path"],
                 description=params["description"],
                 assumptions=params["assumptions"],
-                image_path=params["image_path"],
+                model_id=cfg.model_id,
+                region=cfg.aws_region,
+                reasoning_effort=effort_label(cfg.reasoning_level, model_props),
+                application_type=params["app_type"],
                 iteration=params["iteration"],
-                app_type=params["app_type"],
-                cfg=cfg,
-                job_id=job_id,
-                on_progress=on_progress,
-                on_event=_on_event,
+                on_event=on_pipeline_event,
+                aws_profile=cfg.aws_profile,
                 stop_event=stop_event,
+                provider=cfg.provider,
+                openai_api_key=cfg.effective_openai_key(),
             )
+            if not (stop_event and stop_event.is_set()):
+                on_progress("Complete")
+                model = to_model_format(
+                    result,
+                    job_id=job_id,
+                    name=params["name"],
+                    description=params["description"],
+                    assumptions=params["assumptions"],
+                    app_type=params["app_type"],
+                    image_path=params["image_path"],
+                )
+                save_model(model)
         except BaseException as exc:
             error_holder["error"] = exc
         finally:
@@ -130,21 +188,32 @@ async def create_command(console: Console) -> None:
     thread.start()
 
     cancel_count = {"n": 0}
+    prev_snapshot: tuple = ()
 
     spinner = Spinner("dots", style=ACTIVE_COLOR)
-    with Live(console=console, refresh_per_second=12) as live:
+    with Live(spinner, console=console, refresh_per_second=8) as live:
         while not done["value"]:
             try:
-                live.update(
-                    _render(
-                        completed,
-                        current["label"],
-                        spinner,
-                        event_log,
-                        cancel_count["n"] > 0,
-                    )
+                snapshot = (
+                    len(completed),
+                    current["label"],
+                    len(event_log),
+                    cancel_count["n"],
+                    tuple(task_statuses.items()),
                 )
-                await asyncio.sleep(0.083)
+                if snapshot != prev_snapshot:
+                    prev_snapshot = snapshot
+                    live.update(
+                        _render(
+                            completed,
+                            current["label"],
+                            spinner,
+                            event_log,
+                            cancel_count["n"] > 0,
+                            task_statuses,
+                        ),
+                    )
+                await asyncio.sleep(0.15)
             except (KeyboardInterrupt, asyncio.CancelledError):
                 cancel_count["n"] += 1
                 if cancel_count["n"] == 1:
@@ -154,6 +223,10 @@ async def create_command(console: Console) -> None:
                     done["value"] = True
                     break
         # Final static frame — include all completed steps plus the terminal label
+        final_items: list = []
+        if task_statuses:
+            final_items.append(_render_task_bar(task_statuses))
+            final_items.append(Text(""))
         final = Text()
         for idx, (label, duration, *rest) in enumerate(completed):
             events = rest[0] if rest else []
@@ -169,7 +242,8 @@ async def create_command(console: Console) -> None:
                 final.append("\n")
             final.append("●  ", style=_DONE_COLOR)
             final.append("Complete", style="white")
-        live.update(final)
+        final_items.append(final)
+        live.update(Group(*final_items))
     thread.join(timeout=2)
 
     if stop_event.is_set():
@@ -187,7 +261,7 @@ async def create_command(console: Console) -> None:
         f"\n[green]Done![/green] Threat model saved as [cyan bold]{job_id}[/cyan bold]"
     )
 
-    from ..storage import get_model, save_model
+    from ..storage import get_model
 
     model = get_model(job_id)
     if model:

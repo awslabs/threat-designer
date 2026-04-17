@@ -48,14 +48,9 @@ variable "provisioned_lambda_concurrency" {
 variable "adaptive_thinking_models" {
   type        = list(string)
   description = "List of model IDs that support adaptive thinking"
-  default     = ["global.anthropic.claude-opus-4-6-v1", "global.anthropic.claude-sonnet-4-6"]
+  default     = ["global.anthropic.claude-opus-4-7", "global.anthropic.claude-opus-4-6-v1", "global.anthropic.claude-sonnet-4-6"]
 }
 
-variable "models_supporting_max" {
-  type        = list(string)
-  description = "List of model IDs that support 'Max' reasoning effort level. Models not in this list will have level 4 capped to level 3 (High)."
-  default     = ["global.anthropic.claude-opus-4-6-v1", "global.anthropic.claude-sonnet-4-6"]
-}
 
 variable "model_main" {
   type = object({
@@ -63,91 +58,128 @@ variable "model_main" {
       id               = string
       max_tokens       = number
       reasoning_budget = map(number)
+      effort_map       = optional(map(string))
     })
     flows = object({
       id               = string
       max_tokens       = number
       reasoning_budget = map(number)
+      effort_map       = optional(map(string))
     })
     gaps = object({
       id               = string
       max_tokens       = number
       reasoning_budget = map(number)
+      effort_map       = optional(map(string))
     })
     threats = object({
       id               = string
       max_tokens       = number
       reasoning_budget = map(number)
+      effort_map       = optional(map(string))
     })
     threats_agent = object({
       id               = string
       max_tokens       = number
       reasoning_budget = map(number)
+      effort_map       = optional(map(string))
     })
     attack_tree = object({
       id               = string
       max_tokens       = number
       reasoning_budget = map(number)
+      effort_map       = optional(map(string))
     })
     version = object({
       id               = string
       max_tokens       = number
       reasoning_budget = map(number)
+      effort_map       = optional(map(string))
     })
   })
   default = {
     assets = {
-      id         = "global.anthropic.claude-opus-4-6-v1"
+      id         = "global.anthropic.claude-opus-4-7"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
         "2" = 24000
         "3" = 38000
         "4" = 63999
+      }
+      effort_map = {
+        "1" = "low"
+        "2" = "medium"
+        "3" = "high"
+        "4" = "xhigh"
       }
     }
     flows = {
-      id         = "global.anthropic.claude-opus-4-6-v1"
+      id         = "global.anthropic.claude-opus-4-7"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
         "2" = 24000
         "3" = 38000
         "4" = 63999
+      }
+      effort_map = {
+        "1" = "low"
+        "2" = "medium"
+        "3" = "high"
+        "4" = "xhigh"
       }
     }
     threats = {
-      id         = "global.anthropic.claude-opus-4-6-v1"
+      id         = "global.anthropic.claude-opus-4-7"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
         "2" = 24000
         "3" = 38000
         "4" = 63999
+      }
+      effort_map = {
+        "1" = "low"
+        "2" = "medium"
+        "3" = "high"
+        "4" = "xhigh"
       }
     }
     threats_agent = {
-      id         = "global.anthropic.claude-opus-4-6-v1"
+      id         = "global.anthropic.claude-opus-4-7"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
         "2" = 24000
         "3" = 38000
         "4" = 63999
+      }
+      effort_map = {
+        "1" = "low"
+        "2" = "medium"
+        "3" = "high"
+        "4" = "xhigh"
       }
     }
     gaps = {
-      id         = "global.anthropic.claude-opus-4-6-v1"
+      id         = "global.anthropic.claude-opus-4-7"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
         "2" = 24000
         "3" = 38000
         "4" = 63999
+      }
+      effort_map = {
+        "1" = "low"
+        "2" = "medium"
+        "3" = "high"
+        "4" = "xhigh"
       }
     }
     attack_tree = {
-      id         = "global.anthropic.claude-opus-4-6-v1"
+      id         = "global.anthropic.claude-opus-4-7"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
@@ -155,15 +187,27 @@ variable "model_main" {
         "3" = 38000
         "4" = 63999
       }
+      effort_map = {
+        "1" = "low"
+        "2" = "medium"
+        "3" = "high"
+        "4" = "xhigh"
+      }
     }
     version = {
-      id         = "global.anthropic.claude-opus-4-6-v1"
+      id         = "global.anthropic.claude-opus-4-7"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
         "2" = 24000
         "3" = 38000
         "4" = 63999
+      }
+      effort_map = {
+        "1" = "low"
+        "2" = "medium"
+        "3" = "high"
+        "4" = "xhigh"
       }
     }
   }
@@ -174,15 +218,22 @@ variable "model_sentry" {
     id               = string
     max_tokens       = number
     reasoning_budget = map(number)
+    effort_map       = optional(map(string))
   })
   default = {
-      id         = "global.anthropic.claude-opus-4-6-v1"
+      id         = "global.anthropic.claude-opus-4-7"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
         "2" = 24000
         "3" = 38000
         "4" = 63999
+      }
+      effort_map = {
+        "1" = "low"
+        "2" = "medium"
+        "3" = "high"
+        "4" = "xhigh"
       }
     }
 }

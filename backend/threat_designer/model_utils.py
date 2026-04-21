@@ -216,6 +216,18 @@ def _create_bedrock_client(
         raise
 
 
+def _normalize_model_id(model_id: str) -> str:
+    """Strip cross-region inference prefix (e.g. global./us./eu./apac.) from Anthropic model IDs."""
+    idx = model_id.find("anthropic.")
+    return model_id[idx:] if idx > 0 else model_id
+
+
+def _is_adaptive_model(model_id: str, adaptive_models: list[str]) -> bool:
+    """Check membership by comparing model IDs with any regional prefix stripped."""
+    normalized = _normalize_model_id(model_id)
+    return any(_normalize_model_id(m) == normalized for m in adaptive_models)
+
+
 def _build_standard_model_config(
     model_config: ModelConfig,
     client: boto3.client,
@@ -244,7 +256,9 @@ def _build_standard_model_config(
     }
 
     # Adaptive models (e.g. Opus 4.7) don't support the temperature parameter
-    if not adaptive_models or model_config["id"] not in adaptive_models:
+    if not adaptive_models or not _is_adaptive_model(
+        model_config["id"], adaptive_models
+    ):
         config["temperature"] = MODEL_TEMPERATURE_DEFAULT
 
     logger.debug(
@@ -383,7 +397,7 @@ def _initialize_bedrock_models(
 
         def _build_config_for_model(model_config: ModelConfig) -> dict:
             """Build the appropriate config based on whether the model is adaptive."""
-            if model_config["id"] in configs.adaptive_thinking_models:
+            if _is_adaptive_model(model_config["id"], configs.adaptive_thinking_models):
                 return _build_adaptive_model_config(
                     model_config, reasoning, client, region
                 )
@@ -401,10 +415,8 @@ def _initialize_bedrock_models(
         gaps_config = _build_config_for_model(configs.gaps_model)
         attack_tree_config = _build_config_for_model(configs.attack_tree_model)
         version_config = _build_config_for_model(configs.version_model)
+        version_diff_config = _build_config_for_model(configs.version_model)
         adaptive = configs.adaptive_thinking_models
-        version_diff_config = _build_standard_model_config(
-            configs.version_model, client, region, adaptive
-        )
 
         struct_config = _build_standard_model_config(
             configs.struct_model, client, region, adaptive
@@ -594,7 +606,9 @@ def _initialize_openai_models(
                 configs.attack_tree_model, reasoning
             ),
             "version_model": _create_openai_model(configs.version_model, reasoning),
-            "version_diff_model": _create_openai_model(configs.version_model, 0),
+            "version_diff_model": _create_openai_model(
+                configs.version_model, reasoning
+            ),
             "struct_model": _create_openai_model(configs.struct_model, 0),
             "summary_model": _create_openai_model(configs.summary_model, 0),
             "space_context_model": _create_openai_model(configs.flows_model, reasoning),

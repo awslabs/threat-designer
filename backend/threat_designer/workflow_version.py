@@ -1,23 +1,31 @@
 """
-Version workflow — pure task-steered agent via ``create_agent``.
+Version workflow — standalone diff node + task-steered versioning agent.
 
-Every step (diff analysis → assets → data_flows → trust_boundaries →
-threats) is a Task driven by ``TaskSteeringMiddleware``.  If the diff
-determines the architectures are too different, ``VersionAbortMiddleware``
-terminates the loop early.
+The diff runs as its own graph node (``version_diff_node``): a single
+structured-output LLM call that either routes the graph forward to the
+versioning agent or aborts the workflow when the architectures are too
+different to update incrementally.
+
+The versioning agent itself (``version_subgraph``) then runs the
+remaining tasks — assets → data_flows → trust_boundaries → threats —
+driven by ``TaskSteeringMiddleware``, with the diff summary injected
+into its HumanMessage.
 """
 
 from typing import Annotated, List
 
 from config import config as app_config
-from constants import JobState
+from constants import (
+    JobState,
+    WORKFLOW_NODE_FINALIZE,
+    WORKFLOW_NODE_VERSION,
+)
 from langchain.agents import create_agent
-from langchain.agents.middleware import AgentMiddleware
-from langchain.agents.middleware.types import hook_config
 from langchain.tools import tool, ToolRuntime
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.runnables.config import RunnableConfig
 from langchain_task_steering import Task, TaskMiddleware, TaskSteeringMiddleware
+from langgraph.graph import END
 from langgraph.types import Command, Overwrite
 from model_service import ModelService
 from monitoring import logger
@@ -27,6 +35,7 @@ from prompt_provider import (
     version_diff_prompt,
 )
 from state import (
+    AgentState,
     AssetsList,
     DataFlowsList,
     VersionDiffResult,
@@ -80,23 +89,6 @@ class CachePointModel:
 
     def __getattr__(self, name):
         return getattr(self._model, name)
-
-
-# ============================================================================
-# VersionAbortMiddleware — early loop termination on diff abort
-# ============================================================================
-
-
-class VersionAbortMiddleware(AgentMiddleware):
-    """Checks ``version_proceed`` before each model call.  When the diff
-    task sets it to ``False``, jumps straight to ``end`` so the remaining
-    tasks are never executed."""
-
-    @hook_config(can_jump_to=["end"])
-    def before_model(self, state):
-        if state.get("version_proceed") is False:
-            return {"jump_to": "end"}
-        return None
 
 
 # ============================================================================
@@ -666,17 +658,9 @@ def _build_dynamic_threats_tool(state):
 # ============================================================================
 
 
-def _build_version_middleware(diff_tool) -> TaskSteeringMiddleware:
+def _build_version_middleware() -> TaskSteeringMiddleware:
     return TaskSteeringMiddleware(
         tasks=[
-            Task(
-                name="diff_analysis",
-                instruction="Analyze architecture changes between old and new diagrams using the analyze_architecture_diff tool.",
-                tools=[diff_tool],
-                middleware=VersionTaskMiddleware(
-                    "diff_analysis", JobState.VERSION_DIFF.value, "Architecture Diff"
-                ),
-            ),
             Task(
                 name="assets",
                 instruction="Review and update assets based on the architecture changes.",
@@ -730,7 +714,6 @@ def _build_version_middleware(diff_tool) -> TaskSteeringMiddleware:
         ],
         enforce_order=True,
         required_tasks=[
-            "diff_analysis",
             "assets",
             "data_flows",
             "trust_boundaries",
@@ -740,22 +723,29 @@ def _build_version_middleware(diff_tool) -> TaskSteeringMiddleware:
 
 
 # ============================================================================
-# version_subgraph — the only export, used as a node in the parent graph
+# Helpers — shared between the diff node and the versioning agent
 # ============================================================================
 
 
-def version_subgraph(state, config: RunnableConfig):
-    """Run the full version workflow as a task-steered agent.
+def _resolve_image_type(state) -> str:
+    raw_image_type = state.get("image_type") or "png"
+    return raw_image_type if "/" in raw_image_type else f"image/{raw_image_type}"
 
-    Added to the parent graph as a plain function node.  Returns either an
-    empty dict (abort — graph ends) or a ``Command(goto="finalize")`` with
-    the updated threat model.
+
+# ============================================================================
+# version_diff_node — standalone diff agent, runs before the versioning agent
+# ============================================================================
+
+
+def version_diff_node(state: AgentState, config: RunnableConfig) -> Command:
+    """Compare old and new architecture diagrams via a dedicated LLM call.
+
+    Routes the parent graph to either the versioning agent (``version``
+    node) or ``finalize`` when the architectures differ too much for an
+    incremental update.  Persists the diff summary to state so the
+    downstream versioning agent can reference it.
     """
     job_id = state.get("job_id", "unknown")
-
-    # ---- Extract config and image data ------------------------------------
-
-    model = CachePointModel(config["configurable"].get("model_version"))
     model_diff = config["configurable"].get("model_version_diff")
 
     old_image = state.get("previous_image_data")
@@ -766,94 +756,102 @@ def version_subgraph(state, config: RunnableConfig):
             f"new={'present' if new_image else 'MISSING'}"
         )
 
-    raw_image_type = state.get("image_type") or "png"
-    image_type = raw_image_type if "/" in raw_image_type else f"image/{raw_image_type}"
+    image_type = _resolve_image_type(state)
 
-    # ---- Diff tool (closure captures model_diff, images, config) ----------
-
-    @tool(
-        name_or_callable="analyze_architecture_diff",
-        description="Compare old and new architecture diagrams to identify changes. Must be called as the first action.",
+    state_service.update_job_state(
+        job_id, JobState.VERSION_DIFF.value, detail="Analyzing architecture diff"
     )
-    def analyze_architecture_diff(runtime: ToolRuntime) -> Command:
-        diff_messages = [
-            SystemMessage(content=version_diff_prompt()),
-            HumanMessage(
-                content=[
-                    {"type": "text", "text": "OLD architecture diagram:"},
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": image_type,
-                            "data": old_image,
-                        },
-                    },
-                    {"type": "text", "text": "NEW architecture diagram:"},
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": image_type,
-                            "data": new_image,
-                        },
-                    },
-                    {
-                        "type": "text",
-                        "text": "Describe all changes between the OLD and NEW diagrams.",
-                    },
-                ]
-            ),
-        ]
 
-        diff_result = model_diff.with_structured_output(VersionDiffResult).invoke(
-            diff_messages, config
+    diff_messages = [
+        SystemMessage(content=version_diff_prompt()),
+        HumanMessage(
+            content=[
+                {"type": "text", "text": "OLD architecture diagram:"},
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": image_type,
+                        "data": old_image,
+                    },
+                },
+                {"type": "text", "text": "NEW architecture diagram:"},
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": image_type,
+                        "data": new_image,
+                    },
+                },
+                {
+                    "type": "text",
+                    "text": "Describe all changes between the OLD and NEW diagrams.",
+                },
+            ]
+        ),
+    ]
+
+    diff_result = model_diff.with_structured_output(VersionDiffResult).invoke(
+        diff_messages, config
+    )
+    state_service.update_trail(job_id=job_id, flows=diff_result.diff)
+    logger.info(
+        "Architecture diff completed", job_id=job_id, proceed=diff_result.proceed
+    )
+
+    if not diff_result.proceed:
+        state_service.update_job_state(
+            job_id,
+            JobState.FAILED.value,
+            detail="Architecture changes are too extensive for an incremental update. Please create a new threat model instead.",
         )
-        state_service.update_trail(job_id=job_id, flows=diff_result.diff)
-        logger.info(
-            "Architecture diff completed", job_id=job_id, proceed=diff_result.proceed
+        logger.info("Version aborted — diff too extensive", job_id=job_id)
+        return Command(goto=END)
+
+    return Command(
+        goto=WORKFLOW_NODE_VERSION,
+        update={"architecture_diff": diff_result.diff},
+    )
+
+
+# ============================================================================
+# version_subgraph — task-steered versioning agent
+# ============================================================================
+
+
+def version_subgraph(state, config: RunnableConfig):
+    """Run the versioning agent over the pre-computed architecture diff.
+
+    Added to the parent graph as a plain function node.  Returns a
+    ``Command(goto="finalize")`` with the updated threat model.
+    """
+    job_id = state.get("job_id", "unknown")
+
+    # ---- Extract config and image data ------------------------------------
+
+    model = CachePointModel(config["configurable"].get("model_version"))
+
+    old_image = state.get("previous_image_data")
+    new_image = state.get("image_data")
+    if not old_image or not new_image:
+        raise ValueError(
+            f"Missing image data for version agent: old={'present' if old_image else 'MISSING'}, "
+            f"new={'present' if new_image else 'MISSING'}"
         )
 
-        if not diff_result.proceed:
-            state_service.update_job_state(
-                job_id,
-                JobState.FAILED.value,
-                detail="Architecture changes are too extensive for an incremental update. Please create a new threat model instead.",
-            )
-            return Command(
-                update={
-                    "version_proceed": False,
-                    "messages": [
-                        ToolMessage(
-                            "ABORT: Architecture changes are too extensive for incremental versioning. Pipeline terminated.",
-                            tool_call_id=runtime.tool_call_id,
-                        )
-                    ],
-                }
-            )
-
-        return Command(
-            update={
-                "version_proceed": True,
-                "architecture_diff": diff_result.diff,
-                "messages": [
-                    ToolMessage(
-                        f"Architecture diff complete. Changes identified:\n{diff_result.diff}",
-                        tool_call_id=runtime.tool_call_id,
-                    )
-                ],
-            }
-        )
+    image_type = _resolve_image_type(state)
 
     # ---- Build middleware and context message --------------------------------
 
-    middleware = _build_version_middleware(analyze_architecture_diff)
+    middleware = _build_version_middleware()
     system_prompt = create_version_agent_system_prompt()
 
     description = state.get("description", "")
     assumptions = state.get("assumptions", [])
     application_type = state.get("application_type", "hybrid")
     space_insights = state.get("space_insights")
+    architecture_diff = state.get("architecture_diff") or ""
 
     current_state_text = _format_section(state, "all")
     assumptions_text = (
@@ -868,7 +866,8 @@ def version_subgraph(state, config: RunnableConfig):
     if old_image:
         content.extend(
             [
-                {"type": "text", "text": "PREVIOUS architecture diagram:"},
+                {"type": "text", "text": "This is the PREVIOUS architecture diagram:"},
+                {"type": "text", "text": "<previous_architecture_diagram>"},
                 {
                     "type": "image",
                     "source": {
@@ -877,12 +876,14 @@ def version_subgraph(state, config: RunnableConfig):
                         "data": old_image,
                     },
                 },
+                {"type": "text", "text": "</previous_architecture_diagram>"},
             ]
         )
     if new_image:
         content.extend(
             [
                 {"type": "text", "text": "NEW architecture diagram:"},
+                {"type": "text", "text": "<new_architecture_diagram>"},
                 {
                     "type": "image",
                     "source": {
@@ -891,6 +892,7 @@ def version_subgraph(state, config: RunnableConfig):
                         "data": new_image,
                     },
                 },
+                {"type": "text", "text": "</new_architecture_diagram>"},
             ]
         )
 
@@ -918,11 +920,15 @@ Application Type: {application_type}
 {assumptions_text}
 </assumptions>
 {space_block}
+<architecture_diff>
+{architecture_diff}
+</architecture_diff>
+
 <current_threat_model>
 {current_state_text}
 </current_threat_model>
 
-Begin by calling analyze_architecture_diff to assess the changes, then update each section of the threat model accordingly.""",
+Use the architecture diff above to update each section of the threat model accordingly.""",
         }
     )
 
@@ -930,7 +936,7 @@ Begin by calling analyze_architecture_diff to assess the changes, then update ea
 
     agent = create_agent(
         model=model,
-        middleware=[middleware, VersionAbortMiddleware()],
+        middleware=[middleware],
         system_prompt=system_prompt,
         state_schema=VersionState,
     )
@@ -944,17 +950,12 @@ Begin by calling analyze_architecture_diff to assess the changes, then update ea
             "description": description,
             "assumptions": assumptions,
             "job_id": job_id,
+            "architecture_diff": architecture_diff,
             "application_type": application_type,
             "space_insights": space_insights,
         },
         config,
     )
-
-    # ---- Route result -------------------------------------------------------
-
-    if result.get("version_proceed") is False:
-        logger.info("Version aborted — diff too extensive", job_id=job_id)
-        return {}
 
     threat_list = result.get("threat_list")
 
@@ -965,7 +966,7 @@ Begin by calling analyze_architecture_diff to assess the changes, then update ea
     )
 
     return Command(
-        goto="finalize",
+        goto=WORKFLOW_NODE_FINALIZE,
         update={
             "threat_list": Overwrite(threat_list)
             if threat_list

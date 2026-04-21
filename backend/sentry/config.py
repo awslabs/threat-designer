@@ -48,6 +48,21 @@ REASONING_CONFIG = _parse_reasoning_config()
 ADAPTIVE_THINKING_MODELS = json.loads(os.environ.get("ADAPTIVE_THINKING_MODELS", "[]"))
 ADAPTIVE_EFFORT_MAP = {1: "low", 2: "medium", 3: "high", 4: "max"}
 
+
+def _normalize_model_id(model_id: str) -> str:
+    """Strip cross-region inference prefix (e.g. global./us./eu./apac.) from Anthropic model IDs."""
+    idx = model_id.find("anthropic.")
+    return model_id[idx:] if idx > 0 else model_id
+
+
+def _is_adaptive_model(model_id: str | None) -> bool:
+    """Check membership by comparing model IDs with any regional prefix stripped."""
+    if not model_id:
+        return False
+    normalized = _normalize_model_id(model_id)
+    return any(_normalize_model_id(m) == normalized for m in ADAPTIVE_THINKING_MODELS)
+
+
 # Per-model effort map (overrides ADAPTIVE_EFFORT_MAP when set)
 _raw_effort_map = os.environ.get("EFFORT_MAP")
 EFFORT_MAP = json.loads(_raw_effort_map) if _raw_effort_map else None
@@ -101,19 +116,24 @@ def create_model_config(budget_level: int = 1) -> dict:
 
 def _create_bedrock_model_config(budget_level: int = 1) -> dict:
     """Create Bedrock model configuration based on budget level"""
+    is_adaptive = _is_adaptive_model(MODEL_ID)
+
     base_config = {
         "max_tokens": MAX_TOKENS,
         "model_id": MODEL_ID,
         "client": boto_client,
-        "temperature": 0 if budget_level == 0 else 1,
     }
+
+    # Adaptive models (e.g. Opus 4.7) don't support the temperature parameter
+    if not is_adaptive:
+        base_config["temperature"] = 0 if budget_level == 0 else 1
 
     # If budget_level is 0, don't add thinking at all
     if budget_level == 0:
         return base_config
 
     # Check if the model supports adaptive thinking
-    if MODEL_ID in ADAPTIVE_THINKING_MODELS:
+    if is_adaptive:
         effort_map = EFFORT_MAP or ADAPTIVE_EFFORT_MAP
         effort = effort_map.get(str(budget_level)) or effort_map.get(
             budget_level, "low"

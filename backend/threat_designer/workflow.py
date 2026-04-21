@@ -7,6 +7,7 @@ from typing import Any, Dict
 from config import ThreatModelingConfig, config
 from constants import (
     WORKFLOW_NODE_ASSET,
+    WORKFLOW_NODE_VERSION,
     WORKFLOW_NODE_VERSION_DIFF,
     WORKFLOW_NODE_FINALIZE,
     WORKFLOW_NODE_FLOWS,
@@ -28,7 +29,7 @@ from nodes import (
 )
 from state import AgentState, ConfigSchema
 from state_tracking_service import StateService
-from workflow_version import version_subgraph
+from workflow_version import version_diff_node, version_subgraph
 from workflow_flows import flows_subgraph
 from workflow_threats import threats_subgraph
 from workflow_space_context import space_context_subgraph
@@ -94,7 +95,8 @@ workflow.add_node(
     WORKFLOW_NODE_THREATS_TRADITIONAL, orchestrator.define_threats_traditional
 )
 workflow.add_node(WORKFLOW_NODE_THREATS_AGENTIC, threats_subgraph)
-workflow.add_node(WORKFLOW_NODE_VERSION_DIFF, version_subgraph)
+workflow.add_node(WORKFLOW_NODE_VERSION_DIFF, version_diff_node)
+workflow.add_node(WORKFLOW_NODE_VERSION, version_subgraph)
 workflow.add_node(WORKFLOW_NODE_FINALIZE, orchestrator.finalize)
 
 # Set entry point and edges

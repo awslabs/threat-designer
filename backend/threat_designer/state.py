@@ -532,7 +532,6 @@ class VersionState(MessagesState):
     assumptions: Optional[List[str]] = None
     job_id: Optional[str] = None
     architecture_diff: Optional[str] = None
-    version_proceed: Optional[bool] = True
     image_data: Optional[str] = None
     image_type: Optional[str] = None
     previous_image_data: Optional[str] = None

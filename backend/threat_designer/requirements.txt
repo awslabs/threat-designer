@@ -8,4 +8,4 @@ fastapi==0.116.1
 httpx==0.28.1
 structlog==25.4.0
 pydantic-settings==2.11.0
-langchain-task-steering==0.1.6
+langchain-task-steering==0.1.8

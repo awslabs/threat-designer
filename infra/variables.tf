@@ -195,7 +195,7 @@ variable "model_main" {
       }
     }
     version = {
-      id         = "global.anthropic.claude-opus-4-7"
+      id         = "global.anthropic.claude-opus-4-6-v1"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
@@ -207,7 +207,7 @@ variable "model_main" {
         "1" = "low"
         "2" = "medium"
         "3" = "high"
-        "4" = "xhigh"
+        "4" = "max"
       }
     }
   }
@@ -221,7 +221,7 @@ variable "model_sentry" {
     effort_map       = optional(map(string))
   })
   default = {
-      id         = "global.anthropic.claude-opus-4-7"
+      id         = "global.anthropic.claude-sonnet-4-6"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
@@ -233,7 +233,7 @@ variable "model_sentry" {
         "1" = "low"
         "2" = "medium"
         "3" = "high"
-        "4" = "xhigh"
+        "4" = "max"
       }
     }
 }

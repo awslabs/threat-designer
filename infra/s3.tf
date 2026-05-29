@@ -8,6 +8,26 @@ resource "aws_s3_bucket" "architecture_bucket" {
   bucket = "${local.prefix}-architecture-${data.aws_caller_identity.caller_identity.account_id}-${random_string.bucket_name.result}"
 }
 
+# S3 bucket versioning - protects against accidental overwrites and deletions
+resource "aws_s3_bucket_versioning" "architecture_bucket_versioning" {
+  bucket = aws_s3_bucket.architecture_bucket.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# S3 bucket encryption - encrypts architecture diagrams and threat model data at rest
+resource "aws_s3_bucket_server_side_encryption_configuration" "architecture_bucket_encryption" {
+  bucket = aws_s3_bucket.architecture_bucket.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "aws:kms"
+    }
+    bucket_key_enabled = true
+  }
+}
+
 resource "aws_s3_bucket_public_access_block" "architecture_bucket_block" {
   bucket = aws_s3_bucket.architecture_bucket.id
 

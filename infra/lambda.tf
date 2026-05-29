@@ -43,10 +43,6 @@ resource "aws_lambda_function" "backend" {
       KB_DATA_SOURCE_ID     = aws_bedrockagent_data_source.spaces_kb_data_source.data_source_id
     }
   }
-  dead_letter_config {
-    target_arn = aws_sqs_queue.lambda_dlq.arn
-  }
-
   timeout = 600
   tracing_config {
     mode = "Active"

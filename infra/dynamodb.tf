@@ -1,12 +1,18 @@
 resource "aws_dynamodb_table" "threat_designer_state" {
-  #checkov:skip=CKV_AWS_119
-  #checkov:skip=CKV_AWS_28
   billing_mode                = "PAY_PER_REQUEST"
   hash_key                    = "job_id"
   name                        = "${local.prefix}-state"
   deletion_protection_enabled = var.deletion_protection_enabled
   stream_enabled              = true
   stream_view_type            = "NEW_AND_OLD_IMAGES"
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
 
   # Schema includes additional attributes for collaboration (not defined in Terraform):
   # - shared_with: Map of user_id to access_level (e.g., {"user@example.com": "EDIT"})
@@ -45,12 +51,18 @@ resource "aws_dynamodb_table" "threat_designer_state" {
 }
 
 resource "aws_dynamodb_table" "threat_designer_status" {
-  #checkov:skip=CKV_AWS_119
-  #checkov:skip=CKV_AWS_28
   billing_mode                = "PAY_PER_REQUEST"
   hash_key                    = "id"
   name                        = "${local.prefix}-status"
   deletion_protection_enabled = var.deletion_protection_enabled
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
 
   attribute {
     name = "id"
@@ -59,12 +71,18 @@ resource "aws_dynamodb_table" "threat_designer_status" {
 }
 
 resource "aws_dynamodb_table" "threat_designer_trail" {
-  #checkov:skip=CKV_AWS_119
-  #checkov:skip=CKV_AWS_28
   billing_mode                = "PAY_PER_REQUEST"
   hash_key                    = "id"
   name                        = "${local.prefix}-trail"
   deletion_protection_enabled = var.deletion_protection_enabled
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
 
   attribute {
     name = "id"
@@ -73,13 +91,19 @@ resource "aws_dynamodb_table" "threat_designer_trail" {
 }
 
 resource "aws_dynamodb_table" "threat_designer_sharing" {
-  #checkov:skip=CKV_AWS_119
-  #checkov:skip=CKV_AWS_28
   billing_mode                = "PAY_PER_REQUEST"
   hash_key                    = "threat_model_id"
   range_key                   = "user_id"
   name                        = "${local.prefix}-sharing"
   deletion_protection_enabled = var.deletion_protection_enabled
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
 
   attribute {
     name = "threat_model_id"
@@ -122,12 +146,18 @@ resource "aws_dynamodb_table" "threat_designer_sharing" {
 }
 
 resource "aws_dynamodb_table" "threat_designer_locks" {
-  #checkov:skip=CKV_AWS_119
-  #checkov:skip=CKV_AWS_28
   billing_mode                = "PAY_PER_REQUEST"
   hash_key                    = "threat_model_id"
   name                        = "${local.prefix}-locks"
   deletion_protection_enabled = var.deletion_protection_enabled
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
 
   attribute {
     name = "threat_model_id"
@@ -141,12 +171,18 @@ resource "aws_dynamodb_table" "threat_designer_locks" {
 }
 
 resource "aws_dynamodb_table" "threat_designer_backup" {
-  #checkov:skip=CKV_AWS_119
-  #checkov:skip=CKV_AWS_28
   billing_mode                = "PAY_PER_REQUEST"
   hash_key                    = "job_id"
   name                        = "${local.prefix}-backup"
   deletion_protection_enabled = var.deletion_protection_enabled
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
 
   attribute {
     name = "job_id"
@@ -155,12 +191,18 @@ resource "aws_dynamodb_table" "threat_designer_backup" {
 }
 
 resource "aws_dynamodb_table" "attack_tree_data" {
-  #checkov:skip=CKV_AWS_119
-  #checkov:skip=CKV_AWS_28
   billing_mode                = "PAY_PER_REQUEST"
   hash_key                    = "attack_tree_id"
   name                        = "${local.prefix}-attack-tree-data"
   deletion_protection_enabled = var.deletion_protection_enabled
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
 
   attribute {
     name = "attack_tree_id"

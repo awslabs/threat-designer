@@ -14,6 +14,7 @@
 - ⭐ [Star this repo](https://github.com/awslabs/threat-designer) to support the project
 - 📚 [Getting started Guide](./quick-start-guide/quick-start.md)
 - 💻 [CLI Quick Start](./cli/README.md) — no deployment needed, runs fully local
+- 📘 [Code Wiki](https://codewiki.google/github.com/awslabs/threat-designer)
 
 ---
 

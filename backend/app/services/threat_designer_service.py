@@ -260,7 +260,13 @@ def delete_dynamodb_item(table, key, owner):
 
 @tracer.capture_method
 def invoke_lambda(owner, payload):
+    # Support both single s3_location (backward compat) and s3_locations (multi-file)
+    s3_locations = payload.get("s3_locations", [])
     s3_location = payload.get("s3_location")
+    if not s3_location and s3_locations:
+        s3_location = s3_locations[0]  # Use first file for backward compatibility
+    if not s3_locations and s3_location:
+        s3_locations = [s3_location]
     iteration = payload.get("iteration")
     reasoning = payload.get("reasoning", 0)
     instructions = payload.get("instructions", None)
@@ -329,6 +335,7 @@ def invoke_lambda(owner, payload):
         # Step 3: Invoke the agent
         agent_input = {
             "s3_location": s3_location,
+            "s3_locations": s3_locations,
             "id": id,
             "reasoning": reasoning,
             "iteration": iteration,
@@ -357,6 +364,7 @@ def invoke_lambda(owner, payload):
         agent_state = {
             "job_id": id,
             "s3_location": s3_location,
+            "s3_locations": s3_locations,
             "owner": owner,
             "title": title,
             "retry": reasoning,

@@ -17,6 +17,30 @@ from langchain_aws import ChatBedrockConverse
 from pydantic import BaseModel, Field
 
 
+
+class ImageMetadata(BaseModel):
+    """Metadata for architecture diagram images including MIME type information."""
+
+    base64_data: Annotated[
+        str,
+        Field(description="Base64-encoded image data"),
+    ]
+    mime_type: Annotated[
+        str,
+        Field(
+            description="MIME type of the image (e.g., 'image/png', 'image/jpeg')"
+        ),
+    ]
+    filename: Annotated[
+        Optional[str],
+        Field(description="Original filename of the image"),
+    ] = None
+    s3_location: Annotated[
+        Optional[str],
+        Field(description="S3 path where the image is stored"),
+    ] = None
+
+
 class ConfigSchema(TypedDict):
     """Configuration schema for the workflow."""
 
@@ -414,6 +438,9 @@ class AgentState(TypedDict):
     retry: Optional[int] = 1
     iteration: Optional[int] = 0
     s3_location: Optional[str]
+    s3_locations: Optional[List[str]] = None
+    image_data_list: Optional[List[str]] = None
+    image_metadata_list: Optional[List[ImageMetadata]] = None
     title: Optional[str] = None
     owner: Optional[str] = None
     stop: Optional[bool] = False

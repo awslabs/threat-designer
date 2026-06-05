@@ -427,24 +427,45 @@ def _handle_new_state(state: AgentState, event: Dict[str, Any]) -> AgentState:
     """
     job_id = state.get("job_id", "unknown")
     with operation_context("handle_new_state", job_id):
-        # Validate required fields
-        required_fields = ["s3_location"]
-        missing_fields = [field for field in required_fields if not event.get(field)]
-        if missing_fields:
+        # Support both s3_locations (multi-file) and s3_location (single, backward compat)
+        s3_locations = event.get("s3_locations", [])
+        s3_location = event.get("s3_location")
+        if not s3_location and s3_locations:
+            s3_location = s3_locations[0]
+        if not s3_locations and s3_location:
+            s3_locations = [s3_location]
+
+        if not s3_location:
             logger.error(
                 "Missing required fields for new state",
                 job_id=job_id,
-                missing_fields=missing_fields,
+                missing_fields=["s3_location"],
             )
-            raise ValidationError(f"{ERROR_MISSING_REQUIRED_FIELDS}: {missing_fields}")
+            raise ValidationError(f"{ERROR_MISSING_REQUIRED_FIELDS}: ['s3_location']")
+
+        # Build image metadata list for multi-file support
+        from state import ImageMetadata
+        image_metadata_list = []
+        for loc in s3_locations:
+            img_data = parse_s3_image_to_base64(S3_BUCKET, loc)
+            if img_data:
+                # Determine MIME type from file extension
+                mime_type = "image/png" if loc.lower().endswith(".png") else "image/jpeg"
+                image_metadata_list.append(ImageMetadata(
+                    base64_data=img_data,
+                    mime_type=mime_type,
+                    s3_location=loc,
+                ))
 
         state.update(
             {
-                "image_data": parse_s3_image_to_base64(S3_BUCKET, event["s3_location"]),
+                "image_data": parse_s3_image_to_base64(S3_BUCKET, s3_location),
                 "image_type": event.get("image_type"),
+                "image_metadata_list": image_metadata_list if len(image_metadata_list) > 1 else None,
                 "description": event.get("description", " "),
                 "assumptions": event.get("assumptions", []),
-                "s3_location": event["s3_location"],
+                "s3_location": s3_location,
+                "s3_locations": s3_locations,
                 "owner": event.get("owner"),
                 "title": event.get("title"),
                 "application_type": state.get("application_type", "hybrid"),

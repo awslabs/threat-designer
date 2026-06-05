@@ -84,13 +84,23 @@ class MessageBuilder:
         description: str,
         assumptions: str,
         image_type: str = None,
+        image_metadata_list: list = None,
     ) -> None:
-        """Message builder constructor"""
+        """Message builder constructor.
+
+        Args:
+            image_data: Base64-encoded image data (single image, backward compat)
+            description: Architecture description text
+            assumptions: Assumptions text
+            image_type: MIME type string for single image
+            image_metadata_list: Optional list of ImageMetadata for multi-file support
+        """
 
         self.image_data = image_data
         self.description = description
         self.assumptions = assumptions
         self.image_type = image_type
+        self.image_metadata_list = image_metadata_list or []
         self.provider = os.environ.get(ENV_MODEL_PROVIDER, MODEL_PROVIDER_BEDROCK)
 
     def _get_mime_type(self) -> str:
@@ -152,17 +162,34 @@ class MessageBuilder:
     def base_msg(
         self, caching: bool = False, details: bool = True
     ) -> List[Dict[str, Any]]:
-        """Base message for all messages."""
-        mime_type = self._get_mime_type()
+        """Base message for all messages. Supports multiple architecture diagrams."""
 
-        base_message = [
-            {"type": "text", "text": "<architecture_diagram>"},
-            {
-                "type": "image_url",
-                "image_url": {"url": f"data:{mime_type};base64,{self.image_data}"},
-            },
-            {"type": "text", "text": "</architecture_diagram>"},
-        ]
+        base_message = []
+
+        # Multi-file support: use image_metadata_list if available
+        if self.image_metadata_list and len(self.image_metadata_list) > 0:
+            for idx, img_meta in enumerate(self.image_metadata_list, 1):
+                mime = img_meta.mime_type if hasattr(img_meta, 'mime_type') else self._get_mime_type()
+                data = img_meta.base64_data if hasattr(img_meta, 'base64_data') else img_meta.get('base64_data', '')
+                base_message.extend([
+                    {"type": "text", "text": f"<architecture_diagram_{idx}>"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime};base64,{data}"},
+                    },
+                    {"type": "text", "text": f"</architecture_diagram_{idx}>"},
+                ])
+        else:
+            # Single image (backward compatible)
+            mime_type = self._get_mime_type()
+            base_message = [
+                {"type": "text", "text": "<architecture_diagram>"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{mime_type};base64,{self.image_data}"},
+                },
+                {"type": "text", "text": "</architecture_diagram>"},
+            ]
 
         if details:
             base_message.extend(

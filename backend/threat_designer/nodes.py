@@ -43,29 +43,65 @@ class SummaryService:
     def generate_summary(
         self, state: AgentState, config: RunnableConfig
     ) -> Dict[str, Any]:
-        """Generate architecture summary if not already present."""
+        """Generate architecture summary from one or more images."""
         if state.get("summary"):
-            return {"image_data": state["image_data"]}
+            return {
+                "image_data": state.get("image_data"),
+                "image_data_list": state.get("image_data_list"),
+                "image_metadata_list": state.get("image_metadata_list"),
+            }
 
         with operation_context("generate_summary", state.get("job_id", "unknown")):
-            msg_builder = MessageBuilder(
-                state["image_data"],
-                state.get("description", ""),
-                list_to_string(state.get("assumptions", [])),
-                state.get("image_type"),
-            )
-            message = msg_builder.create_summary_message(
-                self.config.summary_max_words,
-            )
+            # Handle multiple images - prefer new metadata format
+            image_metadata_list = state.get("image_metadata_list", [])
 
-            system_prompt = SystemMessage(content=summary_prompt())
+            if image_metadata_list and len(image_metadata_list) > 0:
+                # Multi-file path: process each image separately
+                summaries = []
+                for idx, img_meta in enumerate(image_metadata_list, 1):
+                    msg_builder = MessageBuilder(
+                        img_meta.base64_data,
+                        state.get("description", ""),
+                        list_to_string(state.get("assumptions", [])),
+                        img_meta.mime_type,
+                    )
+                    message = msg_builder.create_summary_message(
+                        self.config.summary_max_words,
+                    )
 
-            messages = [system_prompt, message]
-            response = self.model_service.generate_summary(
-                messages, [SummaryState], config
-            )
+                    system_prompt = SystemMessage(content=summary_prompt())
+                    messages = [system_prompt, message]
+                    response = self.model_service.generate_summary(
+                        messages, [SummaryState], config
+                    )
+                    summaries.append(f"**Diagram {idx}:** {response.summary}")
 
-            return {"image_data": state["image_data"], "summary": response.summary}
+                combined_summary = " | ".join(summaries)
+                return {
+                    "image_data": state.get("image_data"),
+                    "image_data_list": state.get("image_data_list"),
+                    "image_metadata_list": image_metadata_list,
+                    "summary": combined_summary,
+                }
+            else:
+                # Single-file path (backward compatible)
+                msg_builder = MessageBuilder(
+                    state["image_data"],
+                    state.get("description", ""),
+                    list_to_string(state.get("assumptions", [])),
+                    state.get("image_type"),
+                )
+                message = msg_builder.create_summary_message(
+                    self.config.summary_max_words,
+                )
+
+                system_prompt = SystemMessage(content=summary_prompt())
+                messages = [system_prompt, message]
+                response = self.model_service.generate_summary(
+                    messages, [SummaryState], config
+                )
+
+                return {"image_data": state["image_data"], "summary": response.summary}
 
 
 class AssetDefinitionService:

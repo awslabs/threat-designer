@@ -1,3 +1,4 @@
+/* global FileReader */
 import React, { useState } from "react";
 import FileInput from "@cloudscape-design/components/file-input";
 import FileTokenGroup from "@cloudscape-design/components/file-token-group";
@@ -19,8 +20,7 @@ export function validateFile(file) {
 
   const fileName = file.name || "";
   const lastDotIndex = fileName.lastIndexOf(".");
-  const extension =
-    lastDotIndex !== -1 ? fileName.slice(lastDotIndex).toLowerCase() : "";
+  const extension = lastDotIndex !== -1 ? fileName.slice(lastDotIndex).toLowerCase() : "";
 
   if (!ALLOWED_EXTENSIONS.includes(extension)) {
     errors.push(`File format not supported. Accepted formats: PNG, JPEG`);
@@ -33,13 +33,7 @@ export function validateFile(file) {
   return errors;
 }
 
-export default function StartComponent({
-  onBase64Change,
-  value,
-  setValue,
-  error,
-  setError,
-}) {
+export default function StartComponent({ onBase64Change, value, setValue, error, setError }) {
   const [base64Files, setBase64Files] = useState([]);
 
   const handleFileChange = async ({ detail }) => {
@@ -50,9 +44,7 @@ export default function StartComponent({
     const limitedFiles = newFiles.slice(0, MAX_FILES);
 
     // Validate all files
-    const invalidFiles = limitedFiles.filter(
-      (file) => validateFile(file).length > 0
-    );
+    const invalidFiles = limitedFiles.filter((file) => validateFile(file).length > 0);
     if (invalidFiles.length > 0) {
       setError(true);
       return;

@@ -55,7 +55,7 @@ async function startThreatModeling(
 ) {
   const statsPath = "";
   const postData = {
-    s3_locations: Array.isArray(key) ? key : (key ? [key] : []),
+    s3_locations: Array.isArray(key) ? key : key ? [key] : [],
     s3_location: Array.isArray(key) ? key[0] : key,
     iteration,
     title,

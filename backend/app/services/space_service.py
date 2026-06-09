@@ -17,6 +17,7 @@ KNOWLEDGE_BASE_ID = os.environ.get("KNOWLEDGE_BASE_ID", "")
 KB_DATA_SOURCE_ID = os.environ.get("KB_DATA_SOURCE_ID", "")
 PRESIGNED_URL_EXPIRY = int(os.environ.get("PRESIGNED_URL_EXPIRY", "900"))
 USER_POOL_ID = os.environ.get("COGNITO_USER_POOL_ID", "")
+SYSTEM_SPACE_ID = os.environ.get("SYSTEM_SPACE_ID", "")
 
 _AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 
@@ -35,6 +36,12 @@ tracer = Tracer()
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _assert_not_system_space(space_id: str) -> None:
+    """Raise UnauthorizedError if attempting to mutate the system space."""
+    if SYSTEM_SPACE_ID and space_id == SYSTEM_SPACE_ID:
+        raise UnauthorizedError("System spaces cannot be modified")
 
 
 def _check_space_owner(space_id: str, user_id: str) -> Dict[str, Any]:
@@ -140,6 +147,7 @@ def list_spaces(user_id: str) -> List[Dict[str, Any]]:
 def update_space(
     space_id: str, user_id: str, name: Optional[str], description: Optional[str]
 ) -> Dict[str, Any]:
+    _assert_not_system_space(space_id)
     _check_space_owner(space_id, user_id)
     table = dynamodb.Table(SPACES_TABLE)
     updates = {"updated_at": _now()}
@@ -164,6 +172,7 @@ def update_space(
 
 @tracer.capture_method
 def delete_space(space_id: str, user_id: str) -> None:
+    _assert_not_system_space(space_id)
     _check_space_owner(space_id, user_id)
     table = dynamodb.Table(SPACES_TABLE)
     table.delete_item(Key={"space_id": space_id})
@@ -175,6 +184,7 @@ def generate_document_upload_url(
     space_id: str, user_id: str, filename: str, file_type: str
 ) -> Dict[str, Any]:
     """Generate a presigned S3 PUT URL for a space document."""
+    _assert_not_system_space(space_id)
     _check_space_owner(space_id, user_id)
     document_id = str(uuid.uuid4())
     ext = filename.rsplit(".", 1)[-1] if "." in filename else "bin"
@@ -305,6 +315,7 @@ def list_documents(space_id: str, user_id: str) -> List[Dict[str, Any]]:
 
 @tracer.capture_method
 def delete_document(space_id: str, user_id: str, document_id: str) -> None:
+    _assert_not_system_space(space_id)
     _check_space_owner(space_id, user_id)
     docs_table = dynamodb.Table(SPACE_DOCUMENTS_TABLE)
     resp = docs_table.get_item(Key={"space_id": space_id, "document_id": document_id})

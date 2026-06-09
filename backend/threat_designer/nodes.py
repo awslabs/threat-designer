@@ -352,14 +352,15 @@ class ReplayService:
             WORKFLOW_NODE_SPACE_CONTEXT,
             WORKFLOW_NODE_THREATS_AGENTIC,
             WORKFLOW_NODE_THREATS_TRADITIONAL,
+            SYSTEM_SPACE_ID,
         )
 
         if state.get("version", False):
             return WORKFLOW_NODE_VERSION_DIFF
 
         if not state.get("replay", False):
-            # New run: check for attached space
-            if state.get("space_id"):
+            # New run: check for attached space or system space
+            if state.get("space_id") or SYSTEM_SPACE_ID:
                 return WORKFLOW_NODE_SPACE_CONTEXT
             return WORKFLOW_NODE_ASSET
 

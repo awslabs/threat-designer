@@ -13,7 +13,8 @@ resource "aws_bedrockagentcore_agent_runtime" "threat_designer" {
       ARCHITECTURE_BUCKET = aws_s3_bucket.architecture_bucket.id,
       MODEL_PROVIDER      = var.model_provider,
       MAESTRO_ENABLED     = var.enable_maestro,
-      KNOWLEDGE_BASE_ID   = aws_bedrockagent_knowledge_base.spaces_kb.id
+      KNOWLEDGE_BASE_ID   = aws_bedrockagent_knowledge_base.spaces_kb.id,
+      SYSTEM_SPACE_ID     = var.system_space_id
     },
     var.model_provider == "bedrock" ? {
       MAIN_MODEL               = jsonencode(var.model_main),

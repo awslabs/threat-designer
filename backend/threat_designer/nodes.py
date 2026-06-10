@@ -133,6 +133,7 @@ class AssetDefinitionService:
             state.get("description", ""),
             list_to_string(state.get("assumptions", [])),
             state.get("image_type"),
+            image_metadata_list=state.get("image_metadata_list"),
         )
 
         human_message = msg_builder.create_asset_message()
@@ -235,6 +236,7 @@ class ThreatDefinitionService:
             state.get("description", ""),
             list_to_string(state.get("assumptions", [])),
             state.get("image_type"),
+            image_metadata_list=state.get("image_metadata_list"),
         )
 
         app_type = state.get("application_type", "hybrid")

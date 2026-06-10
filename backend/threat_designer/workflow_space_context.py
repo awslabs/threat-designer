@@ -163,6 +163,7 @@ def agent_node(state: SpaceContextState, config: RunnableConfig) -> Command:
             state.get("description", ""),
             list_to_string(state.get("assumptions", [])),
             state.get("image_type"),
+            image_metadata_list=state.get("image_metadata_list"),
         )
         base = msg_builder.base_msg(caching=True, details=True)
         if state.get("summary"):

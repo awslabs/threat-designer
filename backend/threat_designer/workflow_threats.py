@@ -63,6 +63,7 @@ def _build_message_builder(state) -> MessageBuilder:
         state.get("description", ""),
         list_to_string(state.get("assumptions", [])),
         state.get("image_type"),
+        image_metadata_list=state.get("image_metadata_list"),
     )
 
 

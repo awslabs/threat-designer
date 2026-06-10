@@ -72,9 +72,18 @@ export const VersionModalComponent = ({
   }, [visible, currentTitle, currentDescription, currentAssumptions]);
 
   const handleBase64Change = useCallback((data) => {
-    setBase64(data.value);
-    setFileType(data.type);
-    setImageName(data.name);
+    // StartComponent now sends an array of file objects
+    // For versioning, use the first uploaded diagram
+    const file = Array.isArray(data) ? data[0] : data;
+    if (file) {
+      setBase64(file.value);
+      setFileType(file.type);
+      setImageName(file.name);
+    } else {
+      setBase64(null);
+      setFileType(null);
+      setImageName(null);
+    }
   }, []);
 
   const handleSubmit = async () => {

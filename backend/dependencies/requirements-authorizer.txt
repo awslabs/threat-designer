@@ -1,2 +1,2 @@
 PyJWT==2.13.0
-cryptography==46.0.7
+cryptography==48.0.1

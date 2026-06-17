@@ -55,3 +55,8 @@ output "model_provider" {
   description = "Configured model provider (bedrock or openai)"
   value       = var.model_provider
 }
+
+output "system_space_id" {
+  description = "System Space ID for mandatory organization standards (empty if not configured)"
+  value       = var.system_space_id
+}

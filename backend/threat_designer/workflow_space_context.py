@@ -2,14 +2,14 @@
 Space context subgraph — ReAct agent that queries a Bedrock Knowledge Base
 and captures relevant security insights before the main threat modeling workflow.
 
-Skipped entirely when no space_id is attached to the job.
+Skipped entirely when no space_id is attached to the job and no system space is configured.
 """
 
 import os
 from typing import Any, List
 
 import boto3
-from constants import KB_QUERY_BUDGET, MAX_SPACE_INSIGHTS, JobState
+from constants import KB_QUERY_BUDGET, MAX_SPACE_INSIGHTS, SYSTEM_SPACE_ID, JobState
 from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_core.runnables.config import RunnableConfig
 from langchain_core.tools import tool
@@ -45,10 +45,10 @@ def _get_bedrock_agent_client():
     return _bedrock_agent_client
 
 
-def _retrieve_from_kb(query: str, space_id: str, max_results: int = 5) -> str:
-    """Call Bedrock KB Retrieve API filtered to a specific space_id."""
-    if not KNOWLEDGE_BASE_ID:
-        return "Knowledge base not configured."
+def _do_retrieve(query: str, space_id: str, max_results: int = 5) -> list:
+    """Raw KB retrieve call, returns list of result dicts."""
+    if not KNOWLEDGE_BASE_ID or not space_id:
+        return []
     try:
         client = _get_bedrock_agent_client()
         response = client.retrieve(
@@ -66,21 +66,39 @@ def _retrieve_from_kb(query: str, space_id: str, max_results: int = 5) -> str:
                 }
             },
         )
-        results = response.get("retrievalResults", [])
-        if not results:
-            return "No relevant results found for this query."
-
-        parts = []
-        for i, r in enumerate(results, 1):
-            content = r.get("content", {}).get("text", "")
-            score = r.get("score", 0)
-            if content:
-                parts.append(f"[Result {i} | relevance={score:.2f}]\n{content.strip()}")
-
-        return "\n\n---\n\n".join(parts) if parts else "No relevant results found."
+        return response.get("retrievalResults", [])
     except Exception as e:
-        logger.warning("KB retrieve failed", error=str(e))
-        return f"Knowledge base query failed: {str(e)}"
+        logger.warning("KB retrieve failed", error=str(e), space_id=space_id)
+        return []
+
+
+def _format_results(results: list) -> str:
+    """Format retrieval results into readable text."""
+    if not results:
+        return "No relevant results found for this query."
+    parts = []
+    for i, r in enumerate(results, 1):
+        content = r.get("content", {}).get("text", "")
+        score = r.get("score", 0)
+        if content:
+            parts.append(f"[Result {i} | relevance={score:.2f}]\n{content.strip()}")
+    return "\n\n---\n\n".join(parts) if parts else "No relevant results found."
+
+
+def _retrieve_from_kb(query: str, space_id: str, max_results: int = 5) -> str:
+    """Call Bedrock KB Retrieve API filtered to a specific space_id.
+
+    Also queries the system space (if configured and different from space_id)
+    to ensure mandatory organization standards are always included.
+    """
+    results = _do_retrieve(query, space_id, max_results)
+
+    # Always also query system space if configured and not already the target
+    if SYSTEM_SPACE_ID and SYSTEM_SPACE_ID != space_id:
+        system_results = _do_retrieve(query, SYSTEM_SPACE_ID, max_results)
+        results.extend(system_results)
+
+    return _format_results(results)
 
 
 def _build_tools(space_id: str, job_id: str):
@@ -144,7 +162,7 @@ def _extract_insights_from_messages(messages: list) -> List[str]:
 def agent_node(state: SpaceContextState, config: RunnableConfig) -> Command:
     """Agent node: invokes the LLM with space context tools."""
     job_id = state.get("job_id", "unknown")
-    space_id = state.get("space_id", "")
+    space_id = state.get("space_id", "") or SYSTEM_SPACE_ID
     kb_query_count = state.get("kb_query_count", 0)
 
     tools = _build_tools(space_id, job_id)
@@ -232,7 +250,7 @@ def agent_node(state: SpaceContextState, config: RunnableConfig) -> Command:
 
 def tool_node(state: SpaceContextState) -> Command:
     """Execute tool calls from the last message."""
-    space_id = state.get("space_id", "")
+    space_id = state.get("space_id", "") or SYSTEM_SPACE_ID
     job_id = state.get("job_id", "unknown")
     tools_list = _build_tools(space_id, job_id)
     tools_by_name = {t.name: t for t in tools_list}

@@ -131,8 +131,8 @@ export const SubmissionComponent = ({
           ),
         },
         {
-          title: "Architecture diagram",
-          description: "Only png/jpeg accepted. Maximum image size (8,000 px x 8,000 px) 3.75 MB.",
+          title: "Architecture diagram(s)",
+          description: "Upload 1-3 architecture diagrams (PNG/JPG). Provide multiple views (high-level, detailed, security layer) for comprehensive threat analysis. Max 3.75 MB per file.",
           content: (
             <div style={{ minHeight: 200 }}>
               <StartComponent
@@ -409,13 +409,13 @@ export const SubmissionComponent = ({
                       actions={
                         <Button
                           onClick={() => setActiveStepIndex(1)}
-                          ariaLabel="Edit architecture diagram"
+                          ariaLabel="Edit architecture diagrams"
                         >
                           Edit
                         </Button>
                       }
                     >
-                      Step 2: Architecture diagram
+                      Step 2: Architecture diagram(s)
                     </Header>
                     <FileTokenGroup
                       i18nStrings={{
@@ -425,11 +425,7 @@ export const SubmissionComponent = ({
                         errorIconAriaLabel: "Error",
                         warningIconAriaLabel: "Warning",
                       }}
-                      items={[
-                        {
-                          file: value[0],
-                        },
-                      ]}
+                      items={value.map((file) => ({ file }))}
                       readOnly
                       showFileLastModified
                       showFileThumbnail

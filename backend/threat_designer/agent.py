@@ -35,6 +35,7 @@ from state import (
     AgentState,
     AssetsList,
     FlowsList,
+    ImageMetadata,
     SpaceInsightsList,
     ThreatsList,
 )
@@ -43,6 +44,61 @@ from workflow import ConfigSchema, agent
 
 S3_BUCKET = os.environ.get(ENV_ARCHITECTURE_BUCKET)
 AGENT_TABLE = os.environ.get(ENV_AGENT_STATE_TABLE)
+
+
+def _detect_mime_type_from_base64(base64_data: str) -> str:
+    """Detect image MIME type by sniffing magic bytes from base64-encoded data.
+
+    Args:
+        base64_data: Base64-encoded image string
+
+    Returns:
+        MIME type string ('image/png' or 'image/jpeg')
+    """
+    import base64
+
+    try:
+        # Decode just the first few bytes to check magic number
+        raw_bytes = base64.b64decode(base64_data[:16])
+        if raw_bytes[:4] == b"\x89PNG":
+            return "image/png"
+        elif raw_bytes[:3] == b"\xff\xd8\xff":
+            return "image/jpeg"
+    except Exception:
+        pass
+    # Default to JPEG for backward compatibility
+    return "image/jpeg"
+
+
+def _rebuild_image_metadata_list(s3_locations: list) -> list:
+    """Rebuild image_metadata_list from a list of S3 locations.
+
+    Downloads each image from S3, detects its MIME type via magic bytes,
+    and returns a list of ImageMetadata objects. Used for replay/version
+    rehydration from persisted s3_locations.
+
+    Args:
+        s3_locations: List of S3 keys for architecture diagrams
+
+    Returns:
+        List of ImageMetadata objects, or None if empty/all fail
+    """
+    if not s3_locations:
+        return None
+
+    metadata_list = []
+    for loc in s3_locations:
+        img_data = parse_s3_image_to_base64(S3_BUCKET, loc)
+        if img_data:
+            mime_type = _detect_mime_type_from_base64(img_data)
+            metadata_list.append(ImageMetadata(
+                base64_data=img_data,
+                mime_type=mime_type,
+                s3_location=loc,
+            ))
+
+    return metadata_list if metadata_list else None
+
 
 # Create a thread pool executor for background tasks
 executor = ThreadPoolExecutor(max_workers=10)
@@ -298,11 +354,16 @@ def _handle_version_state(
                 f"Failed to fetch previous architecture image from S3: {item['s3_location']}"
             )
 
-        # New image from upload
-        new_image_data = parse_s3_image_to_base64(S3_BUCKET, event["s3_location"])
+        # New image from upload — support multi-file
+        new_s3_locations = event.get("s3_locations") or [event["s3_location"]]
+        new_s3_location = event["s3_location"]
+
+        # Build image metadata list for new images (avoids double fetch)
+        new_image_metadata_list = _rebuild_image_metadata_list(new_s3_locations)
+        new_image_data = new_image_metadata_list[0].base64_data if new_image_metadata_list else None
         if not new_image_data:
             raise ThreatModelingError(
-                f"Failed to fetch new architecture image from S3: {event['s3_location']}"
+                f"Failed to fetch new architecture image from S3: {new_s3_location}"
             )
 
         state.update(
@@ -311,7 +372,9 @@ def _handle_version_state(
                 "previous_image_data": previous_image_data,
                 "image_data": new_image_data,
                 "image_type": event.get("image_type"),
-                "s3_location": event["s3_location"],
+                "s3_location": new_s3_location,
+                "s3_locations": new_s3_locations,
+                "image_metadata_list": new_image_metadata_list,
                 "assets": assets,
                 "system_architecture": system_architecture,
                 "threat_list": threat_list,
@@ -380,6 +443,10 @@ def _handle_replay_state(state: AgentState, job_id: str) -> AgentState:
             else None
         )
 
+        # Rebuild image metadata list (handles both old single-file and new multi-file records)
+        replay_s3_locations = item.get("s3_locations") or [item["s3_location"]]
+        replay_image_metadata = _rebuild_image_metadata_list(replay_s3_locations)
+
         state.update(
             {
                 "replay": True,
@@ -388,13 +455,15 @@ def _handle_replay_state(state: AgentState, job_id: str) -> AgentState:
                 "system_architecture": system_architecture,
                 "threat_list": threat_list,
                 "retry": 1,
-                "image_data": parse_s3_image_to_base64(S3_BUCKET, item["s3_location"]),
+                "image_data": replay_image_metadata[0].base64_data if replay_image_metadata else None,
                 "image_type": item.get("image_type"),
                 "description": item.get("description", ""),
                 "assumptions": item.get("assumptions", []),
                 "title": item.get("title"),
                 "owner": item.get("owner"),
                 "s3_location": item["s3_location"],
+                "s3_locations": replay_s3_locations,
+                "image_metadata_list": replay_image_metadata,
                 "application_type": state.get("application_type", "hybrid"),
                 # space_id is immutable on replay — always loaded from DDB, never from event
                 "space_id": item.get("space_id") or None,
@@ -427,24 +496,37 @@ def _handle_new_state(state: AgentState, event: Dict[str, Any]) -> AgentState:
     """
     job_id = state.get("job_id", "unknown")
     with operation_context("handle_new_state", job_id):
-        # Validate required fields
-        required_fields = ["s3_location"]
-        missing_fields = [field for field in required_fields if not event.get(field)]
-        if missing_fields:
+        # Support both s3_locations (multi-file) and s3_location (single, backward compat)
+        s3_locations = event.get("s3_locations", [])
+        s3_location = event.get("s3_location")
+        if not s3_location and s3_locations:
+            s3_location = s3_locations[0]
+        if not s3_locations and s3_location:
+            s3_locations = [s3_location]
+
+        if not s3_location:
             logger.error(
                 "Missing required fields for new state",
                 job_id=job_id,
-                missing_fields=missing_fields,
+                missing_fields=["s3_location"],
             )
-            raise ValidationError(f"{ERROR_MISSING_REQUIRED_FIELDS}: {missing_fields}")
+            raise ValidationError(f"{ERROR_MISSING_REQUIRED_FIELDS}: ['s3_location']")
+
+        # Build image metadata list for multi-file support
+        image_metadata_list = _rebuild_image_metadata_list(s3_locations)
+
+        # Use first image data from metadata list to avoid double S3 fetch
+        first_image_data = image_metadata_list[0].base64_data if image_metadata_list else None
 
         state.update(
             {
-                "image_data": parse_s3_image_to_base64(S3_BUCKET, event["s3_location"]),
+                "image_data": first_image_data,
                 "image_type": event.get("image_type"),
+                "image_metadata_list": image_metadata_list if image_metadata_list else None,
                 "description": event.get("description", " "),
                 "assumptions": event.get("assumptions", []),
-                "s3_location": event["s3_location"],
+                "s3_location": s3_location,
+                "s3_locations": s3_locations,
                 "owner": event.get("owner"),
                 "title": event.get("title"),
                 "application_type": state.get("application_type", "hybrid"),
@@ -455,7 +537,7 @@ def _handle_new_state(state: AgentState, event: Dict[str, Any]) -> AgentState:
         logger.debug(
             "Successfully initialized new state",
             job_id=job_id,
-            s3_location=event["s3_location"],
+            s3_location=s3_location,
             has_description=bool(event.get("description")),
             assumptions_count=len(event.get("assumptions", [])),
             has_owner=bool(event.get("owner")),

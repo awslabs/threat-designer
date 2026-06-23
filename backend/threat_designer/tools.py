@@ -825,6 +825,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
         state.get("description", ""),
         list_to_string(state.get("assumptions", [])),
         state.get("image_type"),
+        image_metadata_list=state.get("image_metadata_list"),
     )
 
     # Convert threat_list to string for message

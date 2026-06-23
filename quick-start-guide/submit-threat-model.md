@@ -18,11 +18,15 @@ Access the submission form through either:
 **Title**  
 Provide a descriptive name for your threat model. This helps you identify and organize models in your threat catalog later.
 
-**Architecture Diagram**  
-Upload your system architecture diagram with the following specifications:
+**Architecture Diagram(s)**  
+Upload 1-3 architecture diagrams for comprehensive analysis:
 
-- Maximum image size: 8,000px × 8,000px
-- Supported formats: PNG, JPEG, and other common image types
+- Select multiple files at once or add them one by one
+- Maximum 3 diagrams per submission
+- Maximum file size: 3.75 MB per file
+- Supported formats: PNG, JPEG
+- Each diagram is analyzed separately, and the results are combined into a unified threat model
+- Use multiple diagrams when your architecture spans different views (network topology, data flow, component interactions)
 
 #### Optional Fields
 

@@ -33,7 +33,7 @@ See the [CLI Quick Start guide](./cli/README.md) to get up and running in minute
 
 ## Features
 
-- **Architecture Analysis** - Submit architecture diagrams and analyze for threats
+- **Architecture Analysis** - Submit up to 3 architecture diagrams per submission and analyze for threats
 - **Interactive Editing** - Update threat modeling results via the user interface
 - **Iterative Refinement** - Replay threat modeling based on your edits and additional input
 - **Multiple Export Formats** - Export results in PDF, DOCX, or JSON format

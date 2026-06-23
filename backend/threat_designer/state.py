@@ -439,7 +439,6 @@ class AgentState(TypedDict):
     iteration: Optional[int] = 0
     s3_location: Optional[str]
     s3_locations: Optional[List[str]] = None
-    image_data_list: Optional[List[str]] = None
     image_metadata_list: Optional[List[ImageMetadata]] = None
     title: Optional[str] = None
     owner: Optional[str] = None
@@ -494,6 +493,7 @@ class ThreatState(MessagesState):
     assets: Optional[AssetsList] = None
     image_data: Optional[str] = None
     image_type: Optional[str] = None
+    image_metadata_list: Optional[List[ImageMetadata]] = None
     system_architecture: Optional[FlowsList] = None
     description: Optional[str] = None
     assumptions: Optional[List[str]] = None
@@ -540,6 +540,7 @@ class FlowsState(MessagesState):
     assets: Optional[AssetsList] = None
     image_data: Optional[str] = None
     image_type: Optional[str] = None
+    image_metadata_list: Optional[List[ImageMetadata]] = None
     description: Optional[str] = None
     assumptions: Optional[List[str]] = None
     instructions: Optional[str] = None
@@ -561,6 +562,7 @@ class VersionState(MessagesState):
     architecture_diff: Optional[str] = None
     image_data: Optional[str] = None
     image_type: Optional[str] = None
+    image_metadata_list: Optional[List[ImageMetadata]] = None
     previous_image_data: Optional[str] = None
     application_type: Optional[str] = "hybrid"
     space_insights: Optional[SpaceInsightsList] = None
@@ -579,6 +581,7 @@ class SpaceContextState(MessagesState):
     space_insights: Optional[SpaceInsightsList] = None
     image_data: Optional[str] = None
     image_type: Optional[str] = None
+    image_metadata_list: Optional[List[ImageMetadata]] = None
     description: Optional[str] = None
     assumptions: Optional[List[str]] = None
     summary: Optional[str] = None

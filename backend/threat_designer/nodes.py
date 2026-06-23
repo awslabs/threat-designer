@@ -47,7 +47,6 @@ class SummaryService:
         if state.get("summary"):
             return {
                 "image_data": state.get("image_data"),
-                "image_data_list": state.get("image_data_list"),
                 "image_metadata_list": state.get("image_metadata_list"),
             }
 
@@ -74,12 +73,18 @@ class SummaryService:
                     response = self.model_service.generate_summary(
                         messages, [SummaryState], config
                     )
-                    summaries.append(f"**Diagram {idx}:** {response.summary}")
+                    summaries.append(response.summary)
 
-                combined_summary = " | ".join(summaries)
+                # Only add diagram index prefix for multiple images
+                if len(image_metadata_list) > 1:
+                    combined_summary = " | ".join(
+                        f"**Diagram {idx}:** {s}" for idx, s in enumerate(summaries, 1)
+                    )
+                else:
+                    combined_summary = summaries[0]
+
                 return {
                     "image_data": state.get("image_data"),
-                    "image_data_list": state.get("image_data_list"),
                     "image_metadata_list": image_metadata_list,
                     "summary": combined_summary,
                 }

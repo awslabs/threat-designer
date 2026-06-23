@@ -425,11 +425,7 @@ export const SubmissionComponent = ({
                         errorIconAriaLabel: "Error",
                         warningIconAriaLabel: "Warning",
                       }}
-                      items={[
-                        {
-                          file: value[0],
-                        },
-                      ]}
+                      items={value.map((file) => ({ file }))}
                       readOnly
                       showFileLastModified
                       showFileThumbnail

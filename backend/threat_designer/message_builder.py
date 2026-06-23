@@ -169,13 +169,11 @@ class MessageBuilder:
         # Multi-file support: use image_metadata_list if available
         if self.image_metadata_list and len(self.image_metadata_list) > 0:
             for idx, img_meta in enumerate(self.image_metadata_list, 1):
-                mime = img_meta.mime_type if hasattr(img_meta, 'mime_type') else self._get_mime_type()
-                data = img_meta.base64_data if hasattr(img_meta, 'base64_data') else img_meta.get('base64_data', '')
                 base_message.extend([
                     {"type": "text", "text": f"<architecture_diagram_{idx}>"},
                     {
                         "type": "image_url",
-                        "image_url": {"url": f"data:{mime};base64,{data}"},
+                        "image_url": {"url": f"data:{img_meta.mime_type};base64,{img_meta.base64_data}"},
                     },
                     {"type": "text", "text": f"</architecture_diagram_{idx}>"},
                 ])

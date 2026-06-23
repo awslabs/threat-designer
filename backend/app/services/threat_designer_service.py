@@ -1372,7 +1372,9 @@ def delete_tm(job_id, owner, force_release=False):
             # Continue with threat model deletion even if attack tree deletion fails
 
         key = {"job_id": job_id}
-        object_key = fetch_results(job_id).get("item").get("s3_location")
+        item = fetch_results(job_id).get("item")
+        object_key = item.get("s3_location")
+        s3_locations = item.get("s3_locations")
         if not object_key:
             LOG.info(f"Object key not found for job_id: {job_id}")
             raise InternalError()
@@ -1386,8 +1388,16 @@ def delete_tm(job_id, owner, force_release=False):
         except Exception as e:
             LOG.warning(f"Error deleting backup for {job_id}: {e}")
 
-        # Delete S3 object
-        delete_s3_object(object_key)
+        # Delete all S3 objects (multi-file support)
+        deleted_keys = set()
+        if s3_locations:
+            for loc in s3_locations:
+                if loc and loc not in deleted_keys:
+                    delete_s3_object(loc)
+                    deleted_keys.add(loc)
+        # Always delete primary s3_location (handles old records without s3_locations)
+        if object_key and object_key not in deleted_keys:
+            delete_s3_object(object_key)
 
         # Clean up sharing records if any exist
         if owner != "MCP":

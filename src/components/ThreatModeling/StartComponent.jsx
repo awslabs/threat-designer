@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import FileInput from "@cloudscape-design/components/file-input";
 import FileTokenGroup from "@cloudscape-design/components/file-token-group";
 import SpaceBetween from "@cloudscape-design/components/space-between";
+import Alert from "@cloudscape-design/components/alert";
 
 // Validation constants
 export const ALLOWED_EXTENSIONS = [".png", ".jpeg", ".jpg"];
@@ -33,67 +34,105 @@ export function validateFile(file) {
   return errors;
 }
 
-export default function StartComponent({ onBase64Change, value, setValue, error, setError }) {
+export default function StartComponent({ onBase64Change, value, setValue, error, setError, maxFiles }) {
   const [base64Files, setBase64Files] = useState([]);
+  const [isReading, setIsReading] = useState(false);
+  const [validationWarning, setValidationWarning] = useState("");
+
+  const fileLimit = maxFiles || MAX_FILES;
 
   const handleFileChange = async ({ detail }) => {
     setError(false);
+    setValidationWarning("");
 
-    // Append new files to existing ones, limit to MAX_FILES
-    const newFiles = [...value, ...detail.value];
-    const limitedFiles = newFiles.slice(0, MAX_FILES);
-
-    // Validate all files
-    const invalidFiles = limitedFiles.filter((file) => validateFile(file).length > 0);
-    if (invalidFiles.length > 0) {
-      setError(true);
+    // Determine how many slots are available
+    const availableSlots = fileLimit - value.length;
+    if (availableSlots <= 0) {
+      setValidationWarning(`Maximum of ${fileLimit} diagrams already selected.`);
       return;
     }
 
-    setValue(limitedFiles);
+    // Separate valid and invalid files from the new selection
+    const validFiles = [];
+    const invalidReasons = [];
 
-    if (limitedFiles.length > 0) {
-      const filesPromises = limitedFiles.map((file) => {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-
-          reader.onload = (e) => {
-            const base64WithPrefix = e.target.result;
-            const base64Value = base64WithPrefix.split(",")[1];
-            resolve({
-              type: file.type,
-              value: base64Value,
-              name: file.name,
-            });
-          };
-
-          reader.onerror = (fileError) => {
-            console.error("Error reading file:", fileError);
-            reject(fileError);
-          };
-
-          reader.readAsDataURL(file);
-        });
-      });
-
-      try {
-        const filesData = await Promise.all(filesPromises);
-        setBase64Files(filesData);
-        onBase64Change(filesData);
-      } catch (fileError) {
-        console.error("Error processing files:", fileError);
-        setBase64Files([]);
-        onBase64Change([]);
+    for (const file of detail.value) {
+      const errors = validateFile(file);
+      if (errors.length > 0) {
+        invalidReasons.push(`${file.name}: ${errors.join(", ")}`);
+      } else {
+        validFiles.push(file);
       }
-    } else {
+    }
+
+    // Notify user about rejected files
+    if (invalidReasons.length > 0) {
+      setValidationWarning(`Rejected: ${invalidReasons.join("; ")}`);
+    }
+
+    // Cap valid files to available slots
+    const filesToAdd = validFiles.slice(0, availableSlots);
+    if (validFiles.length > availableSlots) {
+      const dropped = validFiles.length - availableSlots;
+      const msg = `${dropped} valid file(s) dropped (max ${fileLimit} total).`;
+      setValidationWarning((prev) => (prev ? `${prev} ${msg}` : msg));
+    }
+
+    if (filesToAdd.length === 0) {
+      if (invalidReasons.length > 0) {
+        setError(true);
+      }
+      return;
+    }
+
+    const updatedFiles = [...value, ...filesToAdd];
+    setValue(updatedFiles);
+    setIsReading(true);
+
+    // Read ALL current files (including previously added) to keep base64Files in sync
+    const filesPromises = updatedFiles.map((file) => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+          const base64WithPrefix = e.target.result;
+          const base64Value = base64WithPrefix.split(",")[1];
+          resolve({
+            type: file.type,
+            value: base64Value,
+            name: file.name,
+          });
+        };
+
+        reader.onerror = (fileError) => {
+          console.error("Error reading file:", fileError);
+          reject(fileError);
+        };
+
+        reader.readAsDataURL(file);
+      });
+    });
+
+    try {
+      const filesData = await Promise.all(filesPromises);
+      setBase64Files(filesData);
+      onBase64Change(filesData);
+    } catch (fileError) {
+      console.error("Error processing files:", fileError);
       setBase64Files([]);
       onBase64Change([]);
+    } finally {
+      setIsReading(false);
     }
   };
 
   const handleDismiss = (itemIndex) => {
+    // Prevent dismiss while files are being read to avoid index desync
+    if (isReading) return;
+
     const newFiles = value.filter((_, index) => index !== itemIndex);
     setValue(newFiles);
+    setValidationWarning("");
 
     if (newFiles.length > 0) {
       const filesData = base64Files.filter((_, index) => index !== itemIndex);
@@ -111,13 +150,19 @@ export default function StartComponent({ onBase64Change, value, setValue, error,
         accept=".png, .jpeg, .jpg"
         onChange={handleFileChange}
         value={[]}
-        multiple
-        constraintText={`Select 1-${MAX_FILES} architecture diagrams (PNG/JPG). You can select multiple files at once. Max ${MAX_FILE_SIZE_DISPLAY} per file.`}
+        multiple={fileLimit > 1}
+        disabled={isReading}
+        constraintText={`Select 1-${fileLimit} architecture diagrams (PNG/JPG).${fileLimit > 1 ? " You can select multiple files at once." : ""} Max ${MAX_FILE_SIZE_DISPLAY} per file.`}
         errorText={
           error &&
           "You must upload at least one architecture diagram before moving to the next step"
         }
       />
+      {validationWarning && (
+        <Alert type="warning" dismissible onDismiss={() => setValidationWarning("")}>
+          {validationWarning}
+        </Alert>
+      )}
       {value.length > 0 && (
         <FileTokenGroup
           items={value.map((file) => ({
@@ -128,6 +173,7 @@ export default function StartComponent({ onBase64Change, value, setValue, error,
           showFileSize
           showFileLastModified
           showFileThumbnail
+          readOnly={isReading}
           i18nStrings={{
             limitShowFewer: "Show fewer files",
             limitShowMore: "Show more files",

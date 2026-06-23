@@ -3737,7 +3737,6 @@ components:
     CreateThreatModelRequest:
       type: object
       required:
-        - s3_location
         - iteration
       properties:
         id:
@@ -3757,7 +3756,13 @@ components:
           description: List of assumptions about the system
         s3_location:
           type: string
-          description: S3 path to the architecture diagram
+          description: S3 path to the first architecture diagram (backward compatible)
+        s3_locations:
+          type: array
+          items:
+            type: string
+          maxItems: 3
+          description: S3 paths to architecture diagrams (1-3). Preferred over s3_location for multi-file submissions
         iteration:
           type: integer
           description: Iteration number for the threat model generation

@@ -153,13 +153,14 @@ export const VersionModalComponent = ({
           />
         </FormField>
 
-        <FormField label="Architecture diagram" description="Upload the new architecture diagram.">
+        <FormField label="Architecture diagram" description="Upload the new architecture diagram for version comparison.">
           <StartComponent
             onBase64Change={handleBase64Change}
             value={fileValue}
             setValue={setFileValue}
             error={fileError}
             setError={setFileError}
+            maxFiles={1}
           />
         </FormField>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import { SubmissionComponent } from "./SubmissionForm";
 import { Modal } from "@cloudscape-design/components";
@@ -17,9 +17,9 @@ export default function ThreatModeling() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
-  const handleBase64Change = (base64) => {
+  const handleBase64Change = useCallback((base64) => {
     setBase64Content(base64);
-  };
+  }, []);
 
   const handleStartThreatModeling = async (
     title,
@@ -103,7 +103,6 @@ export default function ThreatModeling() {
       >
         <SubmissionComponent
           onBase64Change={handleBase64Change}
-          base64Content={base64Content}
           iteration={iteration}
           setIteration={setIteration}
           setVisible={setVisible}

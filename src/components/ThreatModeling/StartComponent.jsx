@@ -10,6 +10,8 @@ export const ALLOWED_EXTENSIONS = [".png", ".jpeg", ".jpg"];
 export const MAX_FILE_SIZE_BYTES = 3.75 * 1024 * 1024; // 3.75 MB
 export const MAX_FILE_SIZE_DISPLAY = "3.75 MB";
 export const MAX_FILES = 3;
+// One required primary diagram + up to MAX_AIDING_FILES optional aiding diagrams.
+export const MAX_AIDING_FILES = MAX_FILES - 1;
 
 /**
  * Validates a file for format and size constraints.
@@ -34,7 +36,17 @@ export function validateFile(file) {
   return errors;
 }
 
-export default function StartComponent({ onBase64Change, value, setValue, error, setError, maxFiles }) {
+export default function StartComponent({
+  onBase64Change,
+  value,
+  setValue,
+  error,
+  setError,
+  maxFiles,
+  buttonText,
+  constraintText,
+  requiredErrorText = "You must upload at least one architecture diagram before moving to the next step",
+}) {
   const [base64Files, setBase64Files] = useState([]);
   const [isReading, setIsReading] = useState(false);
   const [validationWarning, setValidationWarning] = useState("");
@@ -152,12 +164,14 @@ export default function StartComponent({ onBase64Change, value, setValue, error,
         value={[]}
         multiple={fileLimit > 1}
         disabled={isReading}
-        constraintText={`Select 1-${fileLimit} architecture diagrams (PNG/JPG).${fileLimit > 1 ? " You can select multiple files at once." : ""} Max ${MAX_FILE_SIZE_DISPLAY} per file.`}
-        errorText={
-          error &&
-          "You must upload at least one architecture diagram before moving to the next step"
+        constraintText={
+          constraintText ||
+          `Select 1-${fileLimit} architecture diagrams (PNG/JPG).${fileLimit > 1 ? " You can select multiple files at once." : ""} Max ${MAX_FILE_SIZE_DISPLAY} per file.`
         }
-      />
+        errorText={error && requiredErrorText}
+      >
+        {buttonText || (fileLimit > 1 ? "Choose files" : "Choose file")}
+      </FileInput>
       {validationWarning && (
         <Alert type="warning" dismissible onDismiss={() => setValidationWarning("")}>
           {validationWarning}
@@ -165,16 +179,14 @@ export default function StartComponent({ onBase64Change, value, setValue, error,
       )}
       {value.length > 0 && (
         <FileTokenGroup
-          items={value.map((file) => ({
-            file,
-            dismissLabel: `Remove ${file.name}`,
-          }))}
-          onDismiss={({ detail }) => handleDismiss(detail.itemIndex)}
+          items={value.map((file) => ({ file }))}
+          onDismiss={({ detail }) => handleDismiss(detail.fileIndex)}
           showFileSize
           showFileLastModified
           showFileThumbnail
           readOnly={isReading}
           i18nStrings={{
+            removeFileAriaLabel: (fileIndex) => `Remove file ${fileIndex + 1}`,
             limitShowFewer: "Show fewer files",
             limitShowMore: "Show more files",
             errorIconAriaLabel: "Error",

@@ -1,6 +1,6 @@
 import React from "react";
 import Wizard from "@cloudscape-design/components/wizard";
-import StartComponent from "./StartComponent";
+import StartComponent, { MAX_AIDING_FILES, MAX_FILE_SIZE_DISPLAY } from "./StartComponent";
 import {
   Header,
   FormField,
@@ -29,7 +29,6 @@ function convertArrayToObjects(arr) {
 
 export const SubmissionComponent = ({
   onBase64Change,
-  base64Content,
   iteration,
   setIteration,
   handleStart,
@@ -47,7 +46,13 @@ export const SubmissionComponent = ({
   ];
   const reasoningReferenceValues = [1, 2, 3];
   const [activeStepIndex, setActiveStepIndex] = React.useState(0);
-  const [value, setValue] = React.useState([]);
+  // Primary diagram (required, exactly 1) is kept separate from the optional
+  // aiding diagrams so the primary is always index 0 of the combined payload —
+  // the backend treats s3_locations[0] as the canonical/version-baseline image.
+  const [primaryValue, setPrimaryValue] = React.useState([]);
+  const [aidingValue, setAidingValue] = React.useState([]);
+  const [primaryBase64, setPrimaryBase64] = React.useState([]);
+  const [aidingBase64, setAidingBase64] = React.useState([]);
   const [title, setTitle] = React.useState("");
   const [newAssumption, setNewAssumption] = React.useState("");
   const [assumptions, setAssumptions] = React.useState([]);
@@ -68,6 +73,17 @@ export const SubmissionComponent = ({
       )
       .catch(() => {});
   }, []);
+  // Combine primary + aiding into a single primary-first payload for the parent.
+  React.useEffect(() => {
+    onBase64Change([...primaryBase64, ...aidingBase64]);
+  }, [primaryBase64, aidingBase64, onBase64Change]);
+
+  // Combined file list (primary first) for the review screen.
+  const combinedFiles = React.useMemo(
+    () => [...primaryValue, ...aidingValue],
+    [primaryValue, aidingValue]
+  );
+
   const handleAddAssumption = () => {
     if (newAssumption.trim()) {
       setAssumptions((prev) => [...prev, newAssumption.trim()]);
@@ -92,7 +108,7 @@ export const SubmissionComponent = ({
       }}
       onNavigate={({ detail }) => {
         if (detail.reason === "next") {
-          if (!value[0] && detail.requestedStepIndex === 2) {
+          if (!primaryValue[0] && detail.requestedStepIndex === 2) {
             setError(true);
           } else if (title.length === 0 && detail.requestedStepIndex === 1) {
             setError(true);
@@ -132,17 +148,47 @@ export const SubmissionComponent = ({
         },
         {
           title: "Architecture diagram(s)",
-          description: "Upload 1-3 architecture diagrams (PNG/JPG). Provide multiple views (high-level, detailed, security layer) for comprehensive threat analysis. Max 3.75 MB per file.",
+          description:
+            "Upload one primary architecture diagram (required). You can add up to 2 aiding diagrams (optional) to provide extra views — detailed, security layer, etc. Max 3.75 MB per file.",
           content: (
             <div style={{ minHeight: 200 }}>
-              <StartComponent
-                onBase64Change={onBase64Change}
-                base64Content={base64Content}
-                value={value}
-                setValue={setValue}
-                error={error}
-                setError={setError}
-              />
+              <SpaceBetween size="l">
+                <FormField
+                  label="Primary architecture diagram"
+                  description="The main diagram. Used as the baseline when creating future versions of this threat model."
+                >
+                  <StartComponent
+                    onBase64Change={setPrimaryBase64}
+                    value={primaryValue}
+                    setValue={setPrimaryValue}
+                    error={error}
+                    setError={setError}
+                    maxFiles={1}
+                    buttonText="Choose primary diagram"
+                    constraintText={`PNG or JPG. Max ${MAX_FILE_SIZE_DISPLAY}.`}
+                    requiredErrorText="A primary architecture diagram is required before moving to the next step"
+                  />
+                </FormField>
+                <FormField
+                  label={
+                    <span>
+                      Aiding diagrams <i>- optional</i>
+                    </span>
+                  }
+                  description={`Additional views (detailed, security layer, etc.) to aid analysis. Up to ${MAX_AIDING_FILES} files.`}
+                >
+                  <StartComponent
+                    onBase64Change={setAidingBase64}
+                    value={aidingValue}
+                    setValue={setAidingValue}
+                    error={false}
+                    setError={() => {}}
+                    maxFiles={MAX_AIDING_FILES}
+                    buttonText="Choose aiding diagrams"
+                    constraintText={`Optional. Select up to ${MAX_AIDING_FILES} additional diagrams (PNG/JPG). Max ${MAX_FILE_SIZE_DISPLAY} per file.`}
+                  />
+                </FormField>
+              </SpaceBetween>
             </div>
           ),
         },
@@ -402,7 +448,7 @@ export const SubmissionComponent = ({
                     />
                   </SpaceBetween>
                 )}
-                {value[0] && (
+                {combinedFiles[0] && (
                   <SpaceBetween size="xs">
                     <Header
                       variant="h3"
@@ -425,7 +471,7 @@ export const SubmissionComponent = ({
                         errorIconAriaLabel: "Error",
                         warningIconAriaLabel: "Warning",
                       }}
-                      items={value.map((file) => ({ file }))}
+                      items={combinedFiles.map((file) => ({ file }))}
                       readOnly
                       showFileLastModified
                       showFileThumbnail

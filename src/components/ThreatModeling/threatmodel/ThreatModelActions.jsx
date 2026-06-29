@@ -94,6 +94,16 @@ const ThreatModelActions = React.memo(
               disabled: !showResults,
             },
             {
+              text: "Excel (XLSX)",
+              id: "cp-xls",
+              disabled: !showResults,
+            },
+            {
+              text: "Markdown (.md)",
+              id: "cp-md",
+              disabled: !showResults,
+            },
+            {
               text: "JSON",
               id: "cp-json",
               disabled: !showResults,

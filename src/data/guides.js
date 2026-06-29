@@ -8,6 +8,7 @@ import usingSentryMd from "../../quick-start-guide/using-sentry.md?raw";
 import usingSpacesMd from "../../quick-start-guide/using-spaces.md?raw";
 import versioningThreatModelsMd from "../../quick-start-guide/versioning-threat-models.md?raw";
 import collaborateMd from "../../quick-start-guide/collaborate-on-threat-models.md?raw";
+import exportThreatModelsMd from "../../quick-start-guide/export-threat-models.md?raw";
 
 // Guide metadata and content mapping
 export const guides = {
@@ -46,6 +47,10 @@ export const guides = {
   "collaborate-on-threat-models": {
     title: "Collaborate on Threat Models",
     content: collaborateMd,
+  },
+  "export-threat-models": {
+    title: "Export Threat Models",
+    content: exportThreatModelsMd,
   },
 };
 

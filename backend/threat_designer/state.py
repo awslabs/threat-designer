@@ -83,6 +83,10 @@ class SpaceInsightsList(BaseModel):
             description="List of insight strings extracted from the space knowledge base"
         ),
     ]
+    source: Optional[str] = Field(
+        default=None,
+        description="Origin of insights: 'system' for system space, 'user' for user space",
+    )
 
 
 class CaptureInsight(BaseModel):
@@ -576,7 +580,7 @@ class VersionState(MessagesState):
 class SpaceContextState(MessagesState):
     """Container for the internal state of the space context subgraph."""
 
-    space_id: str
+    space_id: Optional[str] = None
     kb_query_count: Annotated[int, _add_or_overwrite] = 0
     space_insights: Optional[SpaceInsightsList] = None
     image_data: Optional[str] = None

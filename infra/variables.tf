@@ -481,6 +481,12 @@ variable "kb_embedding_model_id" {
   default     = "amazon.titan-embed-text-v2:0"
 }
 
+variable "system_space_id" {
+  type        = string
+  description = "Space ID for mandatory organization-wide standards. When set, this space is queried for every threat model and cannot be modified by users."
+  default     = ""
+}
+
 variable "external_agent_ecr_arn" {
   type        = string
   description = "ARN of an external ECR repository containing the threat designer agent image. When set, skips local ECR creation and docker build."

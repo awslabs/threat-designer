@@ -406,6 +406,10 @@ deploy_backend() {
     
     VITE_REDIRECT_SIGN_IN="https://dev.${APP_ID}.amplifyapp.com"
     VITE_REDIRECT_SIGN_OUT="https://dev.${APP_ID}.amplifyapp.com"
+
+    # System Space ID (optional)
+    VITE_SYSTEM_SPACE_ID=$(terraform output -raw system_space_id 2>/dev/null || echo "")
+
     export AWS_DEFAULT_REGION=$REGION
 
     # Return to root directory
@@ -416,6 +420,7 @@ deploy_backend() {
 VITE_APP_ENDPOINT=$VITE_APP_ENDPOINT
 VITE_APP_SENTRY=$VITE_APP_SENTRY
 VITE_SENTRY_ENABLED=$VITE_SENTRY_ENABLED
+VITE_SYSTEM_SPACE_ID=$VITE_SYSTEM_SPACE_ID
 VITE_COGNITO_REGION=$VITE_COGNITO_REGION
 VITE_USER_POOL_ID=$VITE_USER_POOL_ID
 VITE_APP_CLIENT_ID=$VITE_APP_CLIENT_ID

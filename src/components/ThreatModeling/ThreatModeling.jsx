@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import { SubmissionComponent } from "./SubmissionForm";
 import { Modal } from "@cloudscape-design/components";
@@ -17,9 +17,9 @@ export default function ThreatModeling() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
-  const handleBase64Change = (base64) => {
+  const handleBase64Change = useCallback((base64) => {
     setBase64Content(base64);
-  };
+  }, []);
 
   const handleStartThreatModeling = async (
     title,
@@ -30,10 +30,26 @@ export default function ThreatModeling() {
   ) => {
     setLoading(true);
     try {
-      const results = await generateUrl(base64Content?.type);
-      await uploadFile(base64Content?.value, results?.data?.presigned, base64Content?.type);
+      // Support both single file (legacy) and multiple files
+      const filesArray = Array.isArray(base64Content) ? base64Content : [base64Content];
+      const s3Locations = [];
+
+      for (let i = 0; i < filesArray.length; i++) {
+        const file = filesArray[i];
+        if (file && file.value) {
+          const results = await generateUrl(file.type);
+          await uploadFile(file.value, results?.data?.presigned, file.type);
+          s3Locations.push(results?.data?.name);
+        }
+      }
+
+      if (s3Locations.length === 0) {
+        setLoading(false);
+        return;
+      }
+
       const response = await startThreatModeling(
-        results?.data?.name,
+        s3Locations,
         iteration?.value,
         reasoning,
         title,
@@ -42,7 +58,7 @@ export default function ThreatModeling() {
         false, // replay
         null, // id
         null, // instructions
-        base64Content?.type, // imageType
+        filesArray[0]?.type, // imageType (first file for backward compat)
         applicationType,
         spaceId
       );
@@ -87,7 +103,6 @@ export default function ThreatModeling() {
       >
         <SubmissionComponent
           onBase64Change={handleBase64Change}
-          base64Content={base64Content}
           iteration={iteration}
           setIteration={setIteration}
           setVisible={setVisible}

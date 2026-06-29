@@ -880,21 +880,41 @@ def version_subgraph(state, config: RunnableConfig):
             ]
         )
     if new_image:
-        content.extend(
-            [
-                {"type": "text", "text": "NEW architecture diagram:"},
-                {"type": "text", "text": "<new_architecture_diagram>"},
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": image_type,
-                        "data": new_image,
+        # Support multiple new architecture diagrams
+        image_metadata_list = state.get("image_metadata_list")
+        if image_metadata_list and len(image_metadata_list) > 1:
+            for idx, img_meta in enumerate(image_metadata_list, 1):
+                content.extend(
+                    [
+                        {"type": "text", "text": f"NEW architecture diagram {idx}:"},
+                        {"type": "text", "text": f"<new_architecture_diagram_{idx}>"},
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": img_meta.mime_type,
+                                "data": img_meta.base64_data,
+                            },
+                        },
+                        {"type": "text", "text": f"</new_architecture_diagram_{idx}>"},
+                    ]
+                )
+        else:
+            content.extend(
+                [
+                    {"type": "text", "text": "NEW architecture diagram:"},
+                    {"type": "text", "text": "<new_architecture_diagram>"},
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": image_type,
+                            "data": new_image,
+                        },
                     },
-                },
-                {"type": "text", "text": "</new_architecture_diagram>"},
-            ]
-        )
+                    {"type": "text", "text": "</new_architecture_diagram>"},
+                ]
+            )
 
     space_block = ""
     if space_insights and space_insights.insights:

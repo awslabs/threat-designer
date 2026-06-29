@@ -126,6 +126,7 @@ def create_agent_human_message(state: FlowsState) -> HumanMessage:
         state.get("description", ""),
         list_to_string(state.get("assumptions", [])),
         state.get("image_type"),
+        image_metadata_list=state.get("image_metadata_list"),
     )
 
     # Start with base message (architecture diagram, description, assumptions) with caching

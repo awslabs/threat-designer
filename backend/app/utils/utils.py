@@ -103,11 +103,15 @@ def create_dynamodb_item(agent_state, table_name):
     item = {
         "job_id": agent_state["job_id"],
         "s3_location": agent_state["s3_location"],
+        "s3_locations": agent_state.get("s3_locations"),
         "title": agent_state.get("title", None),
         "owner": agent_state.get("owner", None),
         "retry": agent_state.get("retry", None),
         "timestamp": current_utc,
     }
+
+    # Remove None values to avoid DynamoDB issues
+    item = {k: v for k, v in item.items() if v is not None}
 
     try:
         # Create a new item in DynamoDB

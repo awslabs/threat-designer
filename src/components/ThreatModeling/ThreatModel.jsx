@@ -389,6 +389,8 @@ const ThreatModelInner = () => {
         tr: () => handleHelpButtonClick(<InfoContent context={"All"} />),
         "cp-doc": () => handleDownload("docx"),
         "cp-pdf": () => handleDownload("pdf"),
+        "cp-xls": () => handleDownload("xls"),
+        "cp-md": () => handleDownload("md"),
         "cp-json": () => handleDownload("json"),
       };
       await actions[actionId]?.();

@@ -1,0 +1,7 @@
+{
+  "threat_id": "threat-1",
+  "nodes": [
+    { "id": "goal-1", "type": "goal", "position": { "x": 0, "y": 0 }, "data": { "label": "Exfiltrate card details" } }
+  ],
+  "edges": []
+}

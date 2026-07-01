@@ -6,9 +6,9 @@ import Badge from "@cloudscape-design/components/badge";
 import Icon from "@cloudscape-design/components/icon";
 import "./NodeStyles.css";
 
-const CountermeasureNode = ({ data, selected }) => {
+const CountermeasureNode = ({ data, selected, id }) => {
   return (
-    <div className={`custom-node countermeasure-node ${selected ? "selected" : ""}`}>
+    <div data-testid={`node-${id}`} className={`custom-node countermeasure-node ${selected ? "selected" : ""}`}>
       <Handle
         type="target"
         position={Position.Left}
@@ -66,6 +66,7 @@ CountermeasureNode.propTypes = {
     implemented: PropTypes.bool,
   }).isRequired,
   selected: PropTypes.bool,
+  id: PropTypes.string,
 };
 
 export default CountermeasureNode;

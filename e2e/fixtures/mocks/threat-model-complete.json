@@ -1,0 +1,46 @@
+{
+  "job_id": "tm-1",
+  "title": "Payments API threat model",
+  "state": "COMPLETE",
+  "summary": "Threat model for the payments microservice.",
+  "owner": "e2e-user-1",
+  "is_owner": true,
+  "last_modified_at": "2026-06-20T10:00:00Z",
+  "application_type": "hybrid",
+  "assumptions": ["Runs behind an authenticated API gateway."],
+  "description": "Handles card payments.",
+  "assets": [
+    { "id": "asset-1", "name": "Card details", "description": "PCI-sensitive data" }
+  ],
+  "system_architecture": {
+    "trust_boundaries": [{ "id": "tb-1", "name": "External" }],
+    "data_flows": [{ "id": "df-1", "name": "Client to gateway" }],
+    "threat_sources": [{ "id": "ts-1", "name": "External attacker" }]
+  },
+  "threat_list": [
+    {
+      "id": "threat-1",
+      "name": "Card details exfiltration",
+      "description": "An attacker exfiltrates card details.",
+      "stride_category": "Information Disclosure",
+      "likelihood": "high",
+      "target": "Card details",
+      "source": "External attacker",
+      "starred": false,
+      "mitigations": ["Encrypt data at rest"],
+      "prerequisites": []
+    },
+    {
+      "id": "threat-2",
+      "name": "Replay attack",
+      "description": "An attacker replays a captured request.",
+      "stride_category": "Spoofing",
+      "likelihood": "medium",
+      "target": "Payments API",
+      "source": "External attacker",
+      "starred": false,
+      "mitigations": ["Use nonces"],
+      "prerequisites": []
+    }
+  ]
+}

@@ -96,6 +96,7 @@ export const SubmissionComponent = ({
   };
 
   return (
+    <div data-testid="submission-wizard">
     <Wizard
       i18nStrings={{
         stepNumberLabel: (stepNumber) => `Step ${stepNumber}`,
@@ -575,5 +576,6 @@ export const SubmissionComponent = ({
         },
       ]}
     />
+    </div>
   );
 };

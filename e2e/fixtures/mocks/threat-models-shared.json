@@ -1,0 +1,14 @@
+{
+  "data": [
+    {
+      "job_id": "tm-shared-1",
+      "title": "Shared: Order-service threat model",
+      "summary": "Shared with read-only access.",
+      "timestamp": "2026-06-10T12:00:00Z",
+      "is_owner": false,
+      "stats": { "high": 3, "medium": 2, "low": 4 }
+    }
+  ],
+  "cursor": null,
+  "hasNextPage": false
+}

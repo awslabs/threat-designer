@@ -511,6 +511,7 @@ const ConflictResolutionModal = ({
         </Box>
       }
     >
+      <div data-testid="conflict-modal">
       <SpaceBetween size="m">
         <Alert type="warning" header="Conflict detected">
           The threat model has been modified by another user since you last loaded it. You can
@@ -585,6 +586,7 @@ const ConflictResolutionModal = ({
           ]}
         />
       </SpaceBetween>
+      </div>
     </Modal>
   );
 };

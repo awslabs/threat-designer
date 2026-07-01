@@ -2,6 +2,7 @@
   "space_id": "space-1",
   "name": "General knowledge base",
   "description": "Shared docs and specs.",
+  "is_owner": true,
   "documents": [
     {
       "document_id": "doc-1",

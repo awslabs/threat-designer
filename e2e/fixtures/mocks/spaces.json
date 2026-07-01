@@ -1,8 +1,10 @@
-[
-  {
-    "space_id": "space-1",
-    "name": "General knowledge base",
-    "description": "Shared docs and specs.",
-    "created_at": "2026-05-01T00:00:00Z"
-  }
-]
+{
+  "spaces": [
+    {
+      "space_id": "space-1",
+      "name": "General knowledge base",
+      "description": "Shared docs and specs.",
+      "created_at": "2026-05-01T00:00:00Z"
+    }
+  ]
+}

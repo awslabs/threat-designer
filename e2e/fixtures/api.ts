@@ -71,7 +71,15 @@ export async function installApiMocks(page: Page, overrides: ApiOverrides = {}) 
   // 4) Spaces — collection then item then documents (order matters, most-specific last).
   await page.route(new RegExp(`^${API}/spaces/?(\\?.*)?$`), (route) => {
     if (route.request().method() === "POST") {
-      return route.fulfill({ json: { space_id: "space-new-1", ok: true } });
+      const body = route.request().postDataJSON() ?? {};
+      return route.fulfill({
+        json: {
+          space_id: "space-new-1",
+          name: body.name ?? "New space",
+          description: body.description ?? "",
+          created_at: "2026-07-01T00:00:00Z",
+        },
+      });
     }
     return route.fulfill({ json: overrides.spaces ?? spaces });
   });
@@ -80,11 +88,19 @@ export async function installApiMocks(page: Page, overrides: ApiOverrides = {}) 
     if (method === "DELETE") return route.fulfill({ json: { ok: true } });
     return route.fulfill({ json: overrides.spaceDetail ?? spaceDetail });
   });
+  await page.route(new RegExp(`^${API}/spaces/[^/]+/sharing(/[^/?]+)?(\\?.*)?$`), (route) => {
+    if (route.request().method() === "DELETE") return route.fulfill({ json: { ok: true } });
+    return route.fulfill({ json: { collaborators: [] } });
+  });
+  await page.route(new RegExp(`^${API}/spaces/[^/]+/share(\\?.*)?$`), (route) =>
+    route.fulfill({ json: { shared: [] } })
+  );
   await page.route(
-    new RegExp(`^${API}/spaces/[^/]+/documents(/[^/]+)?(\\?.*)?$`),
+    new RegExp(`^${API}/spaces/[^/]+/documents(/[^/?]+)?(\\?.*)?$`),
     (route) => {
       const method = route.request().method();
-      if (method === "POST") {
+      // POST /documents/upload -> presigned response
+      if (method === "POST" && /\/documents\/upload/.test(route.request().url())) {
         return route.fulfill({
           json: {
             document_id: "doc-new-1",
@@ -93,8 +109,19 @@ export async function installApiMocks(page: Page, overrides: ApiOverrides = {}) 
           },
         });
       }
+      // POST /documents/confirm -> ingestion started
+      if (method === "POST" && /\/documents\/confirm/.test(route.request().url())) {
+        return route.fulfill({
+          json: {
+            document_id: "doc-new-1",
+            filename: "space-doc.pdf",
+            status: "INGESTING",
+          },
+        });
+      }
       if (method === "DELETE") return route.fulfill({ json: { ok: true } });
-      return route.fulfill({ json: { documents: [] } });
+      // GET /documents
+      return route.fulfill({ json: { documents: (overrides.spaceDetail as { documents?: unknown[] } | undefined)?.documents ?? (spaceDetail as { documents: unknown[] }).documents } });
     }
   );
 

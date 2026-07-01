@@ -22,7 +22,7 @@ test("submits a threat model through the 5-step wizard", async ({ authenticatedP
   await expect(wizard).toBeVisible();
 
   // Step 1 — Title
-  await wizard.locator("input").first().fill("My E2E Threat Model");
+  await wizard.getByLabel("Threat model title").fill("My E2E Threat Model");
   await authenticatedPage.getByRole("button", { name: "Next" }).click();
 
   // Step 2 — Primary diagram upload

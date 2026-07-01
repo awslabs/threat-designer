@@ -47,7 +47,7 @@ test("a 409 PUT opens the ConflictResolutionModal with server timestamp info", a
     .click();
   await authenticatedPage.getByRole("menuitem", { name: "Edit" }).click();
   const editModal = authenticatedPage.getByRole("dialog", { name: "Edit item" });
-  await editModal.locator("input").first().fill("Card details exfiltration — conflicted");
+  await editModal.getByLabel("Name").fill("Card details exfiltration — conflicted");
   await editModal.getByRole("button", { name: "Save" }).click();
   await expect(editModal).toBeHidden();
 

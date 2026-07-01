@@ -22,84 +22,50 @@ export type ApiOverrides = Partial<{
   spaces: unknown;
   spaceDetail: unknown;
   attackTree: unknown;
+  trail: unknown;
   onPost: (route: Route) => Promise<void> | void;
   onPut: (route: Route) => Promise<void> | void;
   onDelete: (route: Route) => Promise<void> | void;
   onShare: (route: Route) => Promise<void> | void;
 }>;
 
+// Playwright evaluates the LATEST-registered route first. We register from
+// least-specific to most-specific so specific handlers override generic ones.
 export async function installApiMocks(page: Page, overrides: ApiOverrides = {}) {
   const state = {
     statusIdx: 0,
     statusSequence: overrides.statusSequence ?? ["COMPLETE"],
   };
 
-  // Presigned S3 host — used for both uploads (PUT) and downloads (GET)
+  // 1) Loud 404 catch-all — every unmocked API path.
+  await page.route(new RegExp(`^${API}/.*`), (route) =>
+    route.fulfill({
+      status: 404,
+      json: { error: "unmocked", url: route.request().url(), method: route.request().method() },
+    })
+  );
+
+  // 2) Presigned S3 — used for upload PUTs and download GETs.
   await page.route(new RegExp(`^${S3}(/.*)?$`), (route) =>
     route.fulfill({ status: 200, contentType: "text/plain", body: "" })
   );
 
-  // POST /threat-designer/upload -> return presigned URL + S3 key name
-  await page.route(new RegExp(`^${API}/threat-designer/upload(\\?.*)?$`), (route) =>
-    route.fulfill({ json: { presigned: `${S3}/upload-target`, name: "s3://mock/key.png" } })
-  );
-
-  // POST /threat-designer/download -> plain-text presigned URL (per stats.jsx: response.data is the URL)
-  await page.route(new RegExp(`^${API}/threat-designer/download(\\?.*)?$`), (route) =>
-    route.fulfill({ contentType: "application/json", body: JSON.stringify(`${S3}/download-target`) })
-  );
-
-  // GET /threat-designer/owned
-  await page.route(new RegExp(`^${API}/threat-designer/owned(\\?.*)?$`), (route) =>
-    route.fulfill({ json: overrides.ownedList ?? ownedList })
-  );
-
-  // GET /threat-designer/shared
-  await page.route(new RegExp(`^${API}/threat-designer/shared(\\?.*)?$`), (route) =>
-    route.fulfill({ json: overrides.sharedList ?? sharedList })
-  );
-
-  // GET /threat-designer/status/:id — advances a sequence per call
-  await page.route(new RegExp(`^${API}/threat-designer/status/[^/?]+(\\?.*)?$`), (route) => {
-    const idx = Math.min(state.statusIdx, state.statusSequence.length - 1);
-    const currentState = state.statusSequence[idx];
-    state.statusIdx += 1;
-    return route.fulfill({
-      json: { state: currentState, retry: 0, detail: null, session_id: "session-1" },
-    });
-  });
-
-  // GET /threat-designer/trail/:id
-  await page.route(new RegExp(`^${API}/threat-designer/trail/[^/?]+(\\?.*)?$`), (route) =>
-    route.fulfill({ json: overrides.trail ?? trail })
-  );
-
-  // Collaborators + users + share (must precede the generic /:id catch-all)
-  await page.route(new RegExp(`^${API}/threat-designer/[^/]+/collaborators(\\?.*)?$`), (route) =>
-    route.fulfill({ json: overrides.collaborators ?? collaborators })
-  );
-  await page.route(new RegExp(`^${API}/threat-designer/users(\\?.*)?$`), (route) =>
-    route.fulfill({ json: overrides.users ?? users })
-  );
-  await page.route(new RegExp(`^${API}/threat-designer/[^/]+/share(\\?.*)?$`), async (route) => {
-    if (overrides.onShare) {
-      await overrides.onShare(route);
-      return;
-    }
-    return route.fulfill({ json: { ok: true } });
-  });
-
-  // Attack tree
+  // 3) Attack tree.
   await page.route(new RegExp(`^${API}/attack-tree/.*`), (route) =>
     route.fulfill({ json: overrides.attackTree ?? attackTree })
   );
 
-  // Spaces
+  // 4) Spaces — collection then item then documents (order matters, most-specific last).
   await page.route(new RegExp(`^${API}/spaces/?(\\?.*)?$`), (route) => {
     if (route.request().method() === "POST") {
       return route.fulfill({ json: { space_id: "space-new-1", ok: true } });
     }
     return route.fulfill({ json: overrides.spaces ?? spaces });
+  });
+  await page.route(new RegExp(`^${API}/spaces/[^/]+(\\?.*)?$`), (route) => {
+    const method = route.request().method();
+    if (method === "DELETE") return route.fulfill({ json: { ok: true } });
+    return route.fulfill({ json: overrides.spaceDetail ?? spaceDetail });
   });
   await page.route(
     new RegExp(`^${API}/spaces/[^/]+/documents(/[^/]+)?(\\?.*)?$`),
@@ -118,24 +84,8 @@ export async function installApiMocks(page: Page, overrides: ApiOverrides = {}) 
       return route.fulfill({ json: { documents: [] } });
     }
   );
-  await page.route(new RegExp(`^${API}/spaces/[^/]+(\\?.*)?$`), (route) => {
-    const method = route.request().method();
-    if (method === "DELETE") return route.fulfill({ json: { ok: true } });
-    return route.fulfill({ json: overrides.spaceDetail ?? spaceDetail });
-  });
 
-  // POST /threat-designer  -> starts new tm (or version) -> return { id }
-  // Must match BEFORE the generic /:id handler below.
-  await page.route(new RegExp(`^${API}/threat-designer/?(\\?.*)?$`), async (route) => {
-    if (route.request().method() !== "POST") return route.continue();
-    if (overrides.onPost) {
-      await overrides.onPost(route);
-      return;
-    }
-    return route.fulfill({ json: { id: "tm-new-1", job_id: "tm-new-1" } });
-  });
-
-  // Generic /threat-designer/:id (GET/PUT/DELETE)
+  // 5) Generic /threat-designer/:id (GET / PUT / DELETE). Specific paths below override this.
   await page.route(new RegExp(`^${API}/threat-designer/[^/?]+(\\?.*)?$`), async (route) => {
     const method = route.request().method();
     if (method === "GET") return route.fulfill({ json: overrides.threatModel ?? tmComplete });
@@ -156,11 +106,54 @@ export async function installApiMocks(page: Page, overrides: ApiOverrides = {}) 
     return route.continue();
   });
 
-  // Fallback: any other API path -> 404 loud
-  await page.route(new RegExp(`^${API}/.*`), (route) =>
-    route.fulfill({
-      status: 404,
-      json: { error: "unmocked", url: route.request().url(), method: route.request().method() },
-    })
+  // 6) POST /threat-designer -> new tm / new version
+  await page.route(new RegExp(`^${API}/threat-designer/?(\\?.*)?$`), async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    if (overrides.onPost) {
+      await overrides.onPost(route);
+      return;
+    }
+    return route.fulfill({ json: { id: "tm-new-1", job_id: "tm-new-1" } });
+  });
+
+  // 7) Specific /threat-designer subpaths.
+  await page.route(new RegExp(`^${API}/threat-designer/upload(\\?.*)?$`), (route) =>
+    route.fulfill({ json: { presigned: `${S3}/upload-target`, name: "s3://mock/key.png" } })
   );
+  await page.route(new RegExp(`^${API}/threat-designer/download(\\?.*)?$`), (route) =>
+    route.fulfill({ contentType: "application/json", body: JSON.stringify(`${S3}/download-target`) })
+  );
+  await page.route(new RegExp(`^${API}/threat-designer/download/batch(\\?.*)?$`), (route) =>
+    route.fulfill({ json: { results: [] } })
+  );
+  await page.route(new RegExp(`^${API}/threat-designer/owned(\\?.*)?$`), (route) =>
+    route.fulfill({ json: overrides.ownedList ?? ownedList })
+  );
+  await page.route(new RegExp(`^${API}/threat-designer/shared(\\?.*)?$`), (route) =>
+    route.fulfill({ json: overrides.sharedList ?? sharedList })
+  );
+  await page.route(new RegExp(`^${API}/threat-designer/users(\\?.*)?$`), (route) =>
+    route.fulfill({ json: overrides.users ?? users })
+  );
+  await page.route(new RegExp(`^${API}/threat-designer/status/[^/?]+(\\?.*)?$`), (route) => {
+    const idx = Math.min(state.statusIdx, state.statusSequence.length - 1);
+    const currentState = state.statusSequence[idx];
+    state.statusIdx += 1;
+    return route.fulfill({
+      json: { state: currentState, retry: 0, detail: null, session_id: "session-1" },
+    });
+  });
+  await page.route(new RegExp(`^${API}/threat-designer/trail/[^/?]+(\\?.*)?$`), (route) =>
+    route.fulfill({ json: overrides.trail ?? trail })
+  );
+  await page.route(new RegExp(`^${API}/threat-designer/[^/]+/collaborators(\\?.*)?$`), (route) =>
+    route.fulfill({ json: overrides.collaborators ?? collaborators })
+  );
+  await page.route(new RegExp(`^${API}/threat-designer/[^/]+/share(\\?.*)?$`), async (route) => {
+    if (overrides.onShare) {
+      await overrides.onShare(route);
+      return;
+    }
+    return route.fulfill({ json: { ok: true } });
+  });
 }

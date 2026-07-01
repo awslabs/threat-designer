@@ -1,5 +1,5 @@
 {
-  "data": [
+  "catalogs": [
     {
       "job_id": "tm-shared-1",
       "title": "Shared: Order-service threat model",
@@ -9,6 +9,8 @@
       "stats": { "high": 3, "medium": 2, "low": 4 }
     }
   ],
-  "cursor": null,
-  "hasNextPage": false
+  "pagination": {
+    "cursor": null,
+    "hasNextPage": false
+  }
 }

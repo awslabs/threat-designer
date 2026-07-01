@@ -1,5 +1,5 @@
 {
-  "data": [
+  "catalogs": [
     {
       "job_id": "tm-1",
       "title": "Payments API threat model",
@@ -17,6 +17,8 @@
       "stats": { "high": 1, "medium": 3, "low": 5 }
     }
   ],
-  "cursor": null,
-  "hasNextPage": false
+  "pagination": {
+    "cursor": null,
+    "hasNextPage": false
+  }
 }

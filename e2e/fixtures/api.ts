@@ -1,3 +1,5 @@
+import path from "path";
+import { fileURLToPath } from "url";
 import type { Page, Route } from "@playwright/test";
 import ownedList from "./mocks/threat-models-owned.json" with { type: "json" };
 import sharedList from "./mocks/threat-models-shared.json" with { type: "json" };
@@ -11,6 +13,9 @@ import attackTree from "./mocks/attack-tree.json" with { type: "json" };
 
 const API = "http://mock.local/api";
 const S3 = "http://mock.local/s3";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ARCHITECTURE_PNG = path.resolve(__dirname, "files/architecture.png");
 
 export type ApiOverrides = Partial<{
   ownedList: unknown;
@@ -45,10 +50,18 @@ export async function installApiMocks(page: Page, overrides: ApiOverrides = {}) 
     })
   );
 
-  // 2) Presigned S3 — used for upload PUTs and download GETs.
-  await page.route(new RegExp(`^${S3}(/.*)?$`), (route) =>
-    route.fulfill({ status: 200, contentType: "text/plain", body: "" })
-  );
+  // 2) Presigned S3 — return a real PNG for GETs (download flow needs a
+  //    valid blob for FileReader), empty 200 for PUT uploads.
+  await page.route(new RegExp(`^${S3}(/.*)?$`), (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({
+        status: 200,
+        contentType: "image/png",
+        path: ARCHITECTURE_PNG,
+      });
+    }
+    return route.fulfill({ status: 200, contentType: "text/plain", body: "" });
+  });
 
   // 3) Attack tree.
   await page.route(new RegExp(`^${API}/attack-tree/.*`), (route) =>
@@ -149,6 +162,23 @@ export async function installApiMocks(page: Page, overrides: ApiOverrides = {}) 
   await page.route(new RegExp(`^${API}/threat-designer/[^/]+/collaborators(\\?.*)?$`), (route) =>
     route.fulfill({ json: overrides.collaborators ?? collaborators })
   );
+
+  // Lock service — grant the lock unconditionally so tests can edit.
+  await page.route(new RegExp(`^${API}/threat-designer/[^/]+/lock(\\?.*)?$`), (route) => {
+    const method = route.request().method();
+    if (method === "POST") {
+      return route.fulfill({
+        json: { success: true, lock_token: "e2e-mock-lock-token", held_by: "e2e-user-1" },
+      });
+    }
+    if (method === "DELETE") return route.fulfill({ json: { success: true } });
+    return route.fulfill({ json: { success: true } });
+  });
+  await page.route(
+    new RegExp(`^${API}/threat-designer/[^/]+/lock/(status|heartbeat)(\\?.*)?$`),
+    (route) => route.fulfill({ json: { success: true, is_locked: true, held_by: "e2e-user-1" } })
+  );
+
   await page.route(new RegExp(`^${API}/threat-designer/[^/]+/share(\\?.*)?$`), async (route) => {
     if (overrides.onShare) {
       await overrides.onShare(route);

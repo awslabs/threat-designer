@@ -46,7 +46,7 @@ export function AppSidebar({ user, colorMode, effectiveTheme, setThemeMode, onLo
   ];
 
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar data-testid="app-sidebar" collapsible="icon" {...props}>
       <SidebarHeader />
       <SidebarContent className="flex flex-col">
         <NavMain items={navItems} />

@@ -24,11 +24,7 @@ const ConflictResolutionModal = ({
   const [loading, setLoading] = useState(false);
   const { isDark } = useTheme();
 
-  if (!conflictData || !localChanges) {
-    return null;
-  }
-
-  const serverState = conflictData.server_state;
+  const serverState = conflictData?.server_state ?? null;
 
   // Helper to clean up objects by removing empty arrays and unwanted fields
   const cleanObject = (obj, type) => {
@@ -177,6 +173,18 @@ const ConflictResolutionModal = ({
     descriptionChanged,
     totalDifferences,
   } = useMemo(() => {
+    if (!localChanges || !serverState) {
+      return {
+        threatDiffs: [],
+        assetDiffs: [],
+        flowDiffs: [],
+        boundaryDiffs: [],
+        sourceDiffs: [],
+        assumptionDiffs: [],
+        descriptionChanged: false,
+        totalDifferences: 0,
+      };
+    }
     const threatDiffs = compareArrays(
       localChanges.threat_list?.threats,
       serverState.threat_list?.threats,
@@ -479,6 +487,10 @@ const ConflictResolutionModal = ({
     },
   };
 
+  if (!conflictData || !localChanges) {
+    return null;
+  }
+
   return (
     <Modal
       onDismiss={onDismiss}
@@ -511,6 +523,7 @@ const ConflictResolutionModal = ({
         </Box>
       }
     >
+      <div data-testid="conflict-modal">
       <SpaceBetween size="m">
         <Alert type="warning" header="Conflict detected">
           The threat model has been modified by another user since you last loaded it. You can
@@ -585,6 +598,7 @@ const ConflictResolutionModal = ({
           ]}
         />
       </SpaceBetween>
+      </div>
     </Modal>
   );
 };

@@ -320,7 +320,7 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
       {results.map((item) => {
         const presignedData = presignedUrlMap[item?.job_id];
         return (
-          <div key={item.job_id} style={{ height: 250 }}>
+          <div key={item.job_id} data-testid={`tm-card-${item.job_id}`} style={{ height: 250 }}>
             {deletingId === item.job_id ? (
               <Container fitHeight>
                 <div
@@ -546,7 +546,7 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
   };
 
   return (
-    <div style={{ marginTop: 20 }}>
+    <div data-testid="threat-catalog" style={{ marginTop: 20 }}>
       <Tabs
         activeTabId={filterMode}
         onChange={({ detail }) => {

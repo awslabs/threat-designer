@@ -96,6 +96,7 @@ export const SubmissionComponent = ({
   };
 
   return (
+    <div data-testid="submission-wizard">
     <Wizard
       i18nStrings={{
         stepNumberLabel: (stepNumber) => `Step ${stepNumber}`,
@@ -139,9 +140,13 @@ export const SubmissionComponent = ({
           title: "Title",
           description: "Provide a meaningful title for the threat model.",
           content: (
-            <div style={{ minHeight: 200 }}>
+            <div data-testid="wizard-step-title" style={{ minHeight: 200 }}>
               <FormField errorText={error ? "Title is required." : null}>
-                <Input value={title} onChange={(event) => setTitle(event.detail.value)} />
+                <Input
+                  value={title}
+                  onChange={(event) => setTitle(event.detail.value)}
+                  ariaLabel="Threat model title"
+                />
               </FormField>
             </div>
           ),
@@ -575,5 +580,6 @@ export const SubmissionComponent = ({
         },
       ]}
     />
+    </div>
   );
 };

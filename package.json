@@ -5,20 +5,26 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:e2e": "cross-env VITE_E2E_MOCK=true VITE_APP_ENDPOINT=http://mock.local/api VITE_COGNITO_REGION=us-east-1 VITE_USER_POOL_ID=us-east-1_MOCK VITE_APP_CLIENT_ID=mock-client VITE_COGNITO_DOMAIN=mock.auth.local VITE_REDIRECT_SIGN_IN=http://localhost:5173 VITE_REDIRECT_SIGN_OUT=http://localhost:5173 VITE_SENTRY_ENABLED=false vite --port 5173 --strictPort",
     "build": "vite build",
     "preview": "vite preview",
     "start:local": "vite --mode development",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed"
   },
   "devDependencies": {
     "@babel/core": "^7.28.4",
     "@babel/eslint-parser": "^7.15.8",
     "@babel/preset-react": "^7.26.3",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.1.17",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.22",
+    "cross-env": "^10.1.0",
     "eslint": "^9.7.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.3",

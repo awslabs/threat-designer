@@ -360,6 +360,31 @@ export AWS_PROFILE="your_profile_name"
 
 ---
 
+## End-to-end tests
+
+The frontend has a Playwright suite that runs the app against a fully mocked
+backend — no AWS, Cognito, or Bedrock required. `VITE_E2E_MOCK=true` swaps
+Amplify auth for a mock module (`src/e2e/amplifyAuthMock.js`) and Playwright
+intercepts every business API call.
+
+```bash
+bun install
+bunx playwright install chromium         # one-time browser download
+
+bun run test:e2e                         # full suite, headless (~24s)
+bun run test:e2e:headed                  # visible browsers
+bun run test:e2e:ui                      # interactive runner
+bun run test:e2e -- e2e/tests/wizard     # scope to one suite
+```
+
+Playwright auto-boots `bun run dev:e2e` on port 5173 — no need to start the
+dev server separately. The HTML report opens with
+`open playwright-report/index.html` after a run. See
+[`e2e/README.md`](./e2e/README.md) for the harness details and how to add
+suites.
+
+---
+
 ## Contributing
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.

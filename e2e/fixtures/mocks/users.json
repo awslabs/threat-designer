@@ -1,6 +1,16 @@
 {
   "users": [
-    { "user_id": "collab-1", "email": "alice@example.com", "given_name": "Alice", "family_name": "Anderson" },
-    { "user_id": "collab-2", "email": "bob@example.com", "given_name": "Bob", "family_name": "Baker" }
+    {
+      "user_id": "collab-1",
+      "email": "alice@example.com",
+      "name": "Alice Anderson",
+      "username": "alice"
+    },
+    {
+      "user_id": "collab-2",
+      "email": "bob@example.com",
+      "name": "Bob Baker",
+      "username": "bob"
+    }
   ]
 }

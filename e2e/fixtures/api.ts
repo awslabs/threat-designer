@@ -162,6 +162,11 @@ export async function installApiMocks(page: Page, overrides: ApiOverrides = {}) 
   await page.route(new RegExp(`^${API}/threat-designer/[^/]+/collaborators(\\?.*)?$`), (route) =>
     route.fulfill({ json: overrides.collaborators ?? collaborators })
   );
+  // DELETE/PUT /threat-designer/:id/collaborators/:userId
+  await page.route(
+    new RegExp(`^${API}/threat-designer/[^/]+/collaborators/[^/?]+(\\?.*)?$`),
+    (route) => route.fulfill({ json: { ok: true } })
+  );
 
   // Lock service — grant the lock unconditionally so tests can edit.
   await page.route(new RegExp(`^${API}/threat-designer/[^/]+/lock(\\?.*)?$`), (route) => {

@@ -63,9 +63,16 @@ export async function installApiMocks(page: Page, overrides: ApiOverrides = {}) 
     return route.fulfill({ status: 200, contentType: "text/plain", body: "" });
   });
 
-  // 3) Attack tree.
+  // 3) Attack tree — general fetch first, then /:id/status override (latest wins).
   await page.route(new RegExp(`^${API}/attack-tree/.*`), (route) =>
     route.fulfill({ json: overrides.attackTree ?? attackTree })
+  );
+  await page.route(new RegExp(`^${API}/attack-tree/[^/]+/status(\\?.*)?$`), (route) =>
+    route.fulfill({ json: { status: "completed", attack_tree_id: "at-1" } })
+  );
+  await page.route(
+    new RegExp(`^${API}/threat-models/[^/]+/attack-trees/metadata(\\?.*)?$`),
+    (route) => route.fulfill({ json: { threats_with_attack_trees: ["Card details exfiltration"] } })
   );
 
   // 4) Spaces — collection then item then documents (order matters, most-specific last).

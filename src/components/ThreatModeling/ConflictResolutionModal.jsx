@@ -24,11 +24,7 @@ const ConflictResolutionModal = ({
   const [loading, setLoading] = useState(false);
   const { isDark } = useTheme();
 
-  if (!conflictData || !localChanges) {
-    return null;
-  }
-
-  const serverState = conflictData.server_state;
+  const serverState = conflictData?.server_state ?? null;
 
   // Helper to clean up objects by removing empty arrays and unwanted fields
   const cleanObject = (obj, type) => {
@@ -177,6 +173,18 @@ const ConflictResolutionModal = ({
     descriptionChanged,
     totalDifferences,
   } = useMemo(() => {
+    if (!localChanges || !serverState) {
+      return {
+        threatDiffs: [],
+        assetDiffs: [],
+        flowDiffs: [],
+        boundaryDiffs: [],
+        sourceDiffs: [],
+        assumptionDiffs: [],
+        descriptionChanged: false,
+        totalDifferences: 0,
+      };
+    }
     const threatDiffs = compareArrays(
       localChanges.threat_list?.threats,
       serverState.threat_list?.threats,
@@ -478,6 +486,10 @@ const ConflictResolutionModal = ({
       display: "none", // Hide "Server Version" and "Your Version" titles
     },
   };
+
+  if (!conflictData || !localChanges) {
+    return null;
+  }
 
   return (
     <Modal

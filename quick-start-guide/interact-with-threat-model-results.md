@@ -152,7 +152,11 @@ Export your threat model in multiple formats for sharing and documentation:
 
 - **PDF**: Professional report format ideal for stakeholder presentations
 - **DOCX**: Editable document format for further customization in Word
+- **Excel (XLSX)**: Multi-sheet workbook for data analysis, filtering, and pivot tables
+- **Markdown (.md)**: Structured text format for AI/LLM tools, developer docs, and version control
 - **JSON**: Raw structured data for integration with other tools or custom workflows
+
+See the [Export Threat Models](./export-threat-models.md) guide for detailed format comparison and export strategies.
 
 ## Best Practices
 

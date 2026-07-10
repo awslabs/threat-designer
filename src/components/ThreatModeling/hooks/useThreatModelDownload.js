@@ -118,14 +118,14 @@ const downloadMarkdown = (data, filename) => {
   if (assets.length > 0) {
     lines.push(`## Assets`);
     lines.push("");
-    lines.push(`| # | Asset Name | Type | Description | Sensitivity |`);
+    lines.push(`| # | Asset Name | Type | Description | Criticality |`);
     lines.push(`|---|------------|------|-------------|-------------|`);
     assets.forEach((asset, index) => {
       const name = sanitizeTableCell(asset.name);
       const type = sanitizeTableCell(asset.type);
       const desc = sanitizeTableCell(asset.description);
-      const sensitivity = sanitizeTableCell(asset.sensitivity);
-      lines.push(`| ${index + 1} | ${name} | ${type} | ${desc} | ${sensitivity} |`);
+      const criticality = sanitizeTableCell(asset.criticality);
+      lines.push(`| ${index + 1} | ${name} | ${type} | ${desc} | ${criticality} |`);
     });
     lines.push("");
   }
@@ -193,23 +193,21 @@ const downloadMarkdown = (data, filename) => {
     lines.push(`Total Threats: ${threats.length}`);
     lines.push("");
 
-    // Sort threats by risk score (High to Low)
-    const riskScoreOrder = {
-      High: 5,
-      "Medium/High": 4,
-      Medium: 3,
-      "Low/Medium": 2,
+    // Sort threats by likelihood (High to Low)
+    const likelihoodOrder = {
+      High: 3,
+      Medium: 2,
       Low: 1,
     };
     const sortedThreats = [...threats].sort((a, b) => {
-      const scoreA = riskScoreOrder[a?.risk_score] || 0;
-      const scoreB = riskScoreOrder[b?.risk_score] || 0;
+      const scoreA = likelihoodOrder[a?.likelihood] || 0;
+      const scoreB = likelihoodOrder[b?.likelihood] || 0;
       return scoreB - scoreA;
     });
 
     sortedThreats.forEach((threat, index) => {
       // Sanitize threat name for heading (escape # characters)
-      const threatName = sanitizeHeading(threat.threat_name || threat.name || "Unnamed Threat");
+      const threatName = sanitizeHeading(threat.name || "Unnamed Threat");
       lines.push(`### ${index + 1}. ${threatName}`);
       lines.push("");
 
@@ -217,13 +215,11 @@ const downloadMarkdown = (data, filename) => {
       lines.push(`| Attribute | Value |`);
       lines.push(`|-----------|-------|`);
       lines.push(`| **STRIDE Category** | ${sanitizeTableCell(threat.stride_category || "N/A")} |`);
-      lines.push(`| **Risk Score** | ${sanitizeTableCell(threat.risk_score || "N/A")} |`);
       lines.push(`| **Likelihood** | ${sanitizeTableCell(threat.likelihood || "N/A")} |`);
       lines.push(`| **Impact** | ${sanitizeTableCell(threat.impact || "N/A")} |`);
       lines.push(`| **Target** | ${sanitizeTableCell(threat.target || "N/A")} |`);
       lines.push(`| **Source** | ${sanitizeTableCell(threat.source || "N/A")} |`);
       lines.push(`| **Attack Vector** | ${sanitizeTableCell(threat.vector || "N/A")} |`);
-      lines.push(`| **Status** | ${sanitizeTableCell(threat.status || "To do")} |`);
       lines.push("");
 
       // Description
@@ -231,20 +227,6 @@ const downloadMarkdown = (data, filename) => {
         lines.push(`**Description:**`);
         lines.push("");
         lines.push(threat.description);
-        lines.push("");
-      }
-
-      // Affected Assets
-      const affectedAssets = threat.affected_assets || [];
-      if (affectedAssets.length > 0) {
-        lines.push(`**Affected Assets:**`);
-        lines.push("");
-        affectedAssets.forEach((asset) => {
-          const sanitizedAsset = String(asset || "")
-            .replace(/\n/g, " ")
-            .replace(/\r/g, "");
-          lines.push(`- ${sanitizedAsset}`);
-        });
         lines.push("");
       }
 
@@ -276,32 +258,11 @@ const downloadMarkdown = (data, filename) => {
         lines.push("");
       }
 
-      // ISO27001 Controls
-      const isoControls = threat.iso_controls || [];
-      if (isoControls.length > 0) {
-        lines.push(`**ISO27001 Controls:**`);
+      // Notes (user annotations)
+      if (threat.notes) {
+        lines.push(`**Notes:**`);
         lines.push("");
-        if (Array.isArray(isoControls)) {
-          isoControls.forEach((control) => {
-            const sanitizedControl = String(control || "")
-              .replace(/\n/g, " ")
-              .replace(/\r/g, "");
-            lines.push(`- ${sanitizedControl}`);
-          });
-        } else {
-          const sanitizedControl = String(isoControls || "")
-            .replace(/\n/g, " ")
-            .replace(/\r/g, "");
-          lines.push(`- ${sanitizedControl}`);
-        }
-        lines.push("");
-      }
-
-      // Comments (user notes)
-      if (threat.comments) {
-        lines.push(`**Comments:**`);
-        lines.push("");
-        lines.push(threat.comments);
+        lines.push(threat.notes);
         lines.push("");
       }
 
@@ -349,35 +310,31 @@ const downloadXLS = (data, filename) => {
   if (threats.length > 0) {
     const threatHeaders = [
       "ID",
-      "Threat Name",
-      "Category",
+      "Name",
+      "STRIDE Category",
       "Description",
-      "Risk Score",
+      "Target",
       "Likelihood",
       "Impact",
-      "Mitigation",
-      "ISO27001 Controls",
-      "Affected Assets",
-      "Status",
-      "Comments",
+      "Source",
+      "Attack Vector",
+      "Prerequisites",
+      "Mitigations",
+      "Notes",
     ];
     const threatRows = threats.map((threat, index) => [
       index + 1,
-      threat.threat_name || threat.name || "",
+      threat.name || "",
       threat.stride_category || "",
       threat.description || "",
-      threat.risk_score || "",
+      threat.target || "",
       threat.likelihood || "",
       threat.impact || "",
-      Array.isArray(threat.mitigations) ? threat.mitigations.join(", ") : threat.mitigation || "",
-      Array.isArray(threat.iso_controls)
-        ? threat.iso_controls.join(", ")
-        : threat.iso_controls || "",
-      Array.isArray(threat.affected_assets)
-        ? threat.affected_assets.join(", ")
-        : threat.affected_assets || "",
-      threat.status || "",
-      threat.comments || "",
+      threat.source || "",
+      threat.vector || "",
+      Array.isArray(threat.prerequisites) ? threat.prerequisites.join(", ") : "",
+      Array.isArray(threat.mitigations) ? threat.mitigations.join(", ") : "",
+      threat.notes || "",
     ]);
     const threatSheet = XLSX.utils.aoa_to_sheet([threatHeaders, ...threatRows]);
     XLSX.utils.book_append_sheet(workbook, threatSheet, "Threats");
@@ -386,13 +343,13 @@ const downloadXLS = (data, filename) => {
   // Sheet 3: Assets
   const assets = data?.assets?.assets || [];
   if (assets.length > 0) {
-    const assetHeaders = ["ID", "Asset Name", "Type", "Description", "Sensitivity"];
+    const assetHeaders = ["ID", "Asset Name", "Type", "Description", "Criticality"];
     const assetRows = assets.map((asset, index) => [
       index + 1,
       asset.name || "",
       asset.type || "",
       asset.description || "",
-      asset.sensitivity || "",
+      asset.criticality || "",
     ]);
     const assetSheet = XLSX.utils.aoa_to_sheet([assetHeaders, ...assetRows]);
     XLSX.utils.book_append_sheet(workbook, assetSheet, "Assets");

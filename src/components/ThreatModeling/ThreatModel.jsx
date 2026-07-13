@@ -11,6 +11,7 @@ import ThreatModelHeader from "./threatmodel/ThreatModelHeader";
 import ThreatModelContent from "./threatmodel/ThreatModelContent";
 import ConflictResolutionModal from "./ConflictResolutionModal";
 import VersionCompareModal from "./VersionCompareModal";
+import { ExportOptionsModal } from "./ExportOptionsModal";
 import { InfoContent } from "../HelpPanel/InfoContent";
 import {
   ThreatModelProvider,
@@ -272,6 +273,23 @@ const ThreatModelInner = () => {
   // Download hook - handles document generation and export
   const { handleDownload } = useThreatModelDownload(response, base64Content);
 
+  // Export options modal state
+  const [exportModal, setExportModal] = useState({ visible: false, format: null });
+
+  // Open export options modal for a given format
+  const openExportModal = useCallback((format) => {
+    setExportModal({ visible: true, format });
+  }, []);
+
+  // Handle export with user-selected options
+  const handleExportWithOptions = useCallback(
+    (options) => {
+      setExportModal({ visible: false, format: null });
+      handleDownload(exportModal.format, options);
+    },
+    [handleDownload, exportModal.format]
+  );
+
   // Replay handler - closes modal and initiates replay with specified parameters
   const handleReplayThreatModeling = useCallback(
     async (iteration, reasoning, instructions, applicationType) => {
@@ -387,15 +405,15 @@ const ThreatModelInner = () => {
         re: () => dispatch({ type: THREAT_MODEL_ACTIONS.OPEN_MODAL, modal: "replay" }),
         ev: () => dispatch({ type: THREAT_MODEL_ACTIONS.OPEN_MODAL, modal: "version" }),
         tr: () => handleHelpButtonClick(<InfoContent context={"All"} />),
-        "cp-doc": () => handleDownload("docx"),
-        "cp-pdf": () => handleDownload("pdf"),
-        "cp-xls": () => handleDownload("xls"),
-        "cp-md": () => handleDownload("md"),
+        "cp-doc": () => openExportModal("docx"),
+        "cp-pdf": () => openExportModal("pdf"),
+        "cp-xls": () => openExportModal("xls"),
+        "cp-md": () => openExportModal("md"),
         "cp-json": () => handleDownload("json"),
       };
       await actions[actionId]?.();
     },
-    [handleSaveWithConflictDetection, handleStop, handleDownload, handleHelpButtonClick, dispatch]
+    [handleSaveWithConflictDetection, handleStop, handleDownload, openExportModal, handleHelpButtonClick, dispatch]
   );
 
   // Update processing state based on tmStatus changes
@@ -525,6 +543,14 @@ const ThreatModelInner = () => {
             handleModalChange("conflict", false);
           }
         }}
+      />
+
+      {/* Export Options Modal */}
+      <ExportOptionsModal
+        visible={exportModal.visible}
+        format={exportModal.format || "pdf"}
+        onDismiss={() => setExportModal({ visible: false, format: null })}
+        onExport={handleExportWithOptions}
       />
     </>
   );

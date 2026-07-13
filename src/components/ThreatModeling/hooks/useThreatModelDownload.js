@@ -400,6 +400,75 @@ const downloadXLS = (data, filename) => {
 };
 
 /**
+ * Apply export options to filter threat model data
+ * @param {Object} data - The full threat model data
+ * @param {Object} options - Export options from ExportOptionsModal
+ * @returns {Object} Filtered data based on selections
+ */
+const applyExportOptions = (data, options) => {
+  if (!options || !data) return data;
+
+  const { sections, columns, likelihoodFilter } = options;
+  const filtered = { ...data };
+
+  // Filter sections
+  if (!sections.assumptions) {
+    filtered.assumptions = [];
+  }
+  if (!sections.assets) {
+    filtered.assets = null;
+  }
+  if (!sections.dataFlow) {
+    filtered.system_architecture = {
+      ...filtered.system_architecture,
+      data_flows: [],
+    };
+  }
+  if (!sections.trustBoundary) {
+    filtered.system_architecture = {
+      ...filtered.system_architecture,
+      trust_boundaries: [],
+    };
+  }
+  if (!sections.threatSource) {
+    filtered.system_architecture = {
+      ...filtered.system_architecture,
+      threat_sources: [],
+    };
+  }
+  if (!sections.threatCatalog) {
+    filtered.threat_list = { threats: [] };
+  }
+
+  // Filter threats by likelihood
+  if (sections.threatCatalog && filtered.threat_list?.threats) {
+    const selectedLevels = Object.entries(likelihoodFilter || {})
+      .filter(([, selected]) => selected)
+      .map(([level]) => level);
+
+    // Only filter if not all levels are selected
+    if (selectedLevels.length < Object.keys(likelihoodFilter || {}).length) {
+      filtered.threat_list = {
+        ...filtered.threat_list,
+        threats: filtered.threat_list.threats.filter((threat) =>
+          selectedLevels.includes(threat.likelihood)
+        ),
+      };
+    }
+  }
+
+  // Filter threat columns (used by Excel and Markdown exports)
+  if (sections.threatCatalog && columns) {
+    filtered._exportColumns = columns;
+  }
+
+  // Track whether architecture diagram should be included
+  filtered._includeArchitectureDiagram = sections.architectureDiagram !== false;
+
+  return filtered;
+};
+
+/**
  * Custom hook for handling threat model document downloads
  *
  * @param {Object} response - The threat model response data
@@ -408,68 +477,71 @@ const downloadXLS = (data, filename) => {
  *
  * @example
  * const { handleDownload } = useThreatModelDownload(response, base64Content);
- * handleDownload('pdf'); // Download as PDF
- * handleDownload('docx'); // Download as DOCX
- * handleDownload('json'); // Download as JSON
- * handleDownload('xls'); // Download as Excel
- * handleDownload('md'); // Download as Markdown
+ * handleDownload('pdf'); // Download as PDF (full)
+ * handleDownload('pdf', options); // Download as PDF with export options
  */
 export const useThreatModelDownload = (response, base64Content) => {
   /**
    * Handle document download in specified format
    * @param {string} format - The format to download ('docx', 'pdf', 'json', 'xls', or 'md')
+   * @param {Object} [options] - Optional export options from ExportOptionsModal
    */
   const handleDownload = useCallback(
-    async (format = "docx") => {
+    async (format = "docx", options = null) => {
       try {
-        // Handle JSON export separately (no need for doc generation)
+        // Handle JSON export separately (always full dump, no filtering)
         if (format === "json") {
           downloadJSON(response?.item, response?.item?.title, base64Content);
           return;
         }
 
-        // Handle Excel export separately
+        // Apply export options to filter data
+        const filteredData = applyExportOptions(response?.item, options);
+        const includeArchDiagram = filteredData?._includeArchitectureDiagram !== false;
+        const diagramContent = includeArchDiagram ? base64Content : null;
+
+        // Handle Excel export
         if (format === "xls") {
-          downloadXLS(response?.item, response?.item?.title);
+          downloadXLS(filteredData, filteredData?.title);
           return;
         }
 
-        // Handle Markdown export separately
+        // Handle Markdown export
         if (format === "md") {
-          downloadMarkdown(response?.item, response?.item?.title);
+          downloadMarkdown(filteredData, filteredData?.title);
           return;
         }
 
-        // Generate both DOCX and PDF documents
+        // Generate DOCX and PDF documents with filtered data
         const doc = await createThreatModelingDocument(
-          response?.item?.title,
-          response?.item?.description,
-          base64Content,
-          arrayToObjects("assumption", response?.item?.assumptions),
-          response?.item?.assets?.assets,
-          response?.item?.system_architecture?.data_flows,
-          response?.item?.system_architecture?.trust_boundaries,
-          response?.item?.system_architecture?.threat_sources,
-          response?.item?.threat_list?.threats
+          filteredData?.title,
+          filteredData?.description,
+          diagramContent,
+          arrayToObjects("assumption", filteredData?.assumptions),
+          filteredData?.assets?.assets,
+          filteredData?.system_architecture?.data_flows,
+          filteredData?.system_architecture?.trust_boundaries,
+          filteredData?.system_architecture?.threat_sources,
+          filteredData?.threat_list?.threats
         );
 
         const pdfDoc = await createThreatModelingPDF(
-          base64Content,
-          response?.item?.title,
-          response?.item?.description,
-          arrayToObjects("assumption", response?.item?.assumptions),
-          response?.item?.assets?.assets,
-          response?.item?.system_architecture?.data_flows,
-          response?.item?.system_architecture?.trust_boundaries,
-          response?.item?.system_architecture?.threat_sources,
-          response?.item?.threat_list?.threats
+          diagramContent,
+          filteredData?.title,
+          filteredData?.description,
+          arrayToObjects("assumption", filteredData?.assumptions),
+          filteredData?.assets?.assets,
+          filteredData?.system_architecture?.data_flows,
+          filteredData?.system_architecture?.trust_boundaries,
+          filteredData?.system_architecture?.threat_sources,
+          filteredData?.threat_list?.threats
         );
 
         // Download the requested format
         if (format === "docx") {
-          await downloadDocument(doc, response?.item?.title);
+          await downloadDocument(doc, filteredData?.title);
         } else if (format === "pdf") {
-          downloadPDFDocument(pdfDoc, response?.item?.title);
+          downloadPDFDocument(pdfDoc, filteredData?.title);
         }
       } catch (error) {
         console.error(`Error generating ${format} document:`, error);

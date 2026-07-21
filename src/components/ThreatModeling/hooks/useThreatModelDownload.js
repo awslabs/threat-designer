@@ -50,6 +50,7 @@ const downloadJSON = (data, filename, base64Diagram) => {
 
 /**
  * Helper function to sanitize text for Markdown table cells
+ * - Escapes backslashes first so later escapes cannot be neutralized
  * - Escapes pipe characters that would break table structure
  * - Replaces newlines with spaces to keep content on single line
  * @param {string} text - The text to sanitize
@@ -57,18 +58,23 @@ const downloadJSON = (data, filename, base64Diagram) => {
  */
 const sanitizeTableCell = (text) => {
   if (!text) return "";
-  return String(text).replace(/\|/g, "\\|").replace(/\n/g, " ").replace(/\r/g, "");
+  return String(text)
+    .replace(/\\/g, "\\\\")
+    .replace(/\|/g, "\\|")
+    .replace(/\n/g, " ")
+    .replace(/\r/g, "");
 };
 
 /**
  * Helper function to sanitize text for Markdown headings
+ * - Escapes backslashes first so later escapes cannot be neutralized
  * - Escapes # characters that would create unintended headings
  * @param {string} text - The text to sanitize
  * @returns {string} Sanitized text safe for Markdown headings
  */
 const sanitizeHeading = (text) => {
   if (!text) return "";
-  return String(text).replace(/#/g, "\\#");
+  return String(text).replace(/\\/g, "\\\\").replace(/#/g, "\\#");
 };
 
 /**

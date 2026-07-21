@@ -211,19 +211,36 @@ const downloadMarkdown = (data, filename) => {
       lines.push(`### ${index + 1}. ${threatName}`);
       lines.push("");
 
-      // Risk information - sanitize values for table cells
-      lines.push(`| Attribute | Value |`);
-      lines.push(`|-----------|-------|`);
-      lines.push(`| **STRIDE Category** | ${sanitizeTableCell(threat.stride_category || "N/A")} |`);
-      lines.push(`| **Likelihood** | ${sanitizeTableCell(threat.likelihood || "N/A")} |`);
-      lines.push(`| **Impact** | ${sanitizeTableCell(threat.impact || "N/A")} |`);
-      lines.push(`| **Target** | ${sanitizeTableCell(threat.target || "N/A")} |`);
-      lines.push(`| **Source** | ${sanitizeTableCell(threat.source || "N/A")} |`);
-      lines.push(`| **Attack Vector** | ${sanitizeTableCell(threat.vector || "N/A")} |`);
-      lines.push("");
+      // Get column selections (if provided by export options)
+      const exportColumns = cleanData?._exportColumns;
+      const isColumnSelected = (key) => !exportColumns || exportColumns[key] !== false;
+
+      // Risk information - only include selected columns
+      const tableRows = [];
+      if (isColumnSelected("strideCategory"))
+        tableRows.push(
+          `| **STRIDE Category** | ${sanitizeTableCell(threat.stride_category || "N/A")} |`
+        );
+      if (isColumnSelected("likelihood"))
+        tableRows.push(`| **Likelihood** | ${sanitizeTableCell(threat.likelihood || "N/A")} |`);
+      if (isColumnSelected("impact"))
+        tableRows.push(`| **Impact** | ${sanitizeTableCell(threat.impact || "N/A")} |`);
+      if (isColumnSelected("target"))
+        tableRows.push(`| **Target** | ${sanitizeTableCell(threat.target || "N/A")} |`);
+      if (isColumnSelected("source"))
+        tableRows.push(`| **Source** | ${sanitizeTableCell(threat.source || "N/A")} |`);
+      if (isColumnSelected("vector"))
+        tableRows.push(`| **Attack Vector** | ${sanitizeTableCell(threat.vector || "N/A")} |`);
+
+      if (tableRows.length > 0) {
+        lines.push(`| Attribute | Value |`);
+        lines.push(`|-----------|-------|`);
+        tableRows.forEach((row) => lines.push(row));
+        lines.push("");
+      }
 
       // Description
-      if (threat.description) {
+      if (isColumnSelected("description") && threat.description) {
         lines.push(`**Description:**`);
         lines.push("");
         lines.push(threat.description);
@@ -232,7 +249,7 @@ const downloadMarkdown = (data, filename) => {
 
       // Prerequisites (array field)
       const prerequisites = threat.prerequisites || [];
-      if (prerequisites.length > 0) {
+      if (isColumnSelected("prerequisites") && prerequisites.length > 0) {
         lines.push(`**Prerequisites:**`);
         lines.push("");
         prerequisites.forEach((prereq) => {
@@ -246,7 +263,7 @@ const downloadMarkdown = (data, filename) => {
 
       // Mitigations (plural array field)
       const mitigations = threat.mitigations || [];
-      if (mitigations.length > 0) {
+      if (isColumnSelected("mitigations") && mitigations.length > 0) {
         lines.push(`**Mitigations:**`);
         lines.push("");
         mitigations.forEach((mitigation) => {
@@ -259,7 +276,7 @@ const downloadMarkdown = (data, filename) => {
       }
 
       // Notes (user annotations)
-      if (threat.notes) {
+      if (isColumnSelected("notes") && threat.notes) {
         lines.push(`**Notes:**`);
         lines.push("");
         lines.push(threat.notes);
@@ -293,6 +310,38 @@ const downloadMarkdown = (data, filename) => {
 const downloadXLS = (data, filename) => {
   const workbook = XLSX.utils.book_new();
 
+  // Get column selections (if provided by export options)
+  const exportColumns = data?._exportColumns;
+
+  // Column mapping: key → { header, getValue }
+  const columnDefs = {
+    name: { header: "Name", getValue: (t) => t.name || "" },
+    strideCategory: { header: "STRIDE Category", getValue: (t) => t.stride_category || "" },
+    description: { header: "Description", getValue: (t) => t.description || "" },
+    target: { header: "Target", getValue: (t) => t.target || "" },
+    likelihood: { header: "Likelihood", getValue: (t) => t.likelihood || "" },
+    impact: { header: "Impact", getValue: (t) => t.impact || "" },
+    source: { header: "Source", getValue: (t) => t.source || "" },
+    vector: { header: "Attack Vector", getValue: (t) => t.vector || "" },
+    prerequisites: {
+      header: "Prerequisites",
+      getValue: (t) => (Array.isArray(t.prerequisites) ? t.prerequisites.join(", ") : ""),
+    },
+    mitigations: {
+      header: "Mitigations",
+      getValue: (t) => (Array.isArray(t.mitigations) ? t.mitigations.join(", ") : ""),
+    },
+    notes: { header: "Notes", getValue: (t) => t.notes || "" },
+  };
+
+  // Determine which columns to include
+  const activeColumns = exportColumns
+    ? Object.entries(exportColumns)
+        .filter(([, selected]) => selected)
+        .map(([key]) => key)
+        .filter((key) => columnDefs[key])
+    : Object.keys(columnDefs);
+
   // Sheet 1: Summary
   const summaryData = [
     ["Threat Model Summary"],
@@ -308,33 +357,10 @@ const downloadXLS = (data, filename) => {
   // Sheet 2: Threats (main data)
   const threats = data?.threat_list?.threats || [];
   if (threats.length > 0) {
-    const threatHeaders = [
-      "ID",
-      "Name",
-      "STRIDE Category",
-      "Description",
-      "Target",
-      "Likelihood",
-      "Impact",
-      "Source",
-      "Attack Vector",
-      "Prerequisites",
-      "Mitigations",
-      "Notes",
-    ];
+    const threatHeaders = ["ID", ...activeColumns.map((key) => columnDefs[key].header)];
     const threatRows = threats.map((threat, index) => [
       index + 1,
-      threat.name || "",
-      threat.stride_category || "",
-      threat.description || "",
-      threat.target || "",
-      threat.likelihood || "",
-      threat.impact || "",
-      threat.source || "",
-      threat.vector || "",
-      Array.isArray(threat.prerequisites) ? threat.prerequisites.join(", ") : "",
-      Array.isArray(threat.mitigations) ? threat.mitigations.join(", ") : "",
-      threat.notes || "",
+      ...activeColumns.map((key) => columnDefs[key].getValue(threat)),
     ]);
     const threatSheet = XLSX.utils.aoa_to_sheet([threatHeaders, ...threatRows]);
     XLSX.utils.book_append_sheet(workbook, threatSheet, "Threats");

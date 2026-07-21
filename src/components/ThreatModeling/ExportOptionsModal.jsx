@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Modal from "@cloudscape-design/components/modal";
 import Box from "@cloudscape-design/components/box";
 import SpaceBetween from "@cloudscape-design/components/space-between";
@@ -19,39 +19,50 @@ import ColumnLayout from "@cloudscape-design/components/column-layout";
  * @param {function} onExport - Callback when export is confirmed with selections
  * @param {string} format - Export format (pdf, docx, xls, md)
  */
+// Default selections
+const defaultSections = {
+  architectureDiagram: true,
+  assumptions: true,
+  assets: true,
+  dataFlow: true,
+  trustBoundary: true,
+  threatSource: true,
+  threatCatalog: true,
+};
+const defaultColumns = {
+  name: true,
+  strideCategory: true,
+  description: true,
+  target: true,
+  likelihood: true,
+  impact: true,
+  source: true,
+  vector: true,
+  prerequisites: true,
+  mitigations: true,
+  notes: true,
+};
+const defaultLikelihoodFilter = {
+  High: true,
+  Medium: true,
+  Low: true,
+};
+
 export const ExportOptionsModal = ({ visible, onDismiss, onExport, format }) => {
   // Section selections
-  const [sections, setSections] = useState({
-    architectureDiagram: true,
-    assumptions: true,
-    assets: true,
-    dataFlow: true,
-    trustBoundary: true,
-    threatSource: true,
-    threatCatalog: true,
-  });
-
+  const [sections, setSections] = useState(defaultSections);
   // Column selections (for Threat Catalog table)
-  const [columns, setColumns] = useState({
-    name: true,
-    strideCategory: true,
-    description: true,
-    target: true,
-    likelihood: true,
-    impact: true,
-    source: true,
-    vector: true,
-    prerequisites: true,
-    mitigations: true,
-    notes: true,
-  });
-
+  const [columns, setColumns] = useState(defaultColumns);
   // Likelihood filter selections
-  const [likelihoodFilter, setLikelihoodFilter] = useState({
-    High: true,
-    Medium: true,
-    Low: true,
-  });
+  const [likelihoodFilter, setLikelihoodFilter] = useState(defaultLikelihoodFilter);
+  // Reset all selections to defaults whenever the modal opens
+  useEffect(() => {
+    if (visible) {
+      setSections({ ...defaultSections });
+      setColumns({ ...defaultColumns });
+      setLikelihoodFilter({ ...defaultLikelihoodFilter });
+    }
+  }, [visible]);
 
   // Section labels (architecture diagram only for PDF/DOCX)
   const supportsImages = format === "pdf" || format === "docx";
@@ -166,11 +177,7 @@ export const ExportOptionsModal = ({ visible, onDismiss, onExport, format }) => 
             <Button variant="link" onClick={onDismiss}>
               Cancel
             </Button>
-            <Button
-              variant="primary"
-              onClick={handleExport}
-              disabled={selectedSectionsCount === 0}
-            >
+            <Button variant="primary" onClick={handleExport} disabled={selectedSectionsCount === 0}>
               Export
             </Button>
           </SpaceBetween>

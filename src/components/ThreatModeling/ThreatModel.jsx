@@ -413,7 +413,14 @@ const ThreatModelInner = () => {
       };
       await actions[actionId]?.();
     },
-    [handleSaveWithConflictDetection, handleStop, handleDownload, openExportModal, handleHelpButtonClick, dispatch]
+    [
+      handleSaveWithConflictDetection,
+      handleStop,
+      handleDownload,
+      openExportModal,
+      handleHelpButtonClick,
+      dispatch,
+    ]
   );
 
   // Update processing state based on tmStatus changes

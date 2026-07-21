@@ -24,6 +24,7 @@ const ANDGateNode = ({ data, selected, id }) => {
 
   return (
     <div
+      data-testid={`node-${id}`}
       className={`custom-node gate-node and-gate-node ${selected ? "selected" : ""} ${isFocused ? "focused" : ""}`}
     >
       {/* Action Buttons - Hidden when node is focused */}

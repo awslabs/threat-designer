@@ -1,0 +1,24 @@
+{
+  "catalogs": [
+    {
+      "job_id": "tm-1",
+      "title": "Payments API threat model",
+      "summary": "Threat model for the payments microservice.",
+      "timestamp": "2026-06-20T10:00:00Z",
+      "is_owner": true,
+      "stats": { "high": 2, "medium": 4, "low": 1 }
+    },
+    {
+      "job_id": "tm-2",
+      "title": "Auth service threat model",
+      "summary": "Threat model for the authentication service.",
+      "timestamp": "2026-06-15T08:30:00Z",
+      "is_owner": true,
+      "stats": { "high": 1, "medium": 3, "low": 5 }
+    }
+  ],
+  "pagination": {
+    "cursor": null,
+    "hasNextPage": false
+  }
+}

@@ -13,6 +13,10 @@ testuser.json
 
 # testing
 /coverage
+/playwright-report
+/test-results
+/blob-report
+/playwright/.cache
 
 # production
 /build

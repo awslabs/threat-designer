@@ -239,7 +239,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
   }, [id, refreshTrail, refreshAttackTreeMetadata]);
 
   return (
-    <div style={{ maxWidth: "100%", height: "auto", paddingLeft: 0 }}>
+    <div data-testid="results-root" style={{ maxWidth: "100%", height: "auto", paddingLeft: 0 }}>
       <SpaceBetween size="xl">
         <LazySection estimatedHeight={600}>
           <section>

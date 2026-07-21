@@ -1,0 +1,7 @@
+{
+  "job_id": "tm-processing",
+  "title": "In-progress model",
+  "state": "PROCESSING",
+  "is_owner": true,
+  "last_modified_at": "2026-06-25T09:00:00Z"
+}

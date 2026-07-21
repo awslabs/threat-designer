@@ -22,7 +22,7 @@ const RootGoalNode = ({ data, selected, id }) => {
   };
 
   return (
-    <div className={`custom-node gate-node root-goal-node ${selected ? "selected" : ""}`}>
+    <div data-testid={`node-${id}`} className={`custom-node gate-node root-goal-node ${selected ? "selected" : ""}`}>
       {/* Action Buttons - Only edit, no delete for root goal */}
       {!data.isReadOnly && (
         <div className="node-action-buttons">

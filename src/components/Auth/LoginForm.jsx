@@ -116,8 +116,9 @@ const LoginForm = ({ onSignInSuccess }) => {
           {error && <div className="error-message">{error}</div>}
           <form onSubmit={handleSignIn}>
             <div className="form-group">
-              <label>Username</label>
+              <label htmlFor="login-username">Username</label>
               <input
+                id="login-username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -125,8 +126,9 @@ const LoginForm = ({ onSignInSuccess }) => {
               />
             </div>
             <div className="form-group">
-              <label>Password</label>
+              <label htmlFor="login-password">Password</label>
               <input
+                id="login-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

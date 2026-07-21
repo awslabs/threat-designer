@@ -215,7 +215,7 @@ const LoginPageInternal = ({ setAuthUser }) => {
   };
 
   return (
-    <LoginPageContainer isDark={isDark}>
+    <LoginPageContainer data-testid="login-page" isDark={isDark}>
       <LoginCard>
         <LeftSection>
           <LeftContent>

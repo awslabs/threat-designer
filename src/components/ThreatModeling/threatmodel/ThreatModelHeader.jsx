@@ -43,6 +43,7 @@ const ThreatModelHeader = React.memo(
     onCompare,
   }) => {
     return (
+      <div data-testid="threat-model-header">
       <SpaceBetween size="xxl">
         <BreadcrumbGroup items={breadcrumbs} ariaLabel="Breadcrumbs" onClick={onBreadcrumbClick} />
         <Header
@@ -89,6 +90,7 @@ const ThreatModelHeader = React.memo(
           </SpaceBetween>
         </Header>
       </SpaceBetween>
+      </div>
     );
   }
 );

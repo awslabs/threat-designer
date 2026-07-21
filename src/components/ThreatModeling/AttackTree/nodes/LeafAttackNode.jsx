@@ -46,6 +46,7 @@ const LeafAttackNode = ({ data, selected, id }) => {
   return (
     <>
       <div
+        data-testid={`node-${id}`}
         className={`custom-node leaf-attack-node ${selected ? "selected" : ""}`}
         onClick={handleNodeClick}
         style={{

@@ -5,7 +5,10 @@ import App from "./App";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Amplify } from "aws-amplify";
 import { amplifyConfig } from "./config";
-Amplify.configure(amplifyConfig);
+
+if (import.meta.env.VITE_E2E_MOCK !== "true") {
+  Amplify.configure(amplifyConfig);
+}
 
 const rootElement = document.getElementById("root");
 const root = ReactDOM.createRoot(rootElement);

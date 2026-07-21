@@ -103,16 +103,18 @@ export const ThreatCatalogTable = ({ results, onItemsChange, pagination, onLoadM
       id: "title",
       header: "Title",
       cell: (item) => (
-        <Link
-          variant="primary"
-          href={`/${item.job_id}`}
-          onFollow={(event) => {
-            event.preventDefault();
-            navigate(`/${item.job_id}`);
-          }}
-        >
-          <Box>{item?.title || "Untitled"}</Box>
-        </Link>
+        <span data-testid={`tm-row-${item.job_id}`}>
+          <Link
+            variant="primary"
+            href={`/${item.job_id}`}
+            onFollow={(event) => {
+              event.preventDefault();
+              navigate(`/${item.job_id}`);
+            }}
+          >
+            <Box>{item?.title || "Untitled"}</Box>
+          </Link>
+        </span>
       ),
     },
     {

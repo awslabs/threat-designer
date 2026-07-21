@@ -1,0 +1,5 @@
+{
+  "collaborators": [
+    { "user_id": "collab-1", "email": "alice@example.com", "access_level": "READ_ONLY" }
+  ]
+}

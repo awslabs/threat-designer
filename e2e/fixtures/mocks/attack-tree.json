@@ -1,0 +1,24 @@
+{
+  "attack_tree_id": "at-1",
+  "threat_model_id": "tm-1",
+  "threat_name": "Card details exfiltration",
+  "attack_tree": {
+    "nodes": [
+      {
+        "id": "goal-1",
+        "type": "root",
+        "position": { "x": 0, "y": 0 },
+        "data": { "label": "Exfiltrate card details" }
+      },
+      {
+        "id": "leaf-1",
+        "type": "leaf-attack",
+        "position": { "x": 250, "y": 0 },
+        "data": { "label": "SQL injection on API", "attackChainPhase": "Access" }
+      }
+    ],
+    "edges": [
+      { "id": "edge-1", "source": "goal-1", "target": "leaf-1" }
+    ]
+  }
+}

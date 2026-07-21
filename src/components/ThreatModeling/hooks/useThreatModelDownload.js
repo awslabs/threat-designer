@@ -211,19 +211,36 @@ const downloadMarkdown = (data, filename) => {
       lines.push(`### ${index + 1}. ${threatName}`);
       lines.push("");
 
-      // Risk information - sanitize values for table cells
-      lines.push(`| Attribute | Value |`);
-      lines.push(`|-----------|-------|`);
-      lines.push(`| **STRIDE Category** | ${sanitizeTableCell(threat.stride_category || "N/A")} |`);
-      lines.push(`| **Likelihood** | ${sanitizeTableCell(threat.likelihood || "N/A")} |`);
-      lines.push(`| **Impact** | ${sanitizeTableCell(threat.impact || "N/A")} |`);
-      lines.push(`| **Target** | ${sanitizeTableCell(threat.target || "N/A")} |`);
-      lines.push(`| **Source** | ${sanitizeTableCell(threat.source || "N/A")} |`);
-      lines.push(`| **Attack Vector** | ${sanitizeTableCell(threat.vector || "N/A")} |`);
-      lines.push("");
+      // Get column selections (if provided by export options)
+      const exportColumns = cleanData?._exportColumns;
+      const isColumnSelected = (key) => !exportColumns || exportColumns[key] !== false;
+
+      // Risk information - only include selected columns
+      const tableRows = [];
+      if (isColumnSelected("strideCategory"))
+        tableRows.push(
+          `| **STRIDE Category** | ${sanitizeTableCell(threat.stride_category || "N/A")} |`
+        );
+      if (isColumnSelected("likelihood"))
+        tableRows.push(`| **Likelihood** | ${sanitizeTableCell(threat.likelihood || "N/A")} |`);
+      if (isColumnSelected("impact"))
+        tableRows.push(`| **Impact** | ${sanitizeTableCell(threat.impact || "N/A")} |`);
+      if (isColumnSelected("target"))
+        tableRows.push(`| **Target** | ${sanitizeTableCell(threat.target || "N/A")} |`);
+      if (isColumnSelected("source"))
+        tableRows.push(`| **Source** | ${sanitizeTableCell(threat.source || "N/A")} |`);
+      if (isColumnSelected("vector"))
+        tableRows.push(`| **Attack Vector** | ${sanitizeTableCell(threat.vector || "N/A")} |`);
+
+      if (tableRows.length > 0) {
+        lines.push(`| Attribute | Value |`);
+        lines.push(`|-----------|-------|`);
+        tableRows.forEach((row) => lines.push(row));
+        lines.push("");
+      }
 
       // Description
-      if (threat.description) {
+      if (isColumnSelected("description") && threat.description) {
         lines.push(`**Description:**`);
         lines.push("");
         lines.push(threat.description);
@@ -232,7 +249,7 @@ const downloadMarkdown = (data, filename) => {
 
       // Prerequisites (array field)
       const prerequisites = threat.prerequisites || [];
-      if (prerequisites.length > 0) {
+      if (isColumnSelected("prerequisites") && prerequisites.length > 0) {
         lines.push(`**Prerequisites:**`);
         lines.push("");
         prerequisites.forEach((prereq) => {
@@ -246,7 +263,7 @@ const downloadMarkdown = (data, filename) => {
 
       // Mitigations (plural array field)
       const mitigations = threat.mitigations || [];
-      if (mitigations.length > 0) {
+      if (isColumnSelected("mitigations") && mitigations.length > 0) {
         lines.push(`**Mitigations:**`);
         lines.push("");
         mitigations.forEach((mitigation) => {
@@ -259,7 +276,7 @@ const downloadMarkdown = (data, filename) => {
       }
 
       // Notes (user annotations)
-      if (threat.notes) {
+      if (isColumnSelected("notes") && threat.notes) {
         lines.push(`**Notes:**`);
         lines.push("");
         lines.push(threat.notes);
@@ -293,6 +310,38 @@ const downloadMarkdown = (data, filename) => {
 const downloadXLS = (data, filename) => {
   const workbook = XLSX.utils.book_new();
 
+  // Get column selections (if provided by export options)
+  const exportColumns = data?._exportColumns;
+
+  // Column mapping: key → { header, getValue }
+  const columnDefs = {
+    name: { header: "Name", getValue: (t) => t.name || "" },
+    strideCategory: { header: "STRIDE Category", getValue: (t) => t.stride_category || "" },
+    description: { header: "Description", getValue: (t) => t.description || "" },
+    target: { header: "Target", getValue: (t) => t.target || "" },
+    likelihood: { header: "Likelihood", getValue: (t) => t.likelihood || "" },
+    impact: { header: "Impact", getValue: (t) => t.impact || "" },
+    source: { header: "Source", getValue: (t) => t.source || "" },
+    vector: { header: "Attack Vector", getValue: (t) => t.vector || "" },
+    prerequisites: {
+      header: "Prerequisites",
+      getValue: (t) => (Array.isArray(t.prerequisites) ? t.prerequisites.join(", ") : ""),
+    },
+    mitigations: {
+      header: "Mitigations",
+      getValue: (t) => (Array.isArray(t.mitigations) ? t.mitigations.join(", ") : ""),
+    },
+    notes: { header: "Notes", getValue: (t) => t.notes || "" },
+  };
+
+  // Determine which columns to include
+  const activeColumns = exportColumns
+    ? Object.entries(exportColumns)
+        .filter(([, selected]) => selected)
+        .map(([key]) => key)
+        .filter((key) => columnDefs[key])
+    : Object.keys(columnDefs);
+
   // Sheet 1: Summary
   const summaryData = [
     ["Threat Model Summary"],
@@ -308,33 +357,10 @@ const downloadXLS = (data, filename) => {
   // Sheet 2: Threats (main data)
   const threats = data?.threat_list?.threats || [];
   if (threats.length > 0) {
-    const threatHeaders = [
-      "ID",
-      "Name",
-      "STRIDE Category",
-      "Description",
-      "Target",
-      "Likelihood",
-      "Impact",
-      "Source",
-      "Attack Vector",
-      "Prerequisites",
-      "Mitigations",
-      "Notes",
-    ];
+    const threatHeaders = ["ID", ...activeColumns.map((key) => columnDefs[key].header)];
     const threatRows = threats.map((threat, index) => [
       index + 1,
-      threat.name || "",
-      threat.stride_category || "",
-      threat.description || "",
-      threat.target || "",
-      threat.likelihood || "",
-      threat.impact || "",
-      threat.source || "",
-      threat.vector || "",
-      Array.isArray(threat.prerequisites) ? threat.prerequisites.join(", ") : "",
-      Array.isArray(threat.mitigations) ? threat.mitigations.join(", ") : "",
-      threat.notes || "",
+      ...activeColumns.map((key) => columnDefs[key].getValue(threat)),
     ]);
     const threatSheet = XLSX.utils.aoa_to_sheet([threatHeaders, ...threatRows]);
     XLSX.utils.book_append_sheet(workbook, threatSheet, "Threats");
@@ -400,6 +426,75 @@ const downloadXLS = (data, filename) => {
 };
 
 /**
+ * Apply export options to filter threat model data
+ * @param {Object} data - The full threat model data
+ * @param {Object} options - Export options from ExportOptionsModal
+ * @returns {Object} Filtered data based on selections
+ */
+const applyExportOptions = (data, options) => {
+  if (!options || !data) return data;
+
+  const { sections, columns, likelihoodFilter } = options;
+  const filtered = { ...data };
+
+  // Filter sections
+  if (!sections.assumptions) {
+    filtered.assumptions = [];
+  }
+  if (!sections.assets) {
+    filtered.assets = null;
+  }
+  if (!sections.dataFlow) {
+    filtered.system_architecture = {
+      ...filtered.system_architecture,
+      data_flows: [],
+    };
+  }
+  if (!sections.trustBoundary) {
+    filtered.system_architecture = {
+      ...filtered.system_architecture,
+      trust_boundaries: [],
+    };
+  }
+  if (!sections.threatSource) {
+    filtered.system_architecture = {
+      ...filtered.system_architecture,
+      threat_sources: [],
+    };
+  }
+  if (!sections.threatCatalog) {
+    filtered.threat_list = { threats: [] };
+  }
+
+  // Filter threats by likelihood
+  if (sections.threatCatalog && filtered.threat_list?.threats) {
+    const selectedLevels = Object.entries(likelihoodFilter || {})
+      .filter(([, selected]) => selected)
+      .map(([level]) => level);
+
+    // Only filter if not all levels are selected
+    if (selectedLevels.length < Object.keys(likelihoodFilter || {}).length) {
+      filtered.threat_list = {
+        ...filtered.threat_list,
+        threats: filtered.threat_list.threats.filter((threat) =>
+          selectedLevels.includes(threat.likelihood)
+        ),
+      };
+    }
+  }
+
+  // Filter threat columns (used by Excel and Markdown exports)
+  if (sections.threatCatalog && columns) {
+    filtered._exportColumns = columns;
+  }
+
+  // Track whether architecture diagram should be included
+  filtered._includeArchitectureDiagram = sections.architectureDiagram !== false;
+
+  return filtered;
+};
+
+/**
  * Custom hook for handling threat model document downloads
  *
  * @param {Object} response - The threat model response data
@@ -408,68 +503,71 @@ const downloadXLS = (data, filename) => {
  *
  * @example
  * const { handleDownload } = useThreatModelDownload(response, base64Content);
- * handleDownload('pdf'); // Download as PDF
- * handleDownload('docx'); // Download as DOCX
- * handleDownload('json'); // Download as JSON
- * handleDownload('xls'); // Download as Excel
- * handleDownload('md'); // Download as Markdown
+ * handleDownload('pdf'); // Download as PDF (full)
+ * handleDownload('pdf', options); // Download as PDF with export options
  */
 export const useThreatModelDownload = (response, base64Content) => {
   /**
    * Handle document download in specified format
    * @param {string} format - The format to download ('docx', 'pdf', 'json', 'xls', or 'md')
+   * @param {Object} [options] - Optional export options from ExportOptionsModal
    */
   const handleDownload = useCallback(
-    async (format = "docx") => {
+    async (format = "docx", options = null) => {
       try {
-        // Handle JSON export separately (no need for doc generation)
+        // Handle JSON export separately (always full dump, no filtering)
         if (format === "json") {
           downloadJSON(response?.item, response?.item?.title, base64Content);
           return;
         }
 
-        // Handle Excel export separately
+        // Apply export options to filter data
+        const filteredData = applyExportOptions(response?.item, options);
+        const includeArchDiagram = filteredData?._includeArchitectureDiagram !== false;
+        const diagramContent = includeArchDiagram ? base64Content : null;
+
+        // Handle Excel export
         if (format === "xls") {
-          downloadXLS(response?.item, response?.item?.title);
+          downloadXLS(filteredData, filteredData?.title);
           return;
         }
 
-        // Handle Markdown export separately
+        // Handle Markdown export
         if (format === "md") {
-          downloadMarkdown(response?.item, response?.item?.title);
+          downloadMarkdown(filteredData, filteredData?.title);
           return;
         }
 
-        // Generate both DOCX and PDF documents
+        // Generate DOCX and PDF documents with filtered data
         const doc = await createThreatModelingDocument(
-          response?.item?.title,
-          response?.item?.description,
-          base64Content,
-          arrayToObjects("assumption", response?.item?.assumptions),
-          response?.item?.assets?.assets,
-          response?.item?.system_architecture?.data_flows,
-          response?.item?.system_architecture?.trust_boundaries,
-          response?.item?.system_architecture?.threat_sources,
-          response?.item?.threat_list?.threats
+          filteredData?.title,
+          filteredData?.description,
+          diagramContent,
+          arrayToObjects("assumption", filteredData?.assumptions),
+          filteredData?.assets?.assets,
+          filteredData?.system_architecture?.data_flows,
+          filteredData?.system_architecture?.trust_boundaries,
+          filteredData?.system_architecture?.threat_sources,
+          filteredData?.threat_list?.threats
         );
 
         const pdfDoc = await createThreatModelingPDF(
-          base64Content,
-          response?.item?.title,
-          response?.item?.description,
-          arrayToObjects("assumption", response?.item?.assumptions),
-          response?.item?.assets?.assets,
-          response?.item?.system_architecture?.data_flows,
-          response?.item?.system_architecture?.trust_boundaries,
-          response?.item?.system_architecture?.threat_sources,
-          response?.item?.threat_list?.threats
+          diagramContent,
+          filteredData?.title,
+          filteredData?.description,
+          arrayToObjects("assumption", filteredData?.assumptions),
+          filteredData?.assets?.assets,
+          filteredData?.system_architecture?.data_flows,
+          filteredData?.system_architecture?.trust_boundaries,
+          filteredData?.system_architecture?.threat_sources,
+          filteredData?.threat_list?.threats
         );
 
         // Download the requested format
         if (format === "docx") {
-          await downloadDocument(doc, response?.item?.title);
+          await downloadDocument(doc, filteredData?.title);
         } else if (format === "pdf") {
-          downloadPDFDocument(pdfDoc, response?.item?.title);
+          downloadPDFDocument(pdfDoc, filteredData?.title);
         }
       } catch (error) {
         console.error(`Error generating ${format} document:`, error);

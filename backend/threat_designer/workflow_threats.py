@@ -6,10 +6,15 @@ Pipeline: agent_init → agent ⇄ tools → validate → Command(goto="finalize
 
 from config import config as app_config
 from constants import (
+    DEFAULT_METHODOLOGY,
+    MAESTRO_ALWAYS_APPLICABLE,
     JobState,
+    Methodology,
     StrideCategory,
 )
-from langchain_core.messages import HumanMessage
+import json
+
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode
@@ -29,6 +34,7 @@ from tools import (
 from state import (
     ThreatState,
     ConfigSchema,
+    MaestroLayerDetection,
     ThreatsList,
     create_constrained_threat_model,
 )
@@ -38,17 +44,66 @@ from message_builder import (
     inject_bedrock_cache_points,
     list_to_string,
 )
-from prompt_provider import create_threats_agent_system_prompt
+from prompt_provider import (
+    create_threats_agent_system_prompt,
+    maestro_layer_detection_prompt,
+)
 
 
 # Initialize state service for tracking job state and trails
 state_service = StateService(app_config.agent_state_table)
 
-# Pre-compute STRIDE categories for validation checks
+# Pre-compute categories for validation checks
 ALL_STRIDE = {c.value for c in StrideCategory}
 
 # Shared model service (stateless helper, safe to reuse)
 model_service = ModelService()
+
+
+# ============================================================================
+# Coverage gate
+# ============================================================================
+#
+# STRIDE can demand every category because all six apply to any system. MAESTRO
+# layers are architectural components, so a system with no training pipeline has
+# no Layer 2 and a single-agent system has no Layer 7 — demanding all seven would
+# push the agent to invent threats purely to clear the gate.
+#
+# So the gate requires only the layers the architecture actually contains, as
+# determined by _detect_maestro_layers, plus the two that apply unconditionally:
+# Layer 6 is vertical and cross-layer threats span whatever exists. When detection
+# is unavailable the gate falls back to those two rather than blocking the run.
+
+
+def _missing_maestro_layers(state, covered: set[str]) -> set[str]:
+    """Return MAESTRO layers the catalog must still cover."""
+    detected = state.get("applicable_maestro_layers") or set()
+    required = MAESTRO_ALWAYS_APPLICABLE | set(detected)
+    return required - covered
+
+
+def _coverage_feedback(state, threat_list) -> str | None:
+    """Return gate feedback for the agent, or None when coverage is sufficient."""
+    methodology = state.get("methodology") or DEFAULT_METHODOLOGY
+
+    if methodology == Methodology.MAESTRO.value:
+        covered = {t.maestro_layer for t in threat_list.threats if t.maestro_layer}
+        missing = _missing_maestro_layers(state, covered)
+        if missing:
+            return (
+                f"Missing MAESTRO layers: {', '.join(sorted(missing))}. "
+                "Please add threats to cover these gaps."
+            )
+        return None
+
+    covered = {t.stride_category for t in threat_list.threats if t.stride_category}
+    missing = ALL_STRIDE - covered
+    if missing:
+        return (
+            f"Missing STRIDE categories: {', '.join(sorted(missing))}. "
+            "Please add threats to cover these gaps."
+        )
+    return None
 
 
 # ============================================================================
@@ -67,10 +122,66 @@ def _build_message_builder(state) -> MessageBuilder:
     )
 
 
+def _detect_maestro_layers(state: ThreatState, config: RunnableConfig) -> list[str] | None:
+    """Determine which MAESTRO layers the architecture actually contains.
+
+    The coverage gate needs this to avoid demanding threats for layers the system
+    does not have. Returns None when detection fails, which leaves the gate on its
+    conservative fallback rather than blocking the run on a scoping step.
+    """
+    assets = state.get("assets")
+    system_architecture = state.get("system_architecture")
+
+    architecture = {
+        "description": state.get("description", ""),
+        "assumptions": state.get("assumptions", []),
+        "assets": (
+            [a.model_dump() for a in assets.assets] if assets and assets.assets else []
+        ),
+        "data_flows": (
+            [f.model_dump() for f in system_architecture.data_flows]
+            if system_architecture
+            else []
+        ),
+        "trust_boundaries": (
+            [b.model_dump() for b in system_architecture.trust_boundaries]
+            if system_architecture
+            else []
+        ),
+    }
+
+    messages = [
+        SystemMessage(content=maestro_layer_detection_prompt()),
+        HumanMessage(
+            content=f"<architecture>\n{json.dumps(architecture, indent=2, default=str)}\n</architecture>"
+        ),
+    ]
+
+    try:
+        response = model_service.invoke_structured_model(
+            messages,
+            [MaestroLayerDetection],
+            config,
+            config["configurable"].get("reasoning", False),
+            "model_struct",
+        )
+        detection = response["structured_response"]
+        return list(detection.applicable_layers)
+    except Exception as exc:
+        logger.warning(
+            "MAESTRO layer detection failed, falling back to always-applicable layers",
+            node="agent_init",
+            job_id=state.get("job_id", "unknown"),
+            error=str(exc),
+        )
+        return None
+
+
 def _build_tools(state: ThreatState) -> list:
     """Build full-scope tools for the threats agent."""
     assets = state.get("assets")
     system_architecture = state.get("system_architecture")
+    methodology = state.get("methodology") or DEFAULT_METHODOLOGY
 
     asset_names: frozenset[str] = frozenset()
     if assets and assets.assets:
@@ -80,7 +191,10 @@ def _build_tools(state: ThreatState) -> list:
     if system_architecture and system_architecture.threat_sources:
         source_cats = frozenset(s.category for s in system_architecture.threat_sources)
 
-    if not asset_names and not source_cats:
+    # The static add_threats tool classifies along STRIDE, so it is only a valid
+    # shortcut when there is nothing to constrain *and* STRIDE is active.
+    nothing_to_constrain = not asset_names and not source_cats
+    if nothing_to_constrain and methodology == Methodology.STRIDE.value:
         return [
             add_threats,
             remove_threat,
@@ -90,7 +204,9 @@ def _build_tools(state: ThreatState) -> list:
         ]
 
     try:
-        _, DynThreatsList = create_constrained_threat_model(asset_names, source_cats)
+        _, DynThreatsList = create_constrained_threat_model(
+            asset_names, source_cats, methodology
+        )
         dynamic_add = create_dynamic_add_threats_tool(DynThreatsList)
         return [
             dynamic_add,
@@ -172,7 +288,28 @@ def agent_init(state: ThreatState, config: RunnableConfig) -> Command:
         if insights_block:
             human_message.content.insert(-1, insights_block)
 
-    return Command(update={"messages": [system_prompt, human_message]})
+    update = {"messages": [system_prompt, human_message]}
+
+    # Scope which MAESTRO layers the coverage gate should require. Only meaningful
+    # under MAESTRO, and skipped on replay where a previous run already scoped it.
+    methodology = state.get("methodology") or DEFAULT_METHODOLOGY
+    if methodology == Methodology.MAESTRO.value and not state.get(
+        "applicable_maestro_layers"
+    ):
+        state_service.update_job_state(
+            job_id, JobState.THREAT.value, detail="Scoping MAESTRO layers"
+        )
+        detected = _detect_maestro_layers(state, config)
+        if detected:
+            update["applicable_maestro_layers"] = detected
+            logger.info(
+                "MAESTRO layers detected",
+                node="agent_init",
+                job_id=job_id,
+                layers=detected,
+            )
+
+    return Command(update=update)
 
 
 # ============================================================================
@@ -250,14 +387,12 @@ def validate_node(state: ThreatState) -> Command:
         )
         return Command(goto="agent", update={"messages": [feedback]})
 
-    # Check STRIDE coverage
-    catalog_stride = {t.stride_category for t in threat_list.threats}
-    missing = ALL_STRIDE - catalog_stride
-    if missing:
-        feedback = HumanMessage(
-            content=f"Missing STRIDE categories: {', '.join(sorted(missing))}. Please add threats to cover these gaps."
+    # Check classification coverage for the active methodology
+    coverage_feedback = _coverage_feedback(state, threat_list)
+    if coverage_feedback:
+        return Command(
+            goto="agent", update={"messages": [HumanMessage(content=coverage_feedback)]}
         )
-        return Command(goto="agent", update={"messages": [feedback]})
 
     # Check gap analysis was performed
     if gap_tool_use == 0:

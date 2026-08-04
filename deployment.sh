@@ -301,6 +301,11 @@ else
     if [ -z "$ENABLE_SENTRY" ]; then
         ENABLE_SENTRY="true"
     fi
+
+    # Set default for ENABLE_MAESTRO if not in config (for backward compatibility)
+    if [ -z "$ENABLE_MAESTRO" ]; then
+        ENABLE_MAESTRO="true"
+    fi
     
     # Always prompt for model provider when deploying backend
     if [ "$DEPLOY_TYPE" != "frontend" ]; then
@@ -356,6 +361,7 @@ deploy_backend() {
     TF_VARS="$TF_VARS -var=email=$EMAIL"
     TF_VARS="$TF_VARS -var=region=$REGION"
     TF_VARS="$TF_VARS -var=enable_sentry=$ENABLE_SENTRY"
+    TF_VARS="$TF_VARS -var=enable_maestro=${ENABLE_MAESTRO:-true}"
     TF_VARS="$TF_VARS -var=model_provider=$MODEL_PROVIDER"
     
     # Add OpenAI API key if provider is OpenAI
@@ -423,6 +429,7 @@ VITE_COGNITO_DOMAIN=$VITE_COGNITO_DOMAIN
 VITE_REDIRECT_SIGN_IN=$VITE_REDIRECT_SIGN_IN
 VITE_REDIRECT_SIGN_OUT=$VITE_REDIRECT_SIGN_OUT
 VITE_MODEL_PROVIDER=$MODEL_PROVIDER
+VITE_MAESTRO_ENABLED=${ENABLE_MAESTRO:-true}
 EOF
 
     # Create .deployment.config file
@@ -435,6 +442,7 @@ GIVEN_NAME=$GIVEN_NAME
 FAMILY_NAME=$FAMILY_NAME
 REGION=$REGION
 ENABLE_SENTRY=$ENABLE_SENTRY
+ENABLE_MAESTRO=${ENABLE_MAESTRO:-true}
 EOF
 
     echo -e "${GREEN}Backend deployment completed successfully${NC}"

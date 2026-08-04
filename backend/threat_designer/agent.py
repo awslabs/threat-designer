@@ -13,6 +13,7 @@ from models import InvocationRequest
 from fastapi.middleware.cors import CORSMiddleware
 from config import ThreatModelingConfig
 from constants import (
+    DEFAULT_METHODOLOGY,
     ENV_AGENT_STATE_TABLE,
     ENV_ARCHITECTURE_BUCKET,
     ENV_TRACEBACK_ENABLED,
@@ -27,6 +28,7 @@ from constants import (
     VALID_REASONING_VALUES,
     DEFAULT_MAX_RETRY,
     JobState,
+    Methodology,
 )
 from exceptions import ThreatModelingError, ValidationError
 from model_utils import initialize_models
@@ -269,6 +271,30 @@ def _create_agent_config(event: Dict[str, Any]) -> ConfigSchema:
     }
 
 
+def _resolve_methodology(requested: Any) -> str:
+    """Validate the requested threat modeling methodology and enforce the feature flag.
+
+    Rejects rather than silently downgrading: producing a STRIDE catalog for a
+    caller that asked for MAESTRO would be indistinguishable from success while
+    classifying every threat along the wrong axis.
+    """
+    methodology = (requested or DEFAULT_METHODOLOGY).strip().lower()
+
+    valid = {m.value for m in Methodology}
+    if methodology not in valid:
+        raise ValidationError(
+            f"Invalid methodology '{methodology}'. Must be one of: {', '.join(sorted(valid))}."
+        )
+
+    if methodology == Methodology.MAESTRO.value and not threat_config.maestro_enabled:
+        raise ValidationError(
+            "The MAESTRO methodology is disabled for this deployment. "
+            "Set the enable_maestro Terraform variable to true to use it."
+        )
+
+    return methodology
+
+
 def _initialize_state(event: Dict[str, Any], job_id: str) -> AgentState:
     """
     Initialize the agent state for threat modeling analysis.
@@ -286,6 +312,7 @@ def _initialize_state(event: Dict[str, Any], job_id: str) -> AgentState:
         state["iteration"] = event.get("iteration", 0)
         state["instructions"] = (event.get("instructions") or "").strip() or None
         state["application_type"] = event.get("application_type", "hybrid")
+        state["methodology"] = _resolve_methodology(event.get("methodology"))
 
         version_mode = event.get("version", False)
         replay_mode = event.get("replay", False)
@@ -386,6 +413,9 @@ def _handle_version_state(
                 "parent_id": prev_job_id,
                 "mirror_attack_trees": event.get("mirror_attack_trees", False),
                 "application_type": item.get("application_type", "hybrid"),
+                # methodology is immutable across versions — the parent's threats are
+                # already classified on one axis and must not be mixed with the other
+                "methodology": item.get("methodology", DEFAULT_METHODOLOGY),
                 "space_id": item.get("space_id") or None,
                 "space_insights": space_insights,
             }
@@ -465,6 +495,9 @@ def _handle_replay_state(state: AgentState, job_id: str) -> AgentState:
                 "s3_locations": replay_s3_locations,
                 "image_metadata_list": replay_image_metadata,
                 "application_type": state.get("application_type", "hybrid"),
+                # methodology is immutable on replay for the same reason as space_id:
+                # the existing catalog is classified on one axis and cannot be re-mixed
+                "methodology": item.get("methodology", DEFAULT_METHODOLOGY),
                 # space_id is immutable on replay — always loaded from DDB, never from event
                 "space_id": item.get("space_id") or None,
                 "space_insights": space_insights,
@@ -530,6 +563,7 @@ def _handle_new_state(state: AgentState, event: Dict[str, Any]) -> AgentState:
                 "owner": event.get("owner"),
                 "title": event.get("title"),
                 "application_type": state.get("application_type", "hybrid"),
+                "methodology": state.get("methodology", DEFAULT_METHODOLOGY),
                 "space_id": event.get("space_id") or None,
             }
         )

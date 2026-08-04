@@ -13,6 +13,8 @@ Each function generates specialized prompts for different phases of the threat m
 import os
 from langchain_core.messages import SystemMessage
 
+from constants import MAESTRO_LAYER_DEFINITIONS
+
 # Import model provider from config
 try:
     from config import config
@@ -462,6 +464,42 @@ def create_space_context_system_prompt() -> SystemMessage:
         return SystemMessage(content=content)
     else:
         return SystemMessage(content=prompt)
+
+
+def maestro_layer_detection_prompt() -> str:
+    """Prompt for deciding which MAESTRO layers an architecture actually contains."""
+    return f"""
+<role>
+You determine which layers of the CSA MAESTRO framework are present in a system
+architecture. You are not identifying threats — you are scoping which layers the
+threat model must cover.
+</role>
+
+<layers>
+{MAESTRO_LAYER_DEFINITIONS}
+</layers>
+
+<instructions>
+Decide, for each layer above, whether the architecture contains components
+belonging to it.
+
+- Include a layer only when you can name a concrete component, data flow or
+  trust boundary in the provided architecture that sits in that layer.
+- Do not include a layer because a well-designed system would have one. A missing
+  capability does not put its layer in scope; it is a finding about the layers
+  that are in scope.
+- Do not include a layer on the basis of a component you inferred rather than
+  read. If the architecture is ambiguous, leave the layer out and say why.
+- Most systems will not have all six. Returning three or four is a normal result.
+
+Security and Compliance is a vertical layer that cuts across the others, and
+cross-layer threats span whatever exists, so both are always in scope and are not
+your decision — do not return them.
+
+In rationale, give one short sentence per included layer naming the component
+that puts it in scope.
+</instructions>
+"""
 
 
 def structure_prompt(data) -> str:

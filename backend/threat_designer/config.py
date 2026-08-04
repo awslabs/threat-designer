@@ -5,6 +5,7 @@ from constants import (
     DEFAULT_MAX_RETRY,
     DEFAULT_SUMMARY_MAX_WORDS,
     ENV_AGENT_STATE_TABLE,
+    ENV_MAESTRO_ENABLED,
     ENV_MODEL_PROVIDER,
     MAX_EXECUTION_TIME_MINUTES,
     MAX_RETRY_COUNT,
@@ -23,6 +24,7 @@ class ThreatModelingConfig(BaseSettings):
 
     agent_state_table: str = Field(..., env=ENV_AGENT_STATE_TABLE)
     model_provider: str = Field(default=MODEL_PROVIDER_BEDROCK, env=ENV_MODEL_PROVIDER)
+    maestro_enabled: bool = Field(default=True, env=ENV_MAESTRO_ENABLED)
     max_retries: int = Field(
         default=DEFAULT_MAX_RETRY, ge=MIN_RETRY_COUNT, le=MAX_RETRY_COUNT
     )

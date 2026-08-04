@@ -16,7 +16,9 @@ from typing import Annotated, List
 
 from config import config as app_config
 from constants import (
+    DEFAULT_METHODOLOGY,
     JobState,
+    Methodology,
     WORKFLOW_NODE_FINALIZE,
     WORKFLOW_NODE_VERSION,
 )
@@ -51,6 +53,7 @@ from message_builder import inject_bedrock_cache_points, extract_reasoning_trail
 from tools import (
     _calculate_threat_kpis,
     _format_kpis_for_prompt,
+    threat_classification,
     validate_entity_references,
     validate_threats,
     format_validation_response,
@@ -220,10 +223,13 @@ def _format_section(state, section: str) -> str:
         lines = [f"Threats ({len(tl.threats)} total):"]
         for t in tl.threats:
             lines.append(
-                f"  - [{t.stride_category}] {t.name} → {t.target} (source: {t.source}, likelihood: {t.likelihood})"
+                f"  - [{threat_classification(t)}] {t.name} → {t.target} (source: {t.source}, likelihood: {t.likelihood})"
             )
         kpis = _calculate_threat_kpis(
-            tl, state.get("assets"), state.get("system_architecture")
+            tl,
+            state.get("assets"),
+            state.get("system_architecture"),
+            state.get("methodology") or DEFAULT_METHODOLOGY,
         )
         lines.append("")
         lines.append(_format_kpis_for_prompt(kpis))
@@ -647,9 +653,12 @@ def _build_dynamic_threats_tool(state):
     source_cats = frozenset()
     if system_architecture and system_architecture.threat_sources:
         source_cats = frozenset(s.category for s in system_architecture.threat_sources)
-    if not asset_names and not source_cats:
+    methodology = state.get("methodology") or DEFAULT_METHODOLOGY
+    if not asset_names and not source_cats and methodology == Methodology.STRIDE.value:
         return None
-    _, DynThreatsList = create_constrained_threat_model(asset_names, source_cats)
+    _, DynThreatsList = create_constrained_threat_model(
+        asset_names, source_cats, methodology
+    )
     return _create_dynamic_create_threats_tool(DynThreatsList)
 
 

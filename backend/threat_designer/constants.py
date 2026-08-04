@@ -23,6 +23,7 @@ ENV_AGENT_TRAIL_TABLE = "AGENT_TRAIL_TABLE"
 ENV_ATTACK_TREE_TABLE = "ATTACK_TREE_TABLE"
 ENV_LOG_LEVEL = "LOG_LEVEL"
 ENV_TRACEBACK_ENABLED = "TRACEBACK_ENABLED"
+ENV_MAESTRO_ENABLED = "MAESTRO_ENABLED"
 
 
 # Model configuration environment variables
@@ -149,6 +150,81 @@ class StrideCategory(Enum):
     INFORMATION_DISCLOSURE = "Information Disclosure"
     DENIAL_OF_SERVICE = "Denial of Service"
     ELEVATION_OF_PRIVILEGE = "Elevation of Privilege"
+
+
+# ============================================================================
+# MAESTRO LAYERS (ENUM)
+# ============================================================================
+
+
+class Methodology(Enum):
+    """Threat modeling methodology applied to a threat model."""
+
+    STRIDE = "stride"
+    MAESTRO = "maestro"
+
+
+DEFAULT_METHODOLOGY = Methodology.STRIDE.value
+
+
+class MaestroLayer(Enum):
+    """CSA MAESTRO layers for agentic AI threat classification.
+
+    Layers 1-5 and 7 are horizontal: each maps to a distinct part of the agentic
+    stack. Layer 6 is defined by the framework as a *vertical* layer that cuts
+    across all the others, so it is always applicable regardless of architecture.
+    CROSS_LAYER is not a MAESTRO layer; it carries the framework's cross-layer
+    threat class (supply chain, lateral movement, goal-misalignment cascades)
+    which by definition lives in the interaction between layers rather than in one.
+    """
+
+    FOUNDATION_MODELS = "Foundation Models"
+    DATA_OPERATIONS = "Data Operations"
+    AGENT_FRAMEWORKS = "Agent Frameworks"
+    DEPLOYMENT_AND_INFRASTRUCTURE = "Deployment and Infrastructure"
+    EVALUATION_AND_OBSERVABILITY = "Evaluation and Observability"
+    SECURITY_AND_COMPLIANCE = "Security and Compliance"
+    AGENT_ECOSYSTEM = "Agent Ecosystem"
+    CROSS_LAYER = "Cross-Layer"
+
+
+# Layers that always apply to an agentic system and so are never architecture-
+# dependent: Layer 6 is vertical, and cross-layer threats span whatever exists.
+MAESTRO_ALWAYS_APPLICABLE = frozenset(
+    {
+        MaestroLayer.SECURITY_AND_COMPLIANCE.value,
+        MaestroLayer.CROSS_LAYER.value,
+    }
+)
+
+# The layers whose presence depends on the architecture, and so are the only ones
+# worth asking the model about. Ordered to match the framework's numbering.
+MAESTRO_DETECTABLE_LAYERS = tuple(
+    layer.value
+    for layer in MaestroLayer
+    if layer.value not in MAESTRO_ALWAYS_APPLICABLE
+)
+
+# Shared by both provider prompt modules so the framework definitions cannot drift
+# between them. Only the surrounding instructions are provider-tuned.
+MAESTRO_LAYER_DEFINITIONS = """\
+- Foundation Models: a pretrained or fine-tuned model performing inference,
+  reasoning or generation. In scope whenever the system calls a model at all,
+  whether hosted, third-party API, or self-served.
+- Data Operations: pipelines that ingest, label, embed, store or retrieve data
+  for the system — training corpora, vector stores, RAG sources, feature stores,
+  preprocessing jobs, caches of model input or output.
+- Agent Frameworks: orchestration that lets a model plan or act rather than only
+  respond — agent loops, tool or function calling, planners, MCP servers, memory,
+  workflow engines that drive a model.
+- Deployment and Infrastructure: the compute, network and supply chain the system
+  runs on — containers, serverless functions, clusters, API gateways, queues,
+  registries, CI/CD.
+- Evaluation and Observability: monitoring, logging, tracing, evaluation harnesses,
+  guardrail or safety scoring, drift detection, human review queues.
+- Agent Ecosystem: interaction between this system's agents and other agents or
+  external parties — agent-to-agent protocols, delegation, marketplaces,
+  third-party plugins or tools, shared task queues between distinct agents."""
 
 
 # ============================================================================

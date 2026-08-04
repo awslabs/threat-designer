@@ -292,6 +292,12 @@ variable "enable_sentry" {
   description = "Enable or disable Sentry assistant feature"
 }
 
+variable "enable_maestro" {
+  type        = bool
+  default     = true
+  description = "Enable or disable the MAESTRO threat modeling methodology. When false, threat models can only be created with STRIDE."
+}
+
 variable "model_provider" {
   type        = string
   description = "Model provider to use: bedrock or openai"

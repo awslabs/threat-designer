@@ -3399,7 +3399,6 @@ components:
       type: object
       required:
         - name
-        - stride_category
         - description
         - target
         - impact
@@ -3410,7 +3409,20 @@ components:
           description: Name of the threat
         stride_category:
           type: string
-          description: STRIDE category (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege)
+          nullable: true
+          description: >-
+            STRIDE category (Spoofing, Tampering, Repudiation, Information Disclosure,
+            Denial of Service, Elevation of Privilege). Set when the threat model uses
+            the stride methodology; null under maestro. Exactly one of stride_category
+            or maestro_layer is always populated.
+        maestro_layer:
+          type: string
+          nullable: true
+          description: >-
+            CSA MAESTRO layer (Foundation Models, Data Operations, Agent Frameworks,
+            Deployment and Infrastructure, Evaluation and Observability, Security and
+            Compliance, Agent Ecosystem, Cross-Layer). Set when the threat model uses
+            the maestro methodology; null under stride.
         description:
           type: string
           description: Detailed description of the threat

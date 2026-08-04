@@ -274,6 +274,7 @@ def invoke_lambda(owner, payload):
     is_version = payload.get("version", False)
     image_type = payload.get("image_type", None)
     application_type = payload.get("application_type", "hybrid")
+    methodology = payload.get("methodology", "stride")
     space_id = payload.get("space_id") or None
 
     if space_id and owner != "MCP":
@@ -347,6 +348,7 @@ def invoke_lambda(owner, payload):
             "instructions": instructions,
             "image_type": image_type,
             "application_type": application_type,
+            "methodology": methodology,
             "space_id": space_id,
         }
 

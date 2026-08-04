@@ -16,6 +16,8 @@ stronger adherence, lower drift, conservative grounding bias, and native tool pa
 import os
 from langchain_core.messages import SystemMessage
 
+from constants import MAESTRO_LAYER_DEFINITIONS
+
 # Import model provider from config
 try:
     from config import config
@@ -437,6 +439,45 @@ def create_space_context_system_prompt() -> SystemMessage:
     """
     # GPT 5.2: caching is handled automatically by OpenAI
     return SystemMessage(content=prompt)
+
+
+def maestro_layer_detection_prompt() -> str:
+    """Prompt for deciding which MAESTRO layers an architecture actually contains."""
+    return f"""
+<role>
+You determine which layers of the CSA MAESTRO framework are present in a system
+architecture. This is a scoping task, not a threat identification task.
+</role>
+
+<layers>
+{MAESTRO_LAYER_DEFINITIONS}
+</layers>
+
+<instructions>
+For each layer above, decide whether the provided architecture contains
+components belonging to it. Ground every decision in the architecture as written.
+
+Include a layer only if you can name a specific component, data flow or trust
+boundary from the architecture that sits in it.
+
+Do not include a layer because a mature system would have one. A capability the
+system lacks does not put its layer in scope — that absence is a finding about
+the layers that are in scope.
+
+Do not infer components that are not described. If the architecture is ambiguous
+about a layer, exclude it and state the ambiguity in rationale.
+
+Do not aim for completeness. Three or four of the six layers is a normal and
+correct result for most systems; returning all six should be rare.
+
+Security and Compliance is a vertical layer cutting across all others, and
+cross-layer threats span whatever exists. Both are always in scope and are
+handled elsewhere — never return them.
+
+rationale: one short sentence per included layer, naming the component that puts
+it in scope.
+</instructions>
+"""
 
 
 def structure_prompt(data) -> str:

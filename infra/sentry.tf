@@ -75,17 +75,21 @@ resource "null_resource" "docker_build_push" {
 
   provisioner "local-exec" {
     working_dir = "${path.module}/../backend/sentry"
-    command     = <<-EOT
+    environment = {
+      AWS_REGION   = var.region
+      ECR_REPO_URL = aws_ecr_repository.sentry[0].repository_url
+    }
+    command = <<-EOT
       # Get ECR login token
       aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
-      aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${aws_ecr_repository.sentry[0].repository_url}
-      
+      aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REPO_URL"
+
       # Ensure buildx is set up
       docker buildx create --use --name multiarch 2>/dev/null || docker buildx use multiarch
-      
+
       # Build and push image for ARM64
-      docker buildx build --platform linux/arm64 --build-arg AWS_REGION=${var.region} \
-        -t ${aws_ecr_repository.sentry[0].repository_url}:latest \
+      docker buildx build --platform linux/arm64 --build-arg AWS_REGION="$AWS_REGION" \
+        -t "$ECR_REPO_URL:latest" \
         --push .
     EOT
   }

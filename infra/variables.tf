@@ -18,7 +18,13 @@ variable "deletion_protection_enabled" {
   default = false
 }
 variable "region" {
+  type    = string
   default = "us-east-1"
+
+  validation {
+    condition     = can(regex("^[a-z]{2}(-[a-z]+)+-\\d+$", var.region))
+    error_message = "region must be a valid AWS region name, e.g. 'us-east-1'."
+  }
 }
 
 variable "log_level" {
@@ -515,6 +521,11 @@ variable "prefix" {
   type        = string
   description = "Optional prefix to prepend to all resource names, enabling multiple independent deployments in the same AWS account. If not provided, resources are named with the default 'threat-designer' prefix."
   default     = null
+
+  validation {
+    condition     = var.prefix == null || can(regex("^[a-z0-9][a-z0-9-]{0,29}$", var.prefix))
+    error_message = "prefix must contain only lowercase letters, digits, and hyphens (max 30 characters)."
+  }
 }
 
 variable "api_gateway_waf_arn" {

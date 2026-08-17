@@ -12,7 +12,8 @@ resource "aws_bedrockagentcore_agent_runtime" "threat_designer" {
       TRACEBACK_ENABLED   = var.traceback_enabled,
       ARCHITECTURE_BUCKET = aws_s3_bucket.architecture_bucket.id,
       MODEL_PROVIDER      = var.model_provider,
-      KNOWLEDGE_BASE_ID   = aws_bedrockagent_knowledge_base.spaces_kb.id
+      KNOWLEDGE_BASE_ID   = aws_bedrockagent_knowledge_base.spaces_kb.id,
+      SYSTEM_SPACE_ID     = var.system_space_id
     },
     var.model_provider == "bedrock" ? {
       MAIN_MODEL               = jsonencode(var.model_main),
@@ -21,10 +22,10 @@ resource "aws_bedrockagentcore_agent_runtime" "threat_designer" {
       ADAPTIVE_THINKING_MODELS = jsonencode(var.adaptive_thinking_models)
     } : {},
     var.model_provider == "openai" ? {
-      OPENAI_API_KEY   = var.openai_api_key,
-      MAIN_MODEL       = jsonencode(var.openai_model_main),
-      MODEL_STRUCT     = jsonencode(var.openai_model_struct),
-      MODEL_SUMMARY    = jsonencode(var.openai_model_summary),
+      OPENAI_API_KEY = var.openai_api_key,
+      MAIN_MODEL     = jsonencode(var.openai_model_main),
+      MODEL_STRUCT   = jsonencode(var.openai_model_struct),
+      MODEL_SUMMARY  = jsonencode(var.openai_model_summary),
     } : {}
   )
   agent_runtime_artifact {
@@ -37,7 +38,7 @@ resource "aws_bedrockagentcore_agent_runtime" "threat_designer" {
   }
   lifecycle_configuration {
     idle_runtime_session_timeout = 7200
-    max_lifetime = 28800
+    max_lifetime                 = 28800
   }
   depends_on = [null_resource.docker_agent_build_push]
 }

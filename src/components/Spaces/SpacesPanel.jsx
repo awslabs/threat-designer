@@ -11,6 +11,7 @@ import Box from "@cloudscape-design/components/box";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import Spinner from "@cloudscape-design/components/spinner";
 import { listSpaces, createSpace } from "../../services/Spaces/spacesService";
+import { config } from "../../config.js";
 
 export function SpacesPanel() {
   const navigate = useNavigate();
@@ -36,7 +37,9 @@ export function SpacesPanel() {
     setLoading(true);
     try {
       const data = await listSpaces();
-      setSpaces(data ?? []);
+      setSpaces(
+        (data ?? []).filter((s) => s.space_id !== config.systemSpaceId)
+      );
     } catch {
       setSpaces([]);
     } finally {

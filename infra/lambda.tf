@@ -40,7 +40,8 @@ resource "aws_lambda_function" "backend" {
       SPACE_DOCUMENTS_TABLE = aws_dynamodb_table.space_documents.id,
       SPACES_BUCKET         = aws_s3_bucket.spaces_bucket.id,
       KNOWLEDGE_BASE_ID     = aws_bedrockagent_knowledge_base.spaces_kb.id,
-      KB_DATA_SOURCE_ID     = aws_bedrockagent_data_source.spaces_kb_data_source.data_source_id
+      KB_DATA_SOURCE_ID     = aws_bedrockagent_data_source.spaces_kb_data_source.data_source_id,
+      SYSTEM_SPACE_ID       = var.system_space_id
     }
   }
   timeout = 600
@@ -127,6 +128,6 @@ resource "aws_lambda_provisioned_concurrency_config" "backend" {
   function_name                     = aws_lambda_alias.backend.function_name
   provisioned_concurrent_executions = var.provisioned_lambda_concurrency
   qualifier                         = aws_lambda_alias.backend.name
-  
+
   depends_on = [null_resource.wait_for_backend_alias_stabilization]
 }

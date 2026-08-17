@@ -19,6 +19,7 @@ import Slider from "@cloudscape-design/components/slider";
 import FileTokenGroup from "@cloudscape-design/components/file-token-group";
 import Textarea from "@cloudscape-design/components/textarea";
 import { listSpaces } from "../../services/Spaces/spacesService";
+import { config } from "../../config.js";
 
 function convertArrayToObjects(arr) {
   return arr.map((item) => ({
@@ -68,7 +69,9 @@ export const SubmissionComponent = ({
     listSpaces()
       .then((data) =>
         setSpaces(
-          data.map((s) => ({ label: s.name, value: s.space_id, description: s.description }))
+          data
+            .filter((s) => s.space_id !== config.systemSpaceId)
+            .map((s) => ({ label: s.name, value: s.space_id, description: s.description }))
         )
       )
       .catch(() => {});

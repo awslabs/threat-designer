@@ -5,6 +5,7 @@ This module contains all constants used throughout the threat modeling system,
 organized by logical categories for better maintainability and consistency.
 """
 
+import os
 from enum import Enum
 from typing import Dict, List
 
@@ -308,6 +309,9 @@ KB_QUERY_BUDGET = 10
 
 # Maximum number of space insights to capture before moving on
 MAX_SPACE_INSIGHTS = 20
+
+# System Space — mandatory organization-wide knowledge base applied to all models
+SYSTEM_SPACE_ID = os.environ.get("SYSTEM_SPACE_ID", "")
 
 # ============================================================================
 # SLEEP INTERVALS

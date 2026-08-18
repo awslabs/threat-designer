@@ -12,6 +12,27 @@ const Title = styled.h1`
   margin-bottom: 40px;
 `;
 
+const REQUIREMENT_LABELS = {
+  minLength: "At least 8 characters",
+  hasUpperCase: "An uppercase letter",
+  hasLowerCase: "A lowercase letter",
+  hasNumber: "A number",
+  hasSpecialChar: "A special character",
+};
+
+const PasswordRequirements = ({ requirements }) => (
+  <ul className="password-requirements">
+    {Object.entries(REQUIREMENT_LABELS).map(([key, label]) => (
+      <li key={key}>
+        <span className={`validation-icon ${requirements[key] ? "valid" : ""}`}>
+          {requirements[key] ? "✓" : "✗"}
+        </span>
+        {label}
+      </li>
+    ))}
+  </ul>
+);
+
 const LoginForm = ({ onSignInSuccess }) => {
   const { isDark } = useTheme();
   const [username, setUsername] = useState("");
@@ -39,7 +60,10 @@ const LoginForm = ({ onSignInSuccess }) => {
       hasUpperCase: /[A-Z]/.test(password),
       hasLowerCase: /[a-z]/.test(password),
       hasNumber: /\d/.test(password),
-      hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+      // Must match the Cognito symbol set, otherwise passwords the pool accepts
+      // never enable the submit button (issue #142):
+      // ^ $ * . [ ] { } ( ) ? - " ! @ # % & / \ , > < ' : ; | _ ~ ` + =
+      hasSpecialChar: /[\^$*.[\]{}()?\-"!@#%&/\\,><':;|_~`+=]/.test(password),
     };
 
     return {
@@ -99,6 +123,7 @@ const LoginForm = ({ onSignInSuccess }) => {
       await resetPassword({ username });
       setConfirmNewPassword("");
       setNewPassword("");
+      setPasswordValidation(validatePassword(""));
       setFormState("resetPassword");
     } catch (error) {
       setError(error.message || "Error initiating password reset");
@@ -155,6 +180,7 @@ const LoginForm = ({ onSignInSuccess }) => {
             <div className="form-group">
               <label>New Password</label>
               <input type="password" value={newPassword} onChange={handlePasswordChange} required />
+              <PasswordRequirements requirements={passwordValidation.requirements} />
             </div>
             <div className="button-group">
               <GenAiButton loading={loading} disabled={!passwordValidation.isValid}>
@@ -226,6 +252,7 @@ const LoginForm = ({ onSignInSuccess }) => {
             <div className="form-group">
               <label>New Password</label>
               <input type="password" value={newPassword} onChange={handlePasswordChange} required />
+              <PasswordRequirements requirements={passwordValidation.requirements} />
             </div>
             <div className="form-group">
               <label>Confirm New Password</label>

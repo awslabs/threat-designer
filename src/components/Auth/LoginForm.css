@@ -175,6 +175,21 @@
   color: #5cb85c;
 }
 
+.password-requirements {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  font-size: 12px;
+  text-align: left;
+}
+
+.password-requirements li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.8;
+}
+
 /* Disabled button styles */
 .button-group button:disabled {
   opacity: 0.7;

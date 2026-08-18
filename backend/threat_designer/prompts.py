@@ -13,7 +13,15 @@ Each function generates specialized prompts for different phases of the threat m
 import os
 from langchain_core.messages import SystemMessage
 
-from constants import MAESTRO_LAYER_DEFINITIONS
+from constants import (
+    DEFAULT_METHODOLOGY,
+    MAESTRO_LAYER_DEFINITIONS,
+    classification_field_guidance,
+    classification_field_name,
+    coverage_label,
+    methodology_framework_block,
+    methodology_role_directive,
+)
 
 # Import model provider from config
 try:
@@ -170,28 +178,36 @@ with the most critical items listed first.
     return [{"type": "text", "text": app_type_context + main_prompt}]
 
 
-def gap_prompt(instructions: str = None, application_type: str = "hybrid") -> str:
+def gap_prompt(
+    instructions: str = None,
+    application_type: str = "hybrid",
+    methodology: str = DEFAULT_METHODOLOGY,
+) -> str:
     app_type_context = _get_application_type_context(application_type)
     criticality_context = _get_asset_criticality_context()
-    main_prompt = """
+    label = coverage_label(methodology)
+    framework_block = methodology_framework_block(methodology)
+    main_prompt = f"""
         <role>
     You audit threat catalogs against a specific architecture and decide STOP
     (catalog is production-ready) or CONTINUE (gaps remain). A CONTINUE sends the
     generating agent back, so your findings must be specific enough to act on.
     This prompt may be called multiple times — each iteration evaluates whether
-    previous gaps were addressed and whether new ones emerged.
+    previous gaps were addressed and whether new ones emerged. {methodology_role_directive(methodology)}
     </role>
 
+    {framework_block}
+
     <inputs>
-    {{ARCHITECTURE_DESCRIPTION}} — system design, components, data flows, and
+    {{{{ARCHITECTURE_DESCRIPTION}}}} — system design, components, data flows, and
     assumptions. Assumptions define what the architecture takes as given and are
     not attack surface. A threat contradicting a stated assumption is a compliance
     violation. Threats targeting the controls *upholding* an assumption (e.g.,
     compromising the CA behind mTLS) are legitimate.
 
-    {{THREAT_CATALOG_KPIS}} — STRIDE distribution, counts, likelihood ratings.
+    {{{{THREAT_CATALOG_KPIS}}}} — {label} distribution, counts, likelihood ratings.
 
-    {{CURRENT_THREAT_CATALOG}} — the threats to review.
+    {{{{CURRENT_THREAT_CATALOG}}}} — the threats to review.
     </inputs>
 
     <analysis_areas>
@@ -208,8 +224,8 @@ def gap_prompt(instructions: str = None, application_type: str = "hybrid") -> st
     Logic flaws (race conditions, state inconsistencies, quota bypasses) plausible
     for the design. Incomplete attack chains where a threat assumes an
     unestablished precondition. Technology-specific vulnerabilities tied to the
-    described languages, frameworks, or services. Underrepresented STRIDE
-    categories relative to what the design exposes — e.g., an API-heavy system
+    described languages, frameworks, or services. Underrepresented {label}
+    coverage relative to what the design exposes — e.g., an API-heavy system
     with few spoofing or repudiation threats. Judge what's actually missing versus
     reasonably out of scope.
 
@@ -223,7 +239,7 @@ def gap_prompt(instructions: str = None, application_type: str = "hybrid") -> st
     </analysis_areas>
 
     <decision_criteria>
-    STOP: zero compliance violations, reasonable STRIDE coverage across critical
+    STOP: zero compliance violations, reasonable {label} coverage across critical
     components, severity distribution proportionate to exposure.
 
     CONTINUE: compliance violations exist, concrete attack vectors are missing, or
@@ -241,7 +257,8 @@ def gap_prompt(instructions: str = None, application_type: str = "hybrid") -> st
     stop: true if catalog is production-ready, false if gaps remain.
     gaps: list of specific gap findings (only when stop=false). Each gap must have:
       - target: exact asset name from the architecture
-      - stride_category: the STRIDE category that is missing or weak
+      - {classification_field_guidance(methodology)} This is the {label} that is
+        missing or weak.
       - severity: CRITICAL (no coverage on high-criticality asset), MAJOR (weak
         coverage), or MINOR (calibration/quality issue)
       - description: imperative, actionable, max 40 words — what is missing and
@@ -250,7 +267,7 @@ def gap_prompt(instructions: str = None, application_type: str = "hybrid") -> st
 
     Focus gaps on the highest-value findings. Do not list more than 10 gaps.
     Every gap must reference a real asset from the architecture and a specific
-    STRIDE category — no generic "improve coverage" findings.
+    {label} — no generic "improve coverage" findings.
 
     Attack chains: when you identify that a threat assumes an unestablished
     precondition (e.g., "attacker has DB credentials" but no credential-theft
@@ -273,13 +290,19 @@ def gap_prompt(instructions: str = None, application_type: str = "hybrid") -> st
 
 
 def threats_improve_prompt(
-    instructions: str = None, application_type: str = "hybrid"
+    instructions: str = None,
+    application_type: str = "hybrid",
+    methodology: str = DEFAULT_METHODOLOGY,
 ) -> str:
     app_type_context = _get_application_type_context(application_type)
     criticality_context = _get_asset_criticality_context()
-    main_prompt = """<role>
-You are a security architect generating threat entries for a system architecture using the STRIDE methodology. You produce structured JSON threat objects that feed into a threat catalog reviewed by a downstream gap analysis agent. Precision in field values and realistic severity calibration matter more than volume.
+    label = coverage_label(methodology)
+    framework_block = methodology_framework_block(methodology)
+    main_prompt = f"""<role>
+You are a security architect generating threat entries for a system architecture. You produce structured JSON threat objects that feed into a threat catalog reviewed by a downstream gap analysis agent. Precision in field values and realistic severity calibration matter more than volume. {methodology_role_directive(methodology)}
 </role>
+
+{framework_block}
 
 <context>
 Threat catalogs produced by automated generation commonly suffer from two problems: optimism bias, where public-facing and sensitive components receive underscored severity ratings, and vague mitigations that provide no actionable guidance. Your output must avoid both.
@@ -288,14 +311,14 @@ This prompt may be called iteratively. If an existing threat catalog is provided
 </context>
 
 <inputs>
-{{ARCHITECTURE_AND_DATA_FLOW}} — the source of truth for components, threat sources, and assets
-{{ASSUMPTIONS}} — constraints on what is trusted and in scope
-{{EXISTING_THREAT_CATALOG}} — previously generated threats to avoid duplicating (may be empty on first iteration)
-{{GAP_ANALYSIS_INSTRUCTIONS}} — specific gaps or priority actions from the gap analysis agent (may be empty on first iteration)
+{{{{ARCHITECTURE_AND_DATA_FLOW}}}} — the source of truth for components, threat sources, and assets
+{{{{ASSUMPTIONS}}}} — constraints on what is trusted and in scope
+{{{{EXISTING_THREAT_CATALOG}}}} — previously generated threats to avoid duplicating (may be empty on first iteration)
+{{{{GAP_ANALYSIS_INSTRUCTIONS}}}} — specific gaps or priority actions from the gap analysis agent (may be empty on first iteration)
 </inputs>
 
 <instructions>
-Generate a comprehensive set of STRIDE threats for the architecture. Every threat must trace to a real component and a real threat source from the architecture and data flow inputs.
+Generate a comprehensive set of threats for the architecture, classified per {label}. Every threat must trace to a real component and a real threat source from the architecture and data flow inputs.
 
 SEVERITY CALIBRATION
 
@@ -315,7 +338,7 @@ target: Always a single, specific component name exactly as it appears in the ar
 
 source: Must match a threat_source identifier from the input data flow.
 
-stride_category: Exactly one of Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, or Elevation of Privilege.
+{classification_field_guidance(methodology)}
 
 description: A single sentence following this structure — "[source], [prerequisites summary], can [attack vector], which leads to [impact], negatively impacting [target]." The values referenced in this sentence must match the corresponding JSON fields.
 
@@ -333,7 +356,7 @@ mitigations: An array of specific, implementable technical controls. Each mitiga
 
 COVERAGE EXPECTATIONS
 
-Ensure every STRIDE category is represented. If a category has genuinely no applicable threats for this architecture, that is acceptable, but verify this is truly the case rather than an oversight.
+Ensure every applicable {label} is represented. If a {label} has genuinely no applicable threats for this architecture, that is acceptable, but verify this is truly the case rather than an oversight.
 
 Prioritize generating threats for gaps identified in the gap analysis instructions when provided. After addressing those gaps, continue with any additional threats you identify.
 </instructions>
@@ -341,10 +364,10 @@ Prioritize generating threats for gaps identified in the gap analysis instructio
 <output_format>
 Return a JSON array of threat objects. Each object must conform to this schema:
 
-{
+{{
   "target": "string — single component name from architecture",
   "source": "string — threat_source ID from data flow",
-  "stride_category": "string — one of: Spoofing | Tampering | Repudiation | Information Disclosure | Denial of Service | Elevation of Privilege",
+  "{classification_field_name(methodology)}": "string — {classification_field_guidance(methodology)}",
   "description": "string — synthesized sentence following the template in instructions",
   "prerequisites": "string — conditions required for the attack",
   "attack_vector": "string — specific technical mechanism",
@@ -352,7 +375,7 @@ Return a JSON array of threat objects. Each object must conform to this schema:
   "likelihood": "string — High | Medium | Low",
   "impact": "string — Critical | High | Medium | Low",
   "mitigations": ["string — specific technical control", "..."]
-}
+}}
 
 Do not wrap the JSON in markdown code fences. Output only the JSON array.
 </output_format>
@@ -378,8 +401,12 @@ Do not wrap the JSON in markdown code fences. Output only the JSON array.
     ]
 
 
-def threats_prompt(instructions: str = None, application_type: str = "hybrid") -> str:
-    return threats_improve_prompt(instructions, application_type)
+def threats_prompt(
+    instructions: str = None,
+    application_type: str = "hybrid",
+    methodology: str = DEFAULT_METHODOLOGY,
+) -> str:
+    return threats_improve_prompt(instructions, application_type, methodology)
 
 
 def create_space_context_system_prompt() -> SystemMessage:
@@ -626,18 +653,23 @@ finishing.
 
 
 def create_threats_agent_system_prompt(
-    instructions: str = None, application_type: str = "hybrid"
+    instructions: str = None,
+    application_type: str = "hybrid",
+    methodology: str = DEFAULT_METHODOLOGY,
 ) -> SystemMessage:
     """Create system prompt for the single threats agent."""
     app_type_context = _get_application_type_context(application_type)
     criticality_context = _get_asset_criticality_context()
+    label = coverage_label(methodology)
+    framework_block = methodology_framework_block(methodology)
 
-    prompt = """
+    prompt = f"""
 <role>
 You are a security architect performing threat modeling for a system
-architecture. You build a comprehensive threat catalog using the STRIDE
-methodology.
+architecture. You build a comprehensive threat catalog. {methodology_role_directive(methodology)}
 </role>
+
+{framework_block}
 
 <context>
 The user provides:
@@ -645,9 +677,9 @@ The user provides:
   assumptions, controls).
 - existing_catalog — current state of the threat catalog (may be empty).
 
-Your catalog must be comprehensive across STRIDE, realistically calibrated,
-and architecture-specific — every threat traces to a real component, data flow,
-or trust boundary.
+Your catalog must be comprehensive across every applicable {label}, realistically
+calibrated, and architecture-specific — every threat traces to a real component,
+data flow, or trust boundary.
 
 When analysis groups are provided, use them to structure your work — analyze
 each group systematically before moving to the next. You have full visibility
@@ -706,7 +738,7 @@ from the add_threats tool schema. Copy verbatim — mismatches are rejected.
 
 <tools>
 add_threats — batch multiple threats per call. Fields: target, source,
-stride_category, description, prerequisites, attack_vector,
+{classification_field_name(methodology)}, description, prerequisites, attack_vector,
 impact_description, likelihood, impact, mitigations.
 
 delete_threats — remove threats by ID. When correcting a threat, add the
@@ -715,7 +747,7 @@ replacement before deleting the original to avoid coverage gaps.
 gap_analysis — evaluates catalog against architecture. Call after accumulating
 ~10-15 threats, and after subsequent change batches.
 
-catalog_stats — check STRIDE distribution and asset coverage.
+catalog_stats — check {label} distribution and asset coverage.
 
 read_threat_catalog — review current catalog before adding or after gap_analysis.
 </tools>
@@ -728,7 +760,7 @@ for the first group, then the next, building up the catalog incrementally.
 After covering all groups, run gap_analysis for cross-cutting coverage.
 
 Start with the highest-risk surface and generate your first batch (10-15 threats).
-Expand from there across remaining assets and STRIDE categories through
+Expand from there across remaining assets and {label} coverage through
 additional batched add_threats calls. Maximize each batch — larger batches
 mean fewer round-trips and faster completion.
 
@@ -737,7 +769,7 @@ own assessment — address genuine gaps, use judgment on marginal ones. If
 gap_analysis repeatedly flags something you've already evaluated and rejected,
 note your reasoning and move on.
 
-When the catalog has solid STRIDE coverage across all assets, trust boundaries,
+When the catalog has solid {label} coverage across all assets, trust boundaries,
 and data flows — or gap_analysis returns no critical/high findings — output
 "THREAT_CATALOG_COMPLETE" as your final message.
 
@@ -780,12 +812,17 @@ After describing the changes, assess whether this is suitable for an incremental
 Set `proceed` to false ONLY when the architectures are fundamentally different systems with little structural overlap — for example, a completely different application, a total platform rewrite, or diagrams that share almost no components. Most architecture updates (adding services, changing providers, restructuring modules, scaling tiers) are suitable for versioning even if extensive."""
 
 
-def create_version_agent_system_prompt() -> SystemMessage:
+def create_version_agent_system_prompt(
+    methodology: str = DEFAULT_METHODOLOGY,
+) -> SystemMessage:
     """Create system prompt for the version agent that updates threat models to reflect architecture changes."""
+    framework_block = methodology_framework_block(methodology)
 
-    prompt = """<role>
-You are a security architect versioning an existing threat model to reflect architecture changes. You have the current threat model state and a summary of what changed.
+    prompt = f"""<role>
+You are a security architect versioning an existing threat model to reflect architecture changes. You have the current threat model state and a summary of what changed. {methodology_role_directive(methodology)}
 </role>
+
+{framework_block}
 
 <execution_rules>
 To modify an existing item, DELETE it first, then CREATE the updated version. The `source` field on threats is immutable.
@@ -826,7 +863,7 @@ Identify where trust levels change across these dimensions:
 </trust_boundaries>
 
 <threats>
-Apply STRIDE with these calibration principles:
+Classify per {coverage_label(methodology)} with these calibration principles:
 
 **Assumptions are guardrails, not attack surface.** Do not generate threats that contradict stated assumptions (e.g., no plaintext-eavesdropping threat when mTLS is assumed). Threats against the controls upholding an assumption are valid.
 

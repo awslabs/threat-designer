@@ -709,6 +709,8 @@ class VersionState(MessagesState):
     image_metadata_list: Optional[List[ImageMetadata]] = None
     previous_image_data: Optional[str] = None
     application_type: Optional[str] = "hybrid"
+    methodology: Optional[str] = DEFAULT_METHODOLOGY
+    applicable_maestro_layers: Optional[List[str]] = None
     space_insights: Optional[SpaceInsightsList] = None
     trail_msg_idx: Optional[int] = 0
     # Task steering middleware fields

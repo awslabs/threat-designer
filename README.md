@@ -346,7 +346,7 @@ MAESTRO is enabled by default. To disable it, update the `.deployment.config` fi
 ENABLE_MAESTRO=false
 ```
 
-When disabled, the API rejects requests that ask for MAESTRO rather than silently falling back to STRIDE. STRIDE threat modeling is unaffected either way.
+When disabled, the API rejects *new* requests that ask for MAESTRO rather than silently falling back to STRIDE. Replaying or versioning an existing MAESTRO model is unaffected by the flag — its methodology is fixed at creation and is loaded from the stored record either way, so disabling MAESTRO doesn't strand catalogs created while it was on. STRIDE threat modeling is unaffected either way.
 
 ---
 

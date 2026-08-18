@@ -273,6 +273,38 @@ async def download_and_cache_diagram(
     return _fetch_diagram_from_s3(diagram_path, s3_bucket)
 
 
+# Sentry's Threat model (data_model.py) requires a STRIDE `stride_category` on
+# every threat and has no MAESTRO equivalent field. Writing through these tools
+# against a MAESTRO-classified catalog would silently mislabel every threat it
+# touches, so they're withheld whenever the active context says methodology is
+# MAESTRO. `delete_threats` doesn't classify anything, so it stays available.
+MAESTRO_INCOMPATIBLE_TOOLS = {"add_threats", "edit_threats"}
+
+
+def filter_tools_for_methodology(
+    tools: List, context: Optional[Dict[str, Any]], logger
+) -> List:
+    """Withhold threat-catalog write tools that can't represent a MAESTRO catalog.
+
+    Sentry has no dual-classification support today, so a `methodology` of
+    "maestro" in the context (once the frontend starts sending one) means
+    these tools would only ever be able to write STRIDE-shaped threats into a
+    MAESTRO catalog. Missing/absent methodology is treated as STRIDE, matching
+    current behavior for every caller that doesn't send the field yet.
+    """
+    methodology = (context or {}).get("methodology")
+    if methodology != "maestro":
+        return tools
+
+    filtered = [t for t in tools if t.name not in MAESTRO_INCOMPATIBLE_TOOLS]
+    if len(filtered) != len(tools):
+        logger.debug(
+            "MAESTRO catalog in context — withholding STRIDE-only tools: %s",
+            sorted(MAESTRO_INCOMPATIBLE_TOOLS),
+        )
+    return filtered
+
+
 def get_tools_for_preferences(
     tool_preferences: Optional[List[str]],
     all_available_tools: List,
@@ -381,6 +413,7 @@ async def get_or_create_agent(
 
     # Get tools for current preferences
     new_tools = get_tools_for_preferences(tool_preferences, all_available_tools, logger)
+    new_tools = filter_tools_for_methodology(new_tools, context, logger)
     new_tools_hash = get_tools_hash(new_tools)
 
     # Get context hash

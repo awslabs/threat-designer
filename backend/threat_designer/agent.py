@@ -278,6 +278,11 @@ def _resolve_methodology(requested: Any) -> str:
     caller that asked for MAESTRO would be indistinguishable from success while
     classifying every threat along the wrong axis.
     """
+    if requested is not None and not isinstance(requested, str):
+        raise ValidationError(
+            f"Invalid methodology '{requested}'. Must be a string."
+        )
+
     methodology = (requested or DEFAULT_METHODOLOGY).strip().lower()
 
     valid = {m.value for m in Methodology}
@@ -498,6 +503,9 @@ def _handle_replay_state(state: AgentState, job_id: str) -> AgentState:
                 # methodology is immutable on replay for the same reason as space_id:
                 # the existing catalog is classified on one axis and cannot be re-mixed
                 "methodology": item.get("methodology", DEFAULT_METHODOLOGY),
+                # restore the scoped layers too, so the coverage gate's skip-on-replay
+                # check (workflow_threats.py) actually finds them and doesn't re-run detection
+                "applicable_maestro_layers": item.get("applicable_maestro_layers"),
                 # space_id is immutable on replay — always loaded from DDB, never from event
                 "space_id": item.get("space_id") or None,
                 "space_insights": space_insights,

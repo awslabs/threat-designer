@@ -237,6 +237,7 @@ def agent_init(state: ThreatState, config: RunnableConfig) -> Command:
     system_architecture = state.get("system_architecture")
     instructions = state.get("instructions")
     app_type = state.get("application_type", "hybrid")
+    methodology = state.get("methodology") or DEFAULT_METHODOLOGY
 
     state_service.update_job_state(
         job_id, JobState.THREAT.value, detail="Initializing threat analysis"
@@ -260,7 +261,7 @@ def agent_init(state: ThreatState, config: RunnableConfig) -> Command:
 
     # Build system prompt
     system_prompt = create_threats_agent_system_prompt(
-        instructions, application_type=app_type
+        instructions, application_type=app_type, methodology=methodology
     )
 
     # Build human message with partition guidance
@@ -418,7 +419,10 @@ def validate_node(state: ThreatState) -> Command:
     )
     return Command(
         goto="finalize",
-        update={"threat_list": Overwrite(threat_list)},
+        update={
+            "threat_list": Overwrite(threat_list),
+            "applicable_maestro_layers": state.get("applicable_maestro_layers"),
+        },
         graph=Command.PARENT,
     )
 

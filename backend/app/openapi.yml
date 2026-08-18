@@ -3791,6 +3791,15 @@ components:
           type: boolean
           default: false
           description: If true, replays an existing threat model with the provided id
+        methodology:
+          type: string
+          enum: [stride, maestro]
+          default: stride
+          description: >-
+            Threat modeling methodology for this catalog. Fixed at creation and
+            immutable on replay/version — a catalog is never classified along two
+            axes at once. Rejected if maestro is requested while the deployment's
+            enable_maestro Terraform variable is false.
 
     UpdateThreatModelRequest:
       type: object

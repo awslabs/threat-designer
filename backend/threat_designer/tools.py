@@ -923,12 +923,19 @@ def gap_analysis(runtime: ToolRuntime) -> str:
 
     # Create system prompt (without threat sources)
     app_type = state.get("application_type", "hybrid")
+    methodology = state.get("methodology") or DEFAULT_METHODOLOGY
     if state.get("instructions"):
         system_prompt = SystemMessage(
-            content=gap_prompt(state.get("instructions"), application_type=app_type)
+            content=gap_prompt(
+                state.get("instructions"),
+                application_type=app_type,
+                methodology=methodology,
+            )
         )
     else:
-        system_prompt = SystemMessage(content=gap_prompt(application_type=app_type))
+        system_prompt = SystemMessage(
+            content=gap_prompt(application_type=app_type, methodology=methodology)
+        )
 
     messages = [system_prompt, human_message]
 
@@ -946,9 +953,7 @@ def gap_analysis(runtime: ToolRuntime) -> str:
             job_id=job_id,
         )
 
-        gap_model = create_constrained_gap_model(
-            state.get("methodology") or DEFAULT_METHODOLOGY
-        )
+        gap_model = create_constrained_gap_model(methodology)
         response = model_service.invoke_structured_model(
             messages, [gap_model], config, reasoning, "model_gaps"
         )

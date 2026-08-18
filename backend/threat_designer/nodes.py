@@ -5,6 +5,7 @@ from typing import Any, Dict
 
 from config import ThreatModelingConfig
 from constants import (
+    DEFAULT_METHODOLOGY,
     FINALIZATION_SLEEP_SECONDS,
     FLUSH_MODE_APPEND,
     FLUSH_MODE_REPLACE,
@@ -28,6 +29,7 @@ from state import (
     AssetsList,
     SummaryState,
     ThreatsList,
+    create_constrained_threat_model,
 )
 from state_tracking_service import StateService
 
@@ -198,7 +200,7 @@ class ThreatDefinitionService:
             self._update_job_state_for_threats(job_id, retry_count)
 
             messages = self._prepare_threat_messages(state, retry_count)
-            response = self._invoke_threat_model(messages, config)
+            response = self._invoke_threat_model(messages, config, state)
 
             # Perform similarity audit (for traditional workflow only)
             threats_response = response["structured_response"]
@@ -245,6 +247,7 @@ class ThreatDefinitionService:
         )
 
         app_type = state.get("application_type", "hybrid")
+        methodology = state.get("methodology") or DEFAULT_METHODOLOGY
 
         if retry_count > 1 or len(threats) > 0:
             human_message = msg_builder.create_threat_improve_message(
@@ -253,12 +256,16 @@ class ThreatDefinitionService:
             if state.get("replay") and state.get("instructions"):
                 system_prompt = SystemMessage(
                     content=threats_improve_prompt(
-                        state.get("instructions"), application_type=app_type
+                        state.get("instructions"),
+                        application_type=app_type,
+                        methodology=methodology,
                     )
                 )
             else:
                 system_prompt = SystemMessage(
-                    content=threats_improve_prompt(application_type=app_type)
+                    content=threats_improve_prompt(
+                        application_type=app_type, methodology=methodology
+                    )
                 )
         else:
             human_message = msg_builder.create_threat_message(
@@ -267,21 +274,43 @@ class ThreatDefinitionService:
             if state.get("replay") and state.get("instructions"):
                 system_prompt = SystemMessage(
                     content=threats_prompt(
-                        state.get("instructions"), application_type=app_type
+                        state.get("instructions"),
+                        application_type=app_type,
+                        methodology=methodology,
                     )
                 )
             else:
                 system_prompt = SystemMessage(
-                    content=threats_prompt(application_type=app_type)
+                    content=threats_prompt(
+                        application_type=app_type, methodology=methodology
+                    )
                 )
         return [system_prompt, human_message]
 
     @with_error_context("threat node execution")
-    def _invoke_threat_model(self, messages: list, config: RunnableConfig) -> Any:
-        """Invoke model for threat definition."""
+    def _invoke_threat_model(
+        self, messages: list, config: RunnableConfig, state: AgentState
+    ) -> Any:
+        """Invoke model for threat definition, constrained to the active methodology."""
         reasoning = config["configurable"].get("reasoning", False)
+        methodology = state.get("methodology") or DEFAULT_METHODOLOGY
+
+        assets = state.get("assets")
+        asset_names = (
+            frozenset(a.name for a in assets.assets) if assets and assets.assets else frozenset()
+        )
+        system_architecture = state.get("system_architecture")
+        source_cats = (
+            frozenset(s.category for s in system_architecture.threat_sources)
+            if system_architecture and system_architecture.threat_sources
+            else frozenset()
+        )
+
+        _, DynThreatsList = create_constrained_threat_model(
+            asset_names, source_cats, methodology
+        )
         return self.model_service.invoke_structured_model(
-            messages, [ThreatsList], config, reasoning, "model_threats"
+            messages, [DynThreatsList], config, reasoning, "model_threats"
         )
 
     def _update_reasoning_trail(

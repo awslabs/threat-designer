@@ -227,6 +227,62 @@ MAESTRO_LAYER_DEFINITIONS = """\
   third-party plugins or tools, shared task queues between distinct agents."""
 
 
+# Shared text fragments for threading the active methodology through the
+# threat-generation and gap-analysis prompts in both prompts.py and
+# prompts_gpt.py, so the two provider variants cannot drift apart.
+
+
+def methodology_role_directive(methodology: str) -> str:
+    """One-sentence directive naming the active classification framework."""
+    if methodology == Methodology.MAESTRO.value:
+        return (
+            "You classify every threat against the CSA MAESTRO framework for "
+            "agentic AI systems, not STRIDE."
+        )
+    return "You classify every threat using the STRIDE methodology."
+
+
+def methodology_framework_block(methodology: str) -> str:
+    """Framework definitions to inject wherever a prompt actually classifies threats."""
+    if methodology == Methodology.MAESTRO.value:
+        return f"""<maestro_layers>
+{MAESTRO_LAYER_DEFINITIONS}
+
+Security and Compliance and Cross-Layer are always in scope. A prior scoping
+step has already determined which of the remaining layers this architecture
+touches — classify each threat into the layer it actually belongs to, choosing
+Cross-Layer only when the threat exists in the interaction between layers
+rather than within one.
+</maestro_layers>"""
+    return f"""<stride_categories>
+{', '.join(c.value for c in StrideCategory)}
+</stride_categories>"""
+
+
+def classification_field_name(methodology: str) -> str:
+    return "maestro_layer" if methodology == Methodology.MAESTRO.value else "stride_category"
+
+
+def classification_field_guidance(methodology: str) -> str:
+    """Field-level instruction for the classification field, for output-schema blocks."""
+    if methodology == Methodology.MAESTRO.value:
+        return (
+            "maestro_layer: exactly one of "
+            f"{', '.join(layer.value for layer in MaestroLayer)}. Use Cross-Layer "
+            "only when the threat exists in the interaction between layers rather "
+            "than within one."
+        )
+    return (
+        "stride_category: exactly one of "
+        f"{', '.join(category.value for category in StrideCategory)}."
+    )
+
+
+def coverage_label(methodology: str) -> str:
+    """Short noun phrase for the active classification axis, for coverage-language sentences."""
+    return "MAESTRO layer" if methodology == Methodology.MAESTRO.value else "STRIDE category"
+
+
 # ============================================================================
 # ASSET AND ENTITY TYPES
 # ============================================================================

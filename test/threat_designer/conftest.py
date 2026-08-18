@@ -29,10 +29,21 @@ STUBBED = [
 ]
 
 
+def _passthrough_with_error_context(monitoring_stub):
+    """Make the stubbed monitoring.with_error_context a real identity decorator.
+
+    A MagicMock swallows the decorated function entirely (calling it returns a
+    chained MagicMock rather than running the real body), which would silently
+    turn every @with_error_context-decorated function under test into a no-op.
+    """
+    monitoring_stub.with_error_context = lambda *a, **kw: (lambda func: func)
+
+
 @pytest.fixture(scope="module")
 def agent():
     """Import the agent modules under test with their AWS dependencies stubbed."""
     stubs = {name: MagicMock() for name in STUBBED}
+    _passthrough_with_error_context(stubs["monitoring"])
 
     # langchain's @tool decorator would otherwise wrap the functions we assert on
     langchain_tools = MagicMock()
@@ -47,16 +58,18 @@ def agent():
             import state
             import tools
             import workflow_threats
+            import nodes
 
             yield SimpleNamespace(
                 constants=constants,
                 state=state,
                 tools=tools,
                 workflow_threats=workflow_threats,
+                nodes=nodes,
             )
         finally:
             sys.path.remove(AGENT_DIR)
-            for name in ("constants", "state", "tools", "workflow_threats"):
+            for name in ("constants", "state", "tools", "workflow_threats", "nodes"):
                 sys.modules.pop(name, None)
 
 
@@ -98,6 +111,7 @@ def entrypoint(monkeypatch):
         }
         stubs["exceptions"].ValidationError = _StubValidationError
         stubs["exceptions"].ThreatModelingError = Exception
+        _passthrough_with_error_context(stubs["monitoring"])
 
         with patch.dict(sys.modules, stubs):
             sys.path.insert(0, AGENT_DIR)
@@ -118,6 +132,32 @@ def entrypoint(monkeypatch):
 @pytest.fixture
 def validation_error():
     return _StubValidationError
+
+
+@pytest.fixture(scope="module")
+def prompts():
+    """Import prompts.py and prompts_gpt.py directly, with only `config` stubbed.
+
+    Both modules need real langchain_core and constants — only their optional
+    `from config import config` needs a stand-in so a real deployment config
+    (which requires AWS env vars) is never constructed.
+    """
+    stub_config = MagicMock()
+    stub_config.config.model_provider = "bedrock"
+
+    with patch.dict(sys.modules, {"config": stub_config}):
+        sys.path.insert(0, AGENT_DIR)
+        try:
+            for name in ("prompts", "prompts_gpt", "constants"):
+                sys.modules.pop(name, None)
+            import prompts
+            import prompts_gpt
+
+            yield SimpleNamespace(stride=prompts, gpt=prompts_gpt)
+        finally:
+            sys.path.remove(AGENT_DIR)
+            for name in ("prompts", "prompts_gpt"):
+                sys.modules.pop(name, None)
 
 
 @pytest.fixture

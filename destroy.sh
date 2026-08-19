@@ -81,6 +81,11 @@ if [ -n "$ENABLE_SENTRY" ]; then
     TF_DESTROY_VARS="$TF_DESTROY_VARS -var=enable_sentry=$ENABLE_SENTRY"
 fi
 
+# Add enable_maestro if it exists in config, otherwise use default
+if [ -n "$ENABLE_MAESTRO" ]; then
+    TF_DESTROY_VARS="$TF_DESTROY_VARS -var=enable_maestro=$ENABLE_MAESTRO"
+fi
+
 # Set safe defaults for model provider variables (not needed for destroy but required by Terraform)
 TF_DESTROY_VARS="$TF_DESTROY_VARS -var=model_provider=bedrock"
 TF_DESTROY_VARS="$TF_DESTROY_VARS -var=openai_api_key=dummy-key-for-destroy"

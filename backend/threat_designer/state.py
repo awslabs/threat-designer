@@ -7,14 +7,18 @@ from langgraph.graph import MessagesState
 from typing import Annotated, List, Literal, Optional, TypedDict
 
 from constants import (
+    DEFAULT_METHODOLOGY,
+    MAESTRO_DETECTABLE_LAYERS,
     MITIGATION_MAX_ITEMS,
     MITIGATION_MIN_ITEMS,
     SUMMARY_MAX_WORDS_DEFAULT,
     AssetType,
+    MaestroLayer,
+    Methodology,
     StrideCategory,
 )
 from langchain_aws import ChatBedrockConverse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 
@@ -168,11 +172,17 @@ class GapFinding(BaseModel):
         ),
     ]
     stride_category: Annotated[
-        Literal[*[category.value for category in StrideCategory]],
+        Optional[Literal[*[category.value for category in StrideCategory]]],
         Field(
             description="The STRIDE category that is missing or underrepresented for this target."
         ),
-    ]
+    ] = None
+    maestro_layer: Annotated[
+        Optional[Literal[*[layer.value for layer in MaestroLayer]]],
+        Field(
+            description="The MAESTRO layer that is missing or underrepresented for this target."
+        ),
+    ] = None
     severity: Annotated[
         Literal["CRITICAL", "MAJOR", "MINOR"],
         Field(
@@ -208,6 +218,32 @@ class ContinueThreatModeling(BaseModel):
             description="Overall quality rating of the threat catalog (1-10). 10 = comprehensive and high quality, 1 = significant gaps and issues.",
             ge=1,
             le=10,
+        ),
+    ]
+
+
+class MaestroLayerDetection(BaseModel):
+    """Which MAESTRO layers the submitted architecture actually contains.
+
+    Only the architecture-dependent layers are decided here. Layer 6 is vertical
+    and cross-layer threats span whatever exists, so both are always applicable
+    and are added by the coverage gate rather than asked about.
+    """
+
+    applicable_layers: Annotated[
+        List[Literal[*MAESTRO_DETECTABLE_LAYERS]],
+        Field(
+            description=(
+                "The MAESTRO layers this architecture contains. Include a layer only "
+                "when the architecture has components belonging to it. Omit layers the "
+                "system does not have rather than guessing."
+            )
+        ),
+    ]
+    rationale: Annotated[
+        str,
+        Field(
+            description="One sentence per included layer naming the component that puts it in scope. Max 80 words."
         ),
     ]
 
@@ -260,7 +296,15 @@ class ThreatSourcesList(BaseModel):
 
 
 class Threat(BaseModel):
-    """Model representing an identified security threat using the STRIDE methodology."""
+    """Model representing an identified security threat.
+
+    Carries one classification field per methodology. Exactly which one is
+    populated is decided by the threat model's methodology; both are optional at
+    the base-model level so records written under either methodology round-trip
+    through storage, and the model validator below enforces that at least one is
+    present. `create_constrained_threat_model` narrows the relevant field back to
+    required when building the schema handed to the LLM.
+    """
 
     name: Annotated[
         str,
@@ -269,11 +313,17 @@ class Threat(BaseModel):
         ),
     ]
     stride_category: Annotated[
-        Literal[*[category.value for category in StrideCategory]],
+        Optional[Literal[*[category.value for category in StrideCategory]]],
         Field(
             description=f"The STRIDE category classification: One of {', '.join([category.value for category in StrideCategory])}."
         ),
-    ]
+    ] = None
+    maestro_layer: Annotated[
+        Optional[Literal[*[layer.value for layer in MaestroLayer]]],
+        Field(
+            description=f"The MAESTRO layer classification: One of {', '.join([layer.value for layer in MaestroLayer])}."
+        ),
+    ] = None
     description: Annotated[
         str,
         Field(
@@ -339,6 +389,14 @@ class Threat(BaseModel):
         ),
     ] = None
 
+    @model_validator(mode="after")
+    def _require_a_classification(self):
+        if self.stride_category is None and self.maestro_layer is None:
+            raise ValueError(
+                "A threat must carry either stride_category or maestro_layer."
+            )
+        return self
+
 
 class ThreatsList(BaseModel):
     """Collection of identified security threats."""
@@ -362,26 +420,108 @@ class ThreatsList(BaseModel):
         return ThreatsList(threats=filtered_threats)
 
 
+UNUSED_CLASSIFICATION_DESCRIPTION = (
+    "Not used under the active threat modeling methodology. Leave unset."
+)
+
+
+def _classification_overrides(methodology: str) -> dict:
+    """Build field overrides that make the active methodology's classification required.
+
+    Both classification fields are optional on the base `Threat`/`GapFinding` so
+    that records written under either methodology can be read back. For the schema
+    handed to the LLM we want exactly one of them required and the other one
+    visibly inert, otherwise the model is free to classify along the wrong axis.
+    """
+    if methodology == Methodology.MAESTRO.value:
+        return {
+            "maestro_layer": (
+                Annotated[
+                    Literal[*[layer.value for layer in MaestroLayer]],
+                    Field(
+                        description=(
+                            "The MAESTRO layer this threat belongs to: one of "
+                            f"{', '.join(layer.value for layer in MaestroLayer)}. "
+                            "Use Cross-Layer only when the threat exists in the "
+                            "interaction between layers rather than within one."
+                        )
+                    ),
+                ],
+                ...,
+            ),
+            "stride_category": (
+                Optional[str],
+                Field(default=None, description=UNUSED_CLASSIFICATION_DESCRIPTION),
+            ),
+        }
+
+    return {
+        "stride_category": (
+            Annotated[
+                Literal[*[category.value for category in StrideCategory]],
+                Field(
+                    description="The STRIDE category classification: one of "
+                    f"{', '.join(category.value for category in StrideCategory)}."
+                ),
+            ],
+            ...,
+        ),
+        "maestro_layer": (
+            Optional[str],
+            Field(default=None, description=UNUSED_CLASSIFICATION_DESCRIPTION),
+        ),
+    }
+
+
+@functools.lru_cache(maxsize=16)
+def create_constrained_gap_model(methodology: str) -> type[BaseModel]:
+    """Create a ContinueThreatModeling whose gaps classify along the active axis."""
+    from pydantic import create_model
+
+    DynamicGapFinding = create_model(
+        "GapFinding", __base__=GapFinding, **_classification_overrides(methodology)
+    )
+
+    return create_model(
+        "ContinueThreatModeling",
+        __base__=ContinueThreatModeling,
+        gaps=(
+            Optional[List[DynamicGapFinding]],
+            Field(
+                default=[],
+                description=(
+                    "Specific gaps identified in the threat catalog, each tied to a "
+                    "target asset. Required when 'stop' is False. Empty when True."
+                ),
+            ),
+        ),
+    )
+
+
 @functools.lru_cache(maxsize=16)
 def create_constrained_threat_model(
-    asset_names: frozenset[str], source_categories: frozenset[str]
+    asset_names: frozenset[str],
+    source_categories: frozenset[str],
+    methodology: str = DEFAULT_METHODOLOGY,
 ) -> tuple[type[BaseModel], type[BaseModel]]:
-    """Create Threat and ThreatsList models with Literal-constrained target/source fields.
+    """Create Threat and ThreatsList models with Literal-constrained fields.
 
     Uses pydantic.create_model() to dynamically override the `target` and `source`
     fields with Literal types when valid values are available, falling back to str
-    when the respective set is empty.
+    when the respective set is empty, and to make the classification field for the
+    active methodology required.
 
     Args:
         asset_names: Set of valid asset names from state.assets.
         source_categories: Set of valid threat source categories.
+        methodology: Active threat modeling methodology ("stride" or "maestro").
 
     Returns:
         Tuple of (DynamicThreat, DynamicThreatsList) model classes.
     """
     from pydantic import create_model
 
-    field_overrides = {}
+    field_overrides = _classification_overrides(methodology)
 
     if asset_names:
         target_literal = Literal[tuple(sorted(asset_names))]
@@ -446,6 +586,8 @@ class AgentState(TypedDict):
     replay: Optional[bool] = False
     instructions: Optional[str] = None
     application_type: Optional[str] = "hybrid"
+    methodology: Optional[str] = DEFAULT_METHODOLOGY
+    applicable_maestro_layers: Optional[List[str]] = None
     space_id: Optional[str] = None
     space_insights: Optional[SpaceInsightsList] = None
     token_usage: Optional[dict] = None
@@ -504,6 +646,8 @@ class ThreatState(MessagesState):
     iteration: Optional[int] = 0
     replay: Optional[bool] = False
     application_type: Optional[str] = "hybrid"
+    methodology: Optional[str] = DEFAULT_METHODOLOGY
+    applicable_maestro_layers: Optional[List[str]] = None
     space_insights: Optional[SpaceInsightsList] = None
 
 
@@ -565,6 +709,8 @@ class VersionState(MessagesState):
     image_metadata_list: Optional[List[ImageMetadata]] = None
     previous_image_data: Optional[str] = None
     application_type: Optional[str] = "hybrid"
+    methodology: Optional[str] = DEFAULT_METHODOLOGY
+    applicable_maestro_layers: Optional[List[str]] = None
     space_insights: Optional[SpaceInsightsList] = None
     trail_msg_idx: Optional[int] = 0
     # Task steering middleware fields

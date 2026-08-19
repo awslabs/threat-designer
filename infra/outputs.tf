@@ -46,6 +46,11 @@ output "sentry_enabled" {
   value       = var.enable_sentry
 }
 
+output "maestro_enabled" {
+  description = "Whether the MAESTRO methodology is enabled"
+  value       = var.enable_maestro
+}
+
 output "agent_runtime_arn_escaped" {
   description = "URL-encoded ARN of the Bedrock agent runtime"
   value       = var.enable_sentry ? urlencode(aws_bedrockagentcore_agent_runtime.sentry[0].agent_runtime_arn) : ""

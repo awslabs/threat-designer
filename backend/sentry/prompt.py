@@ -309,6 +309,22 @@ Match analysis depth to what was requested. A question about a single threat doe
 """
 
 
+def _maestro_tool_note(context) -> str:
+    """Explain why add_threats/edit_threats are unavailable when the active catalog is MAESTRO.
+
+    Sentry's Threat model only has a STRIDE classification field, so those tools
+    are withheld for a MAESTRO catalog (see utils.filter_tools_for_methodology)
+    rather than writing STRIDE-mislabeled threats into it.
+    """
+    if not context or context.get("methodology") != "maestro":
+        return ""
+    return """
+<maestro_catalog_notice>
+This threat model uses the MAESTRO methodology. Sentry cannot add or edit threats in a MAESTRO catalog yet — its threat editor only supports STRIDE classification, and writing through it would mislabel every threat it touches. If the user asks you to add or edit a threat, explain this limitation plainly and suggest they use the main Threat Designer editor instead. You can still discuss, analyze, and answer questions about the existing catalog, and delete_threats remains available.
+</maestro_catalog_notice>
+"""
+
+
 def _bedrock_context_prompt(context):
     return f"""
 <active_context>
@@ -324,7 +340,7 @@ Align implementation details with the technical and business context inferred fr
 
 Act as a trusted security advisor: every recommendation should enhance the organization's security posture while remaining practical and implementable within their constraints. Focus on risk reduction and building resilient systems.
 </context_usage>
-"""
+{_maestro_tool_note(context)}"""
 
 
 # ==============================================================================
@@ -554,7 +570,7 @@ When the active context is large (many data flows, threats, or complex architect
 - If an answer depends on fine details (criticality levels, specific threat sources, assumption wording), reference them explicitly.
 - When assessing gaps across the full model, produce a brief internal outline of key areas before responding.
 </long_context_handling>
-"""
+{_maestro_tool_note(context)}"""
 
 
 # ==============================================================================

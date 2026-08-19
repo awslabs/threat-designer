@@ -3,23 +3,27 @@ from langchain_core.messages import ToolMessage
 from langchain_core.messages import SystemMessage
 from state import (
     ThreatsList,
-    ContinueThreatModeling,
     DataFlowsList,
     TrustBoundariesList,
     ThreatSourcesList,
     FlowsList,
+    create_constrained_gap_model,
 )
 from langgraph.types import Command, Overwrite
-from typing import List, Annotated, Dict, Any
+from typing import List, Annotated, Dict, Any, NamedTuple
 from message_builder import MessageBuilder, list_to_string
 from model_service import ModelService
 from utils import unwrap_overwrite
 from prompt_provider import gap_prompt
 from constants import (
+    DEFAULT_METHODOLOGY,
     MAX_GAP_ANALYSIS_USES,
     MAX_ADD_THREATS_USES,
     MIN_GAP_THRESHOLD,
     JobState,
+    MaestroLayer,
+    Methodology,
+    StrideCategory,
 )
 from monitoring import logger
 from config import config as app_config
@@ -30,6 +34,54 @@ from collections import Counter
 
 # Initialize state service for status updates
 state_service = StateService(app_config.agent_state_table)
+
+
+# ============================================================================
+# Classification axis
+# ============================================================================
+#
+# Threats are classified along one axis per methodology: STRIDE asks what kind of
+# threat this is, MAESTRO asks where in the agentic stack it lives. Everything
+# that counts, formats or reports on that axis goes through here so the category
+# list is defined once rather than restated at each call site.
+
+
+class ClassificationAxis(NamedTuple):
+    """The classification field, its allowed values, and how to label it."""
+
+    field: str
+    values: tuple[str, ...]
+    label: str
+
+
+_AXES = {
+    Methodology.STRIDE.value: ClassificationAxis(
+        field="stride_category",
+        values=tuple(c.value for c in StrideCategory),
+        label="STRIDE Category",
+    ),
+    Methodology.MAESTRO.value: ClassificationAxis(
+        field="maestro_layer",
+        values=tuple(layer.value for layer in MaestroLayer),
+        label="MAESTRO Layer",
+    ),
+}
+
+
+def classification_axis(methodology: str | None) -> ClassificationAxis:
+    """Return the classification axis for a methodology, defaulting to STRIDE."""
+    return _AXES.get(methodology or DEFAULT_METHODOLOGY, _AXES[DEFAULT_METHODOLOGY])
+
+
+def threat_classification(threat) -> str | None:
+    """Read whichever classification a threat carries, without assuming methodology.
+
+    Used on read paths that format stored threats, where the record may predate
+    the methodology field or have been produced under the other methodology.
+    """
+    return getattr(threat, "maestro_layer", None) or getattr(
+        threat, "stride_category", None
+    )
 
 
 # ============================================================================
@@ -180,7 +232,10 @@ def format_delete_response(entity_type, deleted_count, remaining_count, not_foun
 
 
 def _calculate_threat_kpis(
-    threat_list: ThreatsList, assets=None, system_architecture=None
+    threat_list: ThreatsList,
+    assets=None,
+    system_architecture=None,
+    methodology: str = DEFAULT_METHODOLOGY,
 ) -> Dict[str, Any]:
     """
     Calculate Key Performance Indicators (KPIs) from the threat catalog.
@@ -189,12 +244,14 @@ def _calculate_threat_kpis(
         threat_list: ThreatsList object containing all current threats
         assets: Optional assets object to identify uncovered assets
         system_architecture: Optional system architecture to identify uncovered threat sources
+        methodology: Active threat modeling methodology ("stride" or "maestro")
 
     Returns:
         Dictionary containing:
         - total_threats: Total number of threats
         - threats_by_likelihood: Count of threats by likelihood level
-        - threats_by_stride: Count and percentage by STRIDE category
+        - threats_by_category: Count and percentage by classification (STRIDE category or MAESTRO layer)
+        - classification_label: Human-readable name of the classification axis
         - threats_by_source: Count by threat source category
         - threats_by_asset: Count and criticality by target asset
         - uncovered_sources: List of threat sources without any threats
@@ -205,19 +262,17 @@ def _calculate_threat_kpis(
         >>> print(kpis['total_threats'])
         45
     """
+    axis = classification_axis(methodology)
+
     # Handle empty catalog
     if not threat_list or not threat_list.threats:
         return {
             "total_threats": 0,
             "threats_by_likelihood": {"Low": 0, "Medium": 0, "High": 0},
-            "threats_by_stride": {
-                "Spoofing": {"count": 0, "percentage": 0.0},
-                "Tampering": {"count": 0, "percentage": 0.0},
-                "Repudiation": {"count": 0, "percentage": 0.0},
-                "Information Disclosure": {"count": 0, "percentage": 0.0},
-                "Denial of Service": {"count": 0, "percentage": 0.0},
-                "Elevation of Privilege": {"count": 0, "percentage": 0.0},
+            "threats_by_category": {
+                value: {"count": 0, "percentage": 0.0} for value in axis.values
             },
+            "classification_label": axis.label,
             "threats_by_source": {},
             "threats_by_asset": {},
             "uncovered_sources": [],
@@ -244,34 +299,26 @@ def _calculate_threat_kpis(
         "High": likelihood_counter.get("High", 0),
     }
 
-    # Count threats by STRIDE category
-    stride_counter = Counter()
+    # Count threats along the active classification axis
+    category_counter = Counter()
     for threat in threats:
-        if hasattr(threat, "stride_category") and threat.stride_category:
-            stride_counter[threat.stride_category] += 1
+        value = getattr(threat, axis.field, None)
+        if value:
+            category_counter[value] += 1
         else:
             logger.warning(
-                "Threat missing stride_category attribute",
+                f"Threat missing {axis.field} attribute",
                 threat_name=getattr(threat, "name", "unknown"),
             )
 
-    # Calculate percentages for STRIDE (avoid division by zero)
-    threats_by_stride = {}
-    stride_categories = [
-        "Spoofing",
-        "Tampering",
-        "Repudiation",
-        "Information Disclosure",
-        "Denial of Service",
-        "Elevation of Privilege",
-    ]
-
-    for category in stride_categories:
-        count = stride_counter.get(category, 0)
+    # Calculate percentages per category (avoid division by zero)
+    threats_by_category = {}
+    for category in axis.values:
+        count = category_counter.get(category, 0)
         percentage = (
             round((count / total_threats * 100), 1) if total_threats > 0 else 0.0
         )
-        threats_by_stride[category] = {
+        threats_by_category[category] = {
             "count": count,
             "percentage": percentage,
         }
@@ -350,7 +397,8 @@ def _calculate_threat_kpis(
     return {
         "total_threats": total_threats,
         "threats_by_likelihood": threats_by_likelihood,
-        "threats_by_stride": threats_by_stride,
+        "threats_by_category": threats_by_category,
+        "classification_label": axis.label,
         "threats_by_source": threats_by_source,
         "threats_by_asset": threats_by_asset,
         "uncovered_sources": uncovered_sources,
@@ -400,9 +448,10 @@ No threats in catalog yet.
         output.append(f"- {level}: {count} ({percentage}%)")
     output.append("")
 
-    # Threats by STRIDE Category
-    output.append("**Threats by STRIDE Category**:")
-    for category, data in kpis["threats_by_stride"].items():
+    # Threats by classification (STRIDE category or MAESTRO layer)
+    label = kpis.get("classification_label", "STRIDE Category")
+    output.append(f"**Threats by {label}**:")
+    for category, data in kpis["threats_by_category"].items():
         count = data["count"]
         percentage = data["percentage"]
         output.append(f"- {category}: {count} ({percentage}%)")
@@ -463,7 +512,9 @@ def _format_structured_gaps(gap_result, remaining_invocations: int) -> str:
                 continue
             lines.append(f"**{severity} gaps:**")
             for g in gaps:
-                lines.append(f"- [{g.stride_category}] {g.target}: {g.description}")
+                lines.append(
+                    f"- [{threat_classification(g)}] {g.target}: {g.description}"
+                )
             lines.append("")
 
     lines.append(
@@ -680,10 +731,11 @@ def read_threat_catalog(
             indent=2,
         )
     else:
+        label = classification_axis(runtime.state.get("methodology")).label
         for i, threat in enumerate(current_threat_list.threats, 1):
             output += f"{i}. {threat.name}\n"
             output += f"   Likelihood: {threat.likelihood}\n"
-            output += f"   Stride category: {threat.stride_category}\n"
+            output += f"   {label}: {threat_classification(threat)}\n"
             output += "\n"
 
     return output
@@ -691,51 +743,46 @@ def read_threat_catalog(
 
 @tool(
     name_or_callable="catalog_stats",
-    description="Get statistics about the current threat catalog: total count, distribution by severity/likelihood, STRIDE category breakdown, and per-asset/entity threat counts. Use this to check coverage before finishing or to decide where more threats are needed. Do not invoke this tool in parallel with other tools otherwise you may not receive accurate stats.",
+    description="Get statistics about the current threat catalog: total count, distribution by severity/likelihood, threat classification breakdown, and per-asset/entity threat counts. Use this to check coverage before finishing or to decide where more threats are needed. Do not invoke this tool in parallel with other tools otherwise you may not receive accurate stats.",
 )
 def catalog_stats(
     runtime: ToolRuntime,
     asset_name: Annotated[
         str,
-        "Optional asset/entity name to get STRIDE breakdown for a specific target. Leave empty for overall stats.",
+        "Optional asset/entity name to get a classification breakdown for a specific target. Leave empty for overall stats.",
     ] = "",
 ) -> str:
     """Return threat catalog statistics and distribution metrics."""
 
     state = runtime.state
     threat_list = state.get("threat_list")
+    methodology = state.get("methodology")
 
     if not threat_list or not threat_list.threats:
         return "No threats in the catalog yet."
 
     threats = threat_list.threats
+    axis = classification_axis(methodology)
 
-    # If a specific asset is requested, return per-asset STRIDE breakdown
+    # If a specific asset is requested, return per-asset classification breakdown
     if asset_name:
         asset_threats = [t for t in threats if t.target == asset_name]
         if not asset_threats:
             return f"No threats found targeting '{asset_name}'."
 
-        stride_counter = Counter()
+        category_counter = Counter()
         likelihood_counter = Counter()
         for t in asset_threats:
-            if t.stride_category:
-                stride_counter[t.stride_category] += 1
+            value = getattr(t, axis.field, None)
+            if value:
+                category_counter[value] += 1
             if t.likelihood:
                 likelihood_counter[t.likelihood] += 1
 
         output = f"Stats for '{asset_name}' ({len(asset_threats)} threats):\n\n"
-        output += "By STRIDE:\n"
-        for cat in [
-            "Spoofing",
-            "Tampering",
-            "Repudiation",
-            "Information Disclosure",
-            "Denial of Service",
-            "Elevation of Privilege",
-        ]:
-            count = stride_counter.get(cat, 0)
-            output += f"  - {cat}: {count}\n"
+        output += f"By {axis.label}:\n"
+        for cat in axis.values:
+            output += f"  - {cat}: {category_counter.get(cat, 0)}\n"
         output += "\nBy Likelihood:\n"
         for level in ["High", "Medium", "Low"]:
             output += f"  - {level}: {likelihood_counter.get(level, 0)}\n"
@@ -743,7 +790,10 @@ def catalog_stats(
 
     # Overall stats — reuse existing KPI calculation
     kpis = _calculate_threat_kpis(
-        threat_list, state.get("assets"), state.get("system_architecture")
+        threat_list,
+        state.get("assets"),
+        state.get("system_architecture"),
+        methodology or DEFAULT_METHODOLOGY,
     )
     return _format_kpis_for_prompt(kpis)
 
@@ -873,12 +923,19 @@ def gap_analysis(runtime: ToolRuntime) -> str:
 
     # Create system prompt (without threat sources)
     app_type = state.get("application_type", "hybrid")
+    methodology = state.get("methodology") or DEFAULT_METHODOLOGY
     if state.get("instructions"):
         system_prompt = SystemMessage(
-            content=gap_prompt(state.get("instructions"), application_type=app_type)
+            content=gap_prompt(
+                state.get("instructions"),
+                application_type=app_type,
+                methodology=methodology,
+            )
         )
     else:
-        system_prompt = SystemMessage(content=gap_prompt(application_type=app_type))
+        system_prompt = SystemMessage(
+            content=gap_prompt(application_type=app_type, methodology=methodology)
+        )
 
     messages = [system_prompt, human_message]
 
@@ -896,8 +953,9 @@ def gap_analysis(runtime: ToolRuntime) -> str:
             job_id=job_id,
         )
 
+        gap_model = create_constrained_gap_model(methodology)
         response = model_service.invoke_structured_model(
-            messages, [ContinueThreatModeling], config, reasoning, "model_gaps"
+            messages, [gap_model], config, reasoning, "model_gaps"
         )
 
         # Extract gap result

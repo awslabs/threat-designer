@@ -329,6 +329,27 @@ ENABLE_SENTRY=true
 
 ---
 
+## Threat Modeling Methodology
+
+Threat Designer supports two methodologies, selectable per threat model:
+
+- **STRIDE** (default) — classifies threats by kind: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege.
+- **MAESTRO** — the Cloud Security Alliance's [agentic AI threat modeling framework](https://cloudsecurityalliance.org/blog/2025/02/06/agentic-ai-threat-modeling-framework-maestro). Classifies threats by where they sit in the agentic stack across seven layers, and is the better fit for systems built around agents, tools and multi-agent collaboration.
+
+Existing threat models are unaffected — they remain STRIDE, and a model's methodology is fixed once created so a catalog is never classified along two axes at once.
+
+### Toggling MAESTRO
+
+MAESTRO is enabled by default. To disable it, update the `.deployment.config` file in the project root and redeploy:
+
+```bash
+ENABLE_MAESTRO=false
+```
+
+When disabled, the API rejects *new* requests that ask for MAESTRO rather than silently falling back to STRIDE. Replaying or versioning an existing MAESTRO model is unaffected by the flag — its methodology is fixed at creation and is loaded from the stored record either way, so disabling MAESTRO doesn't strand catalogs created while it was on. STRIDE threat modeling is unaffected either way.
+
+---
+
 ## Clean Up
 
 1. **Empty the Architecture Bucket**, following instructions [here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/empty-bucket.html)

@@ -439,6 +439,10 @@ def create_dynamodb_item(
                 "retry": agent_state.get("retry"),
                 "timestamp": current_utc,
                 "application_type": agent_state.get("application_type"),
+                "methodology": agent_state.get("methodology"),
+                "applicable_maestro_layers": agent_state.get(
+                    "applicable_maestro_layers"
+                ),
                 "token_usage": agent_state.get("token_usage"),
                 "space_insights": (
                     unwrap_overwrite(agent_state.get("space_insights")).dict()

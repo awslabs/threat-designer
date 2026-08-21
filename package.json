@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:e2e": "cross-env VITE_E2E_MOCK=true VITE_APP_ENDPOINT=http://mock.local/api VITE_COGNITO_REGION=us-east-1 VITE_USER_POOL_ID=us-east-1_MOCK VITE_APP_CLIENT_ID=mock-client VITE_COGNITO_DOMAIN=mock.auth.local VITE_REDIRECT_SIGN_IN=http://localhost:5173 VITE_REDIRECT_SIGN_OUT=http://localhost:5173 VITE_SENTRY_ENABLED=false vite --port 5173 --strictPort",
+    "dev:e2e": "cross-env VITE_E2E_MOCK=true VITE_APP_ENDPOINT=http://mock.local/api VITE_COGNITO_REGION=us-east-1 VITE_USER_POOL_ID=us-east-1_MOCK VITE_APP_CLIENT_ID=mock-client VITE_COGNITO_DOMAIN=mock.auth.local VITE_REDIRECT_SIGN_IN=http://localhost:5173 VITE_REDIRECT_SIGN_OUT=http://localhost:5173 VITE_SENTRY_ENABLED=false VITE_MAESTRO_ENABLED=true vite --port 5173 --strictPort",
     "build": "vite build",
     "preview": "vite preview",
     "start:local": "vite --mode development",

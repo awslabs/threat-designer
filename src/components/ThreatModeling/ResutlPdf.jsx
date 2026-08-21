@@ -456,7 +456,8 @@ export const createThreatModelingPDF = async (
   dataFlowData,
   trustBoundaryData,
   threatSourceData,
-  threatCatalogData
+  threatCatalogData,
+  methodology = "stride"
 ) => {
   const doc = new jsPDF();
   let yPos = 20;
@@ -579,7 +580,7 @@ export const createThreatModelingPDF = async (
       // Special handling for threat catalog (7 columns)
       if (numColumns === 7) {
         columnStyles[0] = { cellWidth: 45 }; // name
-        columnStyles[1] = { cellWidth: 30 }; // stride_category
+        columnStyles[1] = { cellWidth: 30 }; // stride_category / maestro_layer
         columnStyles[2] = { cellWidth: 70 }; // description
         columnStyles[3] = { cellWidth: 35 }; // target
         columnStyles[4] = { cellWidth: 25 }; // impact
@@ -777,6 +778,7 @@ export const createThreatModelingPDF = async (
     trustBoundaryData,
     threatSourceData,
     threatCatalogData,
+    methodology,
   });
 
   sections.forEach((section) => {

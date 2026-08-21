@@ -28,6 +28,15 @@ export const TABLE_COLUMNS = {
     "likelihood",
     "mitigations",
   ],
+  THREAT_CATALOG_MAESTRO: [
+    "name",
+    "maestro_layer",
+    "description",
+    "target",
+    "impact",
+    "likelihood",
+    "mitigations",
+  ],
 };
 
 /**
@@ -56,7 +65,10 @@ export const getDocumentSections = (data) => {
     trustBoundaryData,
     threatSourceData,
     threatCatalogData,
+    methodology = "stride",
   } = data;
+  const threatCatalogColumns =
+    methodology === "maestro" ? TABLE_COLUMNS.THREAT_CATALOG_MAESTRO : TABLE_COLUMNS.THREAT_CATALOG;
 
   return [
     {
@@ -103,7 +115,7 @@ export const getDocumentSections = (data) => {
     {
       type: "table",
       title: SECTION_TITLES.THREAT_CATALOG,
-      columns: TABLE_COLUMNS.THREAT_CATALOG,
+      columns: threatCatalogColumns,
       data: threatCatalogData,
       show: threatCatalogData?.length > 0,
       landscape: true,

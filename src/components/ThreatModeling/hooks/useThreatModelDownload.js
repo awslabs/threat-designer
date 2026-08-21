@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { downloadDocument, downloadPDFDocument } from "../docs";
 import createThreatModelingDocument from "../ResultsDocx";
 import { createThreatModelingPDF } from "../ResutlPdf";
+import { resolveMethodology } from "../methodologyUtils";
 import * as XLSX from "xlsx";
 
 /**
@@ -86,6 +87,7 @@ const sanitizeHeading = (text) => {
 const downloadMarkdown = (data, filename) => {
   // Destructure to exclude sensitive/internal fields (consistent with JSON export)
   const { job_id, owner, retry, s3_location, ...cleanData } = data || {};
+  const methodology = resolveMethodology(cleanData);
 
   const lines = [];
 
@@ -225,7 +227,9 @@ const downloadMarkdown = (data, filename) => {
       const tableRows = [];
       if (isColumnSelected("strideCategory"))
         tableRows.push(
-          `| **STRIDE Category** | ${sanitizeTableCell(threat.stride_category || "N/A")} |`
+          methodology === "maestro"
+            ? `| **MAESTRO Layer** | ${sanitizeTableCell(threat.maestro_layer || "N/A")} |`
+            : `| **STRIDE Category** | ${sanitizeTableCell(threat.stride_category || "N/A")} |`
         );
       if (isColumnSelected("likelihood"))
         tableRows.push(`| **Likelihood** | ${sanitizeTableCell(threat.likelihood || "N/A")} |`);
@@ -318,11 +322,15 @@ const downloadXLS = (data, filename) => {
 
   // Get column selections (if provided by export options)
   const exportColumns = data?._exportColumns;
+  const methodology = resolveMethodology(data);
 
   // Column mapping: key → { header, getValue }
   const columnDefs = {
     name: { header: "Name", getValue: (t) => t.name || "" },
-    strideCategory: { header: "STRIDE Category", getValue: (t) => t.stride_category || "" },
+    strideCategory:
+      methodology === "maestro"
+        ? { header: "MAESTRO Layer", getValue: (t) => t.maestro_layer || "" }
+        : { header: "STRIDE Category", getValue: (t) => t.stride_category || "" },
     description: { header: "Description", getValue: (t) => t.description || "" },
     target: { header: "Target", getValue: (t) => t.target || "" },
     likelihood: { header: "Likelihood", getValue: (t) => t.likelihood || "" },
@@ -544,6 +552,8 @@ export const useThreatModelDownload = (response, base64Content) => {
           return;
         }
 
+        const methodology = resolveMethodology(filteredData);
+
         // Generate DOCX and PDF documents with filtered data
         const doc = await createThreatModelingDocument(
           filteredData?.title,
@@ -554,7 +564,8 @@ export const useThreatModelDownload = (response, base64Content) => {
           filteredData?.system_architecture?.data_flows,
           filteredData?.system_architecture?.trust_boundaries,
           filteredData?.system_architecture?.threat_sources,
-          filteredData?.threat_list?.threats
+          filteredData?.threat_list?.threats,
+          methodology
         );
 
         const pdfDoc = await createThreatModelingPDF(
@@ -566,7 +577,8 @@ export const useThreatModelDownload = (response, base64Content) => {
           filteredData?.system_architecture?.data_flows,
           filteredData?.system_architecture?.trust_boundaries,
           filteredData?.system_architecture?.threat_sources,
-          filteredData?.threat_list?.threats
+          filteredData?.threat_list?.threats,
+          methodology
         );
 
         // Download the requested format

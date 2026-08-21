@@ -13,6 +13,7 @@ import ConflictResolutionModal from "./ConflictResolutionModal";
 import VersionCompareModal from "./VersionCompareModal";
 import { ExportOptionsModal } from "./ExportOptionsModal";
 import { InfoContent } from "../HelpPanel/InfoContent";
+import { resolveMethodology } from "./methodologyUtils";
 import {
   ThreatModelProvider,
   useThreatModelContext,
@@ -558,6 +559,7 @@ const ThreatModelInner = () => {
         format={exportModal.format || "pdf"}
         onDismiss={() => setExportModal({ visible: false, format: null })}
         onExport={handleExportWithOptions}
+        methodology={resolveMethodology(response?.item)}
       />
     </>
   );

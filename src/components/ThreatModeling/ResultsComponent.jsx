@@ -31,9 +31,11 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
   updateTM,
   refreshTrail,
   isReadOnly = false,
+  methodology = "stride",
 }) {
   const [openModal, setOpenModal] = useState(false);
   const [query, setQuery] = useState({ tokens: [], operation: "and" });
+  const categoryFieldKey = methodology === "maestro" ? "maestro_layer" : "stride_category";
   const { id = null } = useParams();
   const { handleHelpButtonClick } = useSplitPanel();
 
@@ -128,12 +130,19 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
         groupValuesLabel: "Source values",
         operators: ["=", "!="],
       },
-      {
-        key: "stride_category",
-        propertyLabel: "STRIDE Category",
-        groupValuesLabel: "STRIDE categories",
-        operators: ["=", "!="],
-      },
+      methodology === "maestro"
+        ? {
+            key: "maestro_layer",
+            propertyLabel: "MAESTRO Layer",
+            groupValuesLabel: "MAESTRO layers",
+            operators: ["=", "!="],
+          }
+        : {
+            key: "stride_category",
+            propertyLabel: "STRIDE Category",
+            groupValuesLabel: "STRIDE categories",
+            operators: ["=", "!="],
+          },
       {
         key: "starred",
         propertyLabel: "Starred",
@@ -155,7 +164,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
     }
 
     return baseProperties;
-  }, [treesLoading, treesError]);
+  }, [treesLoading, treesError, methodology]);
 
   // Generate filter options dynamically from threat data
   const filteringOptions = useMemo(() => {
@@ -377,6 +386,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
             updateTM={updateTM}
             onOpenAttackTree={handleOpenAttackTree}
             isReadOnly={isReadOnly}
+            methodology={methodology}
           />
         </SpaceBetween>
       </SpaceBetween>
@@ -385,7 +395,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
           "name",
           "description",
           "likelihood",
-          "stride_category",
+          categoryFieldKey,
           "impact",
           "target",
           "source",
@@ -403,7 +413,7 @@ const ThreatModelingOutput = memo(function ThreatModelingOutput({
         type={"threats"}
         hasColumn={true}
         columnConfig={{
-          left: ["name", "description", "likelihood", "stride_category", "impact", "target"],
+          left: ["name", "description", "likelihood", categoryFieldKey, "impact", "target"],
           right: ["source", "vector", "prerequisites", "mitigations", "notes"],
         }}
       />

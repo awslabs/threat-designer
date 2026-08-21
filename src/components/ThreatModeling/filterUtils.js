@@ -51,7 +51,7 @@ export function hasAttackTree(threat, threatsWithTrees) {
  * - likelihood: exact match filtering
  * - target: array support with "any element matches" logic
  * - source: array support with "any element matches" logic
- * - stride_category: exact match filtering
+ * - stride_category / maestro_layer: exact match filtering
  * - starred: boolean logic with undefined/null treated as false
  * - has_attack_tree: boolean logic based on threatsWithTrees Set
  *
@@ -107,8 +107,12 @@ export function matchesToken(threat, token, threatsWithTrees = new Set()) {
     return values.some((item) => matchesOperator(item, operator, value));
   }
 
-  // Property-specific filtering: likelihood and stride_category exact match
-  if (propertyKey === "likelihood" || propertyKey === "stride_category") {
+  // Property-specific filtering: likelihood, stride_category, and maestro_layer exact match
+  if (
+    propertyKey === "likelihood" ||
+    propertyKey === "stride_category" ||
+    propertyKey === "maestro_layer"
+  ) {
     // Use exact match comparison
     return matchesOperator(threatValue, operator, value);
   }

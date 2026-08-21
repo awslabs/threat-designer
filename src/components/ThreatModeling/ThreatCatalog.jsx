@@ -92,11 +92,11 @@ export const ThreatComponent = React.memo((props) => {
                   position="top"
                   size="small"
                   triggerType="custom"
-                  content={props?.data?.stride_category}
+                  content={props?.data?.stride_category ?? props?.data?.maestro_layer}
                 >
                   <Button
                     variant="icon"
-                    ariaLabel="Stride category"
+                    ariaLabel={props?.data?.maestro_layer ? "MAESTRO layer" : "STRIDE category"}
                     fullWidth
                     iconSvg={CategoryIcon()}
                   ></Button>
@@ -160,7 +160,8 @@ export const ThreatComponent = React.memo((props) => {
                     <strong>Likelihood:</strong> {props?.data?.likelihood}
                   </div>
                   <div>
-                    <strong>Category:</strong> {props?.data?.stride_category}
+                    <strong>Category:</strong>{" "}
+                    {props?.data?.stride_category ?? props?.data?.maestro_layer}
                   </div>
                   <div>
                     <strong>Impact:</strong> {props?.data?.impact}
@@ -205,7 +206,14 @@ export const ThreatComponent = React.memo((props) => {
         type={props?.type}
         hasColumn={true}
         columnConfig={{
-          left: ["name", "description", "likelihood", "stride_category", "impact", "target"],
+          left: [
+            "name",
+            "description",
+            "likelihood",
+            props?.methodology === "maestro" ? "maestro_layer" : "stride_category",
+            "impact",
+            "target",
+          ],
           right: ["source", "vector", "prerequisites", "mitigations", "notes"],
         }}
       />

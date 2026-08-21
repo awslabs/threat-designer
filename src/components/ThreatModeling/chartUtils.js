@@ -190,6 +190,50 @@ export const aggregateByStrideWithLikelihood = (threats) => {
 };
 
 /**
+ * Transform threat data for MAESTRO layer chart with likelihood breakdown
+ * Returns data structured for stacked bar chart
+ * @param {Array} threats - Array of threat objects
+ * @returns {Object} Object with categories array and series data by likelihood
+ */
+export const aggregateByMaestroWithLikelihood = (threats) => {
+  if (!Array.isArray(threats)) {
+    return { categories: [], series: [] };
+  }
+
+  const categories = [
+    "Foundation Models",
+    "Data Operations",
+    "Agent Frameworks",
+    "Deployment and Infrastructure",
+    "Evaluation and Observability",
+    "Security and Compliance",
+    "Agent Ecosystem",
+    "Cross-Layer",
+  ];
+
+  const likelihoodLevels = ["High", "Medium", "Low"];
+
+  // Create series for each likelihood level
+  const series = likelihoodLevels.map((level) => {
+    const data = categories.map((category) => {
+      const count = threats.filter(
+        (t) => t?.maestro_layer === category && t?.likelihood === level
+      ).length;
+      return { x: category, y: count };
+    });
+
+    return {
+      title: level,
+      type: "bar",
+      data,
+      color: getLikelihoodColor(level),
+    };
+  });
+
+  return { categories, series };
+};
+
+/**
  * Transform threat data for target asset chart with likelihood breakdown
  * Returns data structured for stacked bar chart (top 10 targets)
  * @param {Array} threats - Array of threat objects

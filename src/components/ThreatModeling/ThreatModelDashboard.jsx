@@ -8,11 +8,13 @@ import ColumnLayout from "@cloudscape-design/components/column-layout";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import {
   aggregateByStrideWithLikelihood,
+  aggregateByMaestroWithLikelihood,
   aggregateByLikelihood,
   aggregateByTargetWithLikelihood,
   aggregateBySource,
 } from "./chartUtils";
 import StrideChart from "./charts/StrideChart";
+import MaestroChart from "./charts/MaestroChart";
 import LikelihoodChart from "./charts/LikelihoodChart";
 import TargetAssetChart from "./charts/TargetAssetChart";
 import ThreatSourceChart from "./charts/ThreatSourceChart";
@@ -23,7 +25,8 @@ import ChartErrorBoundary from "./charts/ChartErrorBoundary";
  *
  * Container component that displays statistical visualizations of threat model data.
  * Aggregates threat catalog data and renders multiple chart components showing
- * distributions across STRIDE categories, likelihood levels, target assets, and threat sources.
+ * distributions across STRIDE categories or MAESTRO layers (depending on methodology),
+ * likelihood levels, target assets, and threat sources.
  *
  * Features:
  * - Responsive grid layout (2 columns desktop, 1 column mobile)
@@ -44,15 +47,20 @@ const formatTokenCount = (n) => {
 };
 
 // LocalStorage key for persisting board layout
-const BOARD_LAYOUT_KEY = "threatModelDashboardLayout";
+// v2: "stride-chart" was renamed to "category-chart" when MAESTRO support was
+// added, since the same board item now renders either chart depending on the
+// threat model's methodology. Bumping the key lets old saved layouts (which
+// reference the pre-rename id) fall back to defaults once instead of
+// permanently failing the loadBoardLayout() hasAllItems check below.
+const BOARD_LAYOUT_KEY = "threatModelDashboardLayout.v2";
 
 // Default board items configuration
 const getDefaultBoardItems = () => [
   {
-    id: "stride-chart",
+    id: "category-chart",
     rowSpan: 5,
     columnSpan: 2,
-    data: { type: "stride" },
+    data: { type: "category" },
   },
   {
     id: "likelihood-chart",
@@ -94,7 +102,11 @@ const loadBoardLayout = () => {
   return getDefaultBoardItems();
 };
 
-const ThreatModelDashboard = ({ threatCatalogData = [], tokenUsage = null }) => {
+const ThreatModelDashboard = ({
+  threatCatalogData = [],
+  tokenUsage = null,
+  methodology = "stride",
+}) => {
   // Validate input data and filter out malformed threat objects
   const validThreats = useMemo(() => {
     if (!Array.isArray(threatCatalogData)) {
@@ -123,10 +135,12 @@ const ThreatModelDashboard = ({ threatCatalogData = [], tokenUsage = null }) => 
     return filtered;
   }, [threatCatalogData]);
 
-  // Aggregate data for STRIDE category distribution with likelihood breakdown
-  const strideDistribution = useMemo(() => {
-    return aggregateByStrideWithLikelihood(validThreats);
-  }, [validThreats]);
+  // Aggregate data for category (STRIDE or MAESTRO) distribution with likelihood breakdown
+  const categoryDistribution = useMemo(() => {
+    return methodology === "maestro"
+      ? aggregateByMaestroWithLikelihood(validThreats)
+      : aggregateByStrideWithLikelihood(validThreats);
+  }, [validThreats, methodology]);
 
   // Aggregate data for likelihood level distribution
   const likelihoodDistribution = useMemo(() => {
@@ -222,20 +236,29 @@ const ThreatModelDashboard = ({ threatCatalogData = [], tokenUsage = null }) => 
         ]}
         renderItem={(item) => {
           switch (item.data.type) {
-            case "stride":
+            case "category": {
+              const chartName =
+                methodology === "maestro"
+                  ? "Threats by MAESTRO Layer"
+                  : "Threats by STRIDE Category";
               return (
                 <BoardItem
-                  header={<Header>Threats by STRIDE Category</Header>}
+                  header={<Header>{chartName}</Header>}
                   i18nStrings={{
                     dragHandleAriaLabel: "Drag handle",
                     resizeHandleAriaLabel: "Resize handle",
                   }}
                 >
-                  <ChartErrorBoundary chartName="Threats by STRIDE Category">
-                    <StrideChart data={strideDistribution} />
+                  <ChartErrorBoundary chartName={chartName}>
+                    {methodology === "maestro" ? (
+                      <MaestroChart data={categoryDistribution} />
+                    ) : (
+                      <StrideChart data={categoryDistribution} />
+                    )}
                   </ChartErrorBoundary>
                 </BoardItem>
               );
+            }
             case "likelihood":
               return (
                 <BoardItem
@@ -307,6 +330,7 @@ const ThreatModelDashboard = ({ threatCatalogData = [], tokenUsage = null }) => 
  */
 const arePropsEqual = (prevProps, nextProps) => {
   if (prevProps.tokenUsage !== nextProps.tokenUsage) return false;
+  if (prevProps.methodology !== nextProps.methodology) return false;
 
   // Handle null/undefined cases
   if (!prevProps.threatCatalogData && !nextProps.threatCatalogData) {

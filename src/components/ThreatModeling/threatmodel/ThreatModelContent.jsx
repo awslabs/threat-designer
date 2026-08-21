@@ -11,6 +11,7 @@ import { VersionModalComponent } from "../VersionModal";
 import DeleteModal from "../DeleteModal";
 import SharingModal from "../SharingModal";
 import { useThreatModelContext } from "../ThreatModelContext";
+import { resolveMethodology } from "../methodologyUtils";
 
 /**
  * ThreatModelContent - Presentational component for rendering the main content area
@@ -80,10 +81,17 @@ const ThreatModelContent = React.memo(
 
     // Memoize the dashboard component to prevent re-rendering when switching views
     const tokenUsage = response?.item?.token_usage || null;
+    const methodology = useMemo(() => resolveMethodology(response?.item), [response?.item]);
     const dashboardComponent = useMemo(() => {
       if (!showDashboard || !results) return null;
-      return <ThreatModelDashboard threatCatalogData={threatCatalogData} tokenUsage={tokenUsage} />;
-    }, [showDashboard, results, threatCatalogData, tokenUsage]);
+      return (
+        <ThreatModelDashboard
+          threatCatalogData={threatCatalogData}
+          tokenUsage={tokenUsage}
+          methodology={methodology}
+        />
+      );
+    }, [showDashboard, results, threatCatalogData, tokenUsage, methodology]);
 
     // Memoize the threat list component to prevent re-rendering when switching views
     const threatListComponent = useMemo(() => {
@@ -102,6 +110,7 @@ const ThreatModelContent = React.memo(
           updateTM={updateThreatModeling}
           refreshTrail={refreshTrail}
           isReadOnly={isReadOnly}
+          methodology={methodology}
         />
       );
     }, [
@@ -113,6 +122,7 @@ const ThreatModelContent = React.memo(
       updateThreatModeling,
       refreshTrail,
       isReadOnly,
+      methodology,
     ]);
 
     return (

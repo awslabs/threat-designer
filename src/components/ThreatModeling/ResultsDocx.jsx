@@ -579,7 +579,8 @@ const createThreatModelingDocument = async (
   dataFlowData,
   trustBoundaryData,
   threatSourceData,
-  threatCatalogData
+  threatCatalogData,
+  methodology = "stride"
 ) => {
   const spacer = new Paragraph({
     text: "",
@@ -607,6 +608,7 @@ const createThreatModelingDocument = async (
       trustBoundaryData,
       threatSourceData,
       threatCatalogData,
+      methodology,
     });
 
     const mainSections = sections.filter((s) => !s.landscape);

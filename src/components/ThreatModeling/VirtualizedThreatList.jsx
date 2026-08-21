@@ -18,7 +18,10 @@ const VirtualizedThreatList = memo(function VirtualizedThreatList({
   updateTM,
   onOpenAttackTree,
   isReadOnly,
+  methodology = "stride",
 }) {
+  const categoryFieldKey = methodology === "maestro" ? "maestro_layer" : "stride_category";
+
   const renderThreat = (item, filteredIndex) => {
     // Find the original index in the unfiltered array
     // This ensures delete/edit operations work on the correct threat
@@ -54,7 +57,7 @@ const VirtualizedThreatList = memo(function VirtualizedThreatList({
           "name",
           "description",
           "likelihood",
-          "stride_category",
+          categoryFieldKey,
           "impact",
           "target",
           "source",
@@ -65,6 +68,7 @@ const VirtualizedThreatList = memo(function VirtualizedThreatList({
         ]}
         isReadOnly={isReadOnly}
         onOpenAttackTree={onOpenAttackTree}
+        methodology={methodology}
       />
     );
   };

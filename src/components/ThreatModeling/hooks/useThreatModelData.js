@@ -87,9 +87,10 @@ export const useThreatModelData = (
         return acc;
       }, {});
 
-      // Calculate STRIDE distribution
+      // Calculate category distribution (STRIDE category or MAESTRO layer, whichever the threat carries)
       const strideCounts = threats.reduce((acc, threat) => {
-        acc[threat.stride_category] = (acc[threat.stride_category] || 0) + 1;
+        const category = threat.stride_category ?? threat.maestro_layer;
+        acc[category] = (acc[category] || 0) + 1;
         return acc;
       }, {});
 

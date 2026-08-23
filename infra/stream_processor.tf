@@ -108,13 +108,13 @@ resource "aws_lambda_function" "stream_processor" {
 # --- Event Source Mapping: DynamoDB Stream → Lambda ---
 
 resource "aws_lambda_event_source_mapping" "stream_processor_trigger" {
-  event_source_arn                   = aws_dynamodb_table.threat_designer_state.stream_arn
-  function_name                      = aws_lambda_function.stream_processor.arn
-  starting_position                  = "LATEST"
-  batch_size                         = 1
-  maximum_retry_attempts             = 3
-  bisect_batch_on_function_error     = false
-  maximum_record_age_in_seconds      = -1
+  event_source_arn               = aws_dynamodb_table.threat_designer_state.stream_arn
+  function_name                  = aws_lambda_function.stream_processor.arn
+  starting_position              = "LATEST"
+  batch_size                     = 1
+  maximum_retry_attempts         = 3
+  bisect_batch_on_function_error = false
+  maximum_record_age_in_seconds  = -1
 
   destination_config {
     on_failure {

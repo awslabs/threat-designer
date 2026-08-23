@@ -38,13 +38,13 @@
 
 /* Dark mode support */
 html.dark .web-citation-label,
-html.awsui-dark-mode .web-citation-label {
+.awsui-dark-mode .web-citation-label {
   background: rgba(96, 165, 250, 0.18);
   color: #60a5fa;
 }
 
 html.dark .web-citation-label:hover,
-html.awsui-dark-mode .web-citation-label:hover {
+.awsui-dark-mode .web-citation-label:hover {
   background: rgba(96, 165, 250, 0.28);
   color: #93c5fd;
 }
@@ -109,7 +109,7 @@ html.awsui-dark-mode .web-citation-label:hover {
 }
 
 html.dark .citation-popover,
-html.awsui-dark-mode .citation-popover {
+.awsui-dark-mode .citation-popover {
   border-color: rgba(255, 255, 255, 0.1);
 }
 
@@ -122,7 +122,7 @@ html.awsui-dark-mode .citation-popover {
 }
 
 html.dark .citation-popover-header,
-html.awsui-dark-mode .citation-popover-header {
+.awsui-dark-mode .citation-popover-header {
   color: #9ca3af;
   border-bottom-color: rgba(255, 255, 255, 0.08);
 }
@@ -150,12 +150,12 @@ html.awsui-dark-mode .citation-popover-header {
 }
 
 html.dark .citation-link-item,
-html.awsui-dark-mode .citation-link-item {
+.awsui-dark-mode .citation-link-item {
   color: #d1d5db;
 }
 
 html.dark .citation-link-item:hover,
-html.awsui-dark-mode .citation-link-item:hover {
+.awsui-dark-mode .citation-link-item:hover {
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -165,7 +165,7 @@ html.awsui-dark-mode .citation-link-item:hover {
 }
 
 html.dark .citation-link-icon,
-html.awsui-dark-mode .citation-link-icon {
+.awsui-dark-mode .citation-link-icon {
   color: #60a5fa;
 }
 
@@ -186,7 +186,7 @@ html.awsui-dark-mode .citation-link-icon {
 }
 
 html.dark .citation-external-icon,
-html.awsui-dark-mode .citation-external-icon {
+.awsui-dark-mode .citation-external-icon {
   color: #6b7280;
 }
 
@@ -215,6 +215,6 @@ html.awsui-dark-mode .citation-external-icon {
 
 /* Dark mode support for loading placeholder */
 html.dark .citation-loading,
-html.awsui-dark-mode .citation-loading {
+.awsui-dark-mode .citation-loading {
   background: rgba(96, 165, 250, 0.12);
 }

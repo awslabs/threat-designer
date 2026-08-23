@@ -57,9 +57,7 @@ test("a 409 PUT opens the ConflictResolutionModal with server timestamp info", a
   // The visible ConflictResolutionModal opens with the diff summary.
   const conflictModal = authenticatedPage.getByTestId("conflict-modal");
   await expect(conflictModal).toBeVisible({ timeout: 10_000 });
-  await expect(
-    conflictModal.getByText(/The threat model has been modified/i)
-  ).toBeVisible();
+  await expect(conflictModal.getByText(/The threat model has been modified/i)).toBeVisible();
   await expect(conflictModal.getByText("someone-else")).toBeVisible();
 
   // The two resolution actions are exposed.

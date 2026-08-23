@@ -13,9 +13,7 @@
     "description": "Handles card payments.",
     "s3_location": "s3://mock/tm-1/architecture.png",
     "assets": {
-      "assets": [
-        { "id": "asset-1", "name": "Card details", "description": "PCI-sensitive data" }
-      ]
+      "assets": [{ "id": "asset-1", "name": "Card details", "description": "PCI-sensitive data" }]
     },
     "system_architecture": {
       "trust_boundaries": [{ "id": "tb-1", "name": "External" }],

@@ -44,52 +44,56 @@ const ThreatModelHeader = React.memo(
   }) => {
     return (
       <div data-testid="threat-model-header">
-      <SpaceBetween size="xxl">
-        <BreadcrumbGroup items={breadcrumbs} ariaLabel="Breadcrumbs" onClick={onBreadcrumbClick} />
-        <Header
-          variant="h1"
-          actions={
-            <ThreatModelActions
-              showResults={showResults}
-              showProcessing={showProcessing}
-              isReadOnly={isReadOnly}
-              isOwner={isOwner}
-              onActionClick={onActionClick}
-              tmStatus={tmStatus}
-              showDashboard={showDashboard}
-              onToggleDashboard={onToggleDashboard}
-            />
-          }
-          description={
-            parentId ? (
-              <span>
-                Derived from:{" "}
-                <Link variant="secondary" href={`/${parentId}`}>
-                  {parentTitle || parentId}
-                </Link>
-                {onCompare && (
-                  <>
-                    {" · "}
-                    <Link
-                      variant="secondary"
-                      onFollow={(e) => {
-                        e.preventDefault();
-                        onCompare();
-                      }}
-                    >
-                      Compare
-                    </Link>
-                  </>
-                )}
-              </span>
-            ) : undefined
-          }
-        >
-          <SpaceBetween direction="horizontal" size="xs">
-            <div>{title}</div>
-          </SpaceBetween>
-        </Header>
-      </SpaceBetween>
+        <SpaceBetween size="xxl">
+          <BreadcrumbGroup
+            items={breadcrumbs}
+            ariaLabel="Breadcrumbs"
+            onClick={onBreadcrumbClick}
+          />
+          <Header
+            variant="h1"
+            actions={
+              <ThreatModelActions
+                showResults={showResults}
+                showProcessing={showProcessing}
+                isReadOnly={isReadOnly}
+                isOwner={isOwner}
+                onActionClick={onActionClick}
+                tmStatus={tmStatus}
+                showDashboard={showDashboard}
+                onToggleDashboard={onToggleDashboard}
+              />
+            }
+            description={
+              parentId ? (
+                <span>
+                  Derived from:{" "}
+                  <Link variant="secondary" href={`/${parentId}`}>
+                    {parentTitle || parentId}
+                  </Link>
+                  {onCompare && (
+                    <>
+                      {" · "}
+                      <Link
+                        variant="secondary"
+                        onFollow={(e) => {
+                          e.preventDefault();
+                          onCompare();
+                        }}
+                      >
+                        Compare
+                      </Link>
+                    </>
+                  )}
+                </span>
+              ) : undefined
+            }
+          >
+            <SpaceBetween direction="horizontal" size="xs">
+              <div>{title}</div>
+            </SpaceBetween>
+          </Header>
+        </SpaceBetween>
       </div>
     );
   }

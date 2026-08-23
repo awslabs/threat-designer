@@ -127,6 +127,6 @@ resource "aws_lambda_provisioned_concurrency_config" "backend" {
   function_name                     = aws_lambda_alias.backend.function_name
   provisioned_concurrent_executions = var.provisioned_lambda_concurrency
   qualifier                         = aws_lambda_alias.backend.name
-  
+
   depends_on = [null_resource.wait_for_backend_alias_stabilization]
 }

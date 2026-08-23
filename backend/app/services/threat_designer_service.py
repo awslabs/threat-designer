@@ -268,7 +268,9 @@ def invoke_lambda(owner, payload):
     if not s3_locations and s3_location:
         s3_locations = [s3_location]
     iteration = payload.get("iteration")
-    reasoning = payload.get("reasoning", 0)
+    # Reasoning levels run 1-4; there is no "off" level. The agent normalizes a
+    # legacy 0 from an older client up to the minimum.
+    reasoning = payload.get("reasoning", 1)
     instructions = payload.get("instructions", None)
     is_replay = payload.get("replay", False)
     is_version = payload.get("version", False)

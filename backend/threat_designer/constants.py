@@ -5,6 +5,7 @@ This module contains all constants used throughout the threat modeling system,
 organized by logical categories for better maintainability and consistency.
 """
 
+import hashlib
 from enum import Enum
 from typing import Dict, List
 
@@ -36,7 +37,21 @@ ENV_ADAPTIVE_THINKING_MODELS = "ADAPTIVE_THINKING_MODELS"
 ENV_MODEL_PROVIDER = "MODEL_PROVIDER"
 MODEL_PROVIDER_BEDROCK = "bedrock"
 MODEL_PROVIDER_OPENAI = "openai"
+# GPT models served through the Bedrock Mantle OpenAI-compatible endpoint —
+# same models and prompts as the "openai" provider, but SigV4 bearer-token
+# auth instead of an OpenAI API key.
+MODEL_PROVIDER_BEDROCK_MANTLE = "bedrock-mantle"
+# Providers that serve OpenAI GPT models (shared prompts, message format, and
+# reasoning-effort semantics); they differ only in transport/auth.
+OPENAI_FAMILY_PROVIDERS = (MODEL_PROVIDER_OPENAI, MODEL_PROVIDER_BEDROCK_MANTLE)
 ENV_OPENAI_API_KEY = "OPENAI_API_KEY"
+
+# Bedrock Mantle configuration. GPT-5.x on Mantle is served only from US
+# regions (us-east-2 / us-west-2), independent of the deployment region.
+ENV_MANTLE_REGION = "MANTLE_REGION"
+DEFAULT_MANTLE_REGION = "us-east-2"
+# Mantle GPT model IDs carry an "openai." prefix (e.g. "openai.gpt-5.6-sol").
+MANTLE_MODEL_PREFIX = "openai."
 
 
 # ============================================================================
@@ -68,9 +83,9 @@ DEFAULT_MAX_SUMMARY_WORDS = 100
 # Stop sequences for model generation
 STOP_SEQUENCES: List[str] = ["Human:", "User:", "Assistant:"]
 
-# Model temperature settings
-MODEL_TEMPERATURE_DEFAULT = 0
-MODEL_TEMPERATURE_REASONING = 1
+# No temperature settings: Claude 4.6+ and the whole GPT-5 family reject the
+# parameter, and pre-4.6 models with thinking enabled require the default of 1.
+# See _build_adaptive_model_config / _create_openai_model in model_utils.py.
 
 
 # ============================================================================
@@ -324,7 +339,7 @@ ERROR_DYNAMODB_OPERATION_FAILED = "DynamoDB operation failed"
 ERROR_S3_OPERATION_FAILED = "S3 operation failed"
 ERROR_VALIDATION_FAILED = "Request validation failed"
 ERROR_MISSING_REQUIRED_FIELDS = "Missing required fields"
-ERROR_INVALID_REASONING_VALUE = "Reasoning must be 0 or 1"
+ERROR_INVALID_REASONING_VALUE = "Reasoning must be an integer between 1 and 4"
 ERROR_INVALID_REASONING_TYPE = "Invalid reasoning parameter"
 
 
@@ -341,10 +356,17 @@ HTTP_STATUS_INTERNAL_SERVER_ERROR = 500
 # REASONING CONFIGURATION
 # ============================================================================
 
-# Valid reasoning levels
-REASONING_DISABLED = 0
-REASONING_ENABLED = [1, 2, 3, 4]
-VALID_REASONING_VALUES = [REASONING_DISABLED, *REASONING_ENABLED]
+# Reasoning levels: 1-4, with no "off" level.
+#
+# Every current model is a reasoning model. On Claude Opus 5 thinking is on by
+# default and cannot be disabled above effort "high", and omitting the thinking
+# config does not turn it off — it runs adaptive thinking at the provider's
+# default effort. An "off" level therefore promised something the models no
+# longer deliver: it billed for thinking while discarding the reasoning output.
+# Level 1 (low effort) is the cheap end of the ladder instead. The range itself
+# lives in MIN_REASONING_LEVEL/MAX_REASONING_LEVEL below, which
+# normalize_reasoning_level enforces.
+DEFAULT_REASONING_LEVEL = 1
 
 # Reasoning model configuration
 REASONING_THINKING_TYPE = "enabled"
@@ -352,33 +374,35 @@ REASONING_BUDGET_FIELD = "budget_tokens"
 
 # Adaptive thinking configuration
 ADAPTIVE_THINKING_TYPE = "adaptive"
-ADAPTIVE_EFFORT_MAP: Dict[int, str] = {1: "low", 2: "medium", 3: "high", 4: "max"}
+# Level 4 tops out at "xhigh", not "max": xhigh is the recommended setting for
+# demanding coding and agentic work, while max costs substantially more for
+# marginal gains. Models still accept "max" if a per-model effort_map sets it.
+ADAPTIVE_EFFORT_MAP: Dict[int, str] = {1: "low", 2: "medium", 3: "high", 4: "xhigh"}
 
-# OpenAI reasoning effort mapping for mini models
-OPENAI_REASONING_EFFORT_MAP_MINI: Dict[int, str] = {
-    0: "minimal",
+# OpenAI reasoning effort mapping. GPT-5.6 (Sol/Terra/Luna) accepts
+# none|low|medium|high|xhigh|max across the whole fleet — "minimal" was
+# removed and is rejected with a 400 — so a single map serves every model.
+# Level 4 tops out at "xhigh" for the same cost/quality reason as the adaptive
+# map above; "max" stays available via a per-model reasoning_effort override.
+OPENAI_REASONING_EFFORT_MAP: Dict[int, str] = {
+    0: "none",
     1: "low",
     2: "medium",
     3: "high",
     4: "xhigh",
 }
 
-# OpenAI reasoning effort mapping for standard models
-OPENAI_REASONING_EFFORT_MAP_STANDARD: Dict[int, str] = {
-    0: "minimal",
-    1: "minimal",
-    2: "low",
-    3: "low",
-    4: "xhigh",
-}
-
 # Known GPT-5 family models that support reasoning
 OPENAI_GPT5_FAMILY_MODELS: List[str] = [
+    "gpt-5.6",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+    "gpt-5.4-2026-03-05",
     "gpt-5.2-2025-12-11",
     "gpt-5.1-2025-11-13",
     "gpt-5-2025-08-07",
     "gpt-5-mini-2025-08-07",
-    "gpt-5.4-2026-03-05",
 ]
 
 
@@ -416,8 +440,58 @@ MIN_SUMMARY_WORDS = 10
 MAX_SUMMARY_WORDS = 100
 
 # Reasoning level validation
-MIN_REASONING_LEVEL = 0
+MIN_REASONING_LEVEL = 1
 MAX_REASONING_LEVEL = 4
+
+# Legacy clients (a cached frontend bundle, an older CLI, the MCP server) may
+# still send 0, which used to mean "no thinking". It is accepted at the API
+# boundary and normalized to the minimum level rather than rejected, so
+# replaying an existing threat model keeps working.
+LEGACY_REASONING_DISABLED = 0
+
+
+# ============================================================================
+# SAFETY IDENTIFIER
+# ============================================================================
+
+# Namespace prefix so the same user hashes differently here than in any other
+# system that might hash the same Cognito sub.
+_SAFETY_ID_NAMESPACE = "threat-designer:"
+
+
+def safety_identifier(owner) -> str:
+    """A stable, privacy-preserving per-user id for OpenAI's safety_identifier.
+
+    OpenAI uses this to attribute traffic per end user, which reduces
+    false-positive trips of the real-time cyber/bio misuse classifiers on
+    legitimate dual-use work such as threat modeling. It must be STABLE for a
+    given user (so a hash, not a per-request value) and must not carry PII —
+    hence a namespaced SHA-256 of the Cognito sub rather than the sub itself.
+
+    Returns "" when there is no owner, so the caller can omit the field.
+    """
+    if not owner:
+        return ""
+    return hashlib.sha256(f"{_SAFETY_ID_NAMESPACE}{owner}".encode("utf-8")).hexdigest()
+
+
+def normalize_reasoning_level(value) -> int:
+    """Coerce an incoming reasoning level onto the supported 1-4 ladder.
+
+    ``None`` (absent) resolves to :data:`DEFAULT_REASONING_LEVEL`, and the
+    legacy 0 clamps up to :data:`MIN_REASONING_LEVEL`.
+
+    Raises:
+        ValueError: for non-numeric input or a level outside 0-4.
+    """
+    if value is None or value == "":
+        return DEFAULT_REASONING_LEVEL
+    level = int(value)
+    if level < LEGACY_REASONING_DISABLED or level > MAX_REASONING_LEVEL:
+        raise ValueError(
+            f"reasoning must be between {MIN_REASONING_LEVEL} and {MAX_REASONING_LEVEL}"
+        )
+    return max(level, MIN_REASONING_LEVEL)
 
 
 # ============================================================================

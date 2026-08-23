@@ -131,9 +131,9 @@ Threat Designer supports two AI providers. Choose one based on your preference:
 
 You must enable access to the following models in your AWS region:
 
-- **Claude 4.6 Opus**
-- **Claude 4.5 Sonnet**
-- **Claude 4.5 Haiku**
+- **Claude Opus 5**
+- **Claude Sonnet 5**
+- **Claude Haiku 4.5**
 
 To enable Claude models, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html). Make sure you are already subscribed to the models otherwise you will receive an `AccessDeniedException` exception whe using the application.
 
@@ -144,9 +144,15 @@ To enable Claude models, follow the instructions [here](https://docs.aws.amazon.
 You'll need:
 
 - A valid OpenAI API key
-- Access to GPT-5.4 or GPT-5 Mini models
+- Access to the GPT-5.6 family models (Sol, Terra, Luna)
 
 You'll be prompted to enter your API key during deployment.
+
+#### Option 3: Amazon Bedrock Mantle (GPT models on Bedrock)
+
+The same GPT-5.6 family models served through the Bedrock Mantle OpenAI-compatible endpoint — no OpenAI API key required. Authentication uses SigV4-derived bearer tokens minted from the agent's IAM role.
+
+> **Warning:** GPT-5.x on Bedrock Mantle is only served from US regions. Model inference is locked to `us-east-2` (configurable to `us-west-2` via the `mantle_region` Terraform variable), regardless of the region you deploy the application to.
 
 ### Installation and Deployment
 
@@ -184,10 +190,11 @@ export AWS_PROFILE="your_profile_name"
 
 During deployment, you'll be prompted to:
 
-- Select your AI model provider (Amazon Bedrock or OpenAI)
+- Select your AI model provider (Amazon Bedrock, OpenAI, or Bedrock Mantle)
 - Enter your OpenAI API key (if using OpenAI)
 - Provide a valid email address for user credentials
 - Choose whether to enable Sentry AI Assistant
+- Select a web search provider for Sentry (none, Tavily, or Amazon Bedrock AgentCore)
 
 > **Note:** A user will be created in Amazon Cognito User Pool and temporary credentials will be sent to the configured email address.
 
@@ -205,46 +212,67 @@ Application Login page: https://dev.xxxxxxxxxxxxxxxx.amplifyapp.com
 
 ### AI Model Provider Selection
 
-Threat Designer supports two AI providers that can be selected during deployment:
+Threat Designer supports three AI provider options that can be selected during deployment:
 
 ```
 Select AI model provider:
 1) Amazon Bedrock (Claude) (default)
-2) OpenAI (GPT-5.4)
+2) OpenAI (GPT-5.6)
+3) Amazon Bedrock Mantle (GPT-5.6, no OpenAI API key needed)
 ```
 
 #### Amazon Bedrock Configuration (default model)
 
 **Used Models:**
 
-- **Claude 4.X family models**
+- **Claude Opus 5** — main threat modeling workflow
+- **Claude Sonnet 5** — Sentry assistant and structured output
+- **Claude Haiku 4.5** — summaries
 
 **Key Characteristics:**
 
-- **Reasoning**: Hybrid model
-- **Reasoning Levels**: None, Low, Medium, High, Max (maps to different reasoning token budgets or adaptive effort levels)
+- **Reasoning**: Adaptive thinking (Claude 5 family)
+- **Reasoning Levels**: Low, Medium, High, Extra High (maps to adaptive effort levels; token budgets remain only for pre-4.6 models)
 
-> **Note:** Models listed in the `adaptive_thinking_models` Terraform variable (e.g., Claude Opus 4.6) use adaptive thinking with effort levels (`low`, `medium`, `high`, `max`) instead of token budgets. For these models, the `reasoning_budget` configuration is ignored — the reasoning level from the UI is mapped directly to an effort string. Standard models continue to use token-budget-based reasoning as before.
+> **Note:** Models listed in the `adaptive_thinking_models` Terraform variable (e.g., Claude Opus 5, Claude Sonnet 5) use adaptive thinking with effort levels instead of token budgets. For these models, the `reasoning_budget` configuration is ignored — the reasoning level from the UI is mapped directly to an effort string. Pre-4.6 models continue to use token-budget-based reasoning as before.
 >
-> **Note:** Claude Opus 4.6 supports a maximum output of 128K tokens, while other Claude 4.x family models support up to 64K tokens. If switching between models, make sure to update the `max_tokens` configuration accordingly to avoid API errors.
+> **Note:** The highest selectable level (Extra High) maps to `xhigh`, the recommended effort for demanding coding and agentic work. The models also support `max` above it, but it costs substantially more for marginal gains — opt in per stage by setting `"4" = "max"` in that stage's `effort_map` in `infra/variables.tf`.
+>
+> **Note:** There is no "off" reasoning level. Every current model is a reasoning model, and on Claude Opus 5 thinking is on by default and cannot be disabled above effort `high` — omitting the thinking config does not turn it off, it just runs adaptive thinking at the provider's default effort. An "off" level therefore billed for thinking while discarding the reasoning output, so the ladder starts at Low. Levels are `1`–`4`; a legacy `0` from an older client is accepted and normalized to `1`.
+>
+> **Note:** Claude 5 family models support a maximum output of 128K tokens, while older Claude 4.x models may support less. If switching between models, make sure to update the `max_tokens` configuration accordingly to avoid API errors.
 
 #### OpenAI Configuration
 
 **Used Models:**
 
-- **GPT-5 Mini** (default) - Faster and more cost-effective
-- **GPT-5.4** - Maximum reasoning capability
+- **GPT-5.6 Sol** — main threat modeling workflow (flagship capability; the `gpt-5.6` alias routes to it)
+- **GPT-5.6 Terra** — Sentry assistant and structured output (strong performance at lower price)
+- **GPT-5.6 Luna** — summaries (efficient, high-volume workloads)
 
 **Key Characteristics:**
 
-- **Reasoning**: Always enabled (built-in capability that cannot be disabled)
-- **Reasoning Levels**: Low, Medium, High (maps to OpenAI's reasoning effort)
+- **Reasoning**: Reasoning models on the Responses API
+- **Reasoning Levels**: Low, Medium, High, Extra High (maps to OpenAI's `reasoning_effort`: `low`, `medium`, `high`, `xhigh`). GPT-5.6 also supports `max` above `xhigh` — opt in via `reasoning_effort` in `infra/variables.tf` — and no longer accepts `minimal`.
 
 **To use OpenAI:**
 
 1. Select option `2` when prompted for model provider during deployment
 2. Enter your OpenAI API key when prompted
 3. The system will configure both Threat Designer and Sentry to use OpenAI
+
+#### Amazon Bedrock Mantle Configuration
+
+Runs the same GPT-5.6 models (and prompts) as the OpenAI option, but served by the Bedrock Mantle OpenAI-compatible endpoint:
+
+- **No OpenAI API key** — auth is a SigV4-derived bearer token minted from the agent's IAM role (`bedrock-mantle:*` permissions are granted automatically at deploy time)
+- **US-locked inference** — Mantle serves GPT-5.x only from `us-east-2` / `us-west-2`; the deployment shows a warning and defaults to `us-east-2` (override with the `mantle_region` Terraform variable)
+- Model IDs are automatically prefixed with `openai.` (e.g., `openai.gpt-5.6-sol`) as Mantle requires
+
+**To use Bedrock Mantle:**
+
+1. Select option `3` when prompted for model provider during deployment
+2. The system will configure both Threat Designer and Sentry to use GPT-5.6 via Mantle
 
 #### Switching Between Providers
 
@@ -257,19 +285,32 @@ To switch between Amazon Bedrock and OpenAI:
 
 ### Web Search Integration (Optional Feature)
 
-Sentry can perform real-time web searches to research CVEs, vulnerabilities, and security topics using [Tavily](https://tavily.com/). This feature is **optional** and requires a Tavily API key.
+Sentry can perform real-time web searches to research CVEs, vulnerabilities, and security topics. This feature is **optional**, and you choose the provider at deployment time.
 
 #### Enabling Web Search
 
 During deployment, you will be prompted:
 
 ```
-Enter your Tavily API key (optional, press Enter to skip):
-(Enables web search and content extraction in Sentry assistant)
+Select web search provider for Sentry:
+1) None (default)
+2) Tavily (search + page extraction, requires an API key)
+3) Amazon Bedrock AgentCore (search only, no API key needed)
 ```
 
-- **With API key**: Sentry gains access to `tavily_search` and `tavily_extract` tools for real-time security research
-- **Without API key**: Sentry works normally but cannot perform web searches
+| Provider          | Tools Sentry gains                 | Credentials                                 |
+| ----------------- | ---------------------------------- | ------------------------------------------- |
+| None              | —                                  | —                                           |
+| Tavily            | `tavily_search` + `tavily_extract` | Tavily API key                              |
+| Bedrock AgentCore | `web_search` only                  | None — SigV4 from the Sentry execution role |
+
+> **Note:** The AgentCore connector offers **search only** — there is no page-extraction counterpart. When it is selected the extract tool is simply absent, and Sentry's prompt is adjusted so it works from result snippets and does not offer to read a page in depth. Choose Tavily if you need full page content.
+
+#### Amazon Bedrock AgentCore
+
+AgentCore's web search is reachable only as a built-in connector target on an AgentCore **Gateway** (there is no direct search API), so selecting it provisions a gateway with `AWS_IAM` inbound auth plus its service role, and Sentry calls it over MCP signed with SigV4 from its own execution role. No API key is stored anywhere.
+
+> **Warning:** The connector is only offered in `us-east-1`, `eu-west-1`, and `ap-northeast-1`. The gateway is created in `web_search_region` (default `us-east-1`), which may differ from your deployment region — queries are served inside AWS but can leave the deployment's region. Tune result volume with the `web_search_max_results` Terraform variable (1–25, default 5).
 
 #### Getting a Tavily API Key
 
@@ -346,7 +387,7 @@ MAESTRO is enabled by default. To disable it, update the `.deployment.config` fi
 ENABLE_MAESTRO=false
 ```
 
-When disabled, the API rejects *new* requests that ask for MAESTRO rather than silently falling back to STRIDE. Replaying or versioning an existing MAESTRO model is unaffected by the flag — its methodology is fixed at creation and is loaded from the stored record either way, so disabling MAESTRO doesn't strand catalogs created while it was on. STRIDE threat modeling is unaffected either way.
+When disabled, the API rejects _new_ requests that ask for MAESTRO rather than silently falling back to STRIDE. Replaying or versioning an existing MAESTRO model is unaffected by the flag — its methodology is fixed at creation and is loaded from the stored record either way, so disabling MAESTRO doesn't strand catalogs created while it was on. STRIDE threat modeling is unaffected either way.
 
 ---
 

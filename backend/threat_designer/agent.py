@@ -24,11 +24,10 @@ from constants import (
     HTTP_STATUS_BAD_REQUEST,
     HTTP_STATUS_INTERNAL_SERVER_ERROR,
     HTTP_STATUS_UNPROCESSABLE_ENTITY,
-    REASONING_DISABLED,
-    VALID_REASONING_VALUES,
     DEFAULT_MAX_RETRY,
     JobState,
     Methodology,
+    normalize_reasoning_level,
 )
 from exceptions import ThreatModelingError, ValidationError
 from model_utils import initialize_models
@@ -145,13 +144,15 @@ def _run_agent_async(state: Dict, config: Dict, job_id: str, agent_config: Dict)
 
                 # Attack tree always uses reasoning with fixed budget
                 # For Bedrock (Claude): 48000 tokens
-                # For OpenAI (GPT-5.2): "medium" effort
+                # For OpenAI (GPT-5.6): "medium" effort
                 # This is hardcoded and not user-configurable
                 ATTACK_TREE_REASONING_LEVEL = (
                     2  # Maps to 48000 for Bedrock, "medium" for OpenAI
                 )
 
-                models = initialize_models(ATTACK_TREE_REASONING_LEVEL)
+                models = initialize_models(
+                    ATTACK_TREE_REASONING_LEVEL, owner=state.get("owner")
+                )
                 attack_tree_model = models.get("attack_tree_agent_model")
 
                 if not attack_tree_model:
@@ -245,13 +246,15 @@ def _create_agent_config(event: Dict[str, Any]) -> ConfigSchema:
     Returns:
         ConfigSchema: Properly typed configuration for the agent
     """
-    reasoning = int(event.get("reasoning") or REASONING_DISABLED)
-    models = initialize_models(reasoning)
-    thinking = reasoning != REASONING_DISABLED
+    reasoning = normalize_reasoning_level(event.get("reasoning"))
+    models = initialize_models(reasoning, owner=event.get("owner"))
+    # Every level runs the model with thinking on, so the auto tool choice and
+    # the structured-output retry path are always in effect.
+    thinking = True
 
     logger.debug(
         "Created agent configuration",
-        reasoning=thinking,
+        reasoning_level=reasoning,
     )
 
     return {
@@ -610,18 +613,19 @@ def _validate_event(event: Dict[str, Any]) -> None:
         )
         raise ValidationError(f"{ERROR_MISSING_REQUIRED_FIELDS}: {missing_fields}")
 
-    # Validate reasoning parameter if provided
+    # Validate reasoning parameter if provided. normalize_reasoning_level
+    # rejects out-of-range values and clamps the legacy 0 up to the minimum.
     if "reasoning" in event:
         try:
-            reasoning_value = int(event["reasoning"])
-            if reasoning_value not in VALID_REASONING_VALUES:
-                logger.error(
-                    "Invalid reasoning value",
-                    reasoning_value=reasoning_value,
-                    expected_values=VALID_REASONING_VALUES,
-                )
-                raise ValidationError(ERROR_INVALID_REASONING_VALUE)
-        except (ValueError, TypeError) as e:
+            normalize_reasoning_level(event["reasoning"])
+        except ValueError as e:
+            logger.error(
+                "Invalid reasoning value",
+                reasoning_value=event["reasoning"],
+                error=str(e),
+            )
+            raise ValidationError(ERROR_INVALID_REASONING_VALUE)
+        except TypeError as e:
             logger.error(
                 "Invalid reasoning parameter type",
                 reasoning_param=event["reasoning"],

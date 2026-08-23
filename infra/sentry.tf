@@ -4,11 +4,11 @@ resource "aws_bedrockagentcore_agent_runtime" "sentry" {
   role_arn           = aws_iam_role.sentry_role[0].arn
   environment_variables = merge(
     {
-      SESSION_TABLE      = aws_dynamodb_table.sentry_session[0].id,
-      ATTACK_TREE_TABLE  = aws_dynamodb_table.attack_tree_data.id,
-      S3_BUCKET          = aws_s3_bucket.architecture_bucket.id,
-      REGION             = var.region,
-      MODEL_PROVIDER     = var.model_provider
+      SESSION_TABLE     = aws_dynamodb_table.sentry_session[0].id,
+      ATTACK_TREE_TABLE = aws_dynamodb_table.attack_tree_data.id,
+      S3_BUCKET         = aws_s3_bucket.architecture_bucket.id,
+      REGION            = var.region,
+      MODEL_PROVIDER    = var.model_provider
     },
     var.model_provider == "bedrock" ? {
       MODEL_ID                 = var.model_sentry.id,
@@ -18,13 +18,32 @@ resource "aws_bedrockagentcore_agent_runtime" "sentry" {
       EFFORT_MAP               = jsonencode(var.model_sentry.effort_map)
     } : {},
     var.model_provider == "openai" ? {
-      OPENAI_API_KEY    = var.openai_api_key,
-      MODEL_ID          = var.openai_model_sentry.id,
-      MAX_TOKENS        = tostring(var.openai_model_sentry.max_tokens),
-      REASONING_EFFORT  = jsonencode(var.openai_model_sentry.reasoning_effort)
+      OPENAI_API_KEY   = var.openai_api_key,
+      MODEL_ID         = var.openai_model_sentry.id,
+      MAX_TOKENS       = tostring(var.openai_model_sentry.max_tokens),
+      REASONING_EFFORT = jsonencode(var.openai_model_sentry.reasoning_effort)
     } : {},
-    var.tavily_api_key != "" ? {
+    # Same GPT model as "openai", served via the Bedrock Mantle endpoint —
+    # SigV4 bearer-token auth from the runtime role, no OpenAI API key.
+    var.model_provider == "bedrock-mantle" ? {
+      MODEL_ID         = var.openai_model_sentry.id,
+      MAX_TOKENS       = tostring(var.openai_model_sentry.max_tokens),
+      REASONING_EFFORT = jsonencode(var.openai_model_sentry.reasoning_effort),
+      MANTLE_REGION    = var.mantle_region
+    } : {},
+    {
+      WEB_SEARCH_PROVIDER = var.web_search_provider
+    },
+    var.web_search_provider == "tavily" ? {
       TAVILY_API_KEY = var.tavily_api_key
+    } : {},
+    # The gateway URL is what actually enables the tool at runtime; without it
+    # web_search_tools.py logs and returns no tool rather than 403-ing.
+    local.web_search_agentcore ? {
+      WEB_SEARCH_GATEWAY_URL = aws_bedrockagentcore_gateway.web_search[0].gateway_url,
+      WEB_SEARCH_REGION      = var.web_search_region,
+      WEB_SEARCH_TOOL_NAME   = local.web_search_tool_name,
+      WEB_SEARCH_MAX_RESULTS = tostring(var.web_search_max_results)
     } : {}
   )
   authorizer_configuration {
@@ -46,9 +65,33 @@ resource "aws_bedrockagentcore_agent_runtime" "sentry" {
   }
   lifecycle_configuration {
     idle_runtime_session_timeout = 3600
-    max_lifetime = 28800
+    max_lifetime                 = 28800
   }
-  depends_on = [null_resource.docker_build_push]
+
+  # Web search is configured by env var, so a misconfiguration costs Sentry the
+  # tool with no error anywhere. Fail the apply instead of shipping a silently
+  # search-less assistant. A leftover key alongside "agentcore" is deliberate and
+  # allowed; only "I set the key but never selected the provider" is caught.
+  lifecycle {
+    precondition {
+      condition     = !(var.web_search_provider == "none" && var.tavily_api_key != "")
+      error_message = "tavily_api_key is set but web_search_provider is \"none\" — set web_search_provider = \"tavily\" to enable it, or clear the key."
+    }
+    precondition {
+      condition     = !(var.web_search_provider == "tavily" && var.tavily_api_key == "")
+      error_message = "web_search_provider is \"tavily\" but tavily_api_key is empty — Sentry would start with no web search."
+    }
+  }
+
+  # The runtime reads WEB_SEARCH_GATEWAY_URL at startup and signs its own calls,
+  # so both the gateway target and this role's invoke permission have to exist
+  # first. Without these, an early tools/call gets a 403 or "no such tool" and
+  # the model only sees the wrapped "Error: web_search failed" string.
+  depends_on = [
+    null_resource.docker_build_push,
+    aws_cloudcontrolapi_resource.web_search_target,
+    aws_iam_role_policy.sentry_web_search_policy,
+  ]
 }
 
 
@@ -118,6 +161,65 @@ resource "aws_iam_role" "sentry_role" {
             "aws:SourceArn" : "arn:aws:bedrock-agentcore:${var.region}:${data.aws_caller_identity.caller_identity.account_id}:*"
           }
         }
+      }
+    ]
+  })
+}
+
+# Bedrock Mantle (OpenAI-compatible endpoint) — separate IAM namespace from
+# bedrock:*. Same grant shape as the threat designer agent's mantle policy;
+# see the comment there. Present only when Sentry is enabled AND the deploy
+# uses the bedrock-mantle provider.
+resource "aws_iam_role_policy" "sentry_mantle_policy" {
+  count = var.enable_sentry && var.model_provider == "bedrock-mantle" ? 1 : 0
+  name  = "${local.prefix}-sentry-mantle-policy"
+  role  = aws_iam_role.sentry_role[0].id
+
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Sid" : "BedrockMantleInvoke",
+        "Effect" : "Allow",
+        "Action" : [
+          "bedrock-mantle:CreateInference",
+          "bedrock-mantle:GetInference",
+          "bedrock-mantle:GetModel",
+          "bedrock-mantle:ListModels"
+        ],
+        "Resource" : [
+          "arn:aws:bedrock-mantle:${var.mantle_region}:${data.aws_caller_identity.caller_identity.account_id}:project/default"
+        ]
+      },
+      {
+        "Sid" : "BedrockMantleBearerToken",
+        "Effect" : "Allow",
+        "Action" : ["bedrock-mantle:CallWithBearerToken"],
+        "Resource" : "*"
+      }
+    ]
+  })
+}
+
+# The Sentry runtime calls the web search gateway directly, signing with SigV4
+# from this role (the gateway's inbound authorizer is AWS_IAM). Scoped to the one
+# gateway we provision, and absent unless the agentcore provider is selected.
+resource "aws_iam_role_policy" "sentry_web_search_policy" {
+  count = local.web_search_agentcore ? 1 : 0
+  name  = "${local.prefix}-sentry-web-search-policy"
+  role  = aws_iam_role.sentry_role[0].id
+
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Sid" : "WebSearchGateway",
+        "Effect" : "Allow",
+        "Action" : ["bedrock-agentcore:InvokeGateway"],
+        "Resource" : [
+          "arn:aws:bedrock-agentcore:${var.web_search_region}:${data.aws_caller_identity.caller_identity.account_id}:gateway/${aws_bedrockagentcore_gateway.web_search[0].gateway_id}",
+          "arn:aws:bedrock-agentcore:${var.web_search_region}:${data.aws_caller_identity.caller_identity.account_id}:gateway/${aws_bedrockagentcore_gateway.web_search[0].gateway_id}/*"
+        ]
       }
     ]
   })

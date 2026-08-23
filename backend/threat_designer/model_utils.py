@@ -9,6 +9,8 @@ AWS Bedrock and OpenAI providers.
 import functools
 import json
 import os
+import threading
+import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, TypedDict
 
@@ -18,23 +20,26 @@ from constants import (
     ADAPTIVE_EFFORT_MAP,
     ADAPTIVE_THINKING_TYPE,
     AWS_SERVICE_BEDROCK_RUNTIME,
+    DEFAULT_MANTLE_REGION,
     DEFAULT_REGION,
     DEFAULT_TIMEOUT,
     ENV_ADAPTIVE_THINKING_MODELS,
     ENV_MAIN_MODEL,
+    ENV_MANTLE_REGION,
     ENV_MODEL_PROVIDER,
     ENV_MODEL_STRUCT,
     ENV_MODEL_SUMMARY,
     ENV_OPENAI_API_KEY,
     ENV_REGION,
+    MANTLE_MODEL_PREFIX,
     MODEL_PROVIDER_BEDROCK,
+    MODEL_PROVIDER_BEDROCK_MANTLE,
     MODEL_PROVIDER_OPENAI,
-    MODEL_TEMPERATURE_DEFAULT,
-    MODEL_TEMPERATURE_REASONING,
     OPENAI_GPT5_FAMILY_MODELS,
     REASONING_BUDGET_FIELD,
     REASONING_THINKING_TYPE,
     STOP_SEQUENCES,
+    safety_identifier,
 )
 from exceptions import ModelProviderError, OpenAIAuthenticationError
 from langchain_aws.chat_models.bedrock import ChatBedrockConverse
@@ -232,17 +237,20 @@ def _build_standard_model_config(
     model_config: ModelConfig,
     client: boto3.client,
     region: str,
-    adaptive_models: list[str] | None = None,
 ) -> dict:
     """
     Build standard model configuration dictionary.
+
+    No temperature is sent. Claude 4.6+ (including Opus 5 / Sonnet 5) removed
+    the sampling parameters and reject them outright, and pre-4.6 models default
+    to 1.0 — which is also the only value they accept while thinking is enabled.
+    Omitting it keeps one code path for every model and removes the dependence
+    on the adaptive-model list being accurate.
 
     Args:
         model_config: Model configuration with id and max_tokens.
         client: Bedrock runtime client.
         region: AWS region name.
-        adaptive_models: List of model IDs that use adaptive thinking
-            (temperature is deprecated for these models).
 
     Returns:
         dict: Standard model configuration.
@@ -254,12 +262,6 @@ def _build_standard_model_config(
         "model_id": model_config["id"],
         "stop": STOP_SEQUENCES,
     }
-
-    # Adaptive models (e.g. Opus 4.7) don't support the temperature parameter
-    if not adaptive_models or not _is_adaptive_model(
-        model_config["id"], adaptive_models
-    ):
-        config["temperature"] = MODEL_TEMPERATURE_DEFAULT
 
     logger.debug(
         "Standard model config built",
@@ -298,7 +300,6 @@ def _build_main_model_config(
             },
             "anthropic_beta": ["interleaved-thinking-2025-05-14"],
         }
-        config["temperature"] = MODEL_TEMPERATURE_REASONING
 
         logger.debug(
             "Reasoning enabled for main model",
@@ -332,10 +333,7 @@ def _build_adaptive_model_config(
     Returns:
         dict: Model configuration with adaptive thinking parameters if reasoning > 0.
     """
-    # Pass model ID as adaptive so temperature is omitted
-    config = _build_standard_model_config(
-        model_config, client, region, adaptive_models=[model_config["id"]]
-    )
+    config = _build_standard_model_config(model_config, client, region)
 
     if reasoning != 0:
         # Per-model effort_map takes precedence over the global default
@@ -416,13 +414,12 @@ def _initialize_bedrock_models(
         attack_tree_config = _build_config_for_model(configs.attack_tree_model)
         version_config = _build_config_for_model(configs.version_model)
         version_diff_config = _build_config_for_model(configs.version_model)
-        adaptive = configs.adaptive_thinking_models
 
         struct_config = _build_standard_model_config(
-            configs.struct_model, client, region, adaptive
+            configs.struct_model, client, region
         )
         summary_config = _build_standard_model_config(
-            configs.summary_model, client, region, adaptive
+            configs.summary_model, client, region
         )
 
         # Initialize models
@@ -468,48 +465,110 @@ def _initialize_bedrock_models(
         raise
 
 
+# How long a minted Mantle bearer token is trusted before re-minting. The token
+# is a SigV4-presigned URL, so its effective life is bounded by the signing role
+# credentials (~1h on AgentCore) — re-mint well inside that window.
+MANTLE_TOKEN_TTL_SECONDS = 1800
+
+
+# One token cache per region, shared by every model built in this process. The
+# token is a property of the runtime role, not of a model, and initialize_models
+# builds 11 clients per run — a cache per closure meant 11 independent SigV4
+# mints and 11 independent re-mint clocks. Guarded by a lock because workflow
+# nodes invoke models from worker threads.
+_MANTLE_TOKEN_CACHES: Dict[str, Dict[str, Any]] = {}
+_MANTLE_TOKEN_LOCK = threading.Lock()
+
+
+def _mantle_token_provider(region: str):
+    """A callable returning a fresh Bedrock Mantle bearer token, cached briefly.
+
+    langchain_openai accepts ``api_key`` as a callable and invokes it per
+    request, so a long run keeps re-reading a currently-valid token minted from
+    whatever role credentials the default chain currently holds.
+    """
+    from aws_bedrock_token_generator import provide_token
+
+    with _MANTLE_TOKEN_LOCK:
+        cache = _MANTLE_TOKEN_CACHES.setdefault(region, {"token": None, "exp": 0.0})
+
+    def _provider() -> str:
+        with _MANTLE_TOKEN_LOCK:
+            now = time.time()
+            if cache["token"] is None or now >= cache["exp"]:
+                cache["token"] = provide_token(region=region)
+                cache["exp"] = now + MANTLE_TOKEN_TTL_SECONDS
+            return cache["token"]
+
+    return _provider
+
+
 def _create_openai_model(
     model_config: ModelConfig,
     reasoning: int,
     reasoning_effort_map: dict = None,
+    safety_id: str = "",
 ) -> Any:
     """
-    Create a single OpenAI model instance.
+    Create a single OpenAI GPT model instance.
+
+    Depending on MODEL_PROVIDER the model is served either directly by OpenAI
+    (API-key auth) or by the Bedrock Mantle OpenAI-compatible endpoint
+    (SigV4 bearer-token auth, model ID prefixed with "openai.").
 
     Args:
         model_config: Model configuration with id, max_tokens, and optional reasoning_effort map.
         reasoning: Reasoning level (0-4).
         reasoning_effort_map: Optional dict mapping reasoning levels to effort strings. If not provided, uses model_config.
+        safety_id: Stable per-user hash for OpenAI's safety_identifier, which
+            reduces false-positive trips of the cyber/bio misuse classifiers on
+            legitimate threat-modeling work. Omitted when empty.
 
     Returns:
         ChatOpenAI: Configured OpenAI model instance.
 
     Raises:
-        OpenAIAuthenticationError: If API key is missing.
+        OpenAIAuthenticationError: If API key is missing (direct OpenAI only).
     """
-    api_key = os.environ.get(ENV_OPENAI_API_KEY)
-    if not api_key:
-        raise OpenAIAuthenticationError("OPENAI_API_KEY environment variable not set")
+    provider = os.environ.get(ENV_MODEL_PROVIDER, MODEL_PROVIDER_BEDROCK)
+    use_mantle = provider == MODEL_PROVIDER_BEDROCK_MANTLE
 
     model_id = model_config["id"]
     max_tokens = model_config["max_tokens"]
 
     # Validate model ID against known GPT-5 family models
-    if model_id not in OPENAI_GPT5_FAMILY_MODELS:
+    if model_id.removeprefix(MANTLE_MODEL_PREFIX) not in OPENAI_GPT5_FAMILY_MODELS:
         logger.warning(
             "Model ID not in known GPT-5 family models",
             model_id=model_id,
             known_models=OPENAI_GPT5_FAMILY_MODELS,
         )
 
-    # Base configuration
+    # Base configuration. No temperature: the whole GPT-5 family rejects the
+    # parameter outright ("Unsupported parameter: 'temperature' is not supported
+    # with this model", HTTP 400) — including the summary/struct models that run
+    # with no reasoning config at all. Reasoning models don't honor a pinned
+    # sampling temperature anyway.
     config = {
         "model": model_id,
         "max_tokens": max_tokens,
-        "temperature": MODEL_TEMPERATURE_DEFAULT,
-        "api_key": api_key,
         "use_responses_api": True,
     }
+
+    if use_mantle:
+        mantle_region = os.environ.get(ENV_MANTLE_REGION, DEFAULT_MANTLE_REGION)
+        if not model_id.startswith(MANTLE_MODEL_PREFIX):
+            config["model"] = f"{MANTLE_MODEL_PREFIX}{model_id}"
+        config["base_url"] = f"https://bedrock-mantle.{mantle_region}.api.aws/openai/v1"
+        # Bearer token minted from the runtime role's credentials — no API key.
+        config["api_key"] = _mantle_token_provider(mantle_region)
+    else:
+        api_key = os.environ.get(ENV_OPENAI_API_KEY)
+        if not api_key:
+            raise OpenAIAuthenticationError(
+                "OPENAI_API_KEY environment variable not set"
+            )
+        config["api_key"] = api_key
 
     # Add reasoning effort if applicable
     effort_map = reasoning_effort_map or model_config.get("reasoning_effort", {})
@@ -547,12 +606,29 @@ def _create_openai_model(
             reasoning_effort=reasoning_effort,
         )
 
+    # Attributes traffic per end user so the provider's real-time cyber
+    # classifier is less likely to flag legitimate threat-modeling requests.
+    # Accepted by both direct OpenAI and the Bedrock Mantle endpoint.
+    if safety_id:
+        config["model_kwargs"] = {"safety_identifier": safety_id}
+
+    if "reasoning" in config:
+        # output_version is what puts the reasoning summary into the message
+        # content blocks ({"type": "reasoning", "summary": [...]}) where
+        # model_service.extract_reasoning_content reads it — without it the
+        # summary lands in additional_kwargs and never surfaces. Both GPT
+        # transports go through the same ChatOpenAI Responses API, so this is
+        # not Mantle-specific: gating it on Mantle left direct-OpenAI deploys
+        # writing an empty reasoning trail for every stage.
+        config["output_version"] = "responses/v1"
+
     return ChatOpenAI(**config)
 
 
 def _initialize_openai_models(
     reasoning: int = 0,
     job_id: Optional[str] = None,
+    safety_id: str = "",
 ) -> Dict[str, Any]:
     """
     Initialize OpenAI model clients with GPT-5 family.
@@ -575,17 +651,21 @@ def _initialize_openai_models(
         )
 
     try:
+        provider = os.environ.get(ENV_MODEL_PROVIDER, MODEL_PROVIDER_BEDROCK)
         logger.debug(
-            "Initializing OpenAI models",
+            "Initializing OpenAI GPT models",
             reasoning_level=reasoning,
+            provider=provider,
         )
 
-        # Validate API key
-        api_key = os.environ.get(ENV_OPENAI_API_KEY)
-        if not api_key:
-            raise OpenAIAuthenticationError(
-                "OPENAI_API_KEY environment variable not set"
-            )
+        # Validate API key (direct OpenAI only — Mantle auths with a SigV4
+        # bearer token minted from the runtime role's credentials)
+        if provider == MODEL_PROVIDER_OPENAI:
+            api_key = os.environ.get(ENV_OPENAI_API_KEY)
+            if not api_key:
+                raise OpenAIAuthenticationError(
+                    "OPENAI_API_KEY environment variable not set"
+                )
 
         # Load configurations
         logger.debug("Loading OpenAI model configurations from environment")
@@ -595,23 +675,23 @@ def _initialize_openai_models(
         logger.debug("Building OpenAI model configurations")
 
         models = {
-            "assets_model": _create_openai_model(configs.assets_model, reasoning),
-            "flows_model": _create_openai_model(configs.flows_model, reasoning),
-            "threats_model": _create_openai_model(configs.threats_model, reasoning),
+            "assets_model": _create_openai_model(configs.assets_model, reasoning, safety_id=safety_id),
+            "flows_model": _create_openai_model(configs.flows_model, reasoning, safety_id=safety_id),
+            "threats_model": _create_openai_model(configs.threats_model, reasoning, safety_id=safety_id),
             "threats_agent_model": _create_openai_model(
-                configs.threats_agent_model, reasoning
+                configs.threats_agent_model, reasoning, safety_id=safety_id
             ),
-            "gaps_model": _create_openai_model(configs.gaps_model, reasoning),
+            "gaps_model": _create_openai_model(configs.gaps_model, reasoning, safety_id=safety_id),
             "attack_tree_agent_model": _create_openai_model(
-                configs.attack_tree_model, reasoning
+                configs.attack_tree_model, reasoning, safety_id=safety_id
             ),
-            "version_model": _create_openai_model(configs.version_model, reasoning),
+            "version_model": _create_openai_model(configs.version_model, reasoning, safety_id=safety_id),
             "version_diff_model": _create_openai_model(
-                configs.version_model, reasoning
+                configs.version_model, reasoning, safety_id=safety_id
             ),
-            "struct_model": _create_openai_model(configs.struct_model, 0),
-            "summary_model": _create_openai_model(configs.summary_model, 0),
-            "space_context_model": _create_openai_model(configs.flows_model, reasoning),
+            "struct_model": _create_openai_model(configs.struct_model, 0, safety_id=safety_id),
+            "summary_model": _create_openai_model(configs.summary_model, 0, safety_id=safety_id),
+            "space_context_model": _create_openai_model(configs.flows_model, reasoning, safety_id=safety_id),
         }
 
         logger.debug(
@@ -646,6 +726,7 @@ def initialize_models(
     reasoning: int = 0,
     bedrock_client: Optional[boto3.client] = None,
     job_id: Optional[str] = None,
+    owner: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Initialize model clients based on configured provider.
@@ -657,6 +738,11 @@ def initialize_models(
         reasoning: Reasoning level (0-3). 0 disables/minimizes reasoning, 1-3 enables with different levels.
         bedrock_client: Optional pre-configured Bedrock client for testing (Bedrock only).
         job_id: Optional job ID for operation tracking.
+        owner: Optional end-user id (Cognito sub). Hashed into OpenAI's
+            safety_identifier so the provider can attribute traffic per user,
+            which reduces false-positive trips of its cyber/bio misuse
+            classifiers on legitimate threat-modeling requests. Ignored by the
+            Bedrock provider.
 
     Returns:
         Dict[str, Any]: Dictionary containing:
@@ -687,15 +773,20 @@ def initialize_models(
                 reasoning_level=reasoning,
             )
 
-            # Route to appropriate provider initialization
+            # Route to appropriate provider initialization. The Mantle
+            # provider serves the same GPT models as "openai" — only the
+            # transport/auth differs, handled inside _create_openai_model.
             if provider == MODEL_PROVIDER_BEDROCK:
                 return _initialize_bedrock_models(reasoning, bedrock_client, job_id)
-            elif provider == MODEL_PROVIDER_OPENAI:
-                return _initialize_openai_models(reasoning, job_id)
+            elif provider in (MODEL_PROVIDER_OPENAI, MODEL_PROVIDER_BEDROCK_MANTLE):
+                return _initialize_openai_models(
+                    reasoning, job_id, safety_identifier(owner)
+                )
             else:
                 raise ModelProviderError(
                     f"Unsupported model provider: {provider}. "
-                    f"Supported providers: {MODEL_PROVIDER_BEDROCK}, {MODEL_PROVIDER_OPENAI}"
+                    f"Supported providers: {MODEL_PROVIDER_BEDROCK}, "
+                    f"{MODEL_PROVIDER_OPENAI}, {MODEL_PROVIDER_BEDROCK_MANTLE}"
                 )
 
         except (ModelProviderError, OpenAIAuthenticationError):

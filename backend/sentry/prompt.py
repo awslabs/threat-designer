@@ -84,7 +84,7 @@ Use self-closing XML tags: `<chart config="{JSON_CONFIG}" />`
 3. Use descriptive titles and labels
 4. Ensure numeric values are valid numbers
 5. Place charts on their own line, not inline with text
-6. Line chart works only with numerical, series data as intigers.  It doesn't work with categorical data and string values.
+6. Line charts work only with numerical series data (integers). They don't work with categorical data or string values.
 
 **Example:**
 To show STRIDE category distribution:
@@ -98,7 +98,7 @@ To show likelihood distribution as donut:
 # Citation instructions prompt - included only when Tavily tools are enabled
 citation_prompt = """
 <citation_instructions>
-If Sentry's response is based on content returned by the tavily_search or tavily_extract tools, Sentry must always appropriately cite its response using XML-style citation tags.
+If Sentry's response is based on content returned by a web search or page extraction tool, Sentry must always appropriately cite its response using XML-style citation tags.
 
 **Citation Format:**
 Use self-closing XML tags: `<cite ref="X:Y" />`
@@ -163,13 +163,30 @@ Default to answering from existing knowledge. Only search when you genuinely can
 - Use 1-2 searches for simple factual verification
 - Use 3-5 searches for comprehensive security research or threat analysis
 - Don't mention knowledge cutoffs or lack of real-time data to the user
+</web_search_behaviors>
+"""
 
+# Appended only when a page-extraction tool is present. The AgentCore web search
+# connector returns snippets and has no fetch counterpart, so this guidance is
+# omitted for that provider rather than describing a capability the agent lacks.
+bedrock_web_fetch_prompt = """
+<web_fetch_behaviors>
 **GitHub URL handling:**
 When extracting content from GitHub file URLs, convert them to raw format first:
 - Replace `github.com` with `raw.githubusercontent.com`
 - Remove `/blob` from the path
 - Example: `https://github.com/{owner}/{repo}/blob/{branch}/{path}` -> `https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}`
-</web_search_behaviors>
+</web_fetch_behaviors>
+"""
+
+# Stated when search is available but extraction is not, so the agent doesn't
+# offer the user a deeper read it cannot perform.
+snippets_only_prompt = """
+<web_search_limits>
+Search returns ranked SNIPPETS only — there is no tool to fetch full page content.
+Do not offer to read a page in depth or promise detail beyond the snippet. When a
+snippet is insufficient, say so and cite what you have, or refine the query.
+</web_search_limits>
 """
 
 
@@ -344,7 +361,9 @@ Act as a trusted security advisor: every recommendation should enhance the organ
 
 
 # ==============================================================================
-# OPENAI (GPT-5.2) PROMPTS — Optimized for GPT-5.2 patterns
+# OPENAI (GPT-5.6) PROMPTS — Optimized for GPT-5.6 patterns: leaner prompts
+# perform better on this family, so each instruction is stated once and
+# self-check scaffolding written for older models is omitted.
 # ==============================================================================
 
 openai_web_search_prompt = """
@@ -377,13 +396,20 @@ DO search for:
 - Never mention knowledge cutoffs or lack of real-time data to the user
 </search_guidelines>
 
+</web_search_behaviors>
+"""
+
+# Appended only when a page-extraction tool is present — see
+# bedrock_web_fetch_prompt.
+openai_web_fetch_prompt = """
+<web_fetch_behaviors>
 <github_url_handling>
 When extracting content from GitHub file URLs, convert to raw format first:
 - Replace `github.com` with `raw.githubusercontent.com`
 - Remove `/blob` from the path
 - Example: `https://github.com/{owner}/{repo}/blob/{branch}/{path}` → `https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}`
 </github_url_handling>
-</web_search_behaviors>
+</web_fetch_behaviors>
 """
 
 
@@ -438,14 +464,6 @@ Redirect or decline: non-security domains, personal advice, medical or legal cou
 - After any write/mutation tool call, restate: what changed, where (threat ID/name), any follow-up needed.
 - When uncertain about dependencies between calls, default to sequential.
 </tool_calling_rules>
-
-<high_risk_self_check>
-Before finalizing threat assessments, gap analyses, or compliance-related recommendations:
-- Re-scan for: unstated assumptions, ungrounded claims, architecturally impossible attack paths, violations of validation gates.
-- Verify all threat actors are present in the data_flow's threat_sources.
-- Confirm mitigations are within customer control boundaries.
-- If any issue is found, correct it before responding.
-</high_risk_self_check>
 
 <uncertainty_handling>
 - If the user's request is ambiguous or underspecified: ask 1 precise clarifying question, OR state your interpretation and proceed with it.
@@ -544,7 +562,6 @@ Reject and exclude any threat with: assumption violations, actors not in threat_
 - A request for mitigation ≠ rewritten threat description.
 - Do not generate supplementary analysis, additional threats, or expanded scope unless explicitly asked.
 - Prefer fewer high-quality threats over comprehensive enumeration.
-- Implement EXACTLY and ONLY what the user requests. No extra features, no added analysis, no unsolicited expansion.
 </scope_discipline>
 </threat_modeling_methodology>
 """
@@ -568,7 +585,6 @@ The threat model context below is dynamic and reflects the current state, update
 When the active context is large (many data flows, threats, or complex architectures):
 - Anchor claims to specific elements ("In the Auth Service data flow…", "For the Customer Database asset…") rather than making generic statements.
 - If an answer depends on fine details (criticality levels, specific threat sources, assumption wording), reference them explicitly.
-- When assessing gaps across the full model, produce a brief internal outline of key areas before responding.
 </long_context_handling>
 {_maestro_tool_note(context)}"""
 
@@ -578,7 +594,7 @@ When the active context is large (many data flows, threats, or complex architect
 # ==============================================================================
 
 
-def system_prompt(context, tavily_enabled=False):
+def system_prompt(context, web_search_enabled=False, web_fetch_enabled=False):
     """
     Generate the system prompt for Sentry.
 
@@ -587,20 +603,27 @@ def system_prompt(context, tavily_enabled=False):
 
     Args:
         context: The threat modeling context
-        tavily_enabled: Whether Tavily tools are available
+        web_search_enabled: Whether a web search tool is available (Tavily or
+            the AgentCore connector)
+        web_fetch_enabled: Whether a page-extraction tool is available. Only
+            Tavily provides one — the AgentCore connector is search-only — so
+            the fetch guidance is omitted rather than describing a capability
+            the agent does not have.
 
     Returns:
         SystemMessage with provider-optimized instructions
     """
     current_date = datetime.now().strftime("%B %d, %Y")
 
-    if MODEL_PROVIDER == "openai":
-        return _build_openai_prompt(current_date, context, tavily_enabled)
+    # GPT prompts apply to both GPT transports — direct OpenAI and Bedrock Mantle.
+    if MODEL_PROVIDER in ("openai", "bedrock-mantle"):
+        builder = _build_openai_prompt
     else:
-        return _build_bedrock_prompt(current_date, context, tavily_enabled)
+        builder = _build_bedrock_prompt
+    return builder(current_date, context, web_search_enabled, web_fetch_enabled)
 
 
-def _build_bedrock_prompt(current_date, context, tavily_enabled):
+def _build_bedrock_prompt(current_date, context, web_search_enabled, web_fetch_enabled):
     """Build system prompt optimized for Bedrock (Claude)."""
     content = [{"type": "text", "text": _bedrock_main_prompt(current_date)}]
     content.append({"cachePoint": {"type": "default"}})
@@ -608,9 +631,13 @@ def _build_bedrock_prompt(current_date, context, tavily_enabled):
     # Always include chart instructions
     content.append({"type": "text", "text": chart_prompt})
 
-    # Conditionally include web search and citation prompts
-    if tavily_enabled:
+    # Conditionally include web search, fetch and citation prompts
+    if web_search_enabled:
         content.append({"type": "text", "text": bedrock_web_search_prompt})
+        if web_fetch_enabled:
+            content.append({"type": "text", "text": bedrock_web_fetch_prompt})
+        else:
+            content.append({"type": "text", "text": snippets_only_prompt})
         content.append({"type": "text", "text": citation_prompt})
 
     content.append({"type": "text", "text": _bedrock_context_prompt(context)})
@@ -619,17 +646,21 @@ def _build_bedrock_prompt(current_date, context, tavily_enabled):
     return SystemMessage(content=content)
 
 
-def _build_openai_prompt(current_date, context, tavily_enabled):
-    """Build system prompt optimized for OpenAI GPT-5.2."""
-    # GPT-5.2: single text block, no cache points needed
+def _build_openai_prompt(current_date, context, web_search_enabled, web_fetch_enabled):
+    """Build system prompt optimized for OpenAI GPT-5.6."""
+    # GPT-5.6: single text block, implicit prompt caching — no cache points needed
     parts = [_openai_main_prompt(current_date)]
 
     # Always include chart instructions (shared verbatim)
     parts.append(chart_prompt)
 
-    # Conditionally include web search and citation prompts
-    if tavily_enabled:
+    # Conditionally include web search, fetch and citation prompts
+    if web_search_enabled:
         parts.append(openai_web_search_prompt)
+        if web_fetch_enabled:
+            parts.append(openai_web_fetch_prompt)
+        else:
+            parts.append(snippets_only_prompt)  # shared verbatim
         parts.append(citation_prompt)  # shared verbatim
 
     parts.append(_openai_context_prompt(context))

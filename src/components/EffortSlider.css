@@ -1,0 +1,229 @@
+/* The reasoning-effort lever, ported from the data wiki agent's "Faster ↔
+   Smarter" control. A native range input drives it (keyboard + a11y for free)
+   but is overlaid transparently; the visible parts are painted here:
+
+   - TRACK  — the unfilled base: a taller pill carrying a repeating dot field,
+              no colour.
+   - FILL   — spans start→thumb only. It paints the light→dark gradient sized to
+              calc(100% / frac) so the gradient maps across the WHOLE track and
+              the fill (only `frac` wide) reveals just the 0→thumb slice. That is
+              what keeps the fill a continuous fade instead of a flat block.
+              A brighter dot field tiles over it.
+   - THUMB  — a white puck.
+
+   --effort-frac (0..1) is set inline by the component. */
+
+.effort-slider {
+  --effort-thumb-w: 14px;
+  --effort-track-h: 18px;
+  --effort-track-base: rgb(0 0 0 / 0.08);
+  /* Kept faint on purpose: the pill shape comes from --effort-track-base, so the
+     dots only need to hint at texture. Much above this they read as a hard grid
+     and compete with the filled portion. */
+  --effort-track-dot: rgb(0 0 0 / 0.15);
+  /* Dots over the fill are a light tint, not a dark one: black dots read as a
+     mesh laid on top and muddy the gradient, while white at low alpha keeps the
+     brand colours vivid and lets the texture recede. */
+  --effort-fill-dot: rgb(255 255 255 / 0.22);
+  /* The Threat Designer logo gradient (see Agent/AgentLogo.jsx): pale sky ->
+     blue -> violet -> purple. It already runs light at the Faster end and
+     saturated at the Smarter end, which is exactly the swing this control wants.
+     Keep the stops in sync with the logo. */
+  --effort-fill-0: #b8e7ff;
+  --effort-fill-25: #0099ff;
+  --effort-fill-40: #5c7fff;
+  --effort-fill-60: #8575ff;
+  --effort-fill-100: #962eff;
+  --effort-accent: #8575ff;
+}
+
+.awsui-dark-mode .effort-slider {
+  --effort-track-base: rgb(255 255 255 / 0.1);
+  --effort-track-dot: rgb(255 255 255 / 0.16);
+  /* The logo ramp with its two ends retuned for a dark surface: the near-white
+     start (#b8e7ff) glares against a dark card, so it deepens to a saturated
+     sky, and the purple end lifts slightly so it doesn't sink into the
+     background. The violet mids are the logo's own and carry the brand path. */
+  --effort-fill-0: #6fd2f7;
+  --effort-fill-25: #0d9bf5;
+  --effort-fill-100: #9a3aff;
+  /* Accent lifted so the level name keeps enough contrast on dark. */
+  --effort-accent: #a89bff;
+}
+
+/* -- header: "Effort <Level>", level in the accent ------------------------- */
+
+.effort-slider__header {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 10px;
+}
+
+.effort-slider__level {
+  color: var(--effort-accent);
+  font-weight: 700;
+  /* Clipping container for the roll swap. */
+  position: relative;
+  display: inline-flex;
+  overflow: hidden;
+  vertical-align: bottom;
+  text-transform: capitalize;
+}
+
+.effort-slider__level-in {
+  display: inline-block;
+  animation: effort-roll-in 260ms ease-out;
+}
+
+.effort-slider__level-out {
+  position: absolute;
+  inset: 0;
+  display: inline-block;
+  animation: effort-roll-out 260ms ease-out forwards;
+}
+
+/* No roll on first paint — only on a change (the component keys the span on a
+   generation counter that starts at 0). */
+.effort-slider__level-in--initial {
+  animation: none;
+}
+
+@keyframes effort-roll-in {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes effort-roll-out {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .effort-slider__level-in,
+  .effort-slider__level-out {
+    animation: none;
+  }
+}
+
+/* -- end labels ------------------------------------------------------------ */
+
+.effort-slider__ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  line-height: 1;
+  margin-bottom: 3px;
+  color: rgb(0 0 0 / 0.55);
+}
+
+.awsui-dark-mode .effort-slider__ends {
+  color: rgb(255 255 255 / 0.6);
+}
+
+/* -- track / fill / thumb -------------------------------------------------- */
+
+.effort-slider__rail {
+  position: relative;
+  height: var(--effort-track-h);
+  padding: 2px 0;
+}
+
+.effort-slider__track {
+  position: absolute;
+  inset: 0;
+  height: var(--effort-track-h);
+  border-radius: 6px;
+  background-color: var(--effort-track-base);
+  background-image: radial-gradient(
+    circle at center,
+    var(--effort-track-dot) 0.9px,
+    transparent 1.2px
+  );
+  background-size: 6px 6px;
+  background-repeat: repeat;
+}
+
+.effort-slider__fill {
+  --_frac: var(--effort-frac, 0.0001);
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: var(--effort-track-h);
+  /* Reach the thumb's centre: the thumb travels (100% - thumb width). */
+  width: calc(var(--_frac) * (100% - var(--effort-thumb-w)) + var(--effort-thumb-w) / 2);
+  border-radius: 6px 0 0 6px;
+  background-color: transparent;
+  background-image:
+    radial-gradient(circle at center, var(--effort-fill-dot) 0.9px, transparent 1.2px),
+    linear-gradient(
+      to right,
+      var(--effort-fill-0) 0%,
+      var(--effort-fill-25) 25%,
+      var(--effort-fill-40) 40%,
+      var(--effort-fill-60) 60%,
+      var(--effort-fill-100) 100%
+    );
+  background-size:
+    6px 6px,
+    calc(100% / var(--_frac)) 100%;
+  background-position:
+    0 0,
+    left center;
+  background-repeat: repeat, no-repeat;
+}
+
+.effort-slider__thumb {
+  --_frac: var(--effort-frac, 0);
+  position: absolute;
+  top: 50%;
+  left: calc(var(--_frac) * (100% - var(--effort-thumb-w)));
+  width: var(--effort-thumb-w);
+  height: 22px;
+  transform: translateY(-50%);
+  border-radius: 5px;
+  background-color: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  pointer-events: none;
+}
+
+/* The real control: transparent, on top, full-size. */
+.effort-slider__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.effort-slider__input:disabled {
+  cursor: default;
+}
+
+.effort-slider--readonly .effort-slider__input {
+  cursor: default;
+}
+
+/* Keyboard focus only. Focus lands on the invisible input, so the ring has to be
+   surfaced on the track — but scoping it to :focus-visible keeps it off the way
+   when the control is clicked or dragged with a pointer. */
+.effort-slider__rail:has(.effort-slider__input:focus-visible) .effort-slider__track {
+  outline: 2px solid var(--effort-accent);
+  outline-offset: 2px;
+}

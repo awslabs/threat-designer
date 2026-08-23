@@ -462,24 +462,27 @@ async def get_or_create_agent(
                 else:
                     logger.warning(f"Failed to retrieve diagram data: {diagram_path}")
 
-            # Check if Tavily tools are in the selected tools
-            tavily_enabled = any(
-                tool.name in ("tavily_search", "tavily_extract") for tool in new_tools
+            # Which web search capability the selected tools actually provide.
+            # Search may come from Tavily or the AgentCore connector; only
+            # Tavily also offers page extraction, so the two are tracked apart
+            # and the prompt drops its fetch guidance when there is no fetch.
+            selected_names = {tool.name for tool in new_tools}
+            web_search_enabled = bool(
+                selected_names & {"tavily_search", "web_search"}
             )
+            web_fetch_enabled = "tavily_extract" in selected_names
 
             # Generate system prompt with enhanced context
-            if context:
-                prompt = system_prompt(context, tavily_enabled=tavily_enabled)
-                logger.debug(
-                    f"Using context-based system prompt (tavily_enabled={tavily_enabled})"
-                )
-            else:
-                prompt = system_prompt(
-                    {}, tavily_enabled=tavily_enabled
-                )  # Default empty context
-                logger.debug(
-                    f"Using default system prompt (empty context, tavily_enabled={tavily_enabled})"
-                )
+            prompt = system_prompt(
+                context if context else {},
+                web_search_enabled=web_search_enabled,
+                web_fetch_enabled=web_fetch_enabled,
+            )
+            logger.debug(
+                f"Using system prompt (context={bool(context)}, "
+                f"web_search_enabled={web_search_enabled}, "
+                f"web_fetch_enabled={web_fetch_enabled})"
+            )
 
             # Create new agent
             new_agent = create_react_agent(

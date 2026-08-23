@@ -255,8 +255,8 @@ resource "aws_iam_role_policy" "backend_spaces_policy" {
         Resource = [aws_s3_bucket.spaces_bucket.arn, "${aws_s3_bucket.spaces_bucket.arn}/*"]
       },
       {
-        Effect   = "Allow"
-        Action   = ["bedrock:StartIngestionJob", "bedrock-agent:StartIngestionJob", "bedrock:ListIngestionJobs", "bedrock-agent:ListIngestionJobs"]
+        Effect = "Allow"
+        Action = ["bedrock:StartIngestionJob", "bedrock-agent:StartIngestionJob", "bedrock:ListIngestionJobs", "bedrock-agent:ListIngestionJobs"]
         Resource = [
           aws_bedrockagent_knowledge_base.spaces_kb.arn,
           "${aws_bedrockagent_knowledge_base.spaces_kb.arn}/*",

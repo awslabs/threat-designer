@@ -67,10 +67,12 @@ class StreamingHandler:
         Returns error message if mismatch detected, None otherwise.
         """
         try:
-            # Get current provider
-            from config import MODEL_PROVIDER
+            # Compare message-format families, not raw provider values —
+            # "bedrock-mantle" produces OpenAI-format messages, so it must
+            # match sessions detected as "openai".
+            from config import PROVIDER_MESSAGE_FAMILY
 
-            current_provider = MODEL_PROVIDER
+            current_provider = PROVIDER_MESSAGE_FAMILY
 
             # Get session state
             config = {"configurable": {"thread_id": session_id}}
@@ -141,10 +143,10 @@ class StreamingHandler:
                         elif content_type == "reasoning_content":
                             return "bedrock"
 
-        # Default to current provider if can't detect
-        from config import MODEL_PROVIDER
+        # Default to the current provider's message-format family if can't detect
+        from config import PROVIDER_MESSAGE_FAMILY
 
-        return MODEL_PROVIDER
+        return PROVIDER_MESSAGE_FAMILY
 
     @sse_stream()
     async def handle_streaming_request(

@@ -7,6 +7,7 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
+YELLOW='\033[0;33m'
 NC='\033[0m' # No Color
 
 # Function to check if .deployment.config exists and load variables
@@ -96,7 +97,8 @@ get_model_provider() {
     while true; do
         echo -e "${BLUE}Select AI model provider:${NC}"
         echo -e "1) Amazon Bedrock (Claude) ${GREEN}(default)${NC}"
-        echo "2) OpenAI (GPT-5)"
+        echo "2) OpenAI (GPT-5.6)"
+        echo "3) Amazon Bedrock Mantle (GPT-5.6, no OpenAI API key needed)"
         read -r choice
         if [ -z "$choice" ]; then
             MODEL_PROVIDER="bedrock"
@@ -105,7 +107,13 @@ get_model_provider() {
         case $choice in
             1) MODEL_PROVIDER="bedrock"; break;;
             2) MODEL_PROVIDER="openai"; break;;
-            *) echo -e "${RED}Invalid choice. Please select 1 or 2${NC}";;
+            3) MODEL_PROVIDER="bedrock-mantle"
+               echo ""
+               echo -e "${YELLOW}Warning: GPT models on Bedrock Mantle are only served from US regions.${NC}"
+               echo -e "${YELLOW}Model inference is locked to us-east-2, regardless of the region you deploy to.${NC}"
+               echo ""
+               break;;
+            *) echo -e "${RED}Invalid choice. Please select 1, 2 or 3${NC}";;
         esac
     done
 }
@@ -139,9 +147,46 @@ get_openai_api_key() {
     done
 }
 
-# Function to get Tavily API key (optional)
+# Function to choose the web search provider for Sentry (optional feature)
+get_web_search_provider() {
+    while true; do
+        echo -e "${BLUE}Select web search provider for Sentry:${NC}"
+        echo -e "1) None ${GREEN}(default)${NC}"
+        echo "2) Tavily (search + page extraction, requires an API key)"
+        echo "3) Amazon Bedrock AgentCore (search only, no API key needed)"
+        read -r choice
+        if [ -z "$choice" ]; then
+            WEB_SEARCH_PROVIDER="none"
+            break
+        fi
+        case $choice in
+            1) WEB_SEARCH_PROVIDER="none"; break;;
+            2) WEB_SEARCH_PROVIDER="tavily"
+               get_tavily_api_key
+               # An empty key leaves the tools unavailable at runtime, so fall
+               # back rather than deploying a provider that can't work.
+               if [ -z "$TAVILY_API_KEY" ]; then
+                   echo -e "${YELLOW}No Tavily API key provided - web search disabled.${NC}"
+                   WEB_SEARCH_PROVIDER="none"
+               fi
+               break;;
+            3) WEB_SEARCH_PROVIDER="agentcore"
+               echo ""
+               echo -e "${YELLOW}Note: the web search gateway is created in us-east-1 by default.${NC}"
+               echo -e "${YELLOW}The connector is only offered in us-east-1, eu-west-1 and${NC}"
+               echo -e "${YELLOW}ap-northeast-1 — to use another, change the 'web_search_region'${NC}"
+               echo -e "${YELLOW}variable in infra/variables.tf. This may differ from your${NC}"
+               echo -e "${YELLOW}deployment region; queries stay inside AWS either way.${NC}"
+               echo ""
+               break;;
+            *) echo -e "${RED}Invalid choice. Please select 1, 2 or 3${NC}";;
+        esac
+    done
+}
+
+# Function to get Tavily API key
 get_tavily_api_key() {
-    echo -e "${BLUE}Enter your Tavily API key (optional, press Enter to skip):${NC}"
+    echo -e "${BLUE}Enter your Tavily API key (press Enter to skip):${NC}"
     echo -e "${BLUE}(Enables web search and content extraction in Sentry assistant)${NC}"
     read -rs TAVILY_API_KEY  # -s flag hides input
     echo ""  # New line after hidden input
@@ -241,9 +286,9 @@ if [ "$USE_EXISTING" = false ]; then
                 get_openai_api_key
             fi
             
-            # Get Tavily API key (optional, for web search in Sentry)
+            # Choose the web search provider (optional, for Sentry)
             if [ "$ENABLE_SENTRY" = "true" ]; then
-                get_tavily_api_key
+                get_web_search_provider
             fi
             
             # Get user inputs
@@ -270,11 +315,15 @@ if [ "$USE_EXISTING" = false ]; then
             if [ "$MODEL_PROVIDER" = "openai" ]; then
                 echo -e "OpenAI API Key: ${BLUE}****** (hidden)${NC}"
             fi
+            if [ "$MODEL_PROVIDER" = "bedrock-mantle" ]; then
+                echo -e "Mantle Inference Region: ${YELLOW}us-east-2 (US-locked)${NC}"
+            fi
             echo -e "Sentry Enabled: ${BLUE}$ENABLE_SENTRY${NC}"
-            if [ "$ENABLE_SENTRY" = "true" ] && [ -n "$TAVILY_API_KEY" ]; then
-                echo -e "Tavily API Key: ${BLUE}****** (hidden)${NC}"
-            elif [ "$ENABLE_SENTRY" = "true" ]; then
-                echo -e "Tavily API Key: ${BLUE}(not configured)${NC}"
+            if [ "$ENABLE_SENTRY" = "true" ]; then
+                echo -e "Web Search: ${BLUE}${WEB_SEARCH_PROVIDER:-none}${NC}"
+                if [ "$WEB_SEARCH_PROVIDER" = "tavily" ]; then
+                    echo -e "Tavily API Key: ${BLUE}****** (hidden)${NC}"
+                fi
             fi
             echo -e "Username: ${BLUE}$USERNAME${NC}"
             echo -e "Given Name: ${BLUE}$GIVEN_NAME${NC}"
@@ -316,9 +365,9 @@ else
             get_openai_api_key
         fi
         
-        # Get Tavily API key (optional, for web search in Sentry)
+        # Choose the web search provider (optional, for Sentry)
         if [ "$ENABLE_SENTRY" = "true" ]; then
-            get_tavily_api_key
+            get_web_search_provider
         fi
     fi
 fi
@@ -369,6 +418,9 @@ deploy_backend() {
         TF_VARS="$TF_VARS -var=openai_api_key=$OPENAI_API_KEY"
     fi
     
+    # Web search provider for Sentry (none / tavily / agentcore)
+    TF_VARS="$TF_VARS -var=web_search_provider=${WEB_SEARCH_PROVIDER:-none}"
+
     # Add Tavily API key if provided
     if [ -n "$TAVILY_API_KEY" ]; then
         TF_VARS="$TF_VARS -var=tavily_api_key=$TAVILY_API_KEY"

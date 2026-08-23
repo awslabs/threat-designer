@@ -102,35 +102,38 @@ export async function installApiMocks(page: Page, overrides: ApiOverrides = {}) 
   await page.route(new RegExp(`^${API}/spaces/[^/]+/share(\\?.*)?$`), (route) =>
     route.fulfill({ json: { shared: [] } })
   );
-  await page.route(
-    new RegExp(`^${API}/spaces/[^/]+/documents(/[^/?]+)?(\\?.*)?$`),
-    (route) => {
-      const method = route.request().method();
-      // POST /documents/upload -> presigned response
-      if (method === "POST" && /\/documents\/upload/.test(route.request().url())) {
-        return route.fulfill({
-          json: {
-            document_id: "doc-new-1",
-            presigned_url: `${S3}/space-upload`,
-            s3_key: "space/new-key",
-          },
-        });
-      }
-      // POST /documents/confirm -> ingestion started
-      if (method === "POST" && /\/documents\/confirm/.test(route.request().url())) {
-        return route.fulfill({
-          json: {
-            document_id: "doc-new-1",
-            filename: "space-doc.pdf",
-            status: "INGESTING",
-          },
-        });
-      }
-      if (method === "DELETE") return route.fulfill({ json: { ok: true } });
-      // GET /documents
-      return route.fulfill({ json: { documents: (overrides.spaceDetail as { documents?: unknown[] } | undefined)?.documents ?? (spaceDetail as { documents: unknown[] }).documents } });
+  await page.route(new RegExp(`^${API}/spaces/[^/]+/documents(/[^/?]+)?(\\?.*)?$`), (route) => {
+    const method = route.request().method();
+    // POST /documents/upload -> presigned response
+    if (method === "POST" && /\/documents\/upload/.test(route.request().url())) {
+      return route.fulfill({
+        json: {
+          document_id: "doc-new-1",
+          presigned_url: `${S3}/space-upload`,
+          s3_key: "space/new-key",
+        },
+      });
     }
-  );
+    // POST /documents/confirm -> ingestion started
+    if (method === "POST" && /\/documents\/confirm/.test(route.request().url())) {
+      return route.fulfill({
+        json: {
+          document_id: "doc-new-1",
+          filename: "space-doc.pdf",
+          status: "INGESTING",
+        },
+      });
+    }
+    if (method === "DELETE") return route.fulfill({ json: { ok: true } });
+    // GET /documents
+    return route.fulfill({
+      json: {
+        documents:
+          (overrides.spaceDetail as { documents?: unknown[] } | undefined)?.documents ??
+          (spaceDetail as { documents: unknown[] }).documents,
+      },
+    });
+  });
 
   // 5) Generic /threat-designer/:id (GET / PUT / DELETE). Specific paths below override this.
   await page.route(new RegExp(`^${API}/threat-designer/[^/?]+(\\?.*)?$`), async (route) => {
@@ -168,7 +171,10 @@ export async function installApiMocks(page: Page, overrides: ApiOverrides = {}) 
     route.fulfill({ json: { presigned: `${S3}/upload-target`, name: "s3://mock/key.png" } })
   );
   await page.route(new RegExp(`^${API}/threat-designer/download(\\?.*)?$`), (route) =>
-    route.fulfill({ contentType: "application/json", body: JSON.stringify(`${S3}/download-target`) })
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(`${S3}/download-target`),
+    })
   );
   await page.route(new RegExp(`^${API}/threat-designer/download/batch(\\?.*)?$`), (route) =>
     route.fulfill({ json: { results: [] } })

@@ -7,9 +7,7 @@ test.use({
   },
 });
 
-test("non-owner sees no Share/Delete/Create-new-version actions", async ({
-  authenticatedPage,
-}) => {
+test("non-owner sees no Share/Delete/Create-new-version actions", async ({ authenticatedPage }) => {
   await authenticatedPage.goto("/tm-1");
   await expect(authenticatedPage.getByTestId("threat-model-header")).toBeVisible();
 
@@ -18,9 +16,9 @@ test("non-owner sees no Share/Delete/Create-new-version actions", async ({
   // Owner-only actions must NOT be present in the menu.
   await expect(authenticatedPage.getByRole("menuitem", { name: "Share" })).toHaveCount(0);
   await expect(authenticatedPage.getByRole("menuitem", { name: "Delete" })).toHaveCount(0);
-  await expect(
-    authenticatedPage.getByRole("menuitem", { name: "Create new version" })
-  ).toHaveCount(0);
+  await expect(authenticatedPage.getByRole("menuitem", { name: "Create new version" })).toHaveCount(
+    0
+  );
 
   // Non-mutating actions are still available.
   await expect(authenticatedPage.getByRole("menuitem", { name: "Trail" })).toBeVisible();

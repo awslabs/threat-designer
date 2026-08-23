@@ -36,7 +36,11 @@ class AttackTechnique(BaseModel):
     name: str = Field(..., description="Name of the attack technique")
 
     description: str = Field(
-        ..., description="Detailed description of how the attack works"
+        ...,
+        description=(
+            "How the step works at design level: the weakness it relies on and "
+            "what it gains the attacker. No commands, code, or payloads."
+        ),
     )
 
     attack_phase: Literal[
@@ -73,7 +77,11 @@ class AttackTechnique(BaseModel):
     )
 
     techniques: List[str] = Field(
-        ..., description="Specific techniques and methods used"
+        ...,
+        description=(
+            "Named technique classes, using MITRE ATT&CK technique names or IDs "
+            "where one applies. Categories of method, not tooling or procedures."
+        ),
     )
 
 
@@ -213,7 +221,11 @@ class LeafAttackNodeData(NodeData):
     )
 
     description: Optional[str] = Field(
-        None, description="Detailed description of the attack technique"
+        None,
+        description=(
+            "The attack technique at design level: the weakness it relies on and "
+            "what it gains the attacker. No commands, code, or payloads."
+        ),
     )
 
     prerequisites: Optional[List[str]] = Field(
@@ -221,7 +233,11 @@ class LeafAttackNodeData(NodeData):
     )
 
     techniques: Optional[List[str]] = Field(
-        None, description="List of specific techniques and methods used in the attack"
+        None,
+        description=(
+            "Named technique classes, using MITRE ATT&CK technique names or IDs "
+            "where one applies. Categories of method, not tooling or procedures."
+        ),
     )
 
     skillLevel: Optional[Literal["novice", "intermediate", "expert"]] = Field(

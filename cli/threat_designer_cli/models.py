@@ -2,8 +2,8 @@
 
 BEDROCK_MODELS = [
     {
-        "name": "Claude Opus 4.7 (Most Capable)",
-        "id": "global.anthropic.claude-opus-4-7",
+        "name": "Claude Opus 5 (Most Capable)",
+        "id": "global.anthropic.claude-opus-5",
         "max_tokens": 128000,
         "adaptive": True,
         "supports_max": True,
@@ -12,51 +12,78 @@ BEDROCK_MODELS = [
             "2": "medium",
             "3": "high",
             "4": "xhigh",
-            "5": "max",
         },
     },
     {
-        "name": "Claude Opus 4.6",
-        "id": "global.anthropic.claude-opus-4-6-v1",
-        "max_tokens": 32000,
+        "name": "Claude Sonnet 5 (Balanced)",
+        "id": "global.anthropic.claude-sonnet-5",
+        "max_tokens": 128000,
         "adaptive": True,
         "supports_max": True,
-    },
-    {
-        "name": "Claude Sonnet 4.6 (Balanced)",
-        "id": "global.anthropic.claude-sonnet-4-6",
-        "max_tokens": 32000,
-        "adaptive": True,
-        "supports_max": True,
+        "effort_map": {
+            "1": "low",
+            "2": "medium",
+            "3": "high",
+            "4": "xhigh",
+        },
     },
 ]
 
+# GPT-5.6 fleet: Sol is the flagship (the "gpt-5.6" alias routes to it),
+# Terra balances intelligence and cost, Luna serves efficient high-volume work.
+# All three accept the full reasoning-effort ladder; level 4 tops out at
+# "xhigh" (recommended for agentic work) rather than the pricier "max".
 OPENAI_MODELS = [
     {
-        "name": "GPT-5.4 (Latest)",
-        "id": "gpt-5.4-2026-03-05",
+        "name": "GPT-5.6 Sol (Most Capable)",
+        "id": "gpt-5.6-sol",
         "max_tokens": 32000,
-        "mini": False,
-        "effort_map": {"1": "low", "2": "medium", "3": "high", "4": "xhigh"},
+        "effort_map": {
+            "1": "low",
+            "2": "medium",
+            "3": "high",
+            "4": "xhigh",
+        },
+    },
+    {
+        "name": "GPT-5.6 Terra (Balanced)",
+        "id": "gpt-5.6-terra",
+        "max_tokens": 32000,
+        "effort_map": {
+            "1": "low",
+            "2": "medium",
+            "3": "high",
+            "4": "xhigh",
+        },
+    },
+    {
+        "name": "GPT-5.6 Luna (Efficient)",
+        "id": "gpt-5.6-luna",
+        "max_tokens": 32000,
+        "effort_map": {
+            "1": "low",
+            "2": "medium",
+            "3": "high",
+            "4": "xhigh",
+        },
     },
 ]
 
-# Effort levels — map int value → display label
+# Effort levels — map int value → display label. Levels start at 1: every
+# current model is a reasoning model, so there is no 'off' level.
 REASONING_LEVELS = [
-    {"name": "Off  — no reasoning", "value": 0, "effort": "off"},
     {"name": "Low", "value": 1, "effort": "low"},
     {"name": "Medium", "value": 2, "effort": "medium"},
     {"name": "High", "value": 3, "effort": "high"},
-    {"name": "Max  — most thorough", "value": 4, "effort": "max"},
+    {"name": "Extra High  — most thorough", "value": 4, "effort": "xhigh"},
 ]
 
 # Display names for effort strings
 _EFFORT_DISPLAY = {
-    "off": "Off",
     "low": "Low",
     "medium": "Medium",
     "high": "High",
-    "xhigh": "xHigh",
+    "xhigh": "Extra High",
     "max": "Max",
 }
 
@@ -70,7 +97,7 @@ def reasoning_levels_for_model(model_props: dict | None = None) -> list[dict]:
         return REASONING_LEVELS
     effort_map = model_props["effort_map"]
     max_level = max(int(k) for k in effort_map)
-    levels = [REASONING_LEVELS[0]]  # "Off" is always the same
+    levels = []
     for i in range(1, max_level + 1):
         effort = effort_map.get(str(i), "low")
         display = _EFFORT_DISPLAY.get(effort, effort)

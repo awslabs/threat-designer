@@ -524,80 +524,82 @@ const ConflictResolutionModal = ({
       }
     >
       <div data-testid="conflict-modal">
-      <SpaceBetween size="m">
-        <Alert type="warning" header="Conflict detected">
-          The threat model has been modified by another user since you last loaded it. You can
-          review the differences below and choose how to proceed.
-        </Alert>
+        <SpaceBetween size="m">
+          <Alert type="warning" header="Conflict detected">
+            The threat model has been modified by another user since you last loaded it. You can
+            review the differences below and choose how to proceed.
+          </Alert>
 
-        <Tabs
-          activeTabId={activeTabId}
-          onChange={({ detail }) => setActiveTabId(detail.activeTabId)}
-          tabs={[
-            {
-              id: "overview",
-              label: "Overview",
-              content: (
-                <SpaceBetween size="m">
-                  <Container>
-                    <ColumnLayout columns={2} variant="text-grid">
-                      <div>
-                        <Box variant="awsui-key-label">Server Timestamp</Box>
-                        <div>{new Date(conflictData.server_timestamp).toLocaleString()}</div>
-                      </div>
-                      <div>
-                        <Box variant="awsui-key-label">Your Timestamp</Box>
-                        <div>{new Date(conflictData.client_timestamp).toLocaleString()}</div>
-                      </div>
-                      <div>
-                        <Box variant="awsui-key-label">Last Modified By</Box>
-                        <div>{serverState.last_modified_by || "Unknown"}</div>
-                      </div>
-                      <div>
-                        <Box variant="awsui-key-label">Total Differences</Box>
-                        <div>{totalDifferences}</div>
-                      </div>
-                    </ColumnLayout>
-                  </Container>
+          <Tabs
+            activeTabId={activeTabId}
+            onChange={({ detail }) => setActiveTabId(detail.activeTabId)}
+            tabs={[
+              {
+                id: "overview",
+                label: "Overview",
+                content: (
+                  <SpaceBetween size="m">
+                    <Container>
+                      <ColumnLayout columns={2} variant="text-grid">
+                        <div>
+                          <Box variant="awsui-key-label">Server Timestamp</Box>
+                          <div>{new Date(conflictData.server_timestamp).toLocaleString()}</div>
+                        </div>
+                        <div>
+                          <Box variant="awsui-key-label">Your Timestamp</Box>
+                          <div>{new Date(conflictData.client_timestamp).toLocaleString()}</div>
+                        </div>
+                        <div>
+                          <Box variant="awsui-key-label">Last Modified By</Box>
+                          <div>{serverState.last_modified_by || "Unknown"}</div>
+                        </div>
+                        <div>
+                          <Box variant="awsui-key-label">Total Differences</Box>
+                          <div>{totalDifferences}</div>
+                        </div>
+                      </ColumnLayout>
+                    </Container>
 
-                  <Alert type="info">
-                    <strong>What should I do?</strong>
-                    <ul>
-                      <li>
-                        <strong>Use Server Version:</strong> Discard your changes and use the latest
-                        version from the server
-                      </li>
-                      <li>
-                        <strong>Use My Version:</strong> Keep your changes and overwrite the server
-                        version (this will discard the other user's changes)
-                      </li>
-                    </ul>
-                  </Alert>
-                </SpaceBetween>
-              ),
-            },
-            {
-              id: "differences",
-              label: `Differences (${totalDifferences})`,
-              content: (
-                <SpaceBetween size="m">
-                  {renderDescriptionDiff()}
-                  {renderAssumptionDiffs()}
-                  {renderDiffSection("Threats", threatDiffs)}
-                  {renderDiffSection("Assets", assetDiffs)}
-                  {renderDiffSection("Data Flows", flowDiffs)}
-                  {renderDiffSection("Trust Boundaries", boundaryDiffs)}
-                  {renderDiffSection("Threat Sources", sourceDiffs)}
+                    <Alert type="info">
+                      <strong>What should I do?</strong>
+                      <ul>
+                        <li>
+                          <strong>Use Server Version:</strong> Discard your changes and use the
+                          latest version from the server
+                        </li>
+                        <li>
+                          <strong>Use My Version:</strong> Keep your changes and overwrite the
+                          server version (this will discard the other user's changes)
+                        </li>
+                      </ul>
+                    </Alert>
+                  </SpaceBetween>
+                ),
+              },
+              {
+                id: "differences",
+                label: `Differences (${totalDifferences})`,
+                content: (
+                  <SpaceBetween size="m">
+                    {renderDescriptionDiff()}
+                    {renderAssumptionDiffs()}
+                    {renderDiffSection("Threats", threatDiffs)}
+                    {renderDiffSection("Assets", assetDiffs)}
+                    {renderDiffSection("Data Flows", flowDiffs)}
+                    {renderDiffSection("Trust Boundaries", boundaryDiffs)}
+                    {renderDiffSection("Threat Sources", sourceDiffs)}
 
-                  {totalDifferences === 0 && (
-                    <Alert type="info">No differences detected in the main data structures.</Alert>
-                  )}
-                </SpaceBetween>
-              ),
-            },
-          ]}
-        />
-      </SpaceBetween>
+                    {totalDifferences === 0 && (
+                      <Alert type="info">
+                        No differences detected in the main data structures.
+                      </Alert>
+                    )}
+                  </SpaceBetween>
+                ),
+              },
+            ]}
+          />
+        </SpaceBetween>
       </div>
     </Modal>
   );

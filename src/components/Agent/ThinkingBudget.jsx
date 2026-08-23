@@ -1,68 +1,26 @@
 import React from "react";
-import List from "@cloudscape-design/components/list";
-import Toggle from "@cloudscape-design/components/toggle";
+import EffortSlider from "../EffortSlider";
 
-const ThinkingBudget = React.memo(({ budget, setBudget }) => {
-  const items = [
-    {
-      id: "1",
-      content: "Low",
-    },
-    {
-      id: "2",
-      content: "Medium",
-    },
-    {
-      id: "3",
-      content: "High",
-    },
-    {
-      id: "4",
-      content: "Max",
-    },
-  ];
-
-  const handleToggleChange = (itemId, isChecked) => {
-    // If toggling on, set this item as the budget
-    // If toggling off, clear the budget (optional - you might want to prevent this)
-    if (isChecked) {
-      setBudget(itemId);
-    } else {
-      // Optional: prevent unchecking the current selection
-      // or allow clearing by setting to null
-      setBudget(null);
-    }
-  };
-
+/**
+ * Sentry's reasoning-effort picker, shown in the Think button's dropdown.
+ *
+ * Thinking is always on — the lever only selects how much. Budget is held as a
+ * string ("1".."4") because it is persisted to localStorage and sent as-is.
+ */
+function ThinkingBudgetControl({ budget, setBudget }) {
   return (
     <div
       style={{
-        padding: "6px",
-        paddingRight: "16px",
-        paddingLeft: "10px",
-        width: "200px",
+        padding: "10px 16px 12px 12px",
+        width: "220px",
         fontSize: "14px",
       }}
     >
-      <List
-        ariaLabel="List with icons and actions"
-        sortable
-        sortDisabled
-        items={items}
-        renderItem={(item) => ({
-          id: item.id,
-          content: item.content,
-          actions: (
-            <Toggle
-              onChange={({ detail }) => handleToggleChange(item.id, detail.checked)}
-              checked={budget === item.id}
-              readOnly={budget === item.id}
-            />
-          ),
-        })}
-      />
+      <EffortSlider value={budget} onChange={(value) => setBudget(String(value))} />
     </div>
   );
-});
+}
+
+const ThinkingBudget = React.memo(ThinkingBudgetControl);
 
 export default ThinkingBudget;

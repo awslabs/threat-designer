@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useMemo 
 import { checkForInterruptInChatTurns } from "./context/utils";
 import { useChatSessionFunctions } from "./useChatSessionFunctions";
 import { SENTRY_ENABLED } from "./context/constants";
+import { drainAllSessions, cancelAllPumps } from "./context/sessionHelpers";
 
 // Split contexts
 export const ChatSessionFunctionsContext = createContext(null);
@@ -71,6 +72,16 @@ export const ChatSessionProvider = ({ children }) => {
     };
   }, [stableFunctions]);
 
+  // Hidden tabs get no animation frames, so the typewriter pump stalls while
+  // chunks keep queueing — and returning would replay the whole backlog at
+  // reveal rate, looking like live generation long after the run finished. The
+  // animation is a foreground nicety, so flush any backlog on a visibility flip.
+  useEffect(() => {
+    const onVisibilityChange = () => drainAllSessions(sessionRefs, setSessions);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -82,6 +93,8 @@ export const ChatSessionProvider = ({ children }) => {
           clearTimeout(refs.bufferTimeout);
         }
       });
+      // Drops any in-flight typewriter frame along with the session state.
+      cancelAllPumps(sessionRefs);
 
       sessionRefs.current.clear();
       initializedSessions.current.clear();

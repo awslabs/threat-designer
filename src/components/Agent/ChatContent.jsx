@@ -1,5 +1,10 @@
 import ChatTurn from "./ChatTurn";
 import React, { memo, useMemo } from "react";
+import { WEB_SEARCH_TOOLS, WEB_EXTRACT_TOOLS } from "./utils/constants";
+
+// Any tool whose result carries a `results[]` array of sources worth citing —
+// both web search providers and the extract tool.
+const WEB_RESULT_TOOLS = [...WEB_SEARCH_TOOLS, ...WEB_EXTRACT_TOOLS];
 
 /**
  * Extract web search results from message blocks for citation resolution
@@ -13,7 +18,7 @@ const extractWebSearchResults = (chatTurns) => {
     blocks.forEach((block) => {
       if (
         block.type === "tool" &&
-        (block.toolName === "tavily_search" || block.toolName === "tavily_extract") &&
+        WEB_RESULT_TOOLS.includes(block.toolName) &&
         block.content &&
         block.isComplete
       ) {

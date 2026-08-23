@@ -11,19 +11,8 @@ import {
   TokenGroup,
 } from "@cloudscape-design/components";
 import Alert from "@cloudscape-design/components/alert";
-import { I18nProvider } from "@cloudscape-design/components/i18n";
-import Slider from "@cloudscape-design/components/slider";
+import EffortSlider from "../EffortSlider";
 import StartComponent from "./StartComponent";
-
-const REASONING_LABELS = [
-  { value: "0", label: "None" },
-  { value: "1", label: "Low" },
-  { value: "2", label: "Medium" },
-  { value: "3", label: "High" },
-  { value: "4", label: "Max" },
-];
-const REASONING_REFERENCE_VALUES = [1, 2, 3];
-const MAX_REASONING = 4;
 
 export const VersionModalComponent = ({
   visible,
@@ -35,7 +24,7 @@ export const VersionModalComponent = ({
   onVersion,
 }) => {
   const [title, setTitle] = useState(currentTitle);
-  const [reasoning, setReasoning] = useState("0");
+  const [reasoning, setReasoning] = useState("1");
   const [description, setDescription] = useState(currentDescription);
   const [assumptions, setAssumptions] = useState(
     currentAssumptions.map((a, i) => ({ label: a, dismissLabel: `Remove ${a}` }))
@@ -153,7 +142,10 @@ export const VersionModalComponent = ({
           />
         </FormField>
 
-        <FormField label="Architecture diagram" description="Upload the new architecture diagram for version comparison.">
+        <FormField
+          label="Architecture diagram"
+          description="Upload the new architecture diagram for version comparison."
+        >
           <StartComponent
             onBase64Change={handleBase64Change}
             value={fileValue}
@@ -214,19 +206,7 @@ export const VersionModalComponent = ({
           label="Reasoning boost"
           description="Controls the amount of thinking time for the version analysis."
         >
-          <Slider
-            i18nStrings={I18nProvider}
-            onChange={({ detail }) => setReasoning(detail.value)}
-            value={reasoning}
-            valueFormatter={(value) =>
-              REASONING_LABELS.find((item) => item.value === value.toString())?.label || ""
-            }
-            ariaDescription="From None to Max"
-            max={MAX_REASONING}
-            min={0}
-            referenceValues={REASONING_REFERENCE_VALUES}
-            step={1}
-          />
+          <EffortSlider value={reasoning} onChange={setReasoning} />
         </FormField>
 
         <FormField label="Mirror options">

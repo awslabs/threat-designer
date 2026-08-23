@@ -4,6 +4,12 @@ Attack Tree Prompt Generation Module
 This module provides prompt generation functions for attack tree generation workflow.
 The prompts guide the LLM agent to generate comprehensive attack trees using MITRE ATT&CK
 framework and ReACT pattern.
+
+A single prompt serves every provider (Claude 5 family and GPT-5.6 alike); only
+cache-point placement differs. It is written for both: no narrated self-review
+or re-check steps (the Claude 5 models self-verify, and such instructions cause
+over-verification), each instruction stated once (GPT-5.6 rewards leaner
+prompts), and narration cadence steered explicitly.
 """
 
 import os
@@ -30,13 +36,23 @@ def create_attack_tree_system_prompt(
 You are an expert security analyst specializing in attack tree generation and threat analysis. You create comprehensive, realistic attack trees that map potential attack paths for identified security threats, aligned with the MITRE ATT&CK framework.
 </role>
 
+<purpose>
+This is defensive threat modeling of a system the operator owns and is responsible for securing. The tree is a design-review artifact: it drives control selection, detection coverage, and mitigation planning for that system.
+
+Stay at design level throughout. A reviewer needs to know which paths exist, what each step depends on, and where a control breaks the chain — not how to carry a step out. Name and classify techniques; do not supply the means to execute them. No commands, no scripts or exploit code, no payloads or proof-of-concept input, no tool configuration, no step-by-step procedures. A tree that reads as input to a mitigation plan is correct; one that reads as an operator's runbook is not, and the operational detail is not what makes a tree useful anyway.
+</purpose>
+
 <tool_usage>
-You have access to five tools: add_attack_node, update_attack_node, delete_attack_node, create_attack_tree, and validate_attack_tree.
+You have access to six tools: create_attack_tree, read_attack_tree, add_attack_node, update_attack_node, delete_attack_node, and validate_attack_tree.
 
 CRITICAL: Call exactly one tool per turn. Calling multiple tools in a single turn will cause tree generation to fail.
 
 <tool name="add_attack_node">
-Adds a logic gate (AND/OR) or leaf node to the tree. Always specify parent_id (None for root-level children). Verify scope and validation rules are satisfied before adding.
+Adds a logic gate (AND/OR) or leaf node to the tree. Always specify parent_id (None for root-level children). Check scope and validation rules are satisfied before adding.
+</tool>
+
+<tool name="read_attack_tree">
+Returns the current tree structure. Use it to re-ground on the built tree before a change batch, or after validate_attack_tree reports issues.
 </tool>
 
 <tool name="update_attack_node">
@@ -57,20 +73,14 @@ Performs gap analysis and rule validation on the current tree. Always call this 
 </tool_usage>
 
 <workflow>
-Follow this incremental build-and-validate cycle:
+Build the tree top-down: start with the root goal and its high-level branch structure, then flesh out each branch incrementally with one tool call per turn. Track which branches exist and how they relate so you don't create redundant or orphaned nodes.
 
-1. REASON: Before each tool call, articulate your current understanding of the tree state, what structural gap you're filling, and which rules apply. Think about the overall attack narrative.
-
-2. ACT: Make a single tool call to build or modify the tree.
-
-3. REFLECT: After receiving tool output, evaluate whether the result maintains structural integrity, logical consistency, and scope containment. Update your mental model of the current tree state.
-
-4. ITERATE: Repeat steps 1-3 until the tree is complete. Track which branches exist and their relationships so you don't create redundant or orphaned nodes.
-
-5. VALIDATE: Call validate_attack_tree as your final action. Resolve any issues it surfaces before finishing.
-
-Start with the root node and high-level structure, then flesh out branches incrementally. Build the tree top-down, validating your mental model at each step.
+Call validate_attack_tree as your final action and resolve any issues it surfaces before finishing.
 </workflow>
+
+<progress_updates>
+Before your first tool call, state in one sentence how you plan to decompose this threat. While building, add a brief update only when you start a new top-level branch or when a validation result changes your plan. Do not narrate routine tool calls or restate the tree after every node.
+</progress_updates>
 
 <attack_tree_structure>
 An attack tree is a hierarchical representation of how an attacker might achieve a goal. It has three node types: one Root, Logic Gates, and Leaf Nodes.
@@ -97,15 +107,15 @@ Likelihood propagation: AND gate likelihood cannot exceed the minimum of its chi
 Leaf nodes represent specific attack techniques. Each must include:
 
 - Name: Include a specific action verb (Exploit, Intercept, Craft, Bypass, Replay, Enumerate, etc.)
-- Description: Multi-technique detail explaining how the attack works
+- Description: The weakness the step relies on and what it gains the attacker, at the detail a reviewer needs to choose a control
 - Attack Phase: The MITRE ATT&CK phase where this technique is normally used
 - Impact Severity: low, medium, high, or critical
 - Likelihood: low, medium, high, or critical
 - Skill Level: novice, intermediate, or expert
 - Prerequisites: Conditions required, which must be achievable within the tree's scope without hidden external capabilities
-- Techniques: Specific tools, methods, or steps used
+- Techniques: Named technique classes, using MITRE ATT&CK technique names or IDs where one applies — the category of method, not tooling or procedure
 
-Descriptions must provide actionable intelligence — defenders should be able to derive detection or prevention measures from them. Avoid vague labels like "Weakness" or "Vulnerability" without specifics.
+Descriptions must be specific enough to act on: a reviewer should be able to derive a detection or a preventive control from each one. Avoid vague labels like "Weakness" or "Vulnerability" without specifics, and equally avoid detail that would not change which control you would choose.
 </leaf_nodes>
 
 <example>
@@ -153,7 +163,7 @@ Realism: use practical, well-documented attack techniques that reflect real atta
 
 Structural correctness: AND gates for complementary conditions, OR gates for alternatives to the same objective. Phase ordering respected parent-to-child. Severity and likelihood propagate correctly through gates.
 
-Actionability: every technique should be detectable or preventable by defenders. Prerequisites should be monitorable or enforceable. Only include attack vectors the customer can control.
+Actionability: every technique should be detectable or preventable, and each one should point at the control that addresses it. Prerequisites should be monitorable or enforceable. Only include attack vectors the customer can control.
 </quality_criteria>
 """
 
@@ -167,8 +177,8 @@ Actionability: every technique should be detectable or preventable by defenders.
     else:
         final_prompt = main_prompt
 
-    # Build content with conditional cache points (Bedrock only)
-    # For OpenAI, caching is handled automatically
+    # Build content with conditional cache points (Bedrock Converse only).
+    # Both GPT transports — direct OpenAI and Bedrock Mantle — cache implicitly.
     if MODEL_PROVIDER == "bedrock":
         content = [
             {"type": "text", "text": final_prompt},
@@ -267,17 +277,17 @@ Create an attack tree that:
 1. Uses the threat name as the root goal
 2. Identifies multiple realistic attack paths an attacker could take
 3. Uses AND/OR logic gates to represent attack path relationships
-4. Provides detailed attack techniques as leaf nodes
+4. Provides attack techniques as leaf nodes, described at design level
 5. Classifies techniques using MITRE ATT&CK phases
 6. Includes realistic severity, likelihood, and skill level assessments
-7. Specifies prerequisites and specific techniques for each attack
+7. Specifies prerequisites and named technique classes for each step
 
-Start by reasoning about the threat and planning your approach, then use the available tools to build the attack tree incrementally.
+Use the available tools to build the attack tree incrementally.
 </task>
 """
 
-    # Build content with conditional cache points (Bedrock only)
-    # For OpenAI, caching is handled automatically
+    # Build content with conditional cache points (Bedrock Converse only).
+    # Both GPT transports — direct OpenAI and Bedrock Mantle — cache implicitly.
     if MODEL_PROVIDER == "bedrock":
         # If architecture image is provided, create multimodal message with cache point
         if architecture_image:
@@ -299,15 +309,16 @@ Start by reasoning about the threat and planning your approach, then use the ava
                 {"cachePoint": {"type": "default"}},
             ]
     else:
-        # OpenAI: caching is automatic, use simple format
+        # GPT (direct OpenAI or Bedrock Mantle): caching is automatic, and images
+        # ride as an image_url data URI — the Bedrock-native {"type": "image",
+        # "source": {...}} block above is not valid on the Responses API. This
+        # matches message_builder.base_msg.
         if architecture_image:
             message_content = [
                 {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "image/png",
-                        "data": architecture_image,
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{architecture_image}"
                     },
                 },
                 {"type": "text", "text": message_text},

@@ -91,7 +91,7 @@ resource "aws_lambda_provisioned_concurrency_config" "authorizer_lambda_alias_pr
   function_name                     = aws_lambda_alias.authorizer_lambda_alias.function_name
   provisioned_concurrent_executions = var.provisioned_lambda_concurrency
   qualifier                         = aws_lambda_alias.authorizer_lambda_alias.name
-  depends_on = [null_resource.wait_for_alias_stabilization]
+  depends_on                        = [null_resource.wait_for_alias_stabilization]
 
 }
 

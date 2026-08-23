@@ -15,9 +15,7 @@ test("opens the attack tree drawer for a threat", async ({ authenticatedPage }) 
   ).toBeVisible();
 });
 
-test("renders the ReactFlow canvas with mocked nodes and edges", async ({
-  authenticatedPage,
-}) => {
+test("renders the ReactFlow canvas with mocked nodes and edges", async ({ authenticatedPage }) => {
   await authenticatedPage.goto("/tm-1");
   await expect(
     authenticatedPage.getByText("Card details exfiltration", { exact: false }).first()
@@ -36,9 +34,7 @@ test("renders the ReactFlow canvas with mocked nodes and edges", async ({
   await expect(authenticatedPage.getByTestId("node-leaf-1")).toBeVisible();
 
   // Node text content is projected through Cloudscape components.
-  await expect(
-    authenticatedPage.getByText("Exfiltrate card details").first()
-  ).toBeVisible();
+  await expect(authenticatedPage.getByText("Exfiltrate card details").first()).toBeVisible();
   await expect(authenticatedPage.getByText("SQL injection on API").first()).toBeVisible();
 
   // One edge is drawn.

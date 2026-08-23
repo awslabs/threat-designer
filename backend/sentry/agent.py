@@ -11,9 +11,15 @@ from handlers import handlers
 from streaming import streaming_handler, cancel_stream_async
 from exceptions import MissingHeader
 from utils import logger, load_mcp_config
-from config import ALL_AVAILABLE_TOOLS
+from config import (
+    ALL_AVAILABLE_TOOLS,
+    WEB_SEARCH_PROVIDER,
+    WEB_SEARCH_PROVIDER_AGENTCORE,
+    WEB_SEARCH_PROVIDER_TAVILY,
+)
 from tools import add_threats, edit_threats, delete_threats, get_attack_tree
 from tavily_tools import get_tavily_tools
+from web_search_tools import get_agentcore_web_search_tools
 import jwt
 
 
@@ -61,14 +67,22 @@ async def lifespan(app: FastAPI):
         ALL_AVAILABLE_TOOLS.clear()
         ALL_AVAILABLE_TOOLS.extend(filtered_mcp_tools)
 
-        # Load Tavily tools if configured
-        tavily_tools = get_tavily_tools()
+        # Load web search tools for the provider chosen at deploy time. Tavily
+        # contributes search + extract; AgentCore contributes search only (its
+        # connector has no fetch counterpart).
+        if WEB_SEARCH_PROVIDER == WEB_SEARCH_PROVIDER_TAVILY:
+            web_search_tools = get_tavily_tools()
+        elif WEB_SEARCH_PROVIDER == WEB_SEARCH_PROVIDER_AGENTCORE:
+            web_search_tools = get_agentcore_web_search_tools()
+        else:
+            web_search_tools = []
 
-        if tavily_tools:
+        if web_search_tools:
             logger.debug(
-                f"Loaded {len(tavily_tools)} Tavily tools: {[t.name for t in tavily_tools]}"
+                f"Loaded {len(web_search_tools)} web search tool(s) from "
+                f"{WEB_SEARCH_PROVIDER}: {[t.name for t in web_search_tools]}"
             )
-            ALL_AVAILABLE_TOOLS.extend(tavily_tools)
+            ALL_AVAILABLE_TOOLS.extend(web_search_tools)
 
         ALL_AVAILABLE_TOOLS.extend(
             [add_threats, edit_threats, delete_threats, get_attack_tree]

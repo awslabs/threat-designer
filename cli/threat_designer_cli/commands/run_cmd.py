@@ -34,11 +34,13 @@ from ..styles import (
     fmt_duration,
 )
 
-_EFFORT_CHOICES = ["off", "low", "medium", "high", "xhigh", "max"]
+# The ladder tops out at "xhigh": no catalog effort_map maps a level to "max",
+# so offering it here only produced "Model does not support effort 'max'".
+_EFFORT_CHOICES = ["low", "medium", "high", "xhigh"]
 
 
 def _effort_to_level(effort: str, model_props: dict | None) -> int:
-    """Resolve a CLI effort string (off/low/.../max) to the reasoning level for this model."""
+    """Resolve a CLI effort string (low/.../max) to the reasoning level for this model."""
     for lvl in reasoning_levels_for_model(model_props):
         if lvl["effort"] == effort:
             return lvl["value"]
@@ -74,7 +76,7 @@ def _parse_args(argv: list) -> argparse.Namespace:
         "--effort",
         choices=_EFFORT_CHOICES,
         default=None,
-        help="Override configured effort level (off/low/medium/high/xhigh/max — availability varies by model)",
+        help="Override configured effort level (low/medium/high/xhigh — availability varies by model)",
     )
     p.add_argument(
         "--iterations",

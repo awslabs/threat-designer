@@ -313,6 +313,52 @@ const CITATION_PLACEHOLDER = '<span class="citation-loading"></span>';
 const CHART_PLACEHOLDER = '<span class="chart-loading-placeholder"></span>';
 
 /**
+ * Hide a tag that is still arriving, replacing it with a loading placeholder.
+ *
+ * Tags stream in one character at a time, so every intermediate prefix of
+ * `<chart config='{…}' />` and `<cite ref="1:1" />` gets rendered. Enumerating
+ * those prefixes with one regex each left gaps — `<chart c`, `<cite ref=`, and
+ * every state from the attribute's closing quote through the final `>` — and each
+ * gap dumped the raw tag into the DOM for a few frames before snapping back to the
+ * placeholder. For charts that meant flashing the whole JSON config as text.
+ *
+ * Anchor on the tag name instead: starting at the last `<name`, scan for the `>`
+ * that closes it. Quoted attribute values are skipped, because a chart title may
+ * legitimately contain `>`. Finding that `>` means the tag arrived in full and is
+ * left alone — so prose that merely mentions `<chart>` is untouched. Running off
+ * the end of the content instead means the tag is still streaming, and only then
+ * is it replaced.
+ *
+ * @param {string} content - Raw content being streamed
+ * @param {string} name - Tag name to look for, e.g. "chart"
+ * @param {string} placeholder - Markup to substitute for the partial tag
+ * @returns {string} Content with any in-flight tag replaced
+ */
+const hideStreamingTag = (content, name, placeholder) => {
+  // Match on the original string: indexing a lowercased copy is unsafe because
+  // toLowerCase is not length-preserving for every code point.
+  let open = -1;
+  for (const match of content.matchAll(new RegExp(`<${name}\\b`, "gi"))) {
+    open = match.index;
+  }
+  if (open === -1) return content;
+
+  let quote = null;
+  for (let i = open + name.length + 1; i < content.length; i++) {
+    const char = content[i];
+    if (quote) {
+      if (char === quote) quote = null;
+    } else if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === ">") {
+      return content; // tag is closed, so it is not mid-flight
+    }
+  }
+
+  return content.slice(0, open) + placeholder;
+};
+
+/**
  * Preprocess content to convert XML-style citations to URL-based citations
  * Format: <cite ref="X:Y" /> or <cite ref="X:Y,Z:W" />
  * Converted to: <cite data-urls="resolved_url1,resolved_url2"></cite>
@@ -324,6 +370,9 @@ const preprocessCitations = (content, webSearchResults) => {
   if (!content) return content;
 
   let processed = content;
+
+  // Hide a citation that is still arriving, before the rewrite below sees it
+  processed = hideStreamingTag(processed, "cite", CITATION_PLACEHOLDER);
 
   // Convert XML-style citations <cite ref="X:Y" /> or <cite ref="X:Y,Z:W" />
   processed = processed.replace(/<cite\s+ref="([^"]+)"\s*\/>/gi, (match, refContent) => {
@@ -340,14 +389,10 @@ const preprocessCitations = (content, webSearchResults) => {
     return match;
   });
 
-  // Replace incomplete citation patterns with a loading placeholder
-  // This handles all streaming states: <c, <ci, <cit, <cite, <cite , <cite r, <cite ref, <cite ref=, <cite ref="..., etc.
-  // Match incomplete <cite tags that haven't been closed with />
-  processed = processed.replace(/<cite(?:\s+ref(?:="[^"]*)?)?(?:\s*)$/gi, CITATION_PLACEHOLDER);
-
-  // Also catch partial tag starts like <c, <ci, <cit at the end
-  processed = processed.replace(/<cit?e?$/gi, CITATION_PLACEHOLDER);
-  processed = processed.replace(/<ci$/gi, CITATION_PLACEHOLDER);
+  // Partial tag names too short for hideStreamingTag to anchor on: <ci, <cit.
+  // A trailing <c is ambiguous with <chart, and is claimed here because citations
+  // are far more common and their placeholder is a small inline shimmer.
+  processed = processed.replace(/<cit?$/gi, CITATION_PLACEHOLDER);
   processed = processed.replace(/<c$/gi, CITATION_PLACEHOLDER);
 
   // Hide lone < at the end (could be start of any tag)
@@ -391,6 +436,9 @@ const preprocessCharts = (content) => {
 
   let processed = content;
 
+  // Hide a chart that is still arriving, before the rewrites below see it
+  processed = hideStreamingTag(processed, "chart", CHART_PLACEHOLDER);
+
   // Replace complete self-closing chart tags with single quotes: <chart config='...' />
   processed = processed.replace(/<chart\s+config='([^']+)'\s*\/>/gi, (match, configJson) => {
     return `<chart data-config="${escapeHtmlAttr(configJson)}"></chart>`;
@@ -411,23 +459,8 @@ const preprocessCharts = (content) => {
     return `<chart data-config="${escapeHtmlAttr(configJson)}"></chart>`;
   });
 
-  // Replace incomplete chart tags with placeholder
-  // Handle: <chart config='... (incomplete JSON, no closing quote or />)
-  processed = processed.replace(/<chart\s+config='[^']*$/gi, CHART_PLACEHOLDER);
-  // Handle: <chart config="... (incomplete JSON, no closing quote or />)
-  processed = processed.replace(/<chart\s+config="[^"]*$/gi, CHART_PLACEHOLDER);
-  // Handle: <chart config= (no quote yet)
-  processed = processed.replace(/<chart\s+config=\s*$/gi, CHART_PLACEHOLDER);
-  // Handle: <chart config (no = yet)
-  processed = processed.replace(/<chart\s+config\s*$/gi, CHART_PLACEHOLDER);
-  // Handle: <chart confi, <chart conf, etc.
-  processed = processed.replace(/<chart\s+conf?i?g?\s*$/gi, CHART_PLACEHOLDER);
-  // Handle: <chart (just the tag name with optional space)
-  processed = processed.replace(/<chart\s*$/gi, CHART_PLACEHOLDER);
-  // Handle: <char (partial tag name)
-  processed = processed.replace(/<char$/gi, CHART_PLACEHOLDER);
-  // Handle: <cha (partial tag name)
-  processed = processed.replace(/<cha$/gi, CHART_PLACEHOLDER);
+  // Partial tag names too short for hideStreamingTag to anchor on: <ch, <cha, <char
+  processed = processed.replace(/<ch(?:a(?:r)?)?$/gi, CHART_PLACEHOLDER);
 
   return processed;
 };

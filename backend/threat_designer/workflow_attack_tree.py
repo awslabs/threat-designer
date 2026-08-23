@@ -27,6 +27,41 @@ from langgraph.graph import MessagesState
 from constants import MAX_EXECUTION_TIME_SECONDS
 
 
+# Stop reasons that mean the provider suppressed the response rather than the
+# model choosing to stop. Bedrock reports these in response_metadata["stopReason"],
+# the OpenAI family in response_metadata["finish_reason"].
+FILTERED_STOP_REASONS = frozenset(
+    {"content_filtered", "guardrail_intervened", "content_filter"}
+)
+
+
+def _filtered_stop_reason(response: object) -> Optional[str]:
+    """
+    Return the stop reason if the provider filtered the response, else None.
+
+    Enumerating concrete attack techniques for a target reads as dual-use to
+    provider safety layers, so an attack-tree turn can come back suppressed. The
+    costly part is that it comes back with HTTP 200 and an EMPTY body: no text and
+    no tool calls. The agent then looks "done", the continue node finds no tree and
+    nudges it to try again, and the graph spins agent -> continue -> agent until it
+    trips recursion_limit — dozens of full-price calls, and a failure whose logs say
+    nothing about the cause. Detecting the stop reason turns that into one clear
+    error.
+
+    Args:
+        response: Message returned by the bound model
+
+    Returns:
+        Optional[str]: The filtering stop reason, or None if the turn was normal
+    """
+    metadata = getattr(response, "response_metadata", None) or {}
+    for key in ("stopReason", "finish_reason"):
+        reason = metadata.get(key)
+        if isinstance(reason, str) and reason.lower() in FILTERED_STOP_REASONS:
+            return reason
+    return None
+
+
 # ============================================================================
 # State Definition
 # ============================================================================
@@ -153,7 +188,7 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
     start_time = state.get("start_time")
 
     try:
-        # Check for timeout (5 minutes max)
+        # Check for timeout
         if start_time:
             elapsed_time = time.time() - start_time
             if elapsed_time > MAX_EXECUTION_TIME_SECONDS:
@@ -163,10 +198,22 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
                     attack_tree_id=attack_tree_id,
                     elapsed_time=elapsed_time,
                     max_time=MAX_EXECUTION_TIME_SECONDS,
+                    tool_use=tool_use,
+                    validate_tool_use=validate_tool_use,
                 )
-                # Update status to failed
+                # Update status to failed. Every other failure path here records a
+                # detail; without one a timeout is indistinguishable in the UI from
+                # any other failure, which is the hardest kind to diagnose.
                 try:
-                    state_service.update_job_state(attack_tree_id, "failed")
+                    state_service.update_job_state(
+                        attack_tree_id,
+                        "failed",
+                        detail=(
+                            "Attack tree generation timed out after "
+                            f"{int(elapsed_time)}s (limit {MAX_EXECUTION_TIME_SECONDS}s) "
+                            f"with {tool_use} tool calls."
+                        ),
+                    )
                 except Exception as status_error:
                     logger.error(
                         "Failed to update status to failed after timeout",
@@ -562,6 +609,53 @@ def agent_node(state: AttackTreeState, config: RunnableConfig) -> Command:
                     error=str(status_error),
                 )
             raise RuntimeError(f"Model invocation failed: {str(e)}")
+
+        # A suppressed turn returns HTTP 200 with an empty body, so it has to be
+        # detected explicitly or the graph spins until recursion_limit. Fail here
+        # instead, with the stop reason in the job detail.
+        stop_reason = _filtered_stop_reason(response)
+        if stop_reason:
+            logger.error(
+                "Model response suppressed by the provider's safety layer",
+                node="agent",
+                attack_tree_id=attack_tree_id,
+                stop_reason=stop_reason,
+                model_type=type(model).__name__,
+                has_tool_calls=bool(getattr(response, "tool_calls", None)),
+            )
+            try:
+                state_service.update_job_state(
+                    attack_tree_id,
+                    "failed",
+                    detail=(
+                        "The model provider suppressed the attack tree response "
+                        f"(stop reason: {stop_reason}). Retry, or generate the tree "
+                        "for a more narrowly scoped threat."
+                    ),
+                )
+            except Exception as status_error:
+                logger.error(
+                    "Failed to update status to failed after filtered response",
+                    node="agent",
+                    attack_tree_id=attack_tree_id,
+                    error=str(status_error),
+                )
+            raise RuntimeError(
+                f"Attack tree response was filtered by the provider ({stop_reason})"
+            )
+
+        # Log the stop reason so a stalled run is diagnosable from the logs alone
+        logger.debug(
+            "Model turn completed",
+            node="agent",
+            attack_tree_id=attack_tree_id,
+            stop_reason=(getattr(response, "response_metadata", None) or {}).get(
+                "stopReason"
+            )
+            or (getattr(response, "response_metadata", None) or {}).get(
+                "finish_reason"
+            ),
+        )
 
         # Update status based on tool calls
         if hasattr(response, "tool_calls") and response.tool_calls:

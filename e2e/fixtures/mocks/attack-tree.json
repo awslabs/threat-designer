@@ -17,8 +17,6 @@
         "data": { "label": "SQL injection on API", "attackChainPhase": "Access" }
       }
     ],
-    "edges": [
-      { "id": "edge-1", "source": "goal-1", "target": "leaf-1" }
-    ]
+    "edges": [{ "id": "edge-1", "source": "goal-1", "target": "leaf-1" }]
   }
 }

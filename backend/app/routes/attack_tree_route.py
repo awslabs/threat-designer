@@ -45,8 +45,14 @@ def create_attack_tree():
             "threat_model_id": "uuid",
             "threat_name": "string",
             "threat_description": "string",
-            "reasoning": 0-3 (optional)
+            "reasoning": 1-4 (optional, accepted but not applied — see below)
         }
+
+    Note on "reasoning": attack tree generation pins its own effort level
+    (ATTACK_TREE_REASONING_LEVEL in the agent) so the tree is built at a
+    consistent depth regardless of the caller. The field is still accepted and
+    validated so existing clients keep working, but it does not change the
+    effort used.
 
     Returns:
         {
@@ -73,7 +79,7 @@ def create_attack_tree():
         threat_model_id = body.get("threat_model_id")
         threat_name = body.get("threat_name")
         threat_description = body.get("threat_description")
-        reasoning = body.get("reasoning", 0)
+        reasoning = body.get("reasoning", 1)
 
         if not threat_model_id:
             raise BadRequestError("threat_model_id is required")
@@ -84,9 +90,12 @@ def create_attack_tree():
         if not threat_description:
             raise BadRequestError("threat_description is required")
 
-        # Validate reasoning level
-        if not isinstance(reasoning, int) or reasoning < 0 or reasoning > 3:
-            raise BadRequestError("reasoning must be an integer between 0 and 3")
+        # Validate reasoning level. Levels run 1-4; 0 is still accepted from
+        # older clients and normalized to the minimum by the agent. Validated
+        # even though the agent pins its own attack-tree level, so a malformed
+        # value is still rejected rather than silently swallowed.
+        if not isinstance(reasoning, int) or reasoning < 0 or reasoning > 4:
+            raise BadRequestError("reasoning must be an integer between 1 and 4")
 
         # Invoke attack tree agent
         result = invoke_attack_tree_agent(

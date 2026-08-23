@@ -475,6 +475,7 @@ const ThreatModelInner = () => {
           parentId={parentId}
           parentTitle={parentData?.title || parentId}
           onCompare={parentData ? handleCompare : undefined}
+          methodology={resolveMethodology(response?.item)}
         />
         <ThreatModelAlerts
           alert={alert}

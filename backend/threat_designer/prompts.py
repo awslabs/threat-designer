@@ -8,6 +8,11 @@ Each function generates specialized prompts for different phases of the threat m
 - Gap analysis
 - Threat identification and improvement
 - Response structuring
+
+This version is tuned for the Claude 5 family (Opus 5 / Sonnet 5): the models
+self-verify and self-correct, so the prompts avoid explicit verification and
+re-check instructions, and instead steer narration cadence explicitly since
+these models narrate agentic work readily.
 """
 
 import os
@@ -530,7 +535,7 @@ that puts it in scope.
 
 
 def structure_prompt(data) -> str:
-    return f"""You are an helpful assistant whose goal is to to convert the response from your colleague
+    return f"""You are a helpful assistant whose goal is to convert the response from your colleague
      to the desired structured output. The response is provided within <response> \n
      <response>
      {data}
@@ -618,6 +623,13 @@ flows_stats — current counts and contents. Call after each batch.
 
 Submit parallel add calls when you have items ready for multiple categories.
 </tools>
+
+<progress_updates>
+Before your first tool call, say in one sentence what you're about to do. While
+working, give a brief update (1-2 sentences) only when you complete a category
+or a discovery changes your plan — each update names a concrete outcome. Do not
+narrate routine tool calls.
+</progress_updates>
 
 <workflow>
 Work in iterative cycles: define a batch → flows_stats → identify gaps → next
@@ -752,6 +764,13 @@ catalog_stats — check {label} distribution and asset coverage.
 read_threat_catalog — review current catalog before adding or after gap_analysis.
 </tools>
 
+<progress_updates>
+Before your first tool call, say in one sentence what you're about to do. While
+working, give a brief update (1-2 sentences) only when you complete an analysis
+group or a gap_analysis result changes your plan — each update names a concrete
+outcome. Do not narrate routine tool calls.
+</progress_updates>
+
 <workflow>
 Work in a generate → audit → fix cycle.
 
@@ -764,7 +783,7 @@ Expand from there across remaining assets and {label} coverage through
 additional batched add_threats calls. Maximize each batch — larger batches
 mean fewer round-trips and faster completion.
 
-After ~25-30 accumulated threats, call `gap_analysis`.. Weigh findings against your
+After ~25-30 accumulated threats, call `gap_analysis`. Weigh findings against your
 own assessment — address genuine gaps, use judgment on marginal ones. If
 gap_analysis repeatedly flags something you've already evaluated and rejected,
 note your reasoning and move on.

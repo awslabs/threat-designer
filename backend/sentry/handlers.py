@@ -113,16 +113,15 @@ class RequestHandlers:
             if diagram_path:
                 logger.debug(f"Updating diagram path: {diagram_path}")
 
-            # Log budget level information
-            if budget_level == 0:
-                logger.debug("Budget level 0: Thinking disabled")
-            else:
-                from config import BUDGET_MAPPING
+            # Log budget level information. Thinking is always on: the ladder
+            # starts at 1 and every current model is a reasoning model.
+            from config import BUDGET_MAPPING, normalize_budget_level
 
-                budget_tokens = BUDGET_MAPPING.get(budget_level, 8000)
-                logger.debug(
-                    f"Budget level {budget_level}: Thinking enabled with {budget_tokens} tokens"
-                )
+            budget_level = normalize_budget_level(budget_level)
+            budget_tokens = BUDGET_MAPPING.get(budget_level, 8000)
+            logger.debug(
+                f"Budget level {budget_level}: Thinking enabled with {budget_tokens} tokens"
+            )
 
             await agent_manager.get_agent_with_preferences(
                 tool_preferences, context, diagram_path, budget_level
@@ -137,7 +136,7 @@ class RequestHandlers:
                     "context_loaded": context is not None,
                     "diagram_loaded": agent_manager.current_diagram_data is not None,
                     "budget_level": agent_manager.current_budget_level,
-                    "thinking_enabled": agent_manager.current_budget_level > 0,
+                    "thinking_enabled": True,
                 },
                 headers={
                     "Access-Control-Allow-Origin": "*",

@@ -20,7 +20,7 @@ const ChatInput = ({
   isStreaming = false,
   sessionId = null,
   tools = [],
-  thinkingBudget = 0,
+  thinkingBudget = 1,
   onToggleButton = () => {},
   onDropdownClick = () => {},
   onHeightChange = () => {},

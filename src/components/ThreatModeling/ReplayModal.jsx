@@ -10,8 +10,7 @@ import {
   Link,
 } from "@cloudscape-design/components";
 import Alert from "@cloudscape-design/components/alert";
-import { I18nProvider } from "@cloudscape-design/components/i18n";
-import Slider from "@cloudscape-design/components/slider";
+import EffortSlider from "../EffortSlider";
 import Textarea from "@cloudscape-design/components/textarea";
 
 export const ReplayModalComponent = ({
@@ -22,10 +21,9 @@ export const ReplayModalComponent = ({
   currentApplicationType = "hybrid",
 }) => {
   const [iteration, setIteration] = useState({ label: "Auto", value: 0 });
-  const [reasoning, setReasoning] = useState("0");
+  const [reasoning, setReasoning] = useState("1");
   const [text, setText] = useState(null);
   const [applicationType, setApplicationType] = useState(null);
-  const maxReasoning = 4;
 
   const applicationTypeOptions = [
     { label: "Internal", value: "internal" },
@@ -37,15 +35,6 @@ export const ReplayModalComponent = ({
     applicationType ||
     applicationTypeOptions.find((o) => o.value === currentApplicationType) ||
     applicationTypeOptions[1];
-
-  const reasoningLabels = [
-    { value: "0", label: "None" },
-    { value: "1", label: "Low" },
-    { value: "2", label: "Medium" },
-    { value: "3", label: "High" },
-    { value: "4", label: "Max" },
-  ];
-  const reasoningReferenceValues = [1, 2, 3];
 
   return (
     <Modal
@@ -112,19 +101,7 @@ export const ReplayModalComponent = ({
             label="Reasoning boost"
             description="Controls the amount of time the model spends thinking before responding."
           >
-            <Slider
-              i18nStrings={I18nProvider}
-              onChange={({ detail }) => setReasoning(detail.value)}
-              value={reasoning}
-              valueFormatter={(value) =>
-                reasoningLabels.find((item) => item.value === value.toString())?.label || ""
-              }
-              ariaDescription={"From None to Max"}
-              max={maxReasoning}
-              min={0}
-              referenceValues={reasoningReferenceValues}
-              step={1}
-            />
+            <EffortSlider value={reasoning} onChange={setReasoning} />
           </FormField>
           <FormField
             label="Application type"

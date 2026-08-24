@@ -27,9 +27,8 @@ function ChatInterface({ user, inTools }) {
 
   // Use consolidated agent state hook
   const {
-    state: { budget, thinkingEnabled, toolItems, toolsInitialized, isFirstMountComplete },
+    state: { budget, toolItems, toolsInitialized, isFirstMountComplete },
     setBudget,
-    setThinkingEnabled,
     setToolItems,
     setFirstMountComplete,
   } = useAgentState();
@@ -115,19 +114,6 @@ function ChatInterface({ user, inTools }) {
     [setBudget]
   );
 
-  // Handle thinking toggle
-  const handleThinkingToggle = useCallback(
-    (isToggled) => {
-      setThinkingEnabled(isToggled);
-
-      if (isToggled && budget === "0") {
-        const defaultBudget = "1";
-        setBudget(defaultBudget);
-      }
-    },
-    [budget, setThinkingEnabled, setBudget]
-  );
-
   // Handle tool items change and save to localStorage
   const handleToolItemsChange = useCallback(
     (newItems) => {
@@ -157,23 +143,6 @@ function ChatInterface({ user, inTools }) {
     functions.dismissError(sessionId);
   }, [functions, sessionId]);
 
-  // Handle action button clicks
-  const handleActionButtonClick = useCallback(
-    (actionId, message, sessionId, isToggled) => {
-      switch (actionId) {
-        case "thinking":
-          handleThinkingToggle(isToggled);
-          break;
-        case "tools":
-          functions.sendMessage(sessionId, `Use tools to help with: ${message}`);
-          break;
-        default:
-          functions.sendMessage(sessionId, message);
-      }
-    },
-    [functions, handleThinkingToggle]
-  );
-
   // Memoize actionButtons to prevent recreation on every render
   const actionButtons = useMemo(
     () => [
@@ -181,18 +150,14 @@ function ChatInterface({ user, inTools }) {
         id: "think",
         label: "Think",
         icon: <ClockFading size={18} />,
-        // For OpenAI, make it non-toggleable (always active)
-        isToggle: true, //!isOpenAI,
+        // Thinking is always on — every current model is a reasoning model, so
+        // there is no off state. The dropdown still selects the effort level.
+        isToggle: false,
         showDropdown: true,
         dropdownContent: () => (
           <ThinkingBudgetWrapper initialBudget={budget} onBudgetChange={handleBudgetChange} />
         ),
-        defaultToggled: thinkingEnabled,
-        // For OpenAI, make it always appear active
-        alwaysActive: false, //isOpenAI,
-        onClick: (message, sessionId, isToggled) => {
-          handleActionButtonClick("thinking", message, sessionId, isToggled);
-        },
+        alwaysActive: true,
       },
       {
         id: "tools",
@@ -205,24 +170,7 @@ function ChatInterface({ user, inTools }) {
         ),
       },
     ],
-    [
-      budget,
-      thinkingEnabled,
-      handleBudgetChange,
-      handleActionButtonClick,
-      toolItems,
-      handleToolItemsChange,
-    ]
-  );
-
-  // Handle toggle button callbacks
-  const handleToggleButton = useCallback(
-    (buttonId, isToggled) => {
-      if (buttonId === "thinking") {
-        handleThinkingToggle(isToggled);
-      }
-    },
-    [handleThinkingToggle]
+    [budget, handleBudgetChange, toolItems, handleToolItemsChange]
   );
 
   const handleDropdownClick = useCallback(() => {
@@ -288,9 +236,8 @@ function ChatInterface({ user, inTools }) {
             autoFocus={true}
             isStreaming={isStreaming}
             tools={toolItems}
-            thinkingBudget={thinkingEnabled && budget}
+            thinkingBudget={budget}
             sessionId={sessionId}
-            onToggleButton={handleToggleButton}
             onDropdownClick={handleDropdownClick}
             onHeightChange={checkScrollPosition}
           />

@@ -1,6 +1,12 @@
 langgraph>=1.2.4,<1.3.0
-langchain-aws==1.4.3
+langchain-aws==1.6.4
 langchain-openai==1.1.14
+# Mints the SigV4-derived bearer token for GPT models on Bedrock Mantle.
+# Pinned like every other dep here: there is no lock file, so any rebuild
+# re-resolves, and a 2.x that moves or renames provide_token would break
+# _mantle_token_provider's import at container start — taking down all Mantle
+# auth at runtime.
+aws-bedrock-token-generator==1.1.0
 langchain==1.3.9
 uv==0.11.15
 uvicorn[standard]==0.37.0

@@ -23,8 +23,8 @@ export function useSessionPreparation({ sessionId, tools, thinkingBudget }) {
     return `${uuid}-${timestamp}-${randomSuffix}`;
   });
 
-  // Convert thinkingBudget value
-  const processedThinkingBudget = thinkingBudget === false ? 0 : thinkingBudget;
+  // Effort levels run 1-4; thinking is always on, so there is no 0 to map.
+  const processedThinkingBudget = thinkingBudget || 1;
 
   // JSON-only parsing function
   const parseToolString = useCallback((toolString) => {

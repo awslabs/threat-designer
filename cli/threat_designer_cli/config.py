@@ -15,9 +15,9 @@ class CLIConfig(BaseModel):
     provider: str = "bedrock"
     aws_profile: Optional[str] = None
     aws_region: str = "us-west-2"
-    model_id: str = "us.anthropic.claude-sonnet-4-6-20251101-v1:0"
-    model_name: str = "Claude Sonnet 4.6 (Balanced)"
-    reasoning_level: int = 0
+    model_id: str = "global.anthropic.claude-sonnet-5"
+    model_name: str = "Claude Sonnet 5 (Balanced)"
+    reasoning_level: int = 1
     openai_api_key: Optional[str] = None
 
     @classmethod

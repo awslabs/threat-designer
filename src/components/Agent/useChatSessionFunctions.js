@@ -158,6 +158,15 @@ export const useChatSessionFunctions = (props) => {
         if (refs.bufferTimeout) {
           clearTimeout(refs.bufferTimeout);
         }
+        // Drop any scheduled typewriter frame. Without this the queued rAF still
+        // fires after the delete, and getSessionRefs re-inserts a fresh entry for
+        // the session that just went away — a leaked map entry per removal, plus
+        // a setSessions for a session that no longer exists.
+        if (refs.rafId !== null && refs.rafId !== undefined) {
+          cancelAnimationFrame(refs.rafId);
+          refs.rafId = null;
+        }
+        refs.buffer = [];
         sessionRefs.current.delete(sessionId);
       }
 
@@ -422,6 +431,14 @@ export const useChatSessionFunctions = (props) => {
         });
       }
 
+      // Reset the typewriter pump for this run: a previous run left netDone set
+      // (and a settled rate), which would make the first chunk of this one
+      // settle isStreaming immediately.
+      const pumpRefs = getSessionRefs(sessionId, sessionRefs);
+      pumpRefs.netDone = false;
+      pumpRefs.rate = 0;
+      pumpRefs.acc = 0;
+
       try {
         const response = await sendMessageAPI(
           sessionId,
@@ -624,7 +641,9 @@ export const useChatSessionFunctions = (props) => {
           error: null,
           isStreaming: false,
         });
-        cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
+        // immediate: the user pressed Stop, so reveal what already arrived
+        // instead of typing it out after the fact.
+        cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer, true);
         return data;
       } catch (error) {
         console.error(`Failed to stop ${sessionId}:`, error);

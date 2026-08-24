@@ -17,13 +17,13 @@ Export your threat model when you need to:
 
 ## Export Formats Comparison
 
-| Format | Best For | Pros | Cons |
-|--------|----------|------|------|
-| **PDF** | Stakeholder presentations, executive reports, compliance documentation | Professional appearance, universally readable, preserves formatting | Not editable, larger file size |
-| **DOCX** | Technical documentation, collaborative editing, customization | Editable in Word, flexible formatting, easy to modify | Requires Microsoft Word or compatible editor |
-| **Excel (.xlsx)** | Data analysis, filtering, pivot tables, spreadsheet workflows | Sortable/filterable, multi-sheet structure, familiar to analysts | Requires Excel or compatible editor |
-| **Markdown (.md)** | AI/LLM integration, developer documentation, version control | AI-readable, lightweight, Git-friendly, human-readable | No rich formatting, no embedded images |
-| **JSON** | Automation, integration, data analysis, custom tooling | Machine-readable, complete data structure, scriptable | Not human-friendly, requires technical knowledge |
+| Format             | Best For                                                               | Pros                                                                | Cons                                             |
+| ------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------ |
+| **PDF**            | Stakeholder presentations, executive reports, compliance documentation | Professional appearance, universally readable, preserves formatting | Not editable, larger file size                   |
+| **DOCX**           | Technical documentation, collaborative editing, customization          | Editable in Word, flexible formatting, easy to modify               | Requires Microsoft Word or compatible editor     |
+| **Excel (.xlsx)**  | Data analysis, filtering, pivot tables, spreadsheet workflows          | Sortable/filterable, multi-sheet structure, familiar to analysts    | Requires Excel or compatible editor              |
+| **Markdown (.md)** | AI/LLM integration, developer documentation, version control           | AI-readable, lightweight, Git-friendly, human-readable              | No rich formatting, no embedded images           |
+| **JSON**           | Automation, integration, data analysis, custom tooling                 | Machine-readable, complete data structure, scriptable               | Not human-friendly, requires technical knowledge |
 
 ---
 
@@ -51,6 +51,7 @@ Click your desired format. The file will be generated client-side and downloaded
 ### PDF Export
 
 Generates a professional report with:
+
 - Title, description, and metadata
 - Architecture diagram (embedded image)
 - Assumptions list
@@ -62,6 +63,7 @@ Generates a professional report with:
 ### DOCX Export
 
 Generates an editable Word document with the same structure as PDF:
+
 - All sections from your threat model
 - Formatted tables for threats
 - Editable content for further customization
@@ -72,20 +74,21 @@ Generates an editable Word document with the same structure as PDF:
 
 Generates a multi-sheet workbook:
 
-| Sheet | Contents |
-|-------|----------|
-| **Summary** | Title, description, creation date, reasoning level |
-| **Threats** | Full threat catalog with ID, name, STRIDE category, description, risk score, likelihood, impact, mitigations, ISO controls, affected assets, status, comments |
-| **Assets** | Name, type, description, sensitivity |
-| **Data Flows** | Source, target, description |
-| **Trust Boundaries** | Source, target, purpose |
-| **Assumptions** | Listed assumptions |
+| Sheet                | Contents                                                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Summary**          | Title, description, creation date, reasoning level                                                                                                            |
+| **Threats**          | Full threat catalog with ID, name, STRIDE category, description, risk score, likelihood, impact, mitigations, ISO controls, affected assets, status, comments |
+| **Assets**           | Name, type, description, sensitivity                                                                                                                          |
+| **Data Flows**       | Source, target, description                                                                                                                                   |
+| **Trust Boundaries** | Source, target, purpose                                                                                                                                       |
+| **Assumptions**      | Listed assumptions                                                                                                                                            |
 
 **Best for:** Data analysis, sorting/filtering threats, pivot tables, tracking remediation status.
 
 ### Markdown (.md) Export
 
 Generates a structured text document:
+
 - Title, description, and metadata
 - Assumptions as numbered list
 - Assets, data flows, trust boundaries as Markdown tables
@@ -100,6 +103,7 @@ Generates a structured text document:
 ### JSON Export
 
 Exports the complete threat model data structure including:
+
 - All metadata and settings
 - Architecture diagram (base64 encoded)
 - Assets, flows, boundaries, threat sources
@@ -112,31 +116,37 @@ Exports the complete threat model data structure including:
 ## Export Strategies by Audience
 
 ### Executive Summary
+
 - **Format:** PDF
 - **Focus:** High-level risk overview
 - **Tip:** Share only critical and high-risk threats
 
 ### Technical Deep-Dive
+
 - **Format:** DOCX or PDF
 - **Focus:** Complete analysis with all details
 - **Tip:** Include all sections for security engineers
 
 ### Compliance Audit
+
 - **Format:** PDF
 - **Focus:** Risk assessment with ISO27001 control mapping
 - **Tip:** Highlight risk scores and mitigation strategies
 
 ### Data Analysis
+
 - **Format:** Excel (.xlsx)
 - **Focus:** Sorting, filtering, pivot tables
 - **Tip:** Use the Threats sheet to create risk distribution charts
 
 ### AI/LLM Analysis
+
 - **Format:** Markdown (.md)
 - **Focus:** Feed into ChatGPT, Claude, or other AI tools
 - **Tip:** The structured format fits well in AI context windows
 
 ### Integration/Automation
+
 - **Format:** JSON
 - **Focus:** Programmatic access for custom tools
 - **Tip:** Parse the `threat_list.threats` array for threat data

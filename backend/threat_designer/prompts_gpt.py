@@ -1,5 +1,5 @@
 """
-Threat Modeling Prompt Generation Module — GPT 5.2 Optimized
+Threat Modeling Prompt Generation Module — GPT-5.6 Optimized
 
 This module provides a collection of functions for generating prompts used in security threat modeling analysis.
 Each function generates specialized prompts for different phases of the threat modeling process, including:
@@ -9,8 +9,10 @@ Each function generates specialized prompts for different phases of the threat m
 - Threat identification and improvement
 - Response structuring
 
-This version is optimized for OpenAI GPT 5.2's instruction-following characteristics:
-stronger adherence, lower drift, conservative grounding bias, and native tool parallelism.
+This version is tuned for GPT-5.6 (Sol/Terra/Luna): leaner prompts perform
+better on this family, so each instruction is stated once, self-check
+scaffolding written for older models is removed, and persistence guidance is
+kept explicit because the workflow runs unattended (no user in the loop).
 """
 
 import os
@@ -136,13 +138,6 @@ Criticality: [Low | Medium | High]
 
 Group all Assets first, then all Entities. Order each group by criticality (High first).
 </output_format>
-
-<high_risk_self_check>
-Before finalizing, re-scan:
-- Every item traces to a real component in the inputs (no hallucinated components).
-- No duplicate entries.
-- Criticality assignments are consistent with the criteria above.
-</high_risk_self_check>
 """
     return [{"type": "text", "text": app_type_context + main_prompt}]
 
@@ -217,16 +212,6 @@ Commit to your decision. Minor calibration quibbles are a STOP — reserve CONTI
 - Do NOT fabricate threat IDs or reference threats absent from the catalog.
 - If ambiguous, choose the simplest valid interpretation.
 - Never soften a CONTINUE into a STOP to avoid conflict — accuracy over diplomacy.
-
----
-
-# Self-Check (required before finalizing)
-
-Before producing your final output, re-scan your draft for:
-1. Any compliance finding that references a component not explicitly in the architecture — remove it.
-2. Any coverage gap that is reasonably out of scope for this architecture — remove it.
-3. Any priority action that is vague or non-actionable — rewrite with a specific component and imperative verb.
-4. Verify your STOP/CONTINUE decision is consistent with your verdicts (any FAIL = CONTINUE).
 
 ---
 
@@ -350,16 +335,6 @@ Return a JSON array of threat objects. Each object must conform to this schema:
 
 Do not wrap the JSON in markdown code fences. Output only the JSON array.
 </output_format>
-
-<high_risk_self_check>
-Before finalizing, re-scan:
-- Every target matches a real component name from the architecture inputs.
-- Every source matches a real threat_source identifier.
-- No threat contradicts a stated assumption.
-- Description sentence structure matches the required template.
-- No duplicate threats relative to the existing catalog.
-- Likelihood and impact ratings follow the calibration rules.
-</high_risk_self_check>
 """
 
     if instructions:
@@ -465,7 +440,7 @@ def create_space_context_system_prompt() -> SystemMessage:
     - When relevant queries are exhausted or budget is spent, stop immediately. No summary, no closing statement.
     </output_rules>
     """
-    # GPT 5.2: caching is handled automatically by OpenAI
+    # GPT-5.6: implicit prompt caching is handled automatically by OpenAI
     return SystemMessage(content=prompt)
 
 
@@ -538,6 +513,8 @@ def create_flows_agent_system_prompt(
 
 You are a security architect operating as an autonomous flow definition agent. You analyze system architectures to identify data flows, trust boundaries, and threat actors, building a comprehensive FlowsList through iterative tool calls.
 
+This workflow runs unattended — there is no user available to answer questions. Keep going until the FlowsList is complete before ending your turn. When something is ambiguous, choose the most reasonable architecture-grounded interpretation and proceed.
+
 ---
 
 # Scope Constraints
@@ -561,15 +538,6 @@ The user provides four inputs — use all of them together to build a holistic u
 2. **System description** — the system's purpose and design.
 3. **Assumptions** — deployment and security posture constraints.
 4. **Asset/entity inventory** — previously identified assets and entities (the authoritative source for all entity names).
-
----
-
-# Long-Context Handling
-
-When processing the combined inputs:
-- First produce a short internal outline of security-critical components and their relationships.
-- Re-state the inventory's entity names explicitly before making tool calls — these are the only valid values for `source_entity` and `target_entity`.
-- Anchor each flow or boundary to a specific element from the inputs ("Per the architecture diagram, the API Gateway forwards to…") rather than generically.
 
 ---
 
@@ -646,13 +614,9 @@ Identify threat actors who could realistically compromise the system within the 
 
 ---
 
-# Completeness & Self-Check
+# Completion Criteria
 
-Before considering the FlowsList complete:
-1. Call `flows_stats` and verify every asset and entity from the inventory appears in at least one data flow or trust boundary. Items with no security-relevant flows are acceptable but should be the exception.
-2. Confirm at least 4 threat sources are defined.
-3. Re-scan for any `source_entity` or `target_entity` value that does not exactly match the inventory — correct or delete before finishing.
-4. Verify no flows or boundaries reference components you inferred but that are not explicitly present in the inputs.
+The FlowsList is complete when `flows_stats` shows: every asset and entity from the inventory appears in at least one data flow or trust boundary (items with no security-relevant interactions are acceptable exceptions), and at least 4 threat sources are defined.
     """
 
     prompt += (
@@ -665,7 +629,7 @@ Before considering the FlowsList complete:
             f"\n\n<additional_instructions>\n{instructions}\n</additional_instructions>"
         )
 
-    # GPT 5.2: caching is handled automatically by OpenAI — no manual cache points needed
+    # GPT-5.6: implicit prompt caching is handled automatically by OpenAI — no manual cache points needed
     return SystemMessage(content=prompt)
 
 
@@ -683,6 +647,8 @@ def create_threats_agent_system_prompt(
     prompt = f"""# Role
 
 You are a security architect performing threat modeling for a system architecture. You build a comprehensive threat catalog. {methodology_role_directive(methodology)}
+
+This workflow runs unattended — there is no user available to answer questions. Keep going until the catalog is complete before ending your turn. When something is ambiguous, choose the most reasonable architecture-grounded interpretation and proceed.
 
 ---
 
@@ -720,7 +686,7 @@ Assumptions are guardrails, not attack surface. If the architecture states "all 
 
 ## Target Specificity
 
-Every `target` names a single, specific component exactly as it appears in the architecture — "Orders API", not "The System."
+Every `target` names a single, specific component exactly as it appears in the architecture — "Orders API", not "The System." Both `target` and `source` must exactly match enum values from the `add_threats` tool schema; copy them verbatim, as mismatches are rejected.
 
 ## Description Format
 
@@ -794,16 +760,6 @@ Add missing threats, delete or replace miscalibrated ones. Run `catalog_stats` t
 When the catalog has solid {label} coverage across all assets, trust boundaries, and data flows — or `gap_analysis` returns no critical/high findings — output **`THREAT_CATALOG_COMPLETE`** as your final message.
 
 Commit to calibration decisions. Revisit likelihood/impact only when `gap_analysis` explicitly flags them.
-
----
-
-# Completion Self-Check
-
-Before outputting `THREAT_CATALOG_COMPLETE`, verify:
-1. Every asset appears as a `target` in at least one threat.
-2. Every applicable {label} is reasonably represented — none is absent without justification.
-3. No threat contradicts a stated architecture assumption.
-4. All `target` and `source` values exactly match the tool schema enums.
 
 {app_type_context}
 {criticality_context}

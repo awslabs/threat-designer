@@ -10,7 +10,7 @@ import "./ThreatModeling.css";
 
 export default function ThreatModeling() {
   const [iteration, setIteration] = useState({ label: "Auto", value: 0 });
-  const [reasoning, setReasoning] = useState("0");
+  const [reasoning, setReasoning] = useState("1");
   const [base64Content, setBase64Content] = useState([]);
   const [id, setId] = useState(null);
   const [visible, setVisible] = useState(false);

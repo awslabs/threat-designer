@@ -13,9 +13,9 @@ class StartThreatModeling(BaseModel):
     )
     reasoning: int = Field(
         default=2,
-        description="The level of reasoning  the agent should use for the threat analysis: 0=none, 1=low, 2=medium, 3=high effort",
-        ge=0,
-        le=3,
+        description="The level of reasoning the agent should use for the threat analysis: 1=low, 2=medium, 3=high, 4=extra high effort",
+        ge=1,
+        le=4,
     )
     iteration: int = Field(
         default=0,

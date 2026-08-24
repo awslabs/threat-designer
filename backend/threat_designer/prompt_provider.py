@@ -2,7 +2,7 @@
 
 import os
 
-from constants import MODEL_PROVIDER_BEDROCK, MODEL_PROVIDER_OPENAI
+from constants import MODEL_PROVIDER_BEDROCK, OPENAI_FAMILY_PROVIDERS
 
 # Resolve provider once at import time
 try:
@@ -12,7 +12,9 @@ try:
 except ImportError:
     _provider = os.environ.get("MODEL_PROVIDER", MODEL_PROVIDER_BEDROCK)
 
-if _provider == MODEL_PROVIDER_OPENAI:
+# GPT prompts apply to every provider that serves GPT models — direct OpenAI
+# and Bedrock Mantle alike; only the transport differs.
+if _provider in OPENAI_FAMILY_PROVIDERS:
     from prompts_gpt import (  # noqa: F401
         APPLICATION_TYPE_DESCRIPTIONS,
         asset_prompt,

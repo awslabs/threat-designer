@@ -14,14 +14,16 @@ from botocore.config import Config as BotoConfig
 from langchain_aws import ChatBedrockConverse
 
 
-# OpenAI Responses API accepts minimal/low/medium/high. "xhigh"/"max" clamp to "high".
+# GPT-5.6 accepts none/low/medium/high/xhigh/max and REJECTS "minimal" with a
+# 400 (it was removed from the family), so these pass straight through. Clamping
+# xhigh down to high also silently threw away the top of the ladder.
 _OPENAI_EFFORT_MAP = {
     "off": None,
-    "low": "minimal",
+    "low": "low",
     "medium": "medium",
     "high": "high",
-    "xhigh": "high",
-    "max": "high",
+    "xhigh": "xhigh",
+    "max": "max",
 }
 
 

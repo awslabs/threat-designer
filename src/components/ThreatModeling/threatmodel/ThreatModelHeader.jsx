@@ -46,59 +46,67 @@ const ThreatModelHeader = React.memo(
     onCompare,
     methodology = "stride",
   }) => {
+    // MAESTRO models keep their badge even if the feature flag is later
+    // disabled — every other methodology-aware surface keys off the data, and
+    // the badge is what keeps mixed catalogs readable (#143).
+    const showBadge = (isMaestroEnabled() || methodology === "maestro") && title;
     return (
       <div data-testid="threat-model-header">
-      <SpaceBetween size="xxl">
-        <BreadcrumbGroup items={breadcrumbs} ariaLabel="Breadcrumbs" onClick={onBreadcrumbClick} />
-        <Header
-          variant="h1"
-          actions={
-            <ThreatModelActions
-              showResults={showResults}
-              showProcessing={showProcessing}
-              isReadOnly={isReadOnly}
-              isOwner={isOwner}
-              onActionClick={onActionClick}
-              tmStatus={tmStatus}
-              showDashboard={showDashboard}
-              onToggleDashboard={onToggleDashboard}
-            />
-          }
-          description={
-            parentId ? (
-              <span>
-                Derived from:{" "}
-                <Link variant="secondary" href={`/${parentId}`}>
-                  {parentTitle || parentId}
-                </Link>
-                {onCompare && (
-                  <>
-                    {" · "}
-                    <Link
-                      variant="secondary"
-                      onFollow={(e) => {
-                        e.preventDefault();
-                        onCompare();
-                      }}
-                    >
-                      Compare
-                    </Link>
-                  </>
-                )}
-              </span>
-            ) : undefined
-          }
-        >
-          <SpaceBetween direction="horizontal" size="xs" alignItems="center">
-            <div>{title}</div>
-            {isMaestroEnabled() && title && (
-              <Badge color={methodology === "maestro" ? "blue" : "grey"}>
-                {methodology === "maestro" ? "MAESTRO" : "STRIDE"}
-              </Badge>
-            )}
-          </SpaceBetween>
-        </Header>
-      </SpaceBetween>
+        <SpaceBetween size="xxl">
+          <BreadcrumbGroup
+            items={breadcrumbs}
+            ariaLabel="Breadcrumbs"
+            onClick={onBreadcrumbClick}
+          />
+          <Header
+            variant="h1"
+            actions={
+              <ThreatModelActions
+                showResults={showResults}
+                showProcessing={showProcessing}
+                isReadOnly={isReadOnly}
+                isOwner={isOwner}
+                onActionClick={onActionClick}
+                tmStatus={tmStatus}
+                showDashboard={showDashboard}
+                onToggleDashboard={onToggleDashboard}
+              />
+            }
+            description={
+              parentId ? (
+                <span>
+                  Derived from:{" "}
+                  <Link variant="secondary" href={`/${parentId}`}>
+                    {parentTitle || parentId}
+                  </Link>
+                  {onCompare && (
+                    <>
+                      {" · "}
+                      <Link
+                        variant="secondary"
+                        onFollow={(e) => {
+                          e.preventDefault();
+                          onCompare();
+                        }}
+                      >
+                        Compare
+                      </Link>
+                    </>
+                  )}
+                </span>
+              ) : undefined
+            }
+          >
+            <SpaceBetween direction="horizontal" size="xs" alignItems="center">
+              <div>{title}</div>
+              {showBadge && (
+                <Badge color={methodology === "maestro" ? "blue" : "grey"}>
+                  {methodology === "maestro" ? "MAESTRO" : "STRIDE"}
+                </Badge>
+              )}
+            </SpaceBetween>
+          </Header>
+        </SpaceBetween>
       </div>
     );
   }

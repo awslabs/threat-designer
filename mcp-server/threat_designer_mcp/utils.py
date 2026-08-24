@@ -1,8 +1,15 @@
-import imghdr
 import os
 from typing import Any, Dict, List
 
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
+
+# Pillow format names for the two formats the upload endpoint accepts, mapped to
+# the lowercase subtype the caller drops straight into an "image/..." MIME type.
+# This replaces imghdr, which was deprecated in Python 3.11 and REMOVED in 3.13 —
+# and since requires-python allows 3.13+, importing it broke the whole package on
+# a current interpreter. Pillow already opens this file for its dimensions, so
+# sniffing the format here costs nothing extra.
+_SUPPORTED_FORMATS = {"PNG": "png", "JPEG": "jpeg"}
 
 
 def validate_image(file_path):
@@ -32,20 +39,27 @@ def validate_image(file_path):
             f"File size ({size_mb:.2f} MB) exceeds maximum allowed size (3.75 MB)"
         )
 
-    # Check file type
-    img_type = imghdr.what(file_path)
-    if img_type not in ["png", "jpeg"]:
+    # Check file type and dimensions from the same header read
+    try:
+        with Image.open(file_path) as img:
+            img_format = img.format
+            width, height = img.size
+    except UnidentifiedImageError as exc:
         raise ValueError(
-            f"Unsupported image format: {img_type}. Only PNG and JPEG are supported"
+            "Unsupported image format: file is not a recognized image. "
+            "Only PNG and JPEG are supported"
+        ) from exc
+
+    img_type = _SUPPORTED_FORMATS.get(img_format)
+    if img_type is None:
+        raise ValueError(
+            f"Unsupported image format: {img_format}. Only PNG and JPEG are supported"
         )
 
-    # Check image dimensions
-    with Image.open(file_path) as img:
-        width, height = img.size
-        if width > 8000 or height > 8000:
-            raise ValueError(
-                f"Image dimensions ({width}x{height}) exceed maximum allowed dimensions (8000x8000)"
-            )
+    if width > 8000 or height > 8000:
+        raise ValueError(
+            f"Image dimensions ({width}x{height}) exceed maximum allowed dimensions (8000x8000)"
+        )
 
     return img_type, width, height
 

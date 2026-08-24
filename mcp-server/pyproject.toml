@@ -14,7 +14,11 @@ license = {text = "APACHE"}
 requires-python = ">=3.10"
 dependencies = [
     "boto3",
-    "mcp>=1.0.0",
+    # Cap below 2.0: mcp 2.0.0 removed the bundled mcp.server.fastmcp package
+    # that server.py imports Context and FastMCP from, so an unbounded
+    # requirement resolves to 2.x and the server dies at import. Same reason as
+    # the pin in backend/sentry/requirements.txt, different relocated module.
+    "mcp>=1.9.2,<2.0.0",
     "fastmcp",
     "httpx>=0.24.0",
     "pydantic>=2.0.0",

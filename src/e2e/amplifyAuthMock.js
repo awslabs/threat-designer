@@ -77,8 +77,15 @@ export const confirmResetPassword = () => Promise.resolve();
 // skip Amplify.configure(), but the ESM import graph still resolves them.
 export const CognitoAWSCredentialsAndIdentityIdProvider = class {};
 export const DefaultIdentityIdStore = class {};
-export const cognitoCredentialsProvider = { clearCredentials: () => {}, getCredentialsAndIdentityId: () => Promise.resolve(null) };
-export const cognitoUserPoolsTokenProvider = { setAuthConfig: () => {}, setKeyValueStorage: () => {}, getTokens: () => Promise.resolve(null) };
+export const cognitoCredentialsProvider = {
+  clearCredentials: () => {},
+  getCredentialsAndIdentityId: () => Promise.resolve(null),
+};
+export const cognitoUserPoolsTokenProvider = {
+  setAuthConfig: () => {},
+  setKeyValueStorage: () => {},
+  getTokens: () => Promise.resolve(null),
+};
 
 export default {
   fetchAuthSession,

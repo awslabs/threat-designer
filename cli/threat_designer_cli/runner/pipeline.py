@@ -1615,7 +1615,7 @@ _gap_on_result = None
 
 
 def build_agent(
-    model_id: str = "global.anthropic.claude-opus-4-6-v1",
+    model_id: str = "global.anthropic.claude-opus-5",
     region: str = "us-east-1",
     reasoning_effort: str = "medium",
     application_type: str = "hybrid",
@@ -1727,7 +1727,7 @@ def run_pipeline(
     image_path: str,
     description: str = "",
     assumptions: list[str] | None = None,
-    model_id: str = "global.anthropic.claude-opus-4-6-v1",
+    model_id: str = "global.anthropic.claude-opus-5",
     region: str = "us-east-1",
     reasoning_effort: str = "medium",
     application_type: str = "hybrid",

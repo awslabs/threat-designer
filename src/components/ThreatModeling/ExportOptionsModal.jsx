@@ -48,7 +48,13 @@ const defaultLikelihoodFilter = {
   Low: true,
 };
 
-export const ExportOptionsModal = ({ visible, onDismiss, onExport, format }) => {
+export const ExportOptionsModal = ({
+  visible,
+  onDismiss,
+  onExport,
+  format,
+  methodology = "stride",
+}) => {
   // Section selections
   const [sections, setSections] = useState(defaultSections);
   // Column selections (for Threat Catalog table)
@@ -82,7 +88,7 @@ export const ExportOptionsModal = ({ visible, onDismiss, onExport, format }) => 
   // Column labels (mapped to canonical field names)
   const columnLabels = {
     name: "Threat Name",
-    strideCategory: "STRIDE Category",
+    strideCategory: methodology === "maestro" ? "MAESTRO Layer" : "STRIDE Category",
     description: "Description",
     target: "Target",
     likelihood: "Likelihood",

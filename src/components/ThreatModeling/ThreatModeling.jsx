@@ -26,7 +26,8 @@ export default function ThreatModeling() {
     description,
     assumptions,
     applicationType,
-    spaceId = null
+    spaceId = null,
+    methodology = "stride"
   ) => {
     setLoading(true);
     try {
@@ -60,7 +61,8 @@ export default function ThreatModeling() {
         null, // instructions
         filesArray[0]?.type, // imageType (first file for backward compat)
         applicationType,
-        spaceId
+        spaceId,
+        methodology
       );
       setLoading(false);
       setId(response.data.id);

@@ -3,7 +3,9 @@ import BreadcrumbGroup from "@cloudscape-design/components/breadcrumb-group";
 import Header from "@cloudscape-design/components/header";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import Link from "@cloudscape-design/components/link";
+import Badge from "@cloudscape-design/components/badge";
 import ThreatModelActions from "./ThreatModelActions";
+import { isMaestroEnabled } from "../../../config.js";
 
 /**
  * ThreatModelHeader Component
@@ -23,6 +25,7 @@ import ThreatModelActions from "./ThreatModelActions";
  * @param {Function} props.onActionClick - Callback function when an action is clicked
  * @param {boolean} props.showDashboard - Whether dashboard view is active
  * @param {Function} props.onToggleDashboard - Callback function when dashboard toggle is clicked
+ * @param {string} props.methodology - Threat modeling methodology ("stride" | "maestro")
  * @returns {JSX.Element} The header section with breadcrumbs, title, and actions
  */
 const ThreatModelHeader = React.memo(
@@ -41,7 +44,12 @@ const ThreatModelHeader = React.memo(
     parentId,
     parentTitle,
     onCompare,
+    methodology = "stride",
   }) => {
+    // MAESTRO models keep their badge even if the feature flag is later
+    // disabled — every other methodology-aware surface keys off the data, and
+    // the badge is what keeps mixed catalogs readable (#143).
+    const showBadge = (isMaestroEnabled() || methodology === "maestro") && title;
     return (
       <div data-testid="threat-model-header">
         <SpaceBetween size="xxl">
@@ -89,8 +97,13 @@ const ThreatModelHeader = React.memo(
               ) : undefined
             }
           >
-            <SpaceBetween direction="horizontal" size="xs">
+            <SpaceBetween direction="horizontal" size="xs" alignItems="center">
               <div>{title}</div>
+              {showBadge && (
+                <Badge color={methodology === "maestro" ? "blue" : "grey"}>
+                  {methodology === "maestro" ? "MAESTRO" : "STRIDE"}
+                </Badge>
+              )}
             </SpaceBetween>
           </Header>
         </SpaceBetween>

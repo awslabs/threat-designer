@@ -4,6 +4,7 @@ let config = {
   controlPlaneAPI: import.meta.env.VITE_APP_ENDPOINT,
   sentryEnabled: import.meta.env.VITE_SENTRY_ENABLED === "true",
   sentryArn: import.meta.env.VITE_APP_SENTRY || "",
+  maestroEnabled: import.meta.env.VITE_MAESTRO_ENABLED === "true",
 };
 
 const amplifyConfig = {
@@ -25,5 +26,6 @@ const amplifyConfig = {
   },
 };
 export const isSentryEnabled = () => config.sentryEnabled;
+export const isMaestroEnabled = () => config.maestroEnabled;
 
 export { config, amplifyConfig };

@@ -18,6 +18,8 @@ import EffortSlider from "../EffortSlider";
 import FileTokenGroup from "@cloudscape-design/components/file-token-group";
 import Textarea from "@cloudscape-design/components/textarea";
 import { listSpaces } from "../../services/Spaces/spacesService";
+import { isMaestroEnabled } from "../../config.js";
+import { MAESTRO_LAYER_DESCRIPTIONS } from "./methodologyUtils";
 
 function convertArrayToObjects(arr) {
   return arr.map((item) => ({
@@ -51,6 +53,10 @@ export const SubmissionComponent = ({
   const [applicationType, setApplicationType] = React.useState({
     label: "Hybrid",
     value: "hybrid",
+  });
+  const [methodology, setMethodology] = React.useState({
+    label: "STRIDE",
+    value: "stride",
   });
   const [spaces, setSpaces] = React.useState([]);
   const [selectedSpaceOption, setSelectedSpaceOption] = React.useState(null);
@@ -122,7 +128,8 @@ export const SubmissionComponent = ({
             text,
             assumptions,
             applicationType.value,
-            selectedSpaceOption?.value || null
+            selectedSpaceOption?.value || null,
+            isMaestroEnabled() ? methodology.value : "stride"
           );
         }}
         steps={[
@@ -232,6 +239,53 @@ export const SubmissionComponent = ({
                       onChange={({ detail }) => setApplicationType(detail.selectedOption)}
                     />
                   </FormField>
+                  {isMaestroEnabled() && (
+                    <FormField
+                      label="Methodology"
+                      info={
+                        <Popover
+                          header="Methodology"
+                          size="large"
+                          content={
+                            <SpaceBetween size="s">
+                              <Box>
+                                <Box variant="h5">STRIDE</Box>
+                                General-purpose threat classification (Spoofing, Tampering,
+                                Repudiation, Information Disclosure, Denial of Service, Elevation of
+                                Privilege). Use for most systems.
+                              </Box>
+                              <Box>
+                                <Box variant="h5">MAESTRO</Box>
+                                CSA&apos;s threat framework for agentic AI systems, classifying
+                                threats across seven layers plus a cross-layer threat class. Use
+                                when the architecture involves LLM agents, tool use, or
+                                agent-to-agent interaction.
+                              </Box>
+                              {Object.entries(MAESTRO_LAYER_DESCRIPTIONS).map(
+                                ([layer, description]) => (
+                                  <Box key={layer}>
+                                    <Box variant="h5">{layer}</Box>
+                                    {description}
+                                  </Box>
+                                )
+                              )}
+                            </SpaceBetween>
+                          }
+                        >
+                          <Link variant="info">Info</Link>
+                        </Popover>
+                      }
+                    >
+                      <Select
+                        options={[
+                          { label: "STRIDE", value: "stride" },
+                          { label: "MAESTRO (agentic AI)", value: "maestro" },
+                        ]}
+                        selectedOption={methodology}
+                        onChange={({ detail }) => setMethodology(detail.selectedOption)}
+                      />
+                    </FormField>
+                  )}
                   <FormField
                     label="Space"
                     constraintText="Optional — attach a knowledge base to enrich threat modeling context."
@@ -485,6 +539,11 @@ export const SubmissionComponent = ({
                       <FormField label="Application type">
                         <Input value={applicationType.label} disabled />
                       </FormField>
+                      {isMaestroEnabled() && (
+                        <FormField label="Methodology">
+                          <Input value={methodology.label} disabled />
+                        </FormField>
+                      )}
                       {selectedSpaceOption && (
                         <FormField label="Space">
                           <Input value={selectedSpaceOption.label} disabled />

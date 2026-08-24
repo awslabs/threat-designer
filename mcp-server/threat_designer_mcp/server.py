@@ -228,7 +228,11 @@ async def create_threat_model(ctx: Context, payload: StartThreatModeling) -> str
 async def poll_threat_model_status(ctx: Context, model_id: str) -> str:
     """Poll the status of a threat model until completion or failure. It can take between 10 - 15minutes."""
     # Define constants
-    MAX_POLLING_TIME = 20
+    # ~20 minutes of wall-clock time, matching the documented "10 - 15 minutes"
+    # modeling duration. time.time() returns epoch seconds. Values must be in
+    # seconds; a value of 20 here caused the poll to give up after only 2
+    # iterations (20 s / 10 s interval) and always return "still processing".
+    MAX_POLLING_TIME = 1200  # 20 minutes, in seconds
     POLLING_INTERVAL = 10  # 10 seconds
     app_context = ctx.request_context.lifespan_context
 

@@ -6,9 +6,10 @@ import Box from "@cloudscape-design/components/box";
  * MaestroChart Component
  *
  * Displays a horizontal stacked bar chart showing the distribution of threats across
- * the eight CSA MAESTRO layers (Foundation Models, Data Operations, Agent Frameworks,
+ * the seven CSA MAESTRO layers (Foundation Models, Data Operations, Agent Frameworks,
  * Deployment and Infrastructure, Evaluation and Observability, Security and Compliance,
- * Agent Ecosystem, Cross-Layer), broken down by likelihood level.
+ * Agent Ecosystem) plus the framework's Cross-Layer threat class, broken down by
+ * likelihood level.
  *
  * Horizontal bars (unlike StrideChart's vertical layout) because MAESTRO layer names
  * run longer than STRIDE category names and don't fit legibly on a vertical axis.
@@ -37,7 +38,7 @@ const MaestroChart = ({ data = { categories: [], series: [] } }) => {
         </Box>
       }
       ariaLabel="Stacked bar chart showing the distribution of threats across MAESTRO layers by likelihood"
-      ariaDescription="Horizontal stacked bar chart displaying threat counts for each of the eight MAESTRO layers, broken down by likelihood level: High (red), Medium (orange), and Low (blue)"
+      ariaDescription="Horizontal stacked bar chart displaying threat counts for the seven MAESTRO layers plus the cross-layer threat class, broken down by likelihood level: High (red), Medium (orange), and Low (yellow)"
       height={300}
       hideFilter
     />

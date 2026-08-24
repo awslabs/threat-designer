@@ -256,10 +256,10 @@ export const SubmissionComponent = ({
                               </Box>
                               <Box>
                                 <Box variant="h5">MAESTRO</Box>
-                                CSA's threat framework for agentic AI systems, classifying threats
-                                across seven layers plus a cross-layer threat class. Use when the
-                                architecture involves LLM agents, tool use, or agent-to-agent
-                                interaction.
+                                CSA&apos;s threat framework for agentic AI systems, classifying
+                                threats across seven layers plus a cross-layer threat class. Use
+                                when the architecture involves LLM agents, tool use, or
+                                agent-to-agent interaction.
                               </Box>
                               {Object.entries(MAESTRO_LAYER_DESCRIPTIONS).map(
                                 ([layer, description]) => (

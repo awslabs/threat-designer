@@ -11,7 +11,7 @@ import Box from "@cloudscape-design/components/box";
  *
  * Features:
  * - Vertical stacked bar chart showing likelihood breakdown
- * - Color-coded by likelihood: High (red), Medium (orange), Low (blue)
+ * - Color-coded by likelihood: High (red), Medium (orange), Low (yellow)
  * - Empty state handling when no threats are categorized
  * - Accessibility support with ARIA labels
  * - Integration with Cloudscape Design System
@@ -40,7 +40,7 @@ const StrideChart = ({ data = { categories: [], series: [] } }) => {
         </Box>
       }
       ariaLabel="Stacked bar chart showing the distribution of threats across STRIDE categories by likelihood"
-      ariaDescription="Vertical stacked bar chart displaying threat counts for each of the six STRIDE categories, broken down by likelihood level: High (red), Medium (orange), and Low (blue)"
+      ariaDescription="Vertical stacked bar chart displaying threat counts for each of the six STRIDE categories, broken down by likelihood level: High (red), Medium (orange), and Low (yellow)"
       height={300}
       hideFilter
     />

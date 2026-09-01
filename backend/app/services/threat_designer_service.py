@@ -15,6 +15,7 @@ from exceptions.exceptions import (
     InternalError,
     NotFoundError,
     UnauthorizedError,
+    ValidationError,
     ConflictError,
 )
 from services.space_service import check_space_access
@@ -282,13 +283,38 @@ def invoke_lambda(owner, payload):
     if space_id and owner != "MCP":
         check_space_access(space_id, owner)
 
+    # replay rewrites the target job in place; version forks it into a new job. Setting
+    # both makes the supplied id mean two different things, and the two halves of the
+    # system disagree about which wins: this function would pick the replay id while
+    # the agent takes the version branch.
+    if is_replay and is_version:
+        raise ValidationError("'replay' and 'version' cannot both be set")
+
+    target_id = payload.get("id")
+    if (is_replay or is_version) and not target_id:
+        raise ValidationError("'id' is required when 'replay' or 'version' is set")
+
+    # Both flags act on a caller-supplied job id, so the caller has to be authorized
+    # against that job before anything is written. Replay needs EDIT because it
+    # overwrites the record; version only reads the parent.
+    #
+    # mirror_sharing copies the parent's collaborator roster onto the new version. It
+    # needs no further check: get_collaborators already exposes that roster to anyone
+    # with access, so require_access below is the whole boundary.
+    if (is_replay or is_version) and owner != "MCP":
+        from utils.authorization import require_access
+
+        require_access(
+            target_id, owner, required_level="EDIT" if is_replay else "READ_ONLY"
+        )
+
     if is_replay:
-        id = payload.get("id")
+        id = target_id
     else:
         id = generate_random_uuid()
 
     # Version-specific fields
-    previous_job_id = payload.get("id") if is_version else None
+    previous_job_id = target_id if is_version else None
     mirror_attack_trees = (
         payload.get("mirror_attack_trees", False) if is_version else False
     )
@@ -303,10 +329,25 @@ def invoke_lambda(owner, payload):
     try:
         # Step 1: Reset any cancelled flag and set state to START
         current_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+        # A replayed job already belongs to someone. On the status row `owner` is the
+        # threat model's owner, which delete_tm authorizes its stop-execution step
+        # against, while execution_owner is whoever started this particular run.
+        # Overwriting owner with the caller would stop the real owner from cancelling a
+        # run on their own model, and delete_tm swallows that failure and deletes the
+        # model anyway, leaving the run writing back to a deleted job_id.
+        replay_item = None
+        state_owner = owner
+        if is_replay:
+            agent_table = dynamodb.Table(AGENT_TABLE)
+            replay_item = agent_table.get_item(Key={"job_id": id}).get("Item")
+            if replay_item:
+                state_owner = replay_item.get("owner", owner)
+
         state_item = {
             "id": id,
             "state": "START",
-            "owner": owner,
+            "owner": state_owner,
             "session_id": session_id,
             "execution_owner": owner,
             "updated_at": current_time,
@@ -319,14 +360,8 @@ def invoke_lambda(owner, payload):
 
         # Step 2: If this is a replay, store backup in the dedicated backup table
         if is_replay:
-            agent_table = dynamodb.Table(AGENT_TABLE)
-
-            response = agent_table.get_item(Key={"job_id": id})
-
-            if "Item" in response:
-                backup_data = copy.deepcopy(response["Item"])
-                backup_table.put_item(Item=backup_data)
-
+            if replay_item:
+                backup_table.put_item(Item=copy.deepcopy(replay_item))
                 LOG.info(f"Backup stored in backup table for job_id: {id}")
             else:
                 LOG.warning(f"Item not found for backup during replay: {id}")

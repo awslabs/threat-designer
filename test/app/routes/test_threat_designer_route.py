@@ -249,17 +249,49 @@ class TestGetEndpoints:
         assert result.status_code == 400
         assert "Invalid pagination cursor" in result.body
 
+    @patch("utils.authorization.require_access")
     @patch("routes.threat_designer_route.get_lock_status")
-    def test_get_lock_status_returns_lock_status(self, mock_get_lock_status):
-        """Test _get_lock_status returns lock status."""
-        mock_get_lock_status.return_value = {"locked": True, "user_id": "user-456"}
+    @patch("routes.threat_designer_route.router")
+    def test_get_lock_status_returns_lock_status(
+        self, mock_router, mock_get_lock_status, mock_require_access
+    ):
+        """Test _get_lock_status returns lock status without the holder's token."""
+        mock_router.current_event.request_context.authorizer = {"user_id": "user-123"}
+        mock_get_lock_status.return_value = {
+            "locked": True,
+            "user_id": "user-456",
+            "lock_token": "token-456",
+        }
 
         from routes.threat_designer_route import _get_lock_status
 
         result = _get_lock_status("test-job-123")
 
         assert result["locked"] is True
+        assert result["user_id"] == "user-456"
+        # The token is the holder's write credential and must not leak to other users
+        assert "lock_token" not in result
+        mock_require_access.assert_called_once_with(
+            "test-job-123", "user-123", required_level="READ_ONLY"
+        )
         mock_get_lock_status.assert_called_once_with("test-job-123")
+
+    @patch("utils.authorization.require_access")
+    @patch("routes.threat_designer_route.get_lock_status")
+    @patch("routes.threat_designer_route.router")
+    def test_get_lock_status_requires_access(
+        self, mock_router, mock_get_lock_status, mock_require_access
+    ):
+        """A user with no access to the model cannot probe who holds its lock."""
+        mock_router.current_event.request_context.authorizer = {"user_id": "user-999"}
+        mock_require_access.side_effect = UnauthorizedError("No access")
+
+        from routes.threat_designer_route import _get_lock_status
+
+        with pytest.raises(UnauthorizedError):
+            _get_lock_status("test-job-123")
+
+        mock_get_lock_status.assert_not_called()
 
     @patch("routes.threat_designer_route.get_collaborators")
     @patch("routes.threat_designer_route.router")
@@ -680,7 +712,7 @@ class TestErrorHandling:
     def test_logs_exceptions_in_route_handlers(
         self, mock_log, mock_router, mock_invoke_lambda
     ):
-        """Test that exceptions are logged in route handlers."""
+        """Test that exceptions are logged and re-raised in route handlers."""
         mock_router.current_event.path = "/threat-designer"
         mock_router.current_event.request_context.authorizer = {"user_id": "user-123"}
         mock_router.current_event.json_body = {"description": "Test"}
@@ -689,9 +721,26 @@ class TestErrorHandling:
 
         from routes.threat_designer_route import tm_start
 
-        tm_start()
+        # Swallowing here would turn an authorization failure into a 200 with an empty
+        # body; the app-level handlers map the exception to the right status code.
+        with pytest.raises(Exception, match="Test error"):
+            tm_start()
 
         mock_log.exception.assert_called_once_with(test_exception)
+
+    @patch("routes.threat_designer_route.invoke_lambda")
+    @patch("routes.threat_designer_route.router")
+    def test_unauthorized_start_propagates(self, mock_router, mock_invoke_lambda):
+        """An UnauthorizedError from invoke_lambda must reach the error handlers."""
+        mock_router.current_event.path = "/threat-designer"
+        mock_router.current_event.request_context.authorizer = {"user_id": "attacker"}
+        mock_router.current_event.json_body = {"id": "victim-job", "replay": True}
+        mock_invoke_lambda.side_effect = UnauthorizedError("No access")
+
+        from routes.threat_designer_route import tm_start
+
+        with pytest.raises(UnauthorizedError):
+            tm_start()
 
     @patch("utils.authorization.require_access")
     @patch("routes.threat_designer_route.check_status")

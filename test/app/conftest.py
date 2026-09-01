@@ -18,6 +18,21 @@ import pytest
 # Add backend to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "backend"))
 
+# The modules under test build boto3 clients at import time, so a region has to exist
+# before any of them are imported, or the import itself fails.
+#
+# These are assignments, not setdefault: on a developer machine that already exports
+# credentials, a default would be a no-op and any call a test forgot to mock would run
+# against a real account. Overwriting guarantees it cannot. The endpoint override then
+# sends such a call to a closed local port so it fails in milliseconds instead of
+# reaching AWS, and the single attempt stops botocore retrying it for ~25s.
+os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
+os.environ["AWS_ACCESS_KEY_ID"] = "testing"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+os.environ["AWS_SESSION_TOKEN"] = "testing"
+os.environ["AWS_ENDPOINT_URL"] = "http://127.0.0.1:1"
+os.environ["AWS_MAX_ATTEMPTS"] = "1"
+
 
 # ============================================================================
 # AWS Service Mock Fixtures

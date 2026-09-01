@@ -617,7 +617,12 @@ paths:
   "/threat-designer":
     post:
       summary: Submit Threat modeling
-      description: Submit Threat modeling
+      description: |
+        Submit Threat modeling. With no flags this creates a new threat model under a
+        freshly generated id. With `replay` it re-runs the model named by `id`, which
+        requires EDIT access to that model. With `version` it forks the model named by
+        `id` into a new one, which requires at least READ_ONLY access to it. `replay` and
+        `version` are mutually exclusive.
       tags:
         - Security
       requestBody:
@@ -642,6 +647,10 @@ paths:
                 type: string
         "400":
           $ref: "#/components/responses/400"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
         "500":
           $ref: "#/components/responses/500"
       x-amazon-apigateway-integration:
@@ -2061,7 +2070,10 @@ paths:
   "/threat-designer/{id}/lock/status":
     get:
       summary: Get lock status
-      description: Check current lock status for a threat model
+      description: |
+        Check current lock status for a threat model. Requires at least READ_ONLY access.
+        The lock token is not returned here; it is issued only by the acquire endpoint,
+        to the user it grants the lock to.
       tags:
         - Lock Management
       parameters:
@@ -2086,6 +2098,8 @@ paths:
             Access-Control-Allow-Origin:
               schema:
                 type: string
+        "403":
+          $ref: "#/components/responses/403"
         "404":
           $ref: "#/components/responses/404"
         "500":
@@ -4130,10 +4144,6 @@ components:
         username:
           type: string
           description: Username of lock holder (present when locked is true)
-        lock_token:
-          type: string
-          format: uuid
-          description: Current lock token (present when locked is true)
         since:
           type: string
           format: date-time

@@ -141,12 +141,34 @@ export const useThreatModelActions = ({
 
         setTrigger(Math.floor(Math.random() * 100) + 1);
       } catch (error) {
-        console.error("Error starting threat modeling:", error);
+        // The backend refuses a replay while another user holds the edit lock, since it
+        // rewrites the threat model and would discard their unsaved changes.
+        if (error.response?.status === 409) {
+          console.warn("Replay refused, threat model is locked:", error.response.data);
+          showAlert("ReplayLockConflict");
+        } else {
+          console.error("Error starting threat modeling:", error);
+        }
+        // Undo the optimistic switch into the processing view. setTrigger refetches,
+        // which is what repopulates previousResponse (the finally block below clears it,
+        // and checkChanges silently stops tracking unsaved edits while it is null) and
+        // what restores Sentry visibility after the setisVisible(false) above.
+        setProcessing(false);
+        setResults(true);
+        setTrigger(Math.floor(Math.random() * 100) + 1);
       } finally {
         previousResponse.current = null;
       }
     },
-    [setisVisible, setProcessing, setResults, threatModelId, setTrigger, previousResponse]
+    [
+      setisVisible,
+      setProcessing,
+      setResults,
+      threatModelId,
+      setTrigger,
+      previousResponse,
+      showAlert,
+    ]
   );
 
   /**

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 const ALERT_MESSAGES = {
   Info: {
@@ -28,6 +28,10 @@ const ALERT_MESSAGES = {
     title: "Threat model is locked",
     msg: "This threat model is currently being edited by another user.",
   },
+  ReplayLockConflict: {
+    title: "Replay cancelled - threat model is locked",
+    msg: "Another user is editing this threat model. Replaying it now would discard their unsaved changes.",
+  },
   Conflict: {
     title: "Conflict detected",
     msg: "The threat model has been modified by another user since you last loaded it.",
@@ -47,7 +51,9 @@ export const useAlert = () => {
     data: null,
   });
 
-  const showAlert = (state, loading = false, data = null) => {
+  // Memoized because callers list these in useCallback dependency arrays; a fresh
+  // identity each render would defeat those and re-render memoized children.
+  const showAlert = useCallback((state, loading = false, data = null) => {
     setAlert((prev) => ({
       ...prev,
       visible: true,
@@ -55,23 +61,23 @@ export const useAlert = () => {
       loading,
       data,
     }));
-  };
+  }, []);
 
-  const hideAlert = () => {
+  const hideAlert = useCallback(() => {
     setAlert({
       state: "Info",
       visible: false,
       loading: false,
       data: null,
     });
-  };
+  }, []);
 
-  const setLoading = (loading) => {
+  const setLoading = useCallback((loading) => {
     setAlert((prev) => ({
       ...prev,
       loading,
     }));
-  };
+  }, []);
 
   return {
     alert,

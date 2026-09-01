@@ -31,6 +31,7 @@ from services.lock_service import (
     refresh_lock,
     release_lock,
     get_lock_status,
+    lock_token_matches,
     force_release_lock,
     get_username_from_cognito,
     LOCK_EXPIRATION_SECONDS,
@@ -793,11 +794,66 @@ class TestGetLockStatus:
         assert result["locked"] is True
         assert result["user_id"] == user_id
         assert result["username"] == "testuser"
-        assert result["lock_token"] == "token-123"
         assert result["since"] == "2024-01-01T00:00:00Z"
         assert result["lock_timestamp"] == lock_timestamp
         assert isinstance(result["expires_at"], int)
         assert "Locked by testuser" in result["message"]
+        # The token is the holder's write credential and this dict is returned straight
+        # to any user with read access. lock_token_matches is how it gets compared.
+        assert "lock_token" not in result
+
+    @patch.dict(os.environ, {"LOCKS_TABLE": "test-locks-table"})
+    @patch("services.lock_service.dynamodb")
+    def test_lock_token_matches_the_held_token(self, mock_dynamodb):
+        """The token comparison update_results needs, without exposing the token."""
+        # Arrange
+        mock_lock_table = Mock()
+        mock_dynamodb.Table.return_value = mock_lock_table
+        mock_lock_table.get_item.return_value = {
+            "Item": {
+                "threat_model_id": "test-job-123",
+                "lock_token": "token-123",
+                "lock_timestamp": Decimal(str(int(time.time()))),
+            }
+        }
+
+        # Act & Assert
+        assert lock_token_matches("test-job-123", "token-123") is True
+        assert lock_token_matches("test-job-123", "someone-elses-token") is False
+
+    @patch.dict(os.environ, {"LOCKS_TABLE": "test-locks-table"})
+    @patch("services.lock_service.dynamodb")
+    def test_lock_token_does_not_match_when_no_lock(self, mock_dynamodb):
+        """No lock means no token can match, rather than an error."""
+        # Arrange
+        mock_lock_table = Mock()
+        mock_dynamodb.Table.return_value = mock_lock_table
+        mock_lock_table.get_item.return_value = {}
+
+        # Act & Assert
+        assert lock_token_matches("test-job-123", "token-123") is False
+
+    @patch.dict(os.environ, {"LOCKS_TABLE": "test-locks-table"})
+    @patch("services.lock_service.dynamodb")
+    def test_lock_token_does_not_match_a_stale_lock(self, mock_dynamodb):
+        """
+        A stale lock reads as absent in get_lock_status, and acquire_lock will hand it to
+        someone else, so its token must not keep working.
+        """
+        # Arrange
+        mock_lock_table = Mock()
+        mock_dynamodb.Table.return_value = mock_lock_table
+        stale = int(time.time()) - STALE_LOCK_THRESHOLD - 60
+        mock_lock_table.get_item.return_value = {
+            "Item": {
+                "threat_model_id": "test-job-123",
+                "lock_token": "token-123",
+                "lock_timestamp": Decimal(str(stale)),
+            }
+        }
+
+        # Act & Assert
+        assert lock_token_matches("test-job-123", "token-123") is False
 
     @patch.dict(os.environ, {"LOCKS_TABLE": "test-locks-table"})
     @patch("services.lock_service.dynamodb")

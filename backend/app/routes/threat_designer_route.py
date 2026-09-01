@@ -526,11 +526,9 @@ def _get_lock_status(id):
 
         require_access(id, user_id, required_level="READ_ONLY")
 
-        status = get_lock_status(id)
-
-        # lock_token is the holder's write credential, checked by update_results.
-        # Only acquire_lock returns it, to the user it just granted the lock to.
-        return {k: v for k, v in status.items() if k != "lock_token"}
+        # get_lock_status no longer carries lock_token, so this cannot leak the holder's
+        # write credential. lock_service.lock_token_matches is the only way to test it.
+        return get_lock_status(id)
     except Exception as e:
         LOG.exception(e)
         raise

@@ -623,6 +623,11 @@ paths:
         requires EDIT access to that model. With `version` it forks the model named by
         `id` into a new one, which requires at least READ_ONLY access to it. `replay` and
         `version` are mutually exclusive.
+
+        Replay is refused with 409 while another user holds the edit lock, since it
+        rewrites the model and would discard their unsaved changes. A version belongs to
+        the owner of the model it forks; a collaborator who creates one is granted EDIT
+        access to it so they can reach what they made.
       tags:
         - Security
       requestBody:
@@ -651,6 +656,8 @@ paths:
           $ref: "#/components/responses/403"
         "404":
           $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
         "500":
           $ref: "#/components/responses/500"
       x-amazon-apigateway-integration:

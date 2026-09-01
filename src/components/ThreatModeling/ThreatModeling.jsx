@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import { SubmissionComponent } from "./SubmissionForm";
 import { Modal } from "@cloudscape-design/components";
+import Alert from "@cloudscape-design/components/alert";
 import { uploadFile } from "./docs";
 import { useNavigate } from "react-router-dom";
 import { startThreatModeling, generateUrl } from "../../services/ThreatDesigner/stats";
@@ -16,6 +17,7 @@ export default function ThreatModeling() {
   const [visible, setVisible] = useState(false);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   const handleBase64Change = useCallback((base64) => {
     setBase64Content(base64);
@@ -69,6 +71,11 @@ export default function ThreatModeling() {
     } catch (error) {
       console.error("Error starting threat modeling:", error);
       setLoading(false);
+      // The endpoint returns real 4xx responses, so surface them. Staying silent here
+      // just stops the spinner and leaves the user with no idea why nothing happened.
+      setSubmitError(
+        error.response?.data?.message || "The threat model could not be started. Please try again."
+      );
     }
   };
 
@@ -98,11 +105,24 @@ export default function ThreatModeling() {
         </div>
       </div>
       <Modal
-        onDismiss={() => setVisible(false)}
+        onDismiss={() => {
+          setVisible(false);
+          setSubmitError(null);
+        }}
         visible={visible}
         size="large"
         header={"Threat model"}
       >
+        {submitError && (
+          <Alert
+            type="error"
+            header="Could not start threat modeling"
+            dismissible
+            onDismiss={() => setSubmitError(null)}
+          >
+            {submitError}
+          </Alert>
+        )}
         <SubmissionComponent
           onBase64Change={handleBase64Change}
           iteration={iteration}

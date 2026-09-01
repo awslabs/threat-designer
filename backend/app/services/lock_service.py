@@ -345,7 +345,6 @@ def get_lock_status(threat_model_id: str) -> Dict[str, Any]:
             "locked": True,
             "user_id": user_id,
             "username": username,
-            "lock_token": lock.get("lock_token"),
             "since": lock.get("acquired_at"),
             "lock_timestamp": int(lock_timestamp),
             "expires_at": ttl,
@@ -355,6 +354,45 @@ def get_lock_status(threat_model_id: str) -> Dict[str, Any]:
     except Exception as e:
         LOG.error(f"Error getting lock status: {e}")
         raise InternalError(f"Failed to get lock status: {str(e)}")
+
+
+@tracer.capture_method
+def lock_token_matches(threat_model_id: str, lock_token: str) -> bool:
+    """
+    Check whether a lock token is the one currently held on a threat model.
+
+    Deliberately separate from get_lock_status: the token is a write credential, and
+    get_lock_status feeds an HTTP response. Keeping the token out of that dict means a
+    handler cannot leak it by returning the status verbatim. update_results is the only
+    caller that needs to compare it.
+
+    Args:
+        threat_model_id: The threat model ID
+        lock_token: The token to compare against the stored lock
+
+    Returns:
+        True if an active lock exists and its token matches, False otherwise. A stale
+        lock counts as absent, matching get_lock_status, so a token cannot outlive the
+        lock it was issued for and acquire_lock may already have reassigned.
+    """
+    lock_table = dynamodb.Table(LOCK_TABLE)
+
+    try:
+        response = lock_table.get_item(Key={"threat_model_id": threat_model_id})
+
+        if "Item" not in response:
+            return False
+
+        lock = response["Item"]
+
+        if int(time.time()) - int(lock.get("lock_timestamp", 0)) > STALE_LOCK_THRESHOLD:
+            return False
+
+        return lock.get("lock_token") == lock_token
+
+    except Exception as e:
+        LOG.error(f"Error comparing lock token: {e}")
+        raise InternalError(f"Failed to compare lock token: {str(e)}")
 
 
 @tracer.capture_method
@@ -407,7 +445,7 @@ def force_release_lock(threat_model_id: str, owner: str) -> Dict[str, Any]:
             "previous_holder": previous_holder,
         }
 
-    except UnauthorizedError:
+    except (UnauthorizedError, NotFoundError):
         raise
     except Exception as e:
         LOG.error(f"Error force releasing lock: {e}")

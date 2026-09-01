@@ -154,8 +154,10 @@ class TestInvokeLambda:
     @patch.object(threat_designer_service, "backup_table")
     @patch.object(threat_designer_service, "table")
     @patch.object(threat_designer_service, "dynamodb")
+    @patch("services.lock_service.get_lock_status", return_value={"locked": False})
     def test_invoke_lambda_creates_backup_before_replay(
         self,
+        mock_lock_status,
         mock_dynamodb,
         mock_status_table,
         mock_backup_table,
@@ -281,6 +283,18 @@ class TestInvokeLambdaAuthorization:
     ACCESS_OWNER = {"has_access": True, "is_owner": True, "access_level": "OWNER"}
     ACCESS_EDITOR = {"has_access": True, "is_owner": False, "access_level": "EDIT"}
 
+    @pytest.fixture(autouse=True)
+    def unlocked(self):
+        """
+        Replay refuses to run while another user holds the edit lock. These tests are
+        about authorization, so default to no lock held; the lock cases have their own
+        class below.
+        """
+        with patch(
+            "services.lock_service.get_lock_status", return_value={"locked": False}
+        ) as mock_lock_status:
+            yield mock_lock_status
+
     @staticmethod
     def _assert_nothing_written(mock_status_table, mock_agent_client, mock_create_item):
         mock_status_table.put_item.assert_not_called()
@@ -348,9 +362,13 @@ class TestInvokeLambdaAuthorization:
     ):
         """
         An editor may mirror the roster. get_collaborators already exposes it to anyone
-        with access, so access to the parent is the whole boundary here.
+        with access, so access to the parent is the whole boundary here. The parent's
+        owner is left off the copied roster, since they own the fork too.
         """
         mock_require_access.return_value = self.ACCESS_EDITOR
+        mock_dynamodb.Table.return_value.get_item.return_value = {
+            "Item": {"job_id": "parent-job", "owner": "alice-123"}
+        }
 
         result = invoke_lambda(
             "editor-456",
@@ -362,7 +380,9 @@ class TestInvokeLambdaAuthorization:
             },
         )
 
-        mock_copy_sharing.assert_called_once_with("parent-job", result["id"])
+        mock_copy_sharing.assert_called_once_with(
+            "parent-job", result["id"], skip_user_id="alice-123"
+        )
 
     @patch("services.threat_designer_service._copy_sharing_records")
     @patch("utils.authorization.require_access")
@@ -376,8 +396,11 @@ class TestInvokeLambdaAuthorization:
         mock_backup_table,
         mock_agent_client,
     ):
-        """An editor may version the model; only the roster copy is owner-gated."""
+        """An editor may version the model without mirroring the roster."""
         mock_require_access.return_value = self.ACCESS_EDITOR
+        mock_dynamodb.Table.return_value.get_item.return_value = {
+            "Item": {"job_id": "parent-job", "owner": "alice-123"}
+        }
 
         result = invoke_lambda(
             "editor-456",
@@ -402,6 +425,9 @@ class TestInvokeLambdaAuthorization:
     ):
         """The owner may carry their own collaborator roster onto a new version."""
         mock_require_access.return_value = self.ACCESS_OWNER
+        mock_dynamodb.Table.return_value.get_item.return_value = {
+            "Item": {"job_id": "parent-job", "owner": "user-123"}
+        }
 
         result = invoke_lambda(
             "user-123",
@@ -413,7 +439,9 @@ class TestInvokeLambdaAuthorization:
             },
         )
 
-        mock_copy_sharing.assert_called_once_with("parent-job", result["id"])
+        mock_copy_sharing.assert_called_once_with(
+            "parent-job", result["id"], skip_user_id="user-123"
+        )
 
     @patch("utils.authorization.require_access")
     def test_replay_and_version_together_rejected(
@@ -519,6 +547,283 @@ class TestInvokeLambdaAuthorization:
 
         assert result == {"id": "some-job"}
         mock_require_access.assert_not_called()
+
+
+# ============================================================================
+# Tests for replay/version side effects: edit lock, backup slot, fork ownership
+# ============================================================================
+
+
+@patch.object(threat_designer_service, "agent_core_client")
+@patch.object(threat_designer_service, "backup_table")
+@patch.object(threat_designer_service, "table")
+@patch.object(threat_designer_service, "dynamodb")
+@patch("services.threat_designer_service.create_dynamodb_item")
+@patch("utils.authorization.require_access")
+class TestReplayAndVersionSideEffects:
+    """
+    Replay rewrites a threat model in place and version forks one. Both have to respect
+    what other users are doing to the model they touch.
+    """
+
+    PARENT = {"Item": {"job_id": "parent-job", "owner": "alice-123"}}
+
+    def test_replay_refused_while_another_user_holds_the_lock(
+        self,
+        mock_require_access,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """Replaying over someone's in-flight edits would discard them silently."""
+        mock_dynamodb.Table.return_value.get_item.return_value = self.PARENT
+
+        with patch(
+            "services.lock_service.get_lock_status",
+            return_value={
+                "locked": True,
+                "user_id": "bob-456",
+                "username": "bob",
+                "since": "2026-09-01T00:00:00Z",
+            },
+        ):
+            with pytest.raises(ConflictError) as exc_info:
+                invoke_lambda("alice-123", {"id": "parent-job", "replay": True})
+
+        assert "bob" in str(exc_info.value)
+        mock_status_table.put_item.assert_not_called()
+        mock_agent_client.invoke_agent_runtime.assert_not_called()
+        mock_backup_table.put_item.assert_not_called()
+
+    def test_replay_allowed_while_caller_holds_the_lock(
+        self,
+        mock_require_access,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """The caller's own lock is not an obstacle to their own replay."""
+        mock_dynamodb.Table.return_value.get_item.return_value = self.PARENT
+
+        with patch(
+            "services.lock_service.get_lock_status",
+            return_value={"locked": True, "user_id": "alice-123", "username": "alice"},
+        ):
+            result = invoke_lambda("alice-123", {"id": "parent-job", "replay": True})
+
+        assert result == {"id": "parent-job"}
+        mock_agent_client.invoke_agent_runtime.assert_called_once()
+
+    def test_replay_backup_holds_the_state_from_before_this_replay(
+        self,
+        mock_require_access,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """
+        The write is unconditional so the slot tracks the most recent replay, which is
+        what "Restore previous version" and the auto-restore on stop both expect.
+        """
+        mock_dynamodb.Table.return_value.get_item.return_value = self.PARENT
+
+        with patch(
+            "services.lock_service.get_lock_status", return_value={"locked": False}
+        ):
+            invoke_lambda("alice-123", {"id": "parent-job", "replay": True})
+
+        kwargs = mock_backup_table.put_item.call_args[1]
+        assert kwargs["Item"] == self.PARENT["Item"]
+        assert "ConditionExpression" not in kwargs
+
+    def test_backup_write_failures_still_raise(
+        self,
+        mock_require_access,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """Losing the backup for any other reason must not pass silently."""
+        mock_dynamodb.Table.return_value.get_item.return_value = self.PARENT
+        mock_backup_table.put_item.side_effect = ClientError(
+            {"Error": {"Code": "ProvisionedThroughputExceededException", "Message": ""}},
+            "PutItem",
+        )
+
+        with patch(
+            "services.lock_service.get_lock_status", return_value={"locked": False}
+        ):
+            with pytest.raises(InternalError):
+                invoke_lambda("alice-123", {"id": "parent-job", "replay": True})
+
+    def test_version_by_collaborator_is_owned_by_the_parents_owner(
+        self,
+        mock_require_access,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """
+        The agent's finalize reads owner off the parent, so the fork has to be created
+        under the parent's owner or ownership flips partway through the run.
+        """
+        mock_require_access.return_value = {
+            "has_access": True,
+            "is_owner": False,
+            "access_level": "EDIT",
+        }
+        mock_dynamodb.Table.return_value.get_item.return_value = self.PARENT
+
+        result = invoke_lambda(
+            "editor-456",
+            {"id": "parent-job", "s3_location": "new-key.png", "version": True},
+        )
+
+        status_item = mock_status_table.put_item.call_args[1]["Item"]
+        assert status_item["owner"] == "alice-123"
+        assert status_item["execution_owner"] == "editor-456"
+
+        agent_state = mock_create_item.call_args[0][0]
+        assert agent_state["job_id"] == result["id"]
+        assert agent_state["owner"] == "alice-123"
+
+    def test_version_grants_its_creator_access_when_they_are_not_the_owner(
+        self,
+        mock_require_access,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """Otherwise a collaborator cannot reach the version they just created."""
+        mock_require_access.return_value = {
+            "has_access": True,
+            "is_owner": False,
+            "access_level": "EDIT",
+        }
+        mock_sharing_table = Mock()
+        mock_dynamodb.Table.return_value = mock_sharing_table
+        mock_sharing_table.get_item.return_value = self.PARENT
+
+        result = invoke_lambda(
+            "editor-456",
+            {"id": "parent-job", "s3_location": "new-key.png", "version": True},
+        )
+
+        grant = mock_sharing_table.put_item.call_args[1]["Item"]
+        assert grant["threat_model_id"] == result["id"]
+        assert grant["user_id"] == "editor-456"
+        assert grant["access_level"] == "EDIT"
+        assert grant["owner"] == "alice-123"
+
+    def test_version_grant_mirrors_read_only_access_rather_than_widening_it(
+        self,
+        mock_require_access,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """
+        Versioning only requires READ_ONLY, so a fixed EDIT grant would let a read-only
+        collaborator write to a model sitting in the owner's catalog.
+        """
+        mock_require_access.return_value = {
+            "has_access": True,
+            "is_owner": False,
+            "access_level": "READ_ONLY",
+        }
+        mock_sharing_table = Mock()
+        mock_dynamodb.Table.return_value = mock_sharing_table
+        mock_sharing_table.get_item.return_value = self.PARENT
+
+        invoke_lambda(
+            "reader-789",
+            {"id": "parent-job", "s3_location": "new-key.png", "version": True},
+        )
+
+        grant = mock_sharing_table.put_item.call_args[1]["Item"]
+        assert grant["user_id"] == "reader-789"
+        assert grant["access_level"] == "READ_ONLY"
+
+    def test_version_by_owner_grants_no_sharing_record(
+        self,
+        mock_require_access,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """A record naming the owner is rejected everywhere else, so do not mint one."""
+        mock_require_access.return_value = {
+            "has_access": True,
+            "is_owner": True,
+            "access_level": "OWNER",
+        }
+        mock_sharing_table = Mock()
+        mock_dynamodb.Table.return_value = mock_sharing_table
+        mock_sharing_table.get_item.return_value = self.PARENT
+
+        invoke_lambda(
+            "alice-123",
+            {"id": "parent-job", "s3_location": "new-key.png", "version": True},
+        )
+
+        mock_sharing_table.put_item.assert_not_called()
+        agent_state = mock_create_item.call_args[0][0]
+        assert agent_state["owner"] == "alice-123"
+        assert "is_shared" not in agent_state
+
+
+class TestFetchSharedExcludesOwnModels:
+    """
+    The catalog the UI renders comes from /owned and /shared, so a sharing record naming
+    a model's own owner would show that model twice, once of them as read-only.
+    """
+
+    @patch.object(threat_designer_service, "dynamodb")
+    @patch("services.threat_designer_service._batch_fetch_threat_models")
+    def test_own_model_is_not_returned_as_shared(
+        self, mock_batch_fetch, mock_dynamodb
+    ):
+        mock_sharing_table = Mock()
+        mock_dynamodb.Table.return_value = mock_sharing_table
+        mock_sharing_table.query.return_value = {
+            "Items": [
+                {
+                    "threat_model_id": "own-job",
+                    "user_id": "user-123",
+                    "access_level": "READ_ONLY",
+                },
+                {
+                    "threat_model_id": "shared-job",
+                    "user_id": "user-123",
+                    "access_level": "EDIT",
+                },
+            ]
+        }
+        mock_batch_fetch.return_value = {
+            "own-job": {"job_id": "own-job", "owner": "user-123"},
+            "shared-job": {"job_id": "shared-job", "owner": "someone-else"},
+        }
+
+        result = threat_designer_service.fetch_shared_paginated("user-123", 10)
+
+        job_ids = [item["job_id"] for item in result["catalogs"]]
+        assert job_ids == ["shared-job"]
 
 
 # ============================================================================
@@ -778,6 +1083,28 @@ class TestFetchResults:
 
 class TestUpdateResults:
     """Tests for update_results function."""
+
+    @pytest.fixture(autouse=True)
+    def lock_token_comparison(self):
+        """
+        update_results compares the caller's token with lock_service.lock_token_matches
+        rather than reading it out of get_lock_status, so that the token never reaches an
+        HTTP response. The tests below still describe the held token in their
+        get_lock_status mock, so defer to whatever that mock reports.
+        """
+        from services import lock_service
+
+        def _matches(threat_model_id, lock_token):
+            # Read the mock's configured return value rather than calling it, so this
+            # does not disturb the call counts the tests assert on.
+            status = getattr(lock_service.get_lock_status, "return_value", None)
+            held = status.get("lock_token") if isinstance(status, dict) else None
+            return held == lock_token
+
+        with patch(
+            "services.lock_service.lock_token_matches", side_effect=_matches
+        ) as mock_matches:
+            yield mock_matches
 
     @patch.dict(
         "os.environ",

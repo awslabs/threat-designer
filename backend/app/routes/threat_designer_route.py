@@ -98,6 +98,7 @@ def tm_start():
         return invoke_lambda(owner, body)
     except Exception as e:
         LOG.exception(e)
+        raise
 
 
 @router.put("/threat-designer/mcp/restore/<id>")
@@ -519,7 +520,17 @@ def _release_lock(id):
 def _get_lock_status(id):
     """Get current lock status for a threat model"""
     try:
-        return get_lock_status(id)
+        user_id = router.current_event.request_context.authorizer.get("user_id")
+
+        from utils.authorization import require_access
+
+        require_access(id, user_id, required_level="READ_ONLY")
+
+        status = get_lock_status(id)
+
+        # lock_token is the holder's write credential, checked by update_results.
+        # It is handed out by acquire and heartbeat, to the holder only.
+        return {k: v for k, v in status.items() if k != "lock_token"}
     except Exception as e:
         LOG.exception(e)
         raise

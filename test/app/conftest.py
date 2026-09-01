@@ -18,6 +18,14 @@ import pytest
 # Add backend to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "backend"))
 
+# The modules under test build boto3 clients at import time, so a region has to be set
+# before any of them are imported. The dummy credentials are never exercised — every AWS
+# call is mocked — but they keep a stray unmocked call from picking up real credentials.
+os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
+os.environ.setdefault("AWS_ACCESS_KEY_ID", "testing")
+os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "testing")
+os.environ.setdefault("AWS_SESSION_TOKEN", "testing")
+
 
 # ============================================================================
 # AWS Service Mock Fixtures

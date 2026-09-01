@@ -4,7 +4,13 @@ from typing import Any, Dict, List
 
 import boto3
 from aws_lambda_powertools import Logger, Tracer
-from exceptions.exceptions import InternalError, NotFoundError, UnauthorizedError
+from botocore.exceptions import ClientError
+from exceptions.exceptions import (
+    InternalError,
+    NotFoundError,
+    UnauthorizedError,
+    ValidationError,
+)
 
 # Environment variables
 STATE_TABLE = os.environ.get("JOB_STATUS_TABLE")
@@ -120,6 +126,15 @@ def share_threat_model(
             user_id = collab.get("user_id")
             access_level = collab.get("access_level", "READ_ONLY")
 
+            if not user_id:
+                raise ValidationError("Each collaborator requires a user_id")
+
+            # A sharing record outlives a change of ownership, so letting the current
+            # owner grant themselves one converts temporary ownership into permanent
+            # access. Ownership already implies everything a sharing record can give.
+            if user_id == owner:
+                raise ValidationError("A threat model cannot be shared with its owner")
+
             # Validate access level
             if access_level not in ["READ_ONLY", "EDIT"]:
                 LOG.warning(
@@ -154,7 +169,7 @@ def share_threat_model(
             "shared_count": shared_count,
         }
 
-    except (UnauthorizedError, NotFoundError):
+    except (UnauthorizedError, NotFoundError, ValidationError):
         raise
     except Exception as e:
         LOG.error(f"Error sharing threat model: {e}")
@@ -366,14 +381,31 @@ def update_collaborator_access(
         if new_access_level not in ["READ_ONLY", "EDIT"]:
             raise ValueError(f"Invalid access level: {new_access_level}")
 
+        # See share_threat_model: an owner-held sharing record survives a change of
+        # ownership and would outlast the ownership that authorized it.
+        if collaborator_user_id == owner:
+            raise ValidationError("A threat model cannot be shared with its owner")
+
         sharing_table = dynamodb.Table(SHARING_TABLE)
 
-        # Update access level
-        sharing_table.update_item(
-            Key={"threat_model_id": threat_model_id, "user_id": collaborator_user_id},
-            UpdateExpression="SET access_level = :level",
-            ExpressionAttributeValues={":level": new_access_level},
-        )
+        # Update access level. update_item upserts, so without the condition this
+        # endpoint would mint sharing records for users who were never shared with.
+        try:
+            sharing_table.update_item(
+                Key={
+                    "threat_model_id": threat_model_id,
+                    "user_id": collaborator_user_id,
+                },
+                UpdateExpression="SET access_level = :level",
+                ExpressionAttributeValues={":level": new_access_level},
+                ConditionExpression="attribute_exists(threat_model_id)",
+            )
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                raise NotFoundError(
+                    f"User {collaborator_user_id} is not a collaborator on this threat model"
+                )
+            raise
 
         # If downgrading to READ_ONLY, release any locks held by this user
         if new_access_level == "READ_ONLY":
@@ -397,7 +429,7 @@ def update_collaborator_access(
             "new_access_level": new_access_level,
         }
 
-    except UnauthorizedError:
+    except (UnauthorizedError, NotFoundError, ValidationError):
         raise
     except Exception as e:
         LOG.error(f"Error updating collaborator access: {e}")

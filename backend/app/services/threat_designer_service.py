@@ -15,6 +15,7 @@ from exceptions.exceptions import (
     InternalError,
     NotFoundError,
     UnauthorizedError,
+    ValidationError,
     ConflictError,
 )
 from services.space_service import check_space_access
@@ -282,13 +283,38 @@ def invoke_lambda(owner, payload):
     if space_id and owner != "MCP":
         check_space_access(space_id, owner)
 
+    # replay rewrites the target job in place; version forks it into a new job. Setting
+    # both makes the supplied id mean two different things, and the two halves of the
+    # system disagree about which wins: this function would pick the replay id while
+    # the agent takes the version branch.
+    if is_replay and is_version:
+        raise ValidationError("'replay' and 'version' cannot both be set")
+
+    target_id = payload.get("id")
+    if (is_replay or is_version) and not target_id:
+        raise ValidationError("'id' is required when 'replay' or 'version' is set")
+
+    # Both flags act on a caller-supplied job id, so the caller has to be authorized
+    # against that job before anything is written. Replay needs EDIT because it
+    # overwrites the record; version only reads the parent.
+    #
+    # mirror_sharing copies the parent's collaborator roster onto the new version. It
+    # needs no further check: get_collaborators already exposes that roster to anyone
+    # with access, so require_access below is the whole boundary.
+    if (is_replay or is_version) and owner != "MCP":
+        from utils.authorization import require_access
+
+        require_access(
+            target_id, owner, required_level="EDIT" if is_replay else "READ_ONLY"
+        )
+
     if is_replay:
-        id = payload.get("id")
+        id = target_id
     else:
         id = generate_random_uuid()
 
     # Version-specific fields
-    previous_job_id = payload.get("id") if is_version else None
+    previous_job_id = target_id if is_version else None
     mirror_attack_trees = (
         payload.get("mirror_attack_trees", False) if is_version else False
     )

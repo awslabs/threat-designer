@@ -42,6 +42,7 @@ os.environ["ARCHITECTURE_BUCKET"] = "test-bucket"
 os.environ["REGION"] = "us-east-1"
 os.environ["SHARING_TABLE"] = "test-sharing-table"
 os.environ["LOCKS_TABLE"] = "test-locks-table"
+os.environ["BACKUP_TABLE"] = "test-backup-table"
 
 from services import threat_designer_service
 from services.threat_designer_service import (
@@ -60,6 +61,7 @@ from exceptions.exceptions import (
     UnauthorizedError,
     InternalError,
     ConflictError,
+    ValidationError,
 )
 
 
@@ -147,16 +149,29 @@ class TestInvokeLambda:
         },
     )
     @patch("services.threat_designer_service.uuid.uuid4")
+    @patch("utils.authorization.require_access")
     @patch.object(threat_designer_service, "agent_core_client")
+    @patch.object(threat_designer_service, "backup_table")
     @patch.object(threat_designer_service, "table")
     @patch.object(threat_designer_service, "dynamodb")
     def test_invoke_lambda_creates_backup_before_replay(
-        self, mock_dynamodb, mock_status_table, mock_agent_client, mock_uuid
+        self,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+        mock_require_access,
+        mock_uuid,
     ):
         """Test invoke_lambda creates backup before replay."""
         # Setup
         mock_uuid.return_value = Mock(hex="test-uuid-123")
         mock_uuid.return_value.__str__ = Mock(return_value="session-id-123")
+        mock_require_access.return_value = {
+            "has_access": True,
+            "is_owner": True,
+            "access_level": "OWNER",
+        }
 
         mock_agent_table = Mock()
 
@@ -188,17 +203,21 @@ class TestInvokeLambda:
         # Assert
         assert result == {"id": "existing-job-123"}
 
-        # Verify backup was created
+        # Verify the caller was authorized against the replayed job
+        mock_require_access.assert_called_once_with(
+            "existing-job-123", "user-123", required_level="EDIT"
+        )
+
+        # Verify backup was read from the agent table and written to the backup table
         mock_agent_table.get_item.assert_called_once_with(
             Key={"job_id": "existing-job-123"}
         )
-        mock_agent_table.put_item.assert_called_once()
+        mock_backup_table.put_item.assert_called_once()
 
         # Verify backup contains original data
-        put_item_call = mock_agent_table.put_item.call_args[1]["Item"]
-        assert "backup" in put_item_call
-        assert put_item_call["backup"]["description"] == "Original description"
-        assert "backup" not in put_item_call["backup"]  # No nested backups
+        backup_item = mock_backup_table.put_item.call_args[1]["Item"]
+        assert backup_item["description"] == "Original description"
+        assert backup_item["job_id"] == "existing-job-123"
 
     @patch.dict(
         "os.environ",
@@ -239,6 +258,240 @@ class TestInvokeLambda:
         # Execute and Assert
         with pytest.raises(InternalError):
             invoke_lambda("user-123", payload)
+
+
+# ============================================================================
+# Tests for invoke_lambda authorization on caller-supplied job ids
+# ============================================================================
+
+
+@patch.object(threat_designer_service, "agent_core_client")
+@patch.object(threat_designer_service, "backup_table")
+@patch.object(threat_designer_service, "table")
+@patch.object(threat_designer_service, "dynamodb")
+@patch("services.threat_designer_service.create_dynamodb_item")
+class TestInvokeLambdaAuthorization:
+    """
+    replay and version both act on a job id taken from the request body. The caller
+    must be authorized against that job, and nothing may be written before that check
+    passes, otherwise any authenticated user can overwrite or fork another user's
+    threat model.
+    """
+
+    ACCESS_OWNER = {"has_access": True, "is_owner": True, "access_level": "OWNER"}
+    ACCESS_EDITOR = {"has_access": True, "is_owner": False, "access_level": "EDIT"}
+
+    @staticmethod
+    def _assert_nothing_written(mock_status_table, mock_agent_client, mock_create_item):
+        mock_status_table.put_item.assert_not_called()
+        mock_agent_client.invoke_agent_runtime.assert_not_called()
+        mock_create_item.assert_not_called()
+
+    @patch("utils.authorization.require_access")
+    def test_replay_requires_edit_access_on_target(
+        self,
+        mock_require_access,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """A user without EDIT access on the target cannot replay it."""
+        mock_require_access.side_effect = UnauthorizedError("no access")
+
+        with pytest.raises(UnauthorizedError):
+            invoke_lambda("attacker-999", {"id": "victim-job", "replay": True})
+
+        mock_require_access.assert_called_once_with(
+            "victim-job", "attacker-999", required_level="EDIT"
+        )
+        self._assert_nothing_written(
+            mock_status_table, mock_agent_client, mock_create_item
+        )
+        mock_backup_table.put_item.assert_not_called()
+
+    @patch("utils.authorization.require_access")
+    def test_version_requires_read_access_on_parent(
+        self,
+        mock_require_access,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """A user with no access to the parent cannot fork it into a new version."""
+        mock_require_access.side_effect = UnauthorizedError("no access")
+
+        with pytest.raises(UnauthorizedError):
+            invoke_lambda("attacker-999", {"id": "victim-job", "version": True})
+
+        mock_require_access.assert_called_once_with(
+            "victim-job", "attacker-999", required_level="READ_ONLY"
+        )
+        self._assert_nothing_written(
+            mock_status_table, mock_agent_client, mock_create_item
+        )
+
+    @patch("services.threat_designer_service._copy_sharing_records")
+    @patch("utils.authorization.require_access")
+    def test_mirror_sharing_allowed_for_editor(
+        self,
+        mock_require_access,
+        mock_copy_sharing,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """
+        An editor may mirror the roster. get_collaborators already exposes it to anyone
+        with access, so access to the parent is the whole boundary here.
+        """
+        mock_require_access.return_value = self.ACCESS_EDITOR
+
+        result = invoke_lambda(
+            "editor-456",
+            {
+                "id": "parent-job",
+                "s3_location": "new-key.png",
+                "version": True,
+                "mirror_sharing": True,
+            },
+        )
+
+        mock_copy_sharing.assert_called_once_with("parent-job", result["id"])
+
+    @patch("services.threat_designer_service._copy_sharing_records")
+    @patch("utils.authorization.require_access")
+    def test_version_without_mirror_sharing_allowed_for_editor(
+        self,
+        mock_require_access,
+        mock_copy_sharing,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """An editor may version the model; only the roster copy is owner-gated."""
+        mock_require_access.return_value = self.ACCESS_EDITOR
+
+        result = invoke_lambda(
+            "editor-456",
+            {"id": "parent-job", "s3_location": "new-key.png", "version": True},
+        )
+
+        assert result["id"] != "parent-job"
+        mock_agent_client.invoke_agent_runtime.assert_called_once()
+        mock_copy_sharing.assert_not_called()
+
+    @patch("services.threat_designer_service._copy_sharing_records")
+    @patch("utils.authorization.require_access")
+    def test_mirror_sharing_allowed_for_owner(
+        self,
+        mock_require_access,
+        mock_copy_sharing,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """The owner may carry their own collaborator roster onto a new version."""
+        mock_require_access.return_value = self.ACCESS_OWNER
+
+        result = invoke_lambda(
+            "user-123",
+            {
+                "id": "parent-job",
+                "s3_location": "new-key.png",
+                "version": True,
+                "mirror_sharing": True,
+            },
+        )
+
+        mock_copy_sharing.assert_called_once_with("parent-job", result["id"])
+
+    @patch("utils.authorization.require_access")
+    def test_replay_and_version_together_rejected(
+        self,
+        mock_require_access,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """The two flags disagree about what the supplied id means, so reject the pair."""
+        with pytest.raises(ValidationError):
+            invoke_lambda(
+                "user-123", {"id": "some-job", "replay": True, "version": True}
+            )
+
+        mock_require_access.assert_not_called()
+        self._assert_nothing_written(
+            mock_status_table, mock_agent_client, mock_create_item
+        )
+
+    @pytest.mark.parametrize("flag", ["replay", "version"])
+    @patch("utils.authorization.require_access")
+    def test_missing_id_rejected(
+        self,
+        mock_require_access,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+        flag,
+    ):
+        """Without an id there is nothing to authorize against."""
+        with pytest.raises(ValidationError):
+            invoke_lambda("user-123", {flag: True, "s3_location": "key.png"})
+
+        mock_require_access.assert_not_called()
+        self._assert_nothing_written(
+            mock_status_table, mock_agent_client, mock_create_item
+        )
+
+    @patch("utils.authorization.require_access")
+    def test_new_model_creation_does_not_check_access(
+        self,
+        mock_require_access,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """A fresh create generates its own id, so there is no target to authorize."""
+        invoke_lambda("user-123", {"s3_location": "key.png"})
+
+        mock_require_access.assert_not_called()
+        mock_agent_client.invoke_agent_runtime.assert_called_once()
+
+    @patch("utils.authorization.require_access")
+    def test_mcp_replay_bypasses_target_authorization(
+        self,
+        mock_require_access,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """MCP requests carry no user identity and keep their documented bypass."""
+        mock_dynamodb.Table.return_value.get_item.return_value = {
+            "Item": {"job_id": "some-job", "owner": "user-123"}
+        }
+
+        result = invoke_lambda("MCP", {"id": "some-job", "replay": True})
+
+        assert result == {"id": "some-job"}
+        mock_require_access.assert_not_called()
 
 
 # ============================================================================
@@ -1483,12 +1736,19 @@ class TestSingleDownloadAuthorizationProperty:
                 "services.threat_designer_service.extract_threat_model_id_from_s3_location"
             ) as mock_extract,
             patch("services.threat_designer_service.s3_pre") as mock_s3,
+            patch("services.threat_designer_service.dynamodb") as mock_dynamodb,
         ):
             # Setup mocks
             mock_extract.return_value = threat_model_id
             mock_s3.generate_presigned_url.return_value = (
                 f"https://s3.example.com/{threat_model_id}"
             )
+            mock_dynamodb.Table.return_value.get_item.return_value = {
+                "Item": {
+                    "job_id": threat_model_id,
+                    "s3_location": f"{threat_model_id}/diagram.png",
+                }
+            }
 
             # Configure authorization based on access level
             if access_level == "NONE":
@@ -1560,12 +1820,19 @@ class TestSingleDownloadAuthorizationProperty:
                     "services.threat_designer_service.extract_threat_model_id_from_s3_location"
                 ) as mock_extract,
                 patch("services.threat_designer_service.s3_pre") as mock_s3,
+                patch("services.threat_designer_service.dynamodb") as mock_dynamodb,
             ):
                 # Setup mocks
                 mock_extract.return_value = threat_model_id
                 mock_s3.generate_presigned_url.return_value = (
                     f"https://s3.example.com/{threat_model_id}"
                 )
+                mock_dynamodb.Table.return_value.get_item.return_value = {
+                    "Item": {
+                        "job_id": threat_model_id,
+                        "s3_location": f"{threat_model_id}/diagram.png",
+                    }
+                }
 
                 if should_have_access:
                     mock_require_access.return_value = {
@@ -1634,11 +1901,15 @@ class TestSufficientAccessGrantsPresignedURLsProperty:
                 "services.threat_designer_service.extract_threat_model_id_from_s3_location"
             ) as mock_extract,
             patch("services.threat_designer_service.s3_pre") as mock_s3,
+            patch("services.threat_designer_service.dynamodb") as mock_dynamodb,
         ):
             # Setup mocks
             mock_extract.return_value = threat_model_id
             expected_url = f"https://s3.example.com/{threat_model_id}"
             mock_s3.generate_presigned_url.return_value = expected_url
+            mock_dynamodb.Table.return_value.get_item.return_value = {
+                "Item": {"job_id": threat_model_id, "s3_location": threat_model_id}
+            }
 
             # Configure authorization - all these access levels should succeed
             mock_require_access.return_value = {
@@ -1708,6 +1979,7 @@ class TestSufficientAccessGrantsPresignedURLsProperty:
                     "services.threat_designer_service.extract_threat_model_id_from_s3_location"
                 ) as mock_extract,
                 patch("services.threat_designer_service.s3_pre") as mock_s3,
+                patch("services.threat_designer_service.dynamodb") as mock_dynamodb,
             ):
                 # Setup mocks
                 mock_extract.return_value = threat_model_id
@@ -1715,6 +1987,9 @@ class TestSufficientAccessGrantsPresignedURLsProperty:
                     f"https://s3.example.com/{threat_model_id}?user={user_id}"
                 )
                 mock_s3.generate_presigned_url.return_value = expected_url
+                mock_dynamodb.Table.return_value.get_item.return_value = {
+                    "Item": {"job_id": threat_model_id, "s3_location": threat_model_id}
+                }
 
                 # Configure authorization - should succeed
                 mock_require_access.return_value = {
@@ -1766,11 +2041,15 @@ class TestSufficientAccessGrantsPresignedURLsProperty:
                 "services.threat_designer_service.extract_threat_model_id_from_s3_location"
             ) as mock_extract,
             patch("services.threat_designer_service.s3_pre") as mock_s3,
+            patch("services.threat_designer_service.dynamodb") as mock_dynamodb,
         ):
             # Setup mocks
             mock_extract.return_value = threat_model_id
             expected_url = f"https://s3.example.com/{threat_model_id}"
             mock_s3.generate_presigned_url.return_value = expected_url
+            mock_dynamodb.Table.return_value.get_item.return_value = {
+                "Item": {"job_id": threat_model_id, "s3_location": threat_model_id}
+            }
 
             # Configure authorization - OWNER access
             mock_require_access.return_value = {

@@ -329,10 +329,25 @@ def invoke_lambda(owner, payload):
     try:
         # Step 1: Reset any cancelled flag and set state to START
         current_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+        # A replayed job already belongs to someone. On the status row `owner` is the
+        # threat model's owner, which delete_tm authorizes its stop-execution step
+        # against, while execution_owner is whoever started this particular run.
+        # Overwriting owner with the caller would stop the real owner from cancelling a
+        # run on their own model, and delete_tm swallows that failure and deletes the
+        # model anyway, leaving the run writing back to a deleted job_id.
+        replay_item = None
+        state_owner = owner
+        if is_replay:
+            agent_table = dynamodb.Table(AGENT_TABLE)
+            replay_item = agent_table.get_item(Key={"job_id": id}).get("Item")
+            if replay_item:
+                state_owner = replay_item.get("owner", owner)
+
         state_item = {
             "id": id,
             "state": "START",
-            "owner": owner,
+            "owner": state_owner,
             "session_id": session_id,
             "execution_owner": owner,
             "updated_at": current_time,
@@ -345,14 +360,8 @@ def invoke_lambda(owner, payload):
 
         # Step 2: If this is a replay, store backup in the dedicated backup table
         if is_replay:
-            agent_table = dynamodb.Table(AGENT_TABLE)
-
-            response = agent_table.get_item(Key={"job_id": id})
-
-            if "Item" in response:
-                backup_data = copy.deepcopy(response["Item"])
-                backup_table.put_item(Item=backup_data)
-
+            if replay_item:
+                backup_table.put_item(Item=copy.deepcopy(replay_item))
                 LOG.info(f"Backup stored in backup table for job_id: {id}")
             else:
                 LOG.warning(f"Item not found for backup during replay: {id}")

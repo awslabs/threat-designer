@@ -196,14 +196,14 @@ class TestCheckAccess:
     )
     @patch.object(collaboration_service, "dynamodb")
     def test_check_access_threat_model_not_found_raises_error(self, mock_dynamodb):
-        """Test threat model not found raises InternalError (wrapping NotFoundError)."""
+        """A missing threat model is a 404, not a 500."""
         # Setup
         mock_agent_table = Mock()
         mock_agent_table.get_item.return_value = {}  # No Item key
         mock_dynamodb.Table.return_value = mock_agent_table
 
-        # Execute & Assert - check_access wraps NotFoundError in InternalError
-        with pytest.raises(InternalError) as exc_info:
+        # Execute & Assert
+        with pytest.raises(NotFoundError) as exc_info:
             check_access("nonexistent-job", "user-123")
 
         assert "not found" in str(exc_info.value).lower()
@@ -295,6 +295,42 @@ class TestShareThreatModel:
                 "test-job-123",
                 "user-123",
                 [{"user_id": "user-123", "access_level": "EDIT"}],
+            )
+
+        mock_sharing_table.put_item.assert_not_called()
+
+    @patch.dict(
+        "os.environ",
+        {
+            "AGENT_STATE_TABLE": "test-agent-table",
+            "SHARING_TABLE": "test-sharing-table",
+        },
+    )
+    @patch.object(collaboration_service, "dynamodb")
+    @patch.object(collaboration_service, "check_access")
+    def test_share_threat_model_rejects_bad_entry_before_granting_earlier_ones(
+        self, mock_check_access, mock_dynamodb
+    ):
+        """
+        A rejected entry must not leave earlier entries granted, or the caller is told
+        the request failed while a real grant is already in place.
+        """
+        mock_check_access.return_value = {
+            "has_access": True,
+            "is_owner": True,
+            "access_level": "OWNER",
+        }
+        mock_sharing_table = Mock()
+        mock_dynamodb.Table.return_value = mock_sharing_table
+
+        with pytest.raises(ValidationError):
+            share_threat_model(
+                "test-job-123",
+                "user-123",
+                [
+                    {"user_id": "user-456", "access_level": "EDIT"},
+                    {"user_id": "user-123", "access_level": "EDIT"},
+                ],
             )
 
         mock_sharing_table.put_item.assert_not_called()
@@ -1044,7 +1080,7 @@ class TestUpdateCollaboratorAccess:
     def test_update_collaborator_access_invalid_level_raises_error(
         self, mock_check_access
     ):
-        """Test invalid access level raises InternalError (wrapping ValueError)."""
+        """An unrecognised access level is caller input, so it is a 400."""
         # Setup
         mock_check_access.return_value = {
             "has_access": True,
@@ -1052,8 +1088,8 @@ class TestUpdateCollaboratorAccess:
             "access_level": "OWNER",
         }
 
-        # Execute & Assert - ValueError is wrapped in InternalError
-        with pytest.raises(InternalError) as exc_info:
+        # Execute & Assert
+        with pytest.raises(ValidationError) as exc_info:
             update_collaborator_access(
                 "test-job-123", "user-123", "user-456", "INVALID"
             )

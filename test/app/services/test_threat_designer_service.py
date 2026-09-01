@@ -474,6 +474,33 @@ class TestInvokeLambdaAuthorization:
         mock_agent_client.invoke_agent_runtime.assert_called_once()
 
     @patch("utils.authorization.require_access")
+    def test_replay_preserves_model_owner_on_status_row(
+        self,
+        mock_require_access,
+        mock_create_item,
+        mock_dynamodb,
+        mock_status_table,
+        mock_backup_table,
+        mock_agent_client,
+    ):
+        """
+        An editor replaying someone else's model must not become its owner on the status
+        row. delete_tm authorizes its stop-execution step against that field, and it
+        swallows the failure, so a stale owner there lets a model be deleted out from
+        under a still-running agent.
+        """
+        mock_require_access.return_value = self.ACCESS_EDITOR
+        mock_dynamodb.Table.return_value.get_item.return_value = {
+            "Item": {"job_id": "alice-job", "owner": "alice-123"}
+        }
+
+        invoke_lambda("editor-456", {"id": "alice-job", "replay": True})
+
+        status_item = mock_status_table.put_item.call_args[1]["Item"]
+        assert status_item["owner"] == "alice-123"
+        assert status_item["execution_owner"] == "editor-456"
+
+    @patch("utils.authorization.require_access")
     def test_mcp_replay_bypasses_target_authorization(
         self,
         mock_require_access,

@@ -2072,8 +2072,8 @@ paths:
       summary: Get lock status
       description: |
         Check current lock status for a threat model. Requires at least READ_ONLY access.
-        The lock token is not returned; it is issued only to the holder, by the acquire
-        and heartbeat endpoints.
+        The lock token is not returned here; it is issued only by the acquire endpoint,
+        to the user it grants the lock to.
       tags:
         - Lock Management
       parameters:

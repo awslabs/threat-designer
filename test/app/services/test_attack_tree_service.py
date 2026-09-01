@@ -2359,9 +2359,9 @@ class TestGetAttackTreeMetadata:
     def test_get_attack_tree_metadata_with_invalid_threat_model_id(
         self, mock_attack_tree_dynamodb, mock_collab_dynamodb
     ):
-        """Test get_attack_tree_metadata raises InternalError for invalid threat model ID."""
+        """A threat model that does not exist is a 404, not a 500."""
         from services.attack_tree_service import get_attack_tree_metadata
-        from exceptions.exceptions import InternalError
+        from exceptions.exceptions import NotFoundError
 
         # Setup
         mock_agent_table = Mock()
@@ -2378,7 +2378,7 @@ class TestGetAttackTreeMetadata:
         mock_collab_dynamodb.Table.side_effect = table_selector
 
         # Execute and Assert
-        with pytest.raises(InternalError):
+        with pytest.raises(NotFoundError):
             get_attack_tree_metadata("invalid-tm-id", "user-123")
 
     @patch("services.collaboration_service.dynamodb")

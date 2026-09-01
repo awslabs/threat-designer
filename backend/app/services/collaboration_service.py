@@ -87,6 +87,11 @@ def check_access(threat_model_id: str, user_id: str) -> Dict[str, Any]:
         # No access
         return {"has_access": False, "is_owner": False, "access_level": None}
 
+    except NotFoundError:
+        # A missing threat model is a 404, not a server error. Swallowing it here made
+        # the 404 that every caller's contract advertises unreachable, and turned a
+        # status poll for a just-deleted model into a 500.
+        raise
     except Exception as e:
         LOG.error(f"Error checking access: {e}")
         raise InternalError(str(e))
@@ -117,14 +122,10 @@ def share_threat_model(
         if not access.get("is_owner"):
             raise UnauthorizedError("Only the owner can share threat models")
 
-        sharing_table = dynamodb.Table(SHARING_TABLE)
-        agent_table = dynamodb.Table(AGENT_TABLE)
-
-        # Add collaborators
-        shared_count = 0
+        # Validate the whole list before writing anything, so a bad entry cannot leave
+        # earlier entries granted while the caller is told the request failed.
         for collab in collaborators:
             user_id = collab.get("user_id")
-            access_level = collab.get("access_level", "READ_ONLY")
 
             if not user_id:
                 raise ValidationError("Each collaborator requires a user_id")
@@ -134,6 +135,15 @@ def share_threat_model(
             # access. Ownership already implies everything a sharing record can give.
             if user_id == owner:
                 raise ValidationError("A threat model cannot be shared with its owner")
+
+        sharing_table = dynamodb.Table(SHARING_TABLE)
+        agent_table = dynamodb.Table(AGENT_TABLE)
+
+        # Add collaborators
+        shared_count = 0
+        for collab in collaborators:
+            user_id = collab.get("user_id")
+            access_level = collab.get("access_level", "READ_ONLY")
 
             # Validate access level
             if access_level not in ["READ_ONLY", "EDIT"]:
@@ -377,9 +387,10 @@ def update_collaborator_access(
         if not access.get("is_owner"):
             raise UnauthorizedError("Only the owner can update collaborator access")
 
-        # Validate access level
+        # Validate access level. This is caller input, so it is a 400 like the owner
+        # check below, not the 500 a bare ValueError turns into here.
         if new_access_level not in ["READ_ONLY", "EDIT"]:
-            raise ValueError(f"Invalid access level: {new_access_level}")
+            raise ValidationError(f"Invalid access level: {new_access_level}")
 
         # See share_threat_model: an owner-held sharing record survives a change of
         # ownership and would outlast the ownership that authorized it.

@@ -529,7 +529,7 @@ def _get_lock_status(id):
         status = get_lock_status(id)
 
         # lock_token is the holder's write credential, checked by update_results.
-        # It is handed out by acquire and heartbeat, to the holder only.
+        # Only acquire_lock returns it, to the user it just granted the lock to.
         return {k: v for k, v in status.items() if k != "lock_token"}
     except Exception as e:
         LOG.exception(e)

@@ -281,7 +281,7 @@ def get_collaborators(threat_model_id: str, requester: str) -> List[Dict]:
 
         return {"collaborators": collaborators}
 
-    except UnauthorizedError:
+    except (UnauthorizedError, NotFoundError):
         raise
     except Exception as e:
         LOG.error(f"Error getting collaborators: {e}")
@@ -355,7 +355,7 @@ def remove_collaborator(
             "removed_user": collaborator_user_id,
         }
 
-    except UnauthorizedError:
+    except (UnauthorizedError, NotFoundError):
         raise
     except Exception as e:
         LOG.error(f"Error removing collaborator: {e}")

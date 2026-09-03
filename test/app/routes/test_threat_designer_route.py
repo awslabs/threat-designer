@@ -255,13 +255,10 @@ class TestGetEndpoints:
     def test_get_lock_status_returns_lock_status(
         self, mock_router, mock_get_lock_status, mock_require_access
     ):
-        """Test _get_lock_status returns lock status without the holder's token."""
+        """Test _get_lock_status returns lock status."""
         mock_router.current_event.request_context.authorizer = {"user_id": "user-123"}
-        mock_get_lock_status.return_value = {
-            "locked": True,
-            "user_id": "user-456",
-            "lock_token": "token-456",
-        }
+        # get_lock_status does not carry lock_token; see its own test for that
+        mock_get_lock_status.return_value = {"locked": True, "user_id": "user-456"}
 
         from routes.threat_designer_route import _get_lock_status
 
@@ -269,8 +266,6 @@ class TestGetEndpoints:
 
         assert result["locked"] is True
         assert result["user_id"] == "user-456"
-        # The token is the holder's write credential and must not leak to other users
-        assert "lock_token" not in result
         mock_require_access.assert_called_once_with(
             "test-job-123", "user-123", required_level="READ_ONLY"
         )

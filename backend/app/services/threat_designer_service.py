@@ -301,12 +301,41 @@ def invoke_lambda(owner, payload):
     # mirror_sharing copies the parent's collaborator roster onto the new version. It
     # needs no further check: get_collaborators already exposes that roster to anyone
     # with access, so require_access below is the whole boundary.
+    target_access = None
     if (is_replay or is_version) and owner != "MCP":
         from utils.authorization import require_access
 
-        require_access(
+        target_access = require_access(
             target_id, owner, required_level="EDIT" if is_replay else "READ_ONLY"
         )
+
+    # Replay rewrites the threat model wholesale. Every other EDIT-level write goes
+    # through the edit lock, so refuse to run over another user's in-flight edits. The
+    # caller does not have to hold the lock themselves: replay is not an edit-mode
+    # action in the UI, so requiring one would mean acquiring a lock just to re-run.
+    #
+    # This is a pre-check, not a mutual exclusion: the lock can still be taken in the
+    # window between here and the agent's finalize, which would lose that user's save.
+    # Closing that needs the replay to hold the lock for the whole run, which is a
+    # bigger change to how locks are modelled. MCP is included because stomping an
+    # editor's work is not an authorization question and MCP cannot hold a lock.
+    if is_replay:
+        from services.lock_service import get_lock_status
+
+        lock_status = get_lock_status(target_id)
+        if lock_status.get("locked") and lock_status.get("user_id") != owner:
+            holder = lock_status.get("username") or "Another user"
+            raise ConflictError(
+                {
+                    "message": (
+                        f"{holder} is editing this threat model. Replaying now would "
+                        "discard their unsaved changes."
+                    ),
+                    "held_by": lock_status.get("user_id"),
+                    "username": lock_status.get("username"),
+                    "since": lock_status.get("since"),
+                }
+            )
 
     if is_replay:
         id = target_id
@@ -330,24 +359,31 @@ def invoke_lambda(owner, payload):
         # Step 1: Reset any cancelled flag and set state to START
         current_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-        # A replayed job already belongs to someone. On the status row `owner` is the
-        # threat model's owner, which delete_tm authorizes its stop-execution step
-        # against, while execution_owner is whoever started this particular run.
-        # Overwriting owner with the caller would stop the real owner from cancelling a
-        # run on their own model, and delete_tm swallows that failure and deletes the
-        # model anyway, leaving the run writing back to a deleted job_id.
-        replay_item = None
-        state_owner = owner
-        if is_replay:
+        # Replay needs the target's content for the backup, and both replay and version
+        # need its owner. This repeats the read require_access already did; threading the
+        # item out of check_access would remove it.
+        target_item = None
+        if is_replay or is_version:
             agent_table = dynamodb.Table(AGENT_TABLE)
-            replay_item = agent_table.get_item(Key={"job_id": id}).get("Item")
-            if replay_item:
-                state_owner = replay_item.get("owner", owner)
+            target_item = agent_table.get_item(Key={"job_id": target_id}).get("Item")
+
+        # A replay keeps the job it re-runs, and a version belongs to the owner of the
+        # model it forks, because the agent's finalize reads owner off the parent.
+        # Creating either under the caller would flip ownership partway through the run.
+        #
+        # On the status row `owner` is the threat model's owner, which delete_tm
+        # authorizes its stop-execution step against, while execution_owner is whoever
+        # started this run. Overwriting owner with the caller would stop the real owner
+        # from cancelling a run on their own model, and delete_tm swallows that failure
+        # and deletes the model anyway, leaving the run writing to a deleted job_id.
+        # `or` rather than a get() default: writers strip None values, so a record whose
+        # owner was ever None has the key present-but-empty in some deployments.
+        model_owner = (target_item.get("owner") or owner) if target_item else owner
 
         state_item = {
             "id": id,
             "state": "START",
-            "owner": state_owner,
+            "owner": model_owner,
             "session_id": session_id,
             "execution_owner": owner,
             "updated_at": current_time,
@@ -360,15 +396,29 @@ def invoke_lambda(owner, payload):
 
         # Step 2: If this is a replay, store backup in the dedicated backup table
         if is_replay:
-            if replay_item:
-                backup_table.put_item(Item=copy.deepcopy(replay_item))
-                LOG.info(f"Backup stored in backup table for job_id: {id}")
+            if target_item:
+                _store_replay_backup(id, target_item)
             else:
                 LOG.warning(f"Item not found for backup during replay: {id}")
 
         # Step 2b: If version with mirror_sharing, copy sharing records from parent
         if is_version and mirror_sharing and previous_job_id:
-            _copy_sharing_records(previous_job_id, id)
+            _copy_sharing_records(previous_job_id, id, skip_user_id=model_owner)
+
+        # A collaborator who versions someone else's model does not own the fork, so
+        # grant them the access they need to reach what they just created. Skipped when
+        # they are the owner, since a sharing record naming the owner is rejected
+        # everywhere else and ownership already covers it.
+        #
+        # The grant mirrors what they hold on the parent. Versioning only requires
+        # READ_ONLY, so granting a fixed EDIT would let a read-only collaborator write to
+        # a model in the owner's catalog. It runs after the roster copy so that it wins
+        # over a mirrored record for the same user.
+        if is_version and owner != "MCP" and owner != model_owner:
+            granted_level = (target_access or {}).get("access_level") or "READ_ONLY"
+            if granted_level == "OWNER":
+                granted_level = "EDIT"
+            _grant_creator_access(id, model_owner, owner, granted_level)
 
         # Step 3: Invoke the agent
         agent_input = {
@@ -404,7 +454,7 @@ def invoke_lambda(owner, payload):
             "job_id": id,
             "s3_location": s3_location,
             "s3_locations": s3_locations,
-            "owner": owner,
+            "owner": model_owner,
             "title": title,
             "retry": reasoning,
         }
@@ -414,9 +464,8 @@ def invoke_lambda(owner, payload):
             agent_state["parent_id"] = previous_job_id
 
         if not is_replay:
-            # For version, set is_shared if sharing was mirrored
-            if is_version and mirror_sharing:
-                agent_state["is_shared"] = True
+            # No is_shared here: create_dynamodb_item writes a fixed field list that
+            # drops it, and nothing in the codebase reads the flag anyway.
             create_dynamodb_item(agent_state, AGENT_TABLE)
 
         return {"id": id}
@@ -443,8 +492,64 @@ def invoke_lambda(owner, payload):
         raise InternalError(e)
 
 
-def _copy_sharing_records(source_job_id, target_job_id):
-    """Copy sharing records from one threat model to another."""
+def _store_replay_backup(job_id, item):
+    """
+    Keep a pre-replay copy of a threat model so restore() can undo the replay.
+
+    The write is unconditional, which means the slot always holds the state from just
+    before the most recent replay. That is what both consumers expect: the UI offers
+    "Restore previous version", and delete_session auto-restores when a user stops a
+    run. Preserving older replays as well would need a backup key per replay, and the
+    table is hash-only on job_id (infra/dynamodb.tf), so adding a sort key would replace
+    it and destroy existing backups on apply.
+
+    Args:
+        job_id: The threat model being replayed.
+        item: Its current agent-table record, copied verbatim.
+    """
+    backup_table.put_item(Item=copy.deepcopy(item))
+    LOG.info(f"Backup stored in backup table for job_id: {job_id}")
+
+
+def _grant_creator_access(job_id, model_owner, creator, access_level):
+    """
+    Give the creator of a version access to it when they are not its owner.
+
+    A version belongs to the owner of the model it forks, so a collaborator who creates
+    one would otherwise have no way to reach it.
+
+    Args:
+        job_id: The new version.
+        model_owner: Who owns it, i.e. the parent's owner.
+        creator: The caller who asked for the version.
+        access_level: What the creator holds on the parent, mirrored onto the fork so
+            versioning cannot widen their access.
+    """
+    sharing_table = dynamodb.Table(SHARING_TABLE)
+    sharing_table.put_item(
+        Item={
+            "threat_model_id": job_id,
+            "user_id": creator,
+            "access_level": access_level,
+            "shared_by": model_owner,
+            "shared_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "owner": model_owner,
+        }
+    )
+    LOG.info(f"Granted creator {creator} {access_level} access on version {job_id}")
+
+
+def _copy_sharing_records(source_job_id, target_job_id, skip_user_id=None):
+    """
+    Copy sharing records from one threat model to another.
+
+    Args:
+        source_job_id: The threat model whose roster is copied.
+        target_job_id: The threat model receiving the roster.
+        skip_user_id: A user to leave out, used to keep the target's own owner off its
+            roster. A record naming the owner is rejected everywhere else, and it would
+            make the model show up as both owned and shared.
+    """
     try:
         sharing_table = dynamodb.Table(SHARING_TABLE)
         current_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -463,6 +568,9 @@ def _copy_sharing_records(source_job_id, target_job_id):
                 break
             query_params["ExclusiveStartKey"] = last_key
 
+        if skip_user_id:
+            items = [item for item in items if item.get("user_id") != skip_user_id]
+
         with sharing_table.batch_writer() as batch:
             for item in items:
                 new_item = copy.deepcopy(item)
@@ -474,7 +582,12 @@ def _copy_sharing_records(source_job_id, target_job_id):
             f"Copied {len(items)} sharing records from {source_job_id} to {target_job_id}"
         )
     except Exception as e:
+        # Raise rather than log and continue. The caller asked for the roster to be
+        # mirrored; reporting the version as created with an empty roster is a silent
+        # lie, and it leaves the model inconsistent with what the user was told. This
+        # runs before the agent is invoked, so failing here costs nothing but the retry.
         LOG.error(f"Failed to copy sharing records: {e}")
+        raise
 
 
 def _delete_sharing_records(job_id):
@@ -628,7 +741,7 @@ def update_results(job_id, payload, owner, lock_token=None):
         # For non-MCP users, check access and verify lock
         if owner != "MCP":
             from utils.authorization import require_access
-            from services.lock_service import get_lock_status
+            from services.lock_service import get_lock_status, lock_token_matches
 
             # Check if user has edit access (will raise UnauthorizedError if not)
             require_access(job_id, owner, required_level="EDIT")
@@ -647,7 +760,7 @@ def update_results(job_id, payload, owner, lock_token=None):
                 raise UnauthorizedError("Lock is held by another user")
 
             # Validate lock token if provided
-            if lock_token and lock_status.get("lock_token") != lock_token:
+            if lock_token and not lock_token_matches(job_id, lock_token):
                 LOG.warning(f"Invalid lock token for threat model {job_id}")
                 raise UnauthorizedError("Invalid lock token")
 
@@ -1098,6 +1211,11 @@ def fetch_shared_paginated(user_id: str, limit: int, cursor: str = None) -> dict
             tm_id = sharing_record["threat_model_id"]
             tm = threat_models.get(tm_id)
             if tm is None:
+                continue
+            # A sharing record naming the model's own owner is rejected on write now, but
+            # records predating that rule would surface the user's own model here as
+            # read-only, alongside the real entry under /owned.
+            if tm.get("owner") == user_id:
                 continue
             tm["is_owner"] = False
             tm["access_level"] = sharing_record["access_level"]

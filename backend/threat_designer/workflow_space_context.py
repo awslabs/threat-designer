@@ -9,7 +9,7 @@ import os
 from typing import Any, List
 
 import boto3
-from constants import KB_QUERY_BUDGET, MAX_SPACE_INSIGHTS, SYSTEM_SPACE_ID, JobState
+from constants import KB_QUERY_BUDGET, MAX_SPACE_INSIGHTS, SPACES_TABLE, JobState
 from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_core.runnables.config import RunnableConfig
 from langchain_core.tools import tool
@@ -36,6 +36,8 @@ _model_service = ModelService()
 
 KNOWLEDGE_BASE_ID = os.environ.get("KNOWLEDGE_BASE_ID", "")
 _bedrock_agent_client = None
+_dynamodb_resource = None
+_system_space_ids_cache = None
 
 
 def _get_bedrock_agent_client():
@@ -43,6 +45,53 @@ def _get_bedrock_agent_client():
     if _bedrock_agent_client is None:
         _bedrock_agent_client = boto3.client("bedrock-agent-runtime")
     return _bedrock_agent_client
+
+
+def _get_dynamodb_resource():
+    global _dynamodb_resource
+    if _dynamodb_resource is None:
+        _dynamodb_resource = boto3.resource("dynamodb")
+    return _dynamodb_resource
+
+
+def get_system_space_ids() -> List[str]:
+    """Return the space_ids of all system spaces (governance-managed org-wide
+    KBs), scanning the spaces table for records flagged system=True.
+
+    Cached for the lifetime of the warm Lambda/runtime container: the set
+    changes rarely and a per-job scan would be wasteful. Returns [] when no
+    spaces table is configured so the feature is inert by default.
+    """
+    global _system_space_ids_cache
+    if _system_space_ids_cache is not None:
+        return _system_space_ids_cache
+    if not SPACES_TABLE:
+        _system_space_ids_cache = []
+        return _system_space_ids_cache
+
+    from boto3.dynamodb.conditions import Attr
+
+    ids: List[str] = []
+    try:
+        table = _get_dynamodb_resource().Table(SPACES_TABLE)
+        scan_kwargs = {
+            "FilterExpression": Attr("system").eq(True),
+            "ProjectionExpression": "space_id",
+        }
+        while True:
+            resp = table.scan(**scan_kwargs)
+            ids.extend(
+                item["space_id"] for item in resp.get("Items", []) if "space_id" in item
+            )
+            last_key = resp.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            scan_kwargs["ExclusiveStartKey"] = last_key
+    except Exception as e:
+        logger.warning("Failed to discover system spaces", error=str(e))
+        # Cache the empty result to avoid retry storms within the container.
+    _system_space_ids_cache = ids
+    return _system_space_ids_cache
 
 
 def _do_retrieve(query: str, space_id: str, max_results: int = 5) -> list:
@@ -86,17 +135,18 @@ def _format_results(results: list) -> str:
 
 
 def _retrieve_from_kb(query: str, space_id: str, max_results: int = 5) -> str:
-    """Call Bedrock KB Retrieve API filtered to a specific space_id.
+    """Call Bedrock KB Retrieve for the attached space plus every system space.
 
-    Also queries the system space (if configured and different from space_id)
-    to ensure mandatory organization standards are always included.
+    System spaces (governance-managed, org-wide) are always included so
+    mandatory organization standards apply to every threat model. The attached
+    space_id may itself be a system space (system-only runs), so it is removed
+    from the system set to avoid a duplicate retrieve.
     """
     results = _do_retrieve(query, space_id, max_results)
 
-    # Always also query system space if configured and not already the target
-    if SYSTEM_SPACE_ID and SYSTEM_SPACE_ID != space_id:
-        system_results = _do_retrieve(query, SYSTEM_SPACE_ID, max_results)
-        results.extend(system_results)
+    system_ids = [sid for sid in get_system_space_ids() if sid != space_id]
+    for sid in system_ids:
+        results.extend(_do_retrieve(query, sid, max_results))
 
     return _format_results(results)
 
@@ -162,7 +212,7 @@ def _extract_insights_from_messages(messages: list) -> List[str]:
 def agent_node(state: SpaceContextState, config: RunnableConfig) -> Command:
     """Agent node: invokes the LLM with space context tools."""
     job_id = state.get("job_id", "unknown")
-    space_id = state.get("space_id", "") or SYSTEM_SPACE_ID
+    space_id = state.get("space_id", "")
     kb_query_count = state.get("kb_query_count", 0)
 
     tools = _build_tools(space_id, job_id)
@@ -251,7 +301,7 @@ def agent_node(state: SpaceContextState, config: RunnableConfig) -> Command:
 
 def tool_node(state: SpaceContextState) -> Command:
     """Execute tool calls from the last message."""
-    space_id = state.get("space_id", "") or SYSTEM_SPACE_ID
+    space_id = state.get("space_id", "")
     job_id = state.get("job_id", "unknown")
     tools_list = _build_tools(space_id, job_id)
     tools_by_name = {t.name: t for t in tools_list}

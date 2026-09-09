@@ -451,12 +451,10 @@ class MessageBuilder:
         if not space_insights or not space_insights.insights:
             return None
 
-        source = space_insights.source if hasattr(space_insights, "source") and space_insights.source else "space"
-        tag = "system_space_insights" if source == "system" else "space_knowledge_insights"
-        lines = [f"<{tag}>"]
+        lines = ["<space_knowledge_insights>"]
         for i, insight in enumerate(space_insights.insights, 1):
             lines.append(f'  <insight id="{i}">{insight}</insight>')
-        lines.append(f"</{tag}>")
+        lines.append("</space_knowledge_insights>")
 
         return {"type": "text", "text": "\n".join(lines)}
 

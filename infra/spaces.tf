@@ -266,7 +266,7 @@ resource "aws_iam_role_policy" "backend_spaces_policy" {
   })
 }
 
-# Allow agent runtime to query the Knowledge Base
+# Allow agent runtime to query the Knowledge Base and discover system spaces
 resource "aws_iam_role_policy" "agent_kb_policy" {
   name = "${local.prefix}-agent-kb-policy"
   role = aws_iam_role.threat_designer_role.name
@@ -278,6 +278,11 @@ resource "aws_iam_role_policy" "agent_kb_policy" {
         Effect   = "Allow"
         Action   = ["bedrock:Retrieve", "bedrock-agent-runtime:Retrieve"]
         Resource = [aws_bedrockagent_knowledge_base.spaces_kb.arn]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["dynamodb:Scan", "dynamodb:GetItem"]
+        Resource = [aws_dynamodb_table.spaces.arn]
       }
     ]
   })

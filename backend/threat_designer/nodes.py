@@ -424,15 +424,16 @@ class ReplayService:
             WORKFLOW_NODE_SPACE_CONTEXT,
             WORKFLOW_NODE_THREATS_AGENTIC,
             WORKFLOW_NODE_THREATS_TRADITIONAL,
-            SYSTEM_SPACE_ID,
         )
+        from workflow_space_context import get_system_space_ids
 
         if state.get("version", False):
             return WORKFLOW_NODE_VERSION_DIFF
 
         if not state.get("replay", False):
-            # New run: check for attached space or system space
-            if state.get("space_id") or SYSTEM_SPACE_ID:
+            # New run: enter space context if a space is attached or any
+            # system space is configured (mandatory org-wide KBs).
+            if state.get("space_id") or get_system_space_ids():
                 return WORKFLOW_NODE_SPACE_CONTEXT
             return WORKFLOW_NODE_ASSET
 

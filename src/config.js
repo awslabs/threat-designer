@@ -5,7 +5,7 @@ let config = {
   sentryEnabled: import.meta.env.VITE_SENTRY_ENABLED === "true",
   sentryArn: import.meta.env.VITE_APP_SENTRY || "",
   maestroEnabled: import.meta.env.VITE_MAESTRO_ENABLED === "true",
-  systemSpaceId: import.meta.env.VITE_SYSTEM_SPACE_ID || "",
+  governanceGroup: import.meta.env.VITE_GOVERNANCE_GROUP || "governance",
 };
 
 const amplifyConfig = {

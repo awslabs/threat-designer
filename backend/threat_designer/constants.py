@@ -516,8 +516,10 @@ KB_QUERY_BUDGET = 10
 # Maximum number of space insights to capture before moving on
 MAX_SPACE_INSIGHTS = 20
 
-# System Space — mandatory organization-wide knowledge base applied to all models
-SYSTEM_SPACE_ID = os.environ.get("SYSTEM_SPACE_ID", "")
+# System Spaces — mandatory organization-wide knowledge bases applied to every
+# threat model. Discovered at runtime by scanning the spaces table for records
+# flagged system=True (governance-managed), rather than a static env var.
+SPACES_TABLE = os.environ.get("SPACES_TABLE", "")
 
 # ============================================================================
 # SLEEP INTERVALS

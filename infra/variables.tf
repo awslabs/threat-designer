@@ -538,10 +538,10 @@ variable "kb_embedding_model_id" {
   default     = "amazon.titan-embed-text-v2:0"
 }
 
-variable "system_space_id" {
+variable "governance_group" {
   type        = string
-  description = "Space ID for mandatory organization-wide standards. When set, this space is queried for every threat model and cannot be modified by users."
-  default     = ""
+  description = "Cognito group whose members can manage system spaces (org-wide mandatory KBs) via the governance API and UI."
+  default     = "governance"
 }
 
 variable "external_agent_ecr_arn" {

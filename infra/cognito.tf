@@ -76,6 +76,15 @@ resource "aws_cognito_user_pool_client" "client" {
   prevent_user_existence_errors = "ENABLED"
 }
 
+# Governance group — members manage system spaces (org-wide mandatory KBs)
+# via the /governance API and UI. Membership surfaces in cognito:groups on the
+# access token and is enforced by the @governance_only backend decorator.
+resource "aws_cognito_user_group" "governance" {
+  name         = var.governance_group
+  user_pool_id = aws_cognito_user_pool.user_pool.id
+  description  = "Members can create and manage system spaces (organization-wide knowledge bases)."
+}
+
 # Add random string resource
 resource "random_string" "domain_suffix" {
   length  = 6

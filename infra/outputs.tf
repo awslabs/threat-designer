@@ -61,7 +61,7 @@ output "model_provider" {
   value       = var.model_provider
 }
 
-output "system_space_id" {
-  description = "System Space ID for mandatory organization standards (empty if not configured)"
-  value       = var.system_space_id
+output "governance_group" {
+  description = "Cognito group whose members can manage system spaces"
+  value       = var.governance_group
 }

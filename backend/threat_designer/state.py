@@ -87,10 +87,6 @@ class SpaceInsightsList(BaseModel):
             description="List of insight strings extracted from the space knowledge base"
         ),
     ]
-    source: Optional[str] = Field(
-        default=None,
-        description="Origin of insights: 'system' for system space, 'user' for user space",
-    )
 
 
 class CaptureInsight(BaseModel):

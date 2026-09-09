@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import "./SpacesPanel.css";
+import "../Spaces/SpacesPanel.css";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Folder } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import Modal from "@cloudscape-design/components/modal";
 import FormField from "@cloudscape-design/components/form-field";
 import Input from "@cloudscape-design/components/input";
@@ -10,9 +10,9 @@ import Button from "@cloudscape-design/components/button";
 import Box from "@cloudscape-design/components/box";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import Spinner from "@cloudscape-design/components/spinner";
-import { listSpaces, createSpace } from "../../services/Spaces/spacesService";
+import { listSystemSpaces, createSystemSpace } from "../../services/Governance/governanceService";
 
-export function SpacesPanel() {
+export function GovernancePanel() {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -24,8 +24,8 @@ export function SpacesPanel() {
   const [newDesc, setNewDesc] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const activeSpaceId = location.pathname.startsWith("/spaces/")
-    ? location.pathname.split("/spaces/")[1]
+  const activeSpaceId = location.pathname.startsWith("/governance/")
+    ? location.pathname.split("/governance/")[1]
     : null;
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export function SpacesPanel() {
   async function load() {
     setLoading(true);
     try {
-      const data = await listSpaces();
+      const data = await listSystemSpaces();
       setSpaces(data ?? []);
     } catch {
       setSpaces([]);
@@ -48,12 +48,12 @@ export function SpacesPanel() {
     if (!newName.trim()) return;
     setCreating(true);
     try {
-      const space = await createSpace(newName.trim(), newDesc.trim());
+      const space = await createSystemSpace(newName.trim(), newDesc.trim());
       setSpaces((prev) => [...prev, space]);
       setCreateOpen(false);
       setNewName("");
       setNewDesc("");
-      navigate(`/spaces/${space.space_id}`);
+      navigate(`/governance/${space.space_id}`);
     } catch {
       // noop
     } finally {
@@ -66,13 +66,13 @@ export function SpacesPanel() {
       <div className="spaces-panel">
         <div className="spaces-panel-header">
           <span className="spaces-panel-title">
-            <Folder size={14} />
-            Spaces
+            <ShieldCheck size={14} />
+            System Spaces
           </span>
           <Button
             variant="icon"
             iconName="add-plus"
-            ariaLabel="New space"
+            ariaLabel="New system space"
             onClick={() => setCreateOpen(true)}
           />
         </div>
@@ -84,7 +84,7 @@ export function SpacesPanel() {
             </div>
           ) : spaces.length === 0 ? (
             <div className="spaces-panel-empty">
-              <span>No spaces yet</span>
+              <span>No system spaces yet</span>
             </div>
           ) : (
             <>
@@ -92,10 +92,10 @@ export function SpacesPanel() {
                 <button
                   key={space.space_id}
                   className={`spaces-panel-item ${activeSpaceId === space.space_id ? "active" : ""}`}
-                  onClick={() => navigate(`/spaces/${space.space_id}`)}
+                  onClick={() => navigate(`/governance/${space.space_id}`)}
                   title={space.name}
                 >
-                  <Folder size={14} className="spaces-panel-item-icon" />
+                  <ShieldCheck size={14} className="spaces-panel-item-icon" />
                   <span className="spaces-panel-item-name">{space.name}</span>
                 </button>
               ))}
@@ -107,7 +107,7 @@ export function SpacesPanel() {
       <Modal
         visible={createOpen}
         onDismiss={() => setCreateOpen(false)}
-        header="Create space"
+        header="Create system space"
         footer={
           <Box float="right">
             <SpaceBetween direction="horizontal" size="xs">
@@ -120,18 +120,22 @@ export function SpacesPanel() {
         }
       >
         <SpaceBetween size="m">
-          <FormField label="Name" constraintText="Required">
+          <FormField
+            label="Name"
+            constraintText="Required"
+            description="Applied to every threat model as a mandatory organization-wide knowledge base."
+          >
             <Input
               value={newName}
               onChange={({ detail }) => setNewName(detail.value)}
-              placeholder="My project space"
+              placeholder="Org security standards"
             />
           </FormField>
           <FormField label="Description" constraintText="Optional">
             <Textarea
               value={newDesc}
               onChange={({ detail }) => setNewDesc(detail.value)}
-              placeholder="Describe this space..."
+              placeholder="Describe this system space..."
               rows={3}
             />
           </FormField>

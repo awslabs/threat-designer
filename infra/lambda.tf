@@ -41,7 +41,7 @@ resource "aws_lambda_function" "backend" {
       SPACES_BUCKET         = aws_s3_bucket.spaces_bucket.id,
       KNOWLEDGE_BASE_ID     = aws_bedrockagent_knowledge_base.spaces_kb.id,
       KB_DATA_SOURCE_ID     = aws_bedrockagent_data_source.spaces_kb_data_source.data_source_id,
-      SYSTEM_SPACE_ID       = var.system_space_id
+      GOVERNANCE_GROUP      = var.governance_group
     }
   }
   timeout = 600

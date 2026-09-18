@@ -196,6 +196,7 @@ def delete_system_space(space_id: str) -> None:
     item = _get_space_item(space_id)
     if not item.get("system", False):
         raise UnauthorizedError("Not a system space")
+    _purge_space_documents(space_id)
     table = dynamodb.Table(SPACES_TABLE)
     table.delete_item(Key={"space_id": space_id})
     LOG.info("System space deleted", space_id=space_id)
@@ -281,8 +282,12 @@ def list_spaces(user_id: str) -> List[Dict[str, Any]]:
         shared_spaces = []
         for sid in shared_space_ids:
             r = spaces_table.get_item(Key={"space_id": sid})
-            if "Item" in r:
-                shared_spaces.append(r["Item"])
+            item = r.get("Item")
+            # A system space must never surface through sharing: the governance
+            # user owns it, so a stale share row (or a share created before the
+            # guard landed) would otherwise leak it into a recipient's listing.
+            if item and not item.get("system", False):
+                shared_spaces.append(item)
     except Exception:
         shared_spaces = []
 
@@ -320,6 +325,7 @@ def update_space(
 def delete_space(space_id: str, user_id: str) -> None:
     _assert_not_system_space(space_id)
     _check_space_owner(space_id, user_id)
+    _purge_space_documents(space_id)
     table = dynamodb.Table(SPACES_TABLE)
     table.delete_item(Key={"space_id": space_id})
     LOG.debug("Space deleted", space_id=space_id)
@@ -362,6 +368,7 @@ def confirm_document_upload(
     space_id: str, user_id: str, document_id: str, s3_key: str, filename: str
 ) -> Dict[str, Any]:
     """Record document in DDB, write KB metadata sidecar, trigger KB ingestion."""
+    _assert_not_system_space(space_id)
     _check_space_owner(space_id, user_id)
     return _do_confirm_document_upload(space_id, document_id, s3_key, filename)
 
@@ -517,9 +524,55 @@ def _do_delete_document(space_id: str, document_id: str) -> None:
             LOG.warning("Failed to start KB ingestion after delete", error=str(e))
 
 
+def _purge_space_documents(space_id: str) -> None:
+    """Delete every document of a space: DDB rows, S3 objects, and KB sidecars,
+    then trigger a single KB ingestion sync.
+
+    Shared by delete_space and delete_system_space so deleting a space actually
+    removes its files (as the UI promises) rather than orphaning S3 objects and
+    leaving stale vectors in the knowledge base. One ingestion job is triggered
+    at the end rather than per document.
+    """
+    docs_table = dynamodb.Table(SPACE_DOCUMENTS_TABLE)
+    keys = boto3.dynamodb.conditions.Key("space_id").eq(space_id)
+    doc_items: List[Dict[str, Any]] = []
+    query_kwargs = {"KeyConditionExpression": keys}
+    while True:
+        resp = docs_table.query(**query_kwargs)
+        doc_items.extend(resp.get("Items", []))
+        last_key = resp.get("LastEvaluatedKey")
+        if not last_key:
+            break
+        query_kwargs["ExclusiveStartKey"] = last_key
+
+    for item in doc_items:
+        s3_key = item.get("s3_key")
+        if s3_key:
+            try:
+                s3_client.delete_object(Bucket=SPACES_BUCKET, Key=s3_key)
+                s3_client.delete_object(
+                    Bucket=SPACES_BUCKET, Key=f"{s3_key}.metadata.json"
+                )
+            except Exception as e:
+                LOG.warning("S3 delete failed during purge", error=str(e), s3_key=s3_key)
+        docs_table.delete_item(
+            Key={"space_id": space_id, "document_id": item["document_id"]}
+        )
+
+    if doc_items and KNOWLEDGE_BASE_ID and KB_DATA_SOURCE_ID:
+        try:
+            bedrock_agent_client.start_ingestion_job(
+                knowledgeBaseId=KNOWLEDGE_BASE_ID,
+                dataSourceId=KB_DATA_SOURCE_ID,
+            )
+        except Exception as e:
+            LOG.warning("Failed to start KB ingestion after space purge", error=str(e))
+
+
 @tracer.capture_method
 def share_space(space_id: str, owner: str, user_ids: List[str]) -> List[Dict[str, Any]]:
     """Grant READ_ONLY access to a list of users."""
+    _assert_not_system_space(space_id)
     _check_space_owner(space_id, owner)
     sharing_table = dynamodb.Table(SPACE_SHARING_TABLE)
     now = _now()
@@ -573,6 +626,7 @@ def get_space_sharing(space_id: str, user_id: str) -> List[Dict[str, Any]]:
 
 @tracer.capture_method
 def remove_space_sharing(space_id: str, owner: str, target_user_id: str) -> None:
+    _assert_not_system_space(space_id)
     _check_space_owner(space_id, owner)
     sharing_table = dynamodb.Table(SPACE_SHARING_TABLE)
     sharing_table.delete_item(Key={"space_id": space_id, "user_id": target_user_id})

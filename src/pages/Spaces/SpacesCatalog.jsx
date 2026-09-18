@@ -18,19 +18,49 @@ import Badge from "@cloudscape-design/components/badge";
 import Spinner from "@cloudscape-design/components/spinner";
 import { fetchAuthSession } from "aws-amplify/auth";
 import { config } from "../../config.js";
-import {
-  getSpace,
-  listDocuments,
-  uploadDocument,
-  deleteDocument,
-  deleteSpace,
-  createSpace,
-  getSpaceSharing,
-  shareSpace,
-  removeSpaceSharing,
-} from "../../services/Spaces/spacesService";
+import { spacesService } from "../../services/Spaces/spacesService";
 
-export default function SpacesCatalog() {
+const DEFAULT_LABELS = {
+  basePath: "/spaces",
+  entity: "space",
+  createTitle: "Create space",
+  createNamePlaceholder: "My project space",
+  createNameDescription: undefined,
+  emptyTitle: "No space selected",
+  emptyBody: "Select a space from the panel or create a new one.",
+  emptyCreateButton: "Create Space",
+  deleteTitle: "Delete space",
+  deleteButton: "Delete space",
+  deleteConfirmSuffix: "All files and sharing settings will be removed.",
+  filesEmptyBody: "Upload documents to build the knowledge base for this space.",
+  detailFallbackDescription: undefined,
+};
+
+/**
+ * Space catalog page, parametrized so both user Spaces and governance System
+ * Spaces render from one implementation. `variant` supplies the service module,
+ * base route, copy, and feature flags (sharing, single-space GET). Defaults are
+ * the user-space behavior, so <SpacesCatalog /> with no props is unchanged.
+ */
+export default function SpacesCatalog({
+  service = spacesService,
+  labels: labelOverrides,
+  sharingEnabled = true,
+  hasSingleGet = true,
+} = {}) {
+  const labels = { ...DEFAULT_LABELS, ...labelOverrides };
+  const {
+    getSpace,
+    listSpaces,
+    listDocuments,
+    uploadDocument,
+    deleteDocument,
+    deleteSpace,
+    createSpace,
+    getSpaceSharing,
+    shareSpace,
+    removeSpaceSharing,
+  } = service;
   const { spaceId } = useParams();
   const navigate = useNavigate();
 
@@ -125,17 +155,31 @@ export default function SpacesCatalog() {
     setLoadingSpace(true);
     setSpaceError(null);
     try {
-      const [s, docs] = await Promise.all([getSpace(id), listDocuments(id)]);
-      setSpace(s);
-      setDocuments(docs ?? []);
-      if (s.is_owner) {
-        const collabs = await getSpaceSharing(id);
-        setCollaborators(collabs ?? []);
+      if (hasSingleGet) {
+        const [s, docs] = await Promise.all([getSpace(id), listDocuments(id)]);
+        setSpace(s);
+        setDocuments(docs ?? []);
+        if (sharingEnabled && s.is_owner) {
+          const collabs = await getSpaceSharing(id);
+          setCollaborators(collabs ?? []);
+        } else {
+          setCollaborators([]);
+        }
       } else {
+        // No single-space GET (governance): resolve metadata from the list and
+        // load documents directly (the docs endpoint verifies the space type).
+        const [spaces, docs] = await Promise.all([listSpaces(), listDocuments(id)]);
+        const found = (spaces ?? []).find((s) => s.space_id === id);
+        if (!found) {
+          setSpaceError(`No ${labels.entity} found.`);
+          return;
+        }
+        setSpace(found);
+        setDocuments(docs ?? []);
         setCollaborators([]);
       }
     } catch {
-      setSpaceError("Failed to load space.");
+      setSpaceError(`Failed to load ${labels.entity}.`);
     } finally {
       setLoadingSpace(false);
     }
@@ -176,7 +220,7 @@ export default function SpacesCatalog() {
     try {
       await deleteSpace(spaceId);
       setDeleteOpen(false);
-      navigate("/spaces");
+      navigate(labels.basePath);
     } catch {
       // noop
     } finally {
@@ -218,7 +262,7 @@ export default function SpacesCatalog() {
       setNewName("");
       setNewDesc("");
       setCreateOpen(false);
-      navigate(`/spaces/${space.space_id}`);
+      navigate(`${labels.basePath}/${space.space_id}`);
     } catch {
       // noop
     } finally {
@@ -234,13 +278,13 @@ export default function SpacesCatalog() {
         <Box padding="xxl" textAlign="center" color="inherit" style={{ marginTop: "120px" }}>
           <SpaceBetween size="m" alignItems="center">
             <Box variant="h2" color="inherit">
-              No space selected
+              {labels.emptyTitle}
             </Box>
             <Box variant="p" color="inherit">
-              Select a space from the panel or create a new one.
+              {labels.emptyBody}
             </Box>
             <Button variant="primary" onClick={() => setCreateOpen(true)}>
-              Create Space
+              {labels.emptyCreateButton}
             </Button>
           </SpaceBetween>
         </Box>
@@ -248,7 +292,7 @@ export default function SpacesCatalog() {
         <Modal
           visible={createOpen}
           onDismiss={() => setCreateOpen(false)}
-          header="Create space"
+          header={labels.createTitle}
           footer={
             <Box float="right">
               <SpaceBetween direction="horizontal" size="xs">
@@ -261,11 +305,15 @@ export default function SpacesCatalog() {
           }
         >
           <SpaceBetween size="m">
-            <FormField label="Name" constraintText="Required">
+            <FormField
+              label="Name"
+              constraintText="Required"
+              description={labels.createNameDescription}
+            >
               <Input
                 value={newName}
                 onChange={({ detail }) => setNewName(detail.value)}
-                placeholder="My project space"
+                placeholder={labels.createNamePlaceholder}
               />
             </FormField>
             <FormField label="Description" constraintText="Optional">
@@ -295,10 +343,15 @@ export default function SpacesCatalog() {
   if (spaceError || !space) {
     return (
       <Box padding="l">
-        <Alert type="error">{spaceError ?? "Space not found."}</Alert>
+        <Alert type="error">{spaceError ?? `No ${labels.entity} found.`}</Alert>
       </Box>
     );
   }
+
+  // Sharing-based spaces gate management on ownership; governance system spaces
+  // have no owner concept in the UI (only governance members reach the page),
+  // so management is always available there.
+  const canManage = sharingEnabled ? !!space.is_owner : true;
 
   // ── Space detail ────────────────────────────────────────────────────────────
 
@@ -308,12 +361,12 @@ export default function SpacesCatalog() {
         header={
           <Header
             variant="h2"
-            description={space.description || undefined}
+            description={space.description || labels.detailFallbackDescription}
             actions={
-              space.is_owner ? (
+              canManage ? (
                 <SpaceBetween direction="horizontal" size="xs">
                   <Button variant="normal" onClick={() => setDeleteOpen(true)}>
-                    Delete space
+                    {labels.deleteButton}
                   </Button>
                 </SpaceBetween>
               ) : undefined
@@ -338,7 +391,7 @@ export default function SpacesCatalog() {
                       <Header
                         variant="h3"
                         actions={
-                          space.is_owner ? (
+                          canManage ? (
                             <>
                               <Button
                                 onClick={() => fileInputRef.current?.click()}
@@ -384,7 +437,7 @@ export default function SpacesCatalog() {
                         cell: (item) =>
                           item.created_at ? new Date(item.created_at).toLocaleDateString() : "—",
                       },
-                      ...(space.is_owner
+                      ...(canManage
                         ? [
                             {
                               id: "actions",
@@ -408,7 +461,7 @@ export default function SpacesCatalog() {
                       <Box textAlign="center" color="inherit" padding="l">
                         <b>No files yet</b>
                         <Box variant="p" color="inherit">
-                          Upload documents to build the knowledge base for this space.
+                          {labels.filesEmptyBody}
                         </Box>
                       </Box>
                     }
@@ -416,61 +469,65 @@ export default function SpacesCatalog() {
                 </Box>
               ),
             },
-            {
-              id: "sharing",
-              label: "Sharing",
-              disabled: !space.is_owner,
-              content: (
-                <Box padding={{ top: "m" }}>
-                  <Table
-                    variant="embedded"
-                    header={
-                      <Header
-                        variant="h3"
-                        actions={
-                          <Button onClick={() => setShareOpen(true)}>Add collaborator</Button>
-                        }
-                      >
-                        Collaborators
-                      </Header>
-                    }
-                    columnDefinitions={[
-                      {
-                        id: "user",
-                        header: "User",
-                        cell: (item) => item.email || item.user_id,
-                      },
-                      {
-                        id: "access",
-                        header: "Access",
-                        cell: () => <Badge>Read-only</Badge>,
-                      },
-                      {
-                        id: "actions",
-                        header: "Action",
-                        cell: (item) => (
-                          <Button
-                            variant="link"
-                            onClick={() => handleRemoveCollaborator(item.user_id)}
-                          >
-                            Remove
-                          </Button>
-                        ),
-                      },
-                    ]}
-                    items={collaborators}
-                    empty={
-                      <Box textAlign="center" color="inherit" padding="l">
-                        <b>Not shared</b>
-                        <Box variant="p" color="inherit">
-                          Add collaborators to give others read access to this space.
-                        </Box>
+            ...(sharingEnabled
+              ? [
+                  {
+                    id: "sharing",
+                    label: "Sharing",
+                    disabled: !space.is_owner,
+                    content: (
+                      <Box padding={{ top: "m" }}>
+                        <Table
+                          variant="embedded"
+                          header={
+                            <Header
+                              variant="h3"
+                              actions={
+                                <Button onClick={() => setShareOpen(true)}>Add collaborator</Button>
+                              }
+                            >
+                              Collaborators
+                            </Header>
+                          }
+                          columnDefinitions={[
+                            {
+                              id: "user",
+                              header: "User",
+                              cell: (item) => item.email || item.user_id,
+                            },
+                            {
+                              id: "access",
+                              header: "Access",
+                              cell: () => <Badge>Read-only</Badge>,
+                            },
+                            {
+                              id: "actions",
+                              header: "Action",
+                              cell: (item) => (
+                                <Button
+                                  variant="link"
+                                  onClick={() => handleRemoveCollaborator(item.user_id)}
+                                >
+                                  Remove
+                                </Button>
+                              ),
+                            },
+                          ]}
+                          items={collaborators}
+                          empty={
+                            <Box textAlign="center" color="inherit" padding="l">
+                              <b>Not shared</b>
+                              <Box variant="p" color="inherit">
+                                Add collaborators to give others read access to this space.
+                              </Box>
+                            </Box>
+                          }
+                        />
                       </Box>
-                    }
-                  />
-                </Box>
-              ),
-            },
+                    ),
+                  },
+                ]
+              : []),
           ]}
         />
       </Container>
@@ -479,7 +536,7 @@ export default function SpacesCatalog() {
       <Modal
         visible={deleteOpen}
         onDismiss={() => setDeleteOpen(false)}
-        header="Delete space"
+        header={labels.deleteTitle}
         footer={
           <Box float="right">
             <SpaceBetween direction="horizontal" size="xs">
@@ -492,46 +549,47 @@ export default function SpacesCatalog() {
         }
       >
         <Box>
-          Are you sure you want to delete <b>{space.name}</b>? All files and sharing settings will
-          be removed.
+          Are you sure you want to delete <b>{space.name}</b>? {labels.deleteConfirmSuffix}
         </Box>
       </Modal>
 
       {/* Share */}
-      <Modal
-        visible={shareOpen}
-        onDismiss={() => setShareOpen(false)}
-        header="Add collaborator"
-        footer={
-          <Box float="right">
-            <SpaceBetween direction="horizontal" size="xs">
-              <Button onClick={() => setShareOpen(false)}>Cancel</Button>
-              <Button
-                variant="primary"
-                onClick={handleShare}
-                loading={sharing}
-                disabled={!selectedShareUser}
-              >
-                Add
-              </Button>
-            </SpaceBetween>
-          </Box>
-        }
-      >
-        <FormField label="User" constraintText="Grants read-only access">
-          <Select
-            selectedOption={selectedShareUser}
-            onChange={({ detail }) => setSelectedShareUser(detail.selectedOption)}
-            options={shareUsers.filter((u) => !collaborators.some((c) => c.user_id === u.value))}
-            placeholder="Search for a user..."
-            filteringType="manual"
-            onLoadItems={({ detail }) => setShareUserSearch(detail.filteringText)}
-            statusType={loadingShareUsers ? "loading" : "finished"}
-            loadingText="Searching users..."
-            empty="No users found"
-          />
-        </FormField>
-      </Modal>
+      {sharingEnabled && (
+        <Modal
+          visible={shareOpen}
+          onDismiss={() => setShareOpen(false)}
+          header="Add collaborator"
+          footer={
+            <Box float="right">
+              <SpaceBetween direction="horizontal" size="xs">
+                <Button onClick={() => setShareOpen(false)}>Cancel</Button>
+                <Button
+                  variant="primary"
+                  onClick={handleShare}
+                  loading={sharing}
+                  disabled={!selectedShareUser}
+                >
+                  Add
+                </Button>
+              </SpaceBetween>
+            </Box>
+          }
+        >
+          <FormField label="User" constraintText="Grants read-only access">
+            <Select
+              selectedOption={selectedShareUser}
+              onChange={({ detail }) => setSelectedShareUser(detail.selectedOption)}
+              options={shareUsers.filter((u) => !collaborators.some((c) => c.user_id === u.value))}
+              placeholder="Search for a user..."
+              filteringType="manual"
+              onLoadItems={({ detail }) => setShareUserSearch(detail.filteringText)}
+              statusType={loadingShareUsers ? "loading" : "finished"}
+              loadingText="Searching users..."
+              empty="No users found"
+            />
+          </FormField>
+        </Modal>
+      )}
     </Box>
   );
 }

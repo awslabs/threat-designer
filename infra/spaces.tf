@@ -281,7 +281,7 @@ resource "aws_iam_role_policy" "agent_kb_policy" {
       },
       {
         Effect   = "Allow"
-        Action   = ["dynamodb:Scan", "dynamodb:GetItem"]
+        Action   = ["dynamodb:Scan"]
         Resource = [aws_dynamodb_table.spaces.arn]
       }
     ]

@@ -7,8 +7,8 @@ organized by logical categories for better maintainability and consistency.
 
 import hashlib
 import os
-import typing
 from enum import Enum
+from typing import Dict, List
 
 # ============================================================================
 # ENVIRONMENT VARIABLE NAMES
@@ -82,7 +82,7 @@ DEFAULT_MAX_SUMMARY_WORDS = 100
 # ============================================================================
 
 # Stop sequences for model generation
-STOP_SEQUENCES: typing.List[str] = ["Human:", "User:", "Assistant:"]
+STOP_SEQUENCES: List[str] = ["Human:", "User:", "Assistant:"]
 
 # No temperature settings: Claude 4.6+ and the whole GPT-5 family reject the
 # parameter, and pre-4.6 models with thinking enabled require the default of 1.
@@ -378,14 +378,14 @@ ADAPTIVE_THINKING_TYPE = "adaptive"
 # Level 4 tops out at "xhigh", not "max": xhigh is the recommended setting for
 # demanding coding and agentic work, while max costs substantially more for
 # marginal gains. Models still accept "max" if a per-model effort_map sets it.
-ADAPTIVE_EFFORT_MAP: typing.Dict[int, str] = {1: "low", 2: "medium", 3: "high", 4: "xhigh"}
+ADAPTIVE_EFFORT_MAP: Dict[int, str] = {1: "low", 2: "medium", 3: "high", 4: "xhigh"}
 
 # OpenAI reasoning effort mapping. GPT-5.6 (Sol/Terra/Luna) accepts
 # none|low|medium|high|xhigh|max across the whole fleet — "minimal" was
 # removed and is rejected with a 400 — so a single map serves every model.
 # Level 4 tops out at "xhigh" for the same cost/quality reason as the adaptive
 # map above; "max" stays available via a per-model reasoning_effort override.
-OPENAI_REASONING_EFFORT_MAP: typing.Dict[int, str] = {
+OPENAI_REASONING_EFFORT_MAP: Dict[int, str] = {
     0: "none",
     1: "low",
     2: "medium",
@@ -394,7 +394,7 @@ OPENAI_REASONING_EFFORT_MAP: typing.Dict[int, str] = {
 }
 
 # Known GPT-5 family models that support reasoning
-OPENAI_GPT5_FAMILY_MODELS: typing.List[str] = [
+OPENAI_GPT5_FAMILY_MODELS: List[str] = [
     "gpt-5.6",
     "gpt-5.6-sol",
     "gpt-5.6-terra",

@@ -391,6 +391,24 @@ When disabled, the API rejects _new_ requests that ask for MAESTRO rather than s
 
 ---
 
+## Governance (System Spaces)
+
+The Governance page manages **System Spaces**: organization-managed knowledge bases that are queried for _every_ threat model, in addition to any team Space a user attaches to a specific run. Use them for mandatory context that should always apply, such as compliance requirements, approved configurations, and internal security standards. Insights from a System Space are labeled as organization standards so the agent and the Trail can tell them apart from team documents.
+
+Uploading, editing, and deleting System Spaces works the same as a regular Space, but the page and its API are restricted to members of the `governance` Cognito group. Non-members do not see the Governance entry in the sidebar, and the backend enforces the same restriction independently (a live group check against Cognito on every request), so the UI gate is not the only line of defense.
+
+### Granting access
+
+Membership is managed directly in the Cognito console (there is no in-app admin UI):
+
+1. Open the Cognito User Pool created by the deployment.
+2. Create the `governance` group if it does not exist (the deployment provisions it; the group name is configurable).
+3. Add the user to the group.
+
+> **Note:** A newly added member must sign out and sign back in before the Governance page appears. Group membership is carried in the ID token claim, and the frontend reads it from there; the claim is only refreshed on a new sign-in. The backend authorizes against Cognito live, so a revoked member loses API access within about a minute regardless of their token, but the sidebar entry follows the token claim.
+
+---
+
 ## Clean Up
 
 1. **Empty the Architecture Bucket**, following instructions [here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/empty-bucket.html)

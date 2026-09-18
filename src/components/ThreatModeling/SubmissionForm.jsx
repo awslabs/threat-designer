@@ -18,8 +18,8 @@ import EffortSlider from "../EffortSlider";
 import FileTokenGroup from "@cloudscape-design/components/file-token-group";
 import Textarea from "@cloudscape-design/components/textarea";
 import { listSpaces } from "../../services/Spaces/spacesService";
-import { MAESTRO_LAYER_DESCRIPTIONS } from "./methodologyUtils";
 import { isMaestroEnabled } from "../../config.js";
+import { MAESTRO_LAYER_DESCRIPTIONS } from "./methodologyUtils";
 
 function convertArrayToObjects(arr) {
   return arr.map((item) => ({
@@ -327,6 +327,11 @@ export const SubmissionComponent = ({
                       }
                       placeholder="Select a space (optional)"
                     />
+                    <Box variant="small" color="text-body-secondary" padding={{ top: "xxs" }}>
+                      Organization standards are always applied. Any system spaces your organization
+                      has configured are queried for every threat model, in addition to the space
+                      selected here.
+                    </Box>
                   </FormField>
                   <FormField
                     label="Description"

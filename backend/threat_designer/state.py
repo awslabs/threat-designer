@@ -78,15 +78,51 @@ class VersionDiffResult(BaseModel):
     ]
 
 
+class SpaceInsight(BaseModel):
+    """One captured space knowledge base insight, tagged by its origin.
+
+    ``source`` distinguishes org-managed system spaces from a user's own team
+    space so the model and the Trail can tell mandatory organization standards
+    from team docs. Defaults to "user" so legacy string insights (see
+    SpaceInsightsList's validator) and any untagged capture resolve to the
+    non-privileged origin rather than being mislabeled as org policy.
+    """
+
+    text: Annotated[str, Field(description="The insight text.")]
+    source: Annotated[
+        Literal["system", "user"],
+        Field(description="Origin of the insight: 'system' for an org-managed system space, 'user' for a team space."),
+    ] = "user"
+
+
 class SpaceInsightsList(BaseModel):
     """Collection of space knowledge base insights for threat modeling context."""
 
     insights: Annotated[
-        List[str],
+        List[SpaceInsight],
         Field(
-            description="List of insight strings extracted from the space knowledge base"
+            description="List of insights extracted from the space knowledge base"
         ),
     ]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_legacy_insights(cls, data):
+        """Accept the pre-#130 shape where insights were bare strings.
+
+        Stored records written before source labeling hold
+        ``insights: ["...", ...]``; coerce each to a ``SpaceInsight`` tagged
+        source="user" so replaying or versioning an old model keeps working.
+        """
+        if isinstance(data, dict) and isinstance(data.get("insights"), list):
+            data = {
+                **data,
+                "insights": [
+                    {"text": i, "source": "user"} if isinstance(i, str) else i
+                    for i in data["insights"]
+                ],
+            }
+        return data
 
 
 class CaptureInsight(BaseModel):
@@ -98,6 +134,12 @@ class CaptureInsight(BaseModel):
             description="One crisp sentence (max 30 words) stating what the KB revealed and why it matters for this architecture's threat model."
         ),
     ]
+    source: Annotated[
+        Literal["system", "user"],
+        Field(
+            description="Where this insight came from: 'system' if it was in a <system_space_insights> block (org-managed, mandatory), 'user' if it was in a <user_space_insights> block (team space)."
+        ),
+    ] = "user"
 
 
 class SummaryState(BaseModel):

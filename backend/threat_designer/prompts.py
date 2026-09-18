@@ -446,6 +446,15 @@ def create_space_context_system_prompt() -> SystemMessage:
     - capture_insight: Records a single insight for downstream consumption. Call this once per distinct insight as you find them. Each insight should state what you found and why it matters for threat modeling this specific architecture.
     </tools>
 
+    <source_labeling>
+    query_knowledge_base returns results split into two labeled blocks:
+
+    - <system_space_insights>: organization-managed, mandatory standards that apply to every threat model (compliance mandates, org policy, approved configurations).
+    - <user_space_insights>: the team's own space documents for this specific engagement.
+
+    When you call capture_insight, set the source argument to match the block the insight came from: "system" for content found under <system_space_insights>, "user" for content under <user_space_insights>. This lets the downstream threat modeling agent distinguish mandatory organization standards from team-specific context. If unsure, default to "user".
+    </source_labeling>
+
     <query_strategy>
     Distribute your queries across these categories as relevant to the architecture:
 

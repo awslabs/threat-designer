@@ -7,6 +7,7 @@ const ThreatModeling = lazy(() => import("./pages/ThreatDesigner/ThreatModeling.
 const ThreatModelResult = lazy(() => import("./pages/ThreatDesigner/ThreatModelResult.jsx"));
 const ThreatCatalog = lazy(() => import("./pages/ThreatDesigner/ThreatCatalog.jsx"));
 const SpacesCatalog = lazy(() => import("./pages/Spaces/SpacesCatalog.jsx"));
+const GovernanceCatalog = lazy(() => import("./pages/Governance/GovernanceCatalog.jsx"));
 const GuideViewer = lazy(() =>
   import("./components/Guides/GuideViewer.jsx").then((m) => ({ default: m.GuideViewer }))
 );
@@ -24,7 +25,7 @@ function GuideViewerWrapper() {
   return <GuideViewer key={slug} />;
 }
 
-function Main({ user }) {
+function Main({ user, isGovernanceMember }) {
   return (
     <Suspense fallback={<RouteLoader />}>
       <Routes>
@@ -33,6 +34,12 @@ function Main({ user }) {
         <Route path="/threat-catalog" element={<ThreatCatalog user={user} />} />
         <Route path="/spaces" element={<SpacesCatalog user={user} />} />
         <Route path="/spaces/:spaceId" element={<SpacesCatalog user={user} />} />
+        {isGovernanceMember && (
+          <>
+            <Route path="/governance" element={<GovernanceCatalog user={user} />} />
+            <Route path="/governance/:spaceId" element={<GovernanceCatalog user={user} />} />
+          </>
+        )}
         <Route path="/guides/:slug" element={<GuideViewerWrapper />} />
       </Routes>
     </Suspense>

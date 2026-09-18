@@ -18,10 +18,12 @@ export const getUser = async () => {
 
     if (session.tokens) {
       const payload = session.tokens.idToken.payload;
+      const groups = Array.isArray(payload["cognito:groups"]) ? payload["cognito:groups"] : [];
       return {
         ...user,
         given_name: payload.given_name,
         family_name: payload.family_name,
+        groups,
       };
     }
 
@@ -31,6 +33,9 @@ export const getUser = async () => {
     return null;
   }
 };
+
+export const isInGroup = (user, group) =>
+  Array.isArray(user?.groups) && user.groups.includes(group);
 
 export const getSession = () => {
   return fetchAuthSession();

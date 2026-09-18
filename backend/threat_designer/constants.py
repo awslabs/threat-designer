@@ -6,6 +6,7 @@ organized by logical categories for better maintainability and consistency.
 """
 
 import hashlib
+import os
 from enum import Enum
 from typing import Dict, List
 
@@ -514,6 +515,11 @@ KB_QUERY_BUDGET = 10
 
 # Maximum number of space insights to capture before moving on
 MAX_SPACE_INSIGHTS = 20
+
+# System Spaces — mandatory organization-wide knowledge bases applied to every
+# threat model. Discovered at runtime by scanning the spaces table for records
+# flagged system=True (governance-managed), rather than a static env var.
+SPACES_TABLE = os.environ.get("SPACES_TABLE", "")
 
 # ============================================================================
 # SLEEP INTERVALS

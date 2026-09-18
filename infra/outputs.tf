@@ -60,3 +60,8 @@ output "model_provider" {
   description = "Configured model provider (bedrock or openai)"
   value       = var.model_provider
 }
+
+output "governance_group" {
+  description = "Cognito group whose members can manage system spaces"
+  value       = var.governance_group
+}

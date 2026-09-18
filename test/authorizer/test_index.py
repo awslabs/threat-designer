@@ -794,3 +794,91 @@ class TestEnvironmentConfiguration:
         assert (
             policy["policyDocument"]["Statement"][0]["Resource"] == specific_method_arn
         )
+
+
+class TestLambdaHandlerGroups:
+    """Tests for Cognito group propagation in the authorizer context.
+
+    Groups are JSON-encoded into the context because API Gateway authorizer
+    context values must be strings; the backend parses them with parse_groups.
+    """
+
+    @patch.dict(
+        os.environ,
+        {
+            "COGNITO_REGION": "us-east-1",
+            "COGNITO_USER_POOL_ID": "us-east-1_TestPool",
+            "COGNITO_APP_CLIENT_ID": "test-client-id",
+        },
+    )
+    @patch("authorizer.index.PyJWKClient")
+    @patch("authorizer.index.jwt.decode")
+    @patch("authorizer.index.time.time")
+    def test_groups_are_json_encoded_in_context(
+        self, mock_time, mock_decode, mock_jwks_client_class
+    ):
+        import json
+
+        current_time = 1609459200
+        mock_time.return_value = current_time
+        mock_client = Mock()
+        mock_signing_key = Mock()
+        mock_signing_key.key = "test-key"
+        mock_client.get_signing_key_from_jwt.return_value = mock_signing_key
+        mock_jwks_client_class.return_value = mock_client
+        mock_decode.return_value = {
+            "sub": "user-uuid-groups",
+            "cognito:username": "groupuser",
+            "email": "group@example.com",
+            "cognito:groups": ["governance", "admin"],
+            "exp": current_time + 3600,
+            "aud": "test-client-id",
+        }
+        event = {
+            "authorizationToken": "Bearer test-jwt-token",
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource",
+        }
+
+        policy = lambda_handler(event, Mock())
+
+        groups_ctx = policy["context"]["groups"]
+        assert isinstance(groups_ctx, str)
+        assert json.loads(groups_ctx) == ["governance", "admin"]
+
+    @patch.dict(
+        os.environ,
+        {
+            "COGNITO_REGION": "us-east-1",
+            "COGNITO_USER_POOL_ID": "us-east-1_TestPool",
+            "COGNITO_APP_CLIENT_ID": "test-client-id",
+        },
+    )
+    @patch("authorizer.index.PyJWKClient")
+    @patch("authorizer.index.jwt.decode")
+    @patch("authorizer.index.time.time")
+    def test_no_groups_yields_empty_json_list(
+        self, mock_time, mock_decode, mock_jwks_client_class
+    ):
+        current_time = 1609459200
+        mock_time.return_value = current_time
+        mock_client = Mock()
+        mock_signing_key = Mock()
+        mock_signing_key.key = "test-key"
+        mock_client.get_signing_key_from_jwt.return_value = mock_signing_key
+        mock_jwks_client_class.return_value = mock_client
+        # No cognito:groups claim at all — user is in no groups.
+        mock_decode.return_value = {
+            "sub": "user-uuid-nogroups",
+            "cognito:username": "nogroupuser",
+            "email": "nogroup@example.com",
+            "exp": current_time + 3600,
+            "aud": "test-client-id",
+        }
+        event = {
+            "authorizationToken": "Bearer test-jwt-token",
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:api-id/stage/GET/resource",
+        }
+
+        policy = lambda_handler(event, Mock())
+
+        assert policy["context"]["groups"] == "[]"

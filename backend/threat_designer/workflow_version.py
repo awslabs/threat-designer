@@ -935,10 +935,19 @@ def version_subgraph(state, config: RunnableConfig):
 
     space_block = ""
     if space_insights and space_insights.insights:
-        lines = ["<space_knowledge_insights>"]
-        for i, insight in enumerate(space_insights.insights, 1):
-            lines.append(f'  <insight id="{i}">{insight}</insight>')
-        lines.append("</space_knowledge_insights>")
+        system = [i for i in space_insights.insights if i.source == "system"]
+        user = [i for i in space_insights.insights if i.source != "system"]
+        lines = []
+        if system:
+            lines.append("<system_space_insights>")
+            for idx, insight in enumerate(system, 1):
+                lines.append(f'  <insight id="{idx}">{insight.text}</insight>')
+            lines.append("</system_space_insights>")
+        if user:
+            lines.append("<user_space_insights>")
+            for idx, insight in enumerate(user, 1):
+                lines.append(f'  <insight id="{idx}">{insight.text}</insight>')
+            lines.append("</user_space_insights>")
         space_block = "\n" + "\n".join(lines) + "\n"
 
     content.append(

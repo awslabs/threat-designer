@@ -22,6 +22,7 @@ sys.modules["aws_xray_sdk.core"] = MagicMock()
 
 from utils import authorization
 from utils.authorization import require_owner, require_access, require_edit_lock
+from utils.authorization import parse_groups, require_group, governance_only
 from exceptions.exceptions import UnauthorizedError
 
 
@@ -316,3 +317,144 @@ class TestRequireEditLock:
         )
         # get_lock_status should not be called if access check fails
         mock_get_lock_status.assert_not_called()
+
+
+# ============================================================================
+# Tests for parse_groups
+# ============================================================================
+
+
+class TestParseGroups:
+    """Tests for parse_groups — decoding the authorizer 'groups' context value."""
+
+    def test_list_input_returned_as_is(self):
+        assert parse_groups(["governance", "admin"]) == ["governance", "admin"]
+
+    def test_json_string_is_parsed(self):
+        assert parse_groups('["governance"]') == ["governance"]
+
+    def test_malformed_string_yields_empty_list(self):
+        assert parse_groups("not-json{") == []
+
+    def test_none_yields_empty_list(self):
+        assert parse_groups(None) == []
+
+    def test_empty_string_yields_empty_list(self):
+        assert parse_groups("") == []
+
+    def test_json_non_list_yields_empty_list(self):
+        # A valid JSON object (not a list) must not be treated as groups.
+        assert parse_groups('{"group": "governance"}') == []
+
+
+# ============================================================================
+# Tests for require_group
+# ============================================================================
+
+
+class TestRequireGroup:
+    """Tests for require_group."""
+
+    def test_passes_when_group_present(self):
+        require_group("governance", ["governance", "other"], "user-1")
+
+    def test_raises_when_group_absent(self):
+        with pytest.raises(UnauthorizedError):
+            require_group("governance", ["other"], "user-1")
+
+    def test_raises_on_empty_groups(self):
+        with pytest.raises(UnauthorizedError):
+            require_group("governance", [], "user-1")
+
+
+# ============================================================================
+# Tests for governance_only decorator
+# ============================================================================
+
+
+def _make_router(authorizer_ctx):
+    """Build a stub router whose current_event exposes the given authorizer ctx."""
+    router = MagicMock()
+    router.current_event.request_context.authorizer = authorizer_ctx
+    return router
+
+
+class TestGovernanceOnly:
+    """Tests for the governance_only decorator.
+
+    governance_only pre-filters on the token claim, then verifies LIVE against
+    Cognito via _live_user_groups. The decorator resolves its router from the
+    decorated function's module, so we install a stub router on this test
+    module and decorate a function defined here.
+    """
+
+    def _decorate(self):
+        @governance_only
+        def handler():
+            return "ok"
+
+        return handler
+
+    @patch.object(authorization, "_live_user_groups")
+    def test_allows_when_claim_and_live_check_agree(self, mock_live, monkeypatch):
+        monkeypatch.setattr(
+            sys.modules[__name__],
+            "router",
+            _make_router({"user_id": "u1", "username": "u1", "groups": '["governance"]'}),
+            raising=False,
+        )
+        mock_live.return_value = ["governance"]
+        assert self._decorate()() == "ok"
+        mock_live.assert_called_once_with("u1")
+
+    @patch.object(authorization, "_live_user_groups")
+    def test_denies_when_claim_missing_group(self, mock_live, monkeypatch):
+        # Token never asserted the group: pre-filter denies without a Cognito call.
+        monkeypatch.setattr(
+            sys.modules[__name__],
+            "router",
+            _make_router({"user_id": "u1", "username": "u1", "groups": "[]"}),
+            raising=False,
+        )
+        with pytest.raises(UnauthorizedError):
+            self._decorate()()
+        mock_live.assert_not_called()
+
+    @patch.object(authorization, "_live_user_groups")
+    def test_denies_when_live_check_lacks_group(self, mock_live, monkeypatch):
+        # Claim asserts governance (stale token) but live membership was revoked.
+        monkeypatch.setattr(
+            sys.modules[__name__],
+            "router",
+            _make_router({"user_id": "u1", "username": "u1", "groups": '["governance"]'}),
+            raising=False,
+        )
+        mock_live.return_value = []
+        with pytest.raises(UnauthorizedError):
+            self._decorate()()
+
+    @patch.object(authorization, "_live_user_groups")
+    def test_fails_closed_when_cognito_raises(self, mock_live, monkeypatch):
+        monkeypatch.setattr(
+            sys.modules[__name__],
+            "router",
+            _make_router({"user_id": "u1", "username": "u1", "groups": '["governance"]'}),
+            raising=False,
+        )
+        mock_live.side_effect = UnauthorizedError("Unable to verify permissions")
+        with pytest.raises(UnauthorizedError):
+            self._decorate()()
+
+    def test_denies_when_user_pool_id_empty(self, monkeypatch):
+        # No pool configured: _live_user_groups returns [] (cannot verify), so a
+        # caller whose token claims the group is still denied.
+        monkeypatch.setattr(authorization, "USER_POOL_ID", "", raising=False)
+        authorization._group_cache.clear()
+        monkeypatch.setattr(
+            sys.modules[__name__],
+            "router",
+            _make_router({"user_id": "u1", "username": "u1", "groups": '["governance"]'}),
+            raising=False,
+        )
+        with pytest.raises(UnauthorizedError):
+            self._decorate()()

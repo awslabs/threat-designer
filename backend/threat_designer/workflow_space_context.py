@@ -2,14 +2,14 @@
 Space context subgraph — ReAct agent that queries a Bedrock Knowledge Base
 and captures relevant security insights before the main threat modeling workflow.
 
-Skipped entirely when no space_id is attached to the job.
+Skipped entirely when no space_id is attached to the job and no system space is configured.
 """
 
 import os
 from typing import Any, List
 
 import boto3
-from constants import KB_QUERY_BUDGET, MAX_SPACE_INSIGHTS, JobState
+from constants import KB_QUERY_BUDGET, MAX_SPACE_INSIGHTS, SPACES_TABLE, JobState
 from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_core.runnables.config import RunnableConfig
 from langchain_core.tools import tool
@@ -36,6 +36,13 @@ _model_service = ModelService()
 
 KNOWLEDGE_BASE_ID = os.environ.get("KNOWLEDGE_BASE_ID", "")
 _bedrock_agent_client = None
+_dynamodb_resource = None
+_system_space_ids_cache = None
+# Set when the last system-space discovery raised. Surfaced in the trail so a
+# run whose purpose is "org standards always applied" does not silently proceed
+# without them. Not cached alongside the ids: a transient failure must be
+# retryable, not sticky for the container's lifetime.
+_system_space_discovery_failed = False
 
 
 def _get_bedrock_agent_client():
@@ -45,10 +52,66 @@ def _get_bedrock_agent_client():
     return _bedrock_agent_client
 
 
-def _retrieve_from_kb(query: str, space_id: str, max_results: int = 5) -> str:
-    """Call Bedrock KB Retrieve API filtered to a specific space_id."""
-    if not KNOWLEDGE_BASE_ID:
-        return "Knowledge base not configured."
+def _get_dynamodb_resource():
+    global _dynamodb_resource
+    if _dynamodb_resource is None:
+        _dynamodb_resource = boto3.resource("dynamodb")
+    return _dynamodb_resource
+
+
+def get_system_space_ids() -> List[str]:
+    """Return the space_ids of all system spaces (governance-managed org-wide
+    KBs), scanning the spaces table for records flagged system=True.
+
+    Cached for the lifetime of the warm Lambda/runtime container: the set
+    changes rarely and a per-job scan would be wasteful. Returns [] when no
+    spaces table is configured so the feature is inert by default.
+    """
+    global _system_space_ids_cache
+    if _system_space_ids_cache is not None:
+        return _system_space_ids_cache
+    if not SPACES_TABLE:
+        _system_space_ids_cache = []
+        return _system_space_ids_cache
+
+    from boto3.dynamodb.conditions import Attr
+
+    global _system_space_discovery_failed
+    ids: List[str] = []
+    try:
+        table = _get_dynamodb_resource().Table(SPACES_TABLE)
+        scan_kwargs = {
+            "FilterExpression": Attr("system").eq(True),
+            "ProjectionExpression": "space_id",
+        }
+        while True:
+            resp = table.scan(**scan_kwargs)
+            ids.extend(
+                item["space_id"] for item in resp.get("Items", []) if "space_id" in item
+            )
+            last_key = resp.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            scan_kwargs["ExclusiveStartKey"] = last_key
+    except Exception as e:
+        # Do NOT cache: a transient scan failure must not permanently strand the
+        # feature for this container. Latch the flag so the trail records that
+        # org KBs could not be consulted; it is reset once per run at the start
+        # of agent_node, never by a later success, so a fail-then-succeed
+        # sequence within one run still surfaces the warning (the early queries
+        # did run without org context).
+        _system_space_discovery_failed = True
+        logger.warning("Failed to discover system spaces", error=str(e))
+        return []
+
+    _system_space_ids_cache = ids
+    return _system_space_ids_cache
+
+
+def _do_retrieve(query: str, space_id: str, max_results: int = 5) -> list:
+    """Raw KB retrieve call, returns list of result dicts."""
+    if not KNOWLEDGE_BASE_ID or not space_id:
+        return []
     try:
         client = _get_bedrock_agent_client()
         response = client.retrieve(
@@ -66,21 +129,77 @@ def _retrieve_from_kb(query: str, space_id: str, max_results: int = 5) -> str:
                 }
             },
         )
-        results = response.get("retrievalResults", [])
-        if not results:
-            return "No relevant results found for this query."
+        return response.get("retrievalResults", [])
+    except Exception as e:
+        logger.warning("KB retrieve failed", error=str(e), space_id=space_id)
+        return []
 
+
+def _format_results(results: list) -> str:
+    """Format retrieval results into readable text, split by source.
+
+    Results carry a "_source" tag ("system" | "user") added by _retrieve_from_kb
+    so the model can tell org-managed standards from team docs and label each
+    captured insight accordingly. Numbering restarts per block.
+    """
+    if not results:
+        return "No relevant results found for this query."
+
+    def _block(tag: str, label: str, rows: list) -> str:
         parts = []
-        for i, r in enumerate(results, 1):
+        for i, r in enumerate(rows, 1):
             content = r.get("content", {}).get("text", "")
             score = r.get("score", 0)
             if content:
-                parts.append(f"[Result {i} | relevance={score:.2f}]\n{content.strip()}")
+                parts.append(f"[{label} {i} | relevance={score:.2f}]\n{content.strip()}")
+        if not parts:
+            return ""
+        body = "\n\n---\n\n".join(parts)
+        return f"<{tag}>\n{body}\n</{tag}>"
 
-        return "\n\n---\n\n".join(parts) if parts else "No relevant results found."
-    except Exception as e:
-        logger.warning("KB retrieve failed", error=str(e))
-        return f"Knowledge base query failed: {str(e)}"
+    system_rows = [r for r in results if r.get("_source") == "system"]
+    user_rows = [r for r in results if r.get("_source") != "system"]
+
+    blocks = [
+        b
+        for b in (
+            _block("system_space_insights", "System result", system_rows),
+            _block("user_space_insights", "Team result", user_rows),
+        )
+        if b
+    ]
+    return "\n\n".join(blocks) if blocks else "No relevant results found."
+
+
+def _retrieve_from_kb(query: str, space_id: str, max_results: int = 5) -> str:
+    """Call Bedrock KB Retrieve for the attached space plus every system space.
+
+    System spaces (governance-managed, org-wide) are always included so
+    mandatory organization standards apply to every threat model. The attached
+    space_id may itself be a system space (system-only runs), so it is removed
+    from the system set to avoid a duplicate retrieve. Results are tagged with
+    their origin so _format_results and the captured insights can distinguish
+    org standards from team docs.
+
+    ponytail: fan-out is 1 + N Retrieve calls at max_results each (N = number of
+    system spaces), serial. Fine while orgs keep a handful of system spaces; if
+    that grows, batch/parallelize the system retrieves or merge them behind a
+    single metadata filter.
+    """
+    system_ids = get_system_space_ids()
+    user_results = []
+    if space_id not in system_ids:
+        for r in _do_retrieve(query, space_id, max_results):
+            r["_source"] = "user"
+            user_results.append(r)
+
+    system_results = []
+    for sid in system_ids:
+        for r in _do_retrieve(query, sid, max_results):
+            r["_source"] = "system"
+            system_results.append(r)
+
+    return _format_results(system_results + user_results)
 
 
 def _build_tools(space_id: str, job_id: str):
@@ -100,13 +219,15 @@ def _build_tools(space_id: str, job_id: str):
         return _retrieve_from_kb(query, space_id)
 
     @tool("capture_insight", args_schema=CaptureInsight)
-    def capture_insight(insight: str) -> str:
+    def capture_insight(insight: str, source: str = "user") -> str:
         """Record one insight from the space knowledge base that is relevant to this architecture.
         Call this once per insight. If nothing is relevant, do not call this tool.
 
         Args:
             insight: A concise description of what is relevant from the space knowledge base
                      for threat modeling this architecture.
+            source: "system" if the insight came from a <system_space_insights> block
+                    (org-managed, mandatory standards), "user" if from <user_space_insights>.
 
         Returns:
             Confirmation message.
@@ -127,9 +248,11 @@ def _count_insights_from_messages(messages: list) -> int:
     return count
 
 
-def _extract_insights_from_messages(messages: list) -> List[str]:
-    """Extract insight strings from all capture_insight tool calls in message history."""
-    insights = []
+def _extract_insights_from_messages(messages: list) -> List["SpaceInsight"]:
+    """Extract insights (text + source) from all capture_insight tool calls."""
+    from state import SpaceInsight
+
+    insights: List[SpaceInsight] = []
     for msg in messages:
         if hasattr(msg, "tool_calls") and msg.tool_calls:
             for tc in msg.tool_calls:
@@ -137,7 +260,10 @@ def _extract_insights_from_messages(messages: list) -> List[str]:
                     args = tc.get("args", {})
                     text = args.get("insight", "").strip()
                     if text:
-                        insights.append(text)
+                        source = args.get("source", "user")
+                        if source not in ("system", "user"):
+                            source = "user"
+                        insights.append(SpaceInsight(text=text, source=source))
     return insights
 
 
@@ -152,6 +278,12 @@ def agent_node(state: SpaceContextState, config: RunnableConfig) -> Command:
     is_first_call = not state.get("messages")
 
     if is_first_call:
+        # Reset the per-container discovery-failure latch at the start of each
+        # run so a prior run's failure in this warm container is not attributed
+        # to this one. It only ever gets set (never cleared) again during the
+        # run, so any failure while querying survives to finish_node's trail.
+        global _system_space_discovery_failed
+        _system_space_discovery_failed = False
         state_service.update_job_state(
             job_id, JobState.SPACE_CONTEXT.value, detail="Querying knowledge base"
         )
@@ -293,8 +425,19 @@ def finish_node(state: SpaceContextState) -> Command:
     )
 
     trail_parts = extract_reasoning_trails(messages)
+    if _system_space_discovery_failed:
+        trail_parts.append(
+            "WARNING: organization-managed system spaces could not be discovered "
+            "for this run (knowledge base lookup failed). Mandatory org standards "
+            "were NOT consulted. Re-run once the issue is resolved to apply them."
+        )
     if insights:
-        trail_parts.append("\n".join(f"- {i}" for i in insights))
+        trail_parts.append(
+            "\n".join(
+                f"- [{'org standard' if i.source == 'system' else 'team'}] {i.text}"
+                for i in insights
+            )
+        )
     else:
         trail_parts.append(
             "No relevant insights found in the knowledge base for this architecture."

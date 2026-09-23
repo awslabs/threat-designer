@@ -54,7 +54,7 @@ variable "provisioned_lambda_concurrency" {
 variable "adaptive_thinking_models" {
   type        = list(string)
   description = "List of model IDs that support adaptive thinking"
-  default     = ["global.anthropic.claude-opus-5", "global.anthropic.claude-sonnet-5", "global.anthropic.claude-opus-4-7", "global.anthropic.claude-opus-4-6-v1", "global.anthropic.claude-sonnet-4-6"]
+  default     = ["global.anthropic.claude-opus-5-5", "global.anthropic.claude-opus-5", "global.anthropic.claude-sonnet-5", "global.anthropic.claude-opus-4-7", "global.anthropic.claude-opus-4-6-v1", "global.anthropic.claude-sonnet-4-6"]
 }
 
 
@@ -105,7 +105,7 @@ variable "model_main" {
   })
   default = {
     assets = {
-      id         = "global.anthropic.claude-opus-5"
+      id         = "global.anthropic.claude-opus-5-5"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
@@ -121,7 +121,7 @@ variable "model_main" {
       }
     }
     flows = {
-      id         = "global.anthropic.claude-opus-5"
+      id         = "global.anthropic.claude-opus-5-5"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
@@ -137,7 +137,7 @@ variable "model_main" {
       }
     }
     threats = {
-      id         = "global.anthropic.claude-opus-5"
+      id         = "global.anthropic.claude-opus-5-5"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
@@ -153,7 +153,7 @@ variable "model_main" {
       }
     }
     threats_agent = {
-      id         = "global.anthropic.claude-opus-5"
+      id         = "global.anthropic.claude-opus-5-5"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
@@ -169,7 +169,7 @@ variable "model_main" {
       }
     }
     gaps = {
-      id         = "global.anthropic.claude-opus-5"
+      id         = "global.anthropic.claude-opus-5-5"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
@@ -185,12 +185,7 @@ variable "model_main" {
       }
     }
     attack_tree = {
-      # Sonnet 5, not Opus 5, on purpose. Opus 5 content-filters the attack-tree
-      # prompt (stopReason=content_filtered with an EMPTY body, 3/3 runs
-      # verified 2026-08-23) — enumerating concrete techniques for a target
-      # reads as dual-use to its safety layer, and it fails SILENTLY rather
-      # than erroring. Sonnet 5 completes the same prompt cleanly (3/3).
-      id         = "global.anthropic.claude-sonnet-5"
+      id         = "global.anthropic.claude-opus-5-5"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
@@ -206,7 +201,7 @@ variable "model_main" {
       }
     }
     version = {
-      id         = "global.anthropic.claude-opus-5"
+      id         = "global.anthropic.claude-opus-5-5"
       max_tokens = 128000
       reasoning_budget = {
         "1" = 16000
@@ -232,7 +227,7 @@ variable "model_sentry" {
     effort_map       = optional(map(string))
   })
   default = {
-    id         = "global.anthropic.claude-sonnet-5"
+    id         = "global.anthropic.claude-opus-5-5"
     max_tokens = 128000
     reasoning_budget = {
       "1" = 16000
@@ -305,24 +300,19 @@ variable "enable_maestro" {
 
 variable "model_provider" {
   type        = string
-  description = "Model provider to use: bedrock (Claude via Converse), openai (GPT via the OpenAI API), or bedrock-mantle (GPT via the Bedrock Mantle OpenAI-compatible endpoint — no OpenAI API key, SigV4 bearer-token auth)"
+  description = "Model provider to use: bedrock (Claude via Converse), openai (GPT via the OpenAI API), or bedrock-openai (GPT via the bedrock-runtime /openai/v1 route, SigV4 bearer-token auth, no OpenAI API key)"
   default     = "openai"
 
   validation {
-    condition     = contains(["bedrock", "openai", "bedrock-mantle"], var.model_provider)
-    error_message = "model_provider must be 'bedrock', 'openai', or 'bedrock-mantle'"
+    condition     = contains(["bedrock", "openai", "bedrock-openai"], var.model_provider)
+    error_message = "model_provider must be 'bedrock', 'openai', or 'bedrock-openai'"
   }
 }
 
-variable "mantle_region" {
+variable "bedrock_openai_region" {
   type        = string
-  description = "AWS region for the Bedrock Mantle endpoint when model_provider is bedrock-mantle. Independent of var.region — GPT-5.x on Mantle is only served from US regions."
-  default     = "us-east-2"
-
-  validation {
-    condition     = contains(["us-east-2", "us-west-2"], var.mantle_region)
-    error_message = "GPT-5.x on Bedrock Mantle is only available in us-east-2 and us-west-2"
-  }
+  description = "AWS region whose bedrock-runtime endpoint serves GPT when model_provider is bedrock-openai. Empty means var.region. Models are invoked through the global cross-region inference profile, so requests may be processed in any commercial region."
+  default     = ""
 }
 
 variable "openai_api_key" {
@@ -373,7 +363,7 @@ variable "openai_model_main" {
   description = "OpenAI model configurations for main workflow stages"
   default = {
     assets = {
-      id         = "gpt-5.6-sol"
+      id         = "gpt-6-sol"
       max_tokens = 128000
       reasoning_effort = {
         "1" = "low"
@@ -383,7 +373,7 @@ variable "openai_model_main" {
       }
     }
     flows = {
-      id         = "gpt-5.6-sol"
+      id         = "gpt-6-sol"
       max_tokens = 128000
       reasoning_effort = {
         "1" = "low"
@@ -393,7 +383,7 @@ variable "openai_model_main" {
       }
     }
     threats = {
-      id         = "gpt-5.6-sol"
+      id         = "gpt-6-sol"
       max_tokens = 128000
       reasoning_effort = {
         "1" = "low"
@@ -403,7 +393,7 @@ variable "openai_model_main" {
       }
     }
     threats_agent = {
-      id         = "gpt-5.6-sol"
+      id         = "gpt-6-sol"
       max_tokens = 128000
       reasoning_effort = {
         "1" = "low"
@@ -413,7 +403,7 @@ variable "openai_model_main" {
       }
     }
     gaps = {
-      id         = "gpt-5.6-sol"
+      id         = "gpt-6-sol"
       max_tokens = 128000
       reasoning_effort = {
         "1" = "low"
@@ -423,11 +413,7 @@ variable "openai_model_main" {
       }
     }
     attack_tree = {
-      # Terra, not Sol, on purpose — the counterpart of the Claude side using
-      # Sonnet 5 rather than Opus 5 for this stage. Enumerating concrete attack
-      # techniques for a target reads as dual-use to the provider safety layers,
-      # and the flagship models are the strictest about it.
-      id         = "gpt-5.6-terra"
+      id         = "gpt-6-sol"
       max_tokens = 128000
       reasoning_effort = {
         "1" = "low"
@@ -437,7 +423,7 @@ variable "openai_model_main" {
       }
     }
     version = {
-      id         = "gpt-5.6-sol"
+      id         = "gpt-6-sol"
       max_tokens = 128000
       reasoning_effort = {
         "1" = "low"
@@ -457,7 +443,7 @@ variable "openai_model_sentry" {
   })
   description = "OpenAI model configuration for Sentry assistant"
   default = {
-    id         = "gpt-5.6-terra"
+    id         = "gpt-6-sol"
     max_tokens = 128000
     reasoning_effort = {
       "1" = "low"

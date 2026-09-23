@@ -27,9 +27,10 @@ logger = logging.getLogger(__name__)
 
 # Import model provider constants
 try:
-    from config import MODEL_PROVIDER
+    from config import MODEL_PROVIDER, OPENAI_FAMILY_PROVIDERS
 except ImportError:
     MODEL_PROVIDER = os.environ.get("MODEL_PROVIDER", "bedrock")
+    OPENAI_FAMILY_PROVIDERS = ("openai", "bedrock-openai")
 
 
 class ReactAgent:
@@ -219,8 +220,10 @@ class ReactAgent:
 
         # Get image_data from config if available
         image_data = None
+        safety_id = ""
         if config and "configurable" in config:
             image_data = config["configurable"].get("image_data")
+            safety_id = config["configurable"].get("safety_identifier", "")
 
         # Get current messages
         state_messages = state["messages"]
@@ -234,7 +237,12 @@ class ReactAgent:
         messages = [self.prompt] + state_messages
 
         # Call the model
-        response = await self.llm_with_tools.ainvoke(messages, config)
+        # The agent is shared across users, so the per-user safety_identifier
+        # rides on each call rather than on the model.
+        call_kwargs = {}
+        if safety_id and MODEL_PROVIDER in OPENAI_FAMILY_PROVIDERS:
+            call_kwargs["safety_identifier"] = safety_id
+        response = await self.llm_with_tools.ainvoke(messages, config, **call_kwargs)
 
         # Return updated state
         return {"messages": [response]}

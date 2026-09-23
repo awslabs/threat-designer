@@ -29,17 +29,20 @@ from pydantic import BaseModel, Field
 
 class AttackTechnique(BaseModel):
     """
-    A concrete attack technique (leaf node in the tree).
+    A specific weakness in the system and the step it permits (leaf node in the tree).
     This is what the LLM should generate.
     """
 
-    name: str = Field(..., description="Name of the attack technique")
+    name: str = Field(
+        ...,
+        description="The weakness and what it permits, phrased as a condition of the system",
+    )
 
     description: str = Field(
         ...,
         description=(
-            "How the step works at design level: the weakness it relies on and "
-            "what it gains the attacker. No commands, code, or payloads."
+            "Design-level description: the weakness this step relies on, what it "
+            "permits, and the control that would break it. No commands, code, or payloads."
         ),
     )
 
@@ -58,14 +61,14 @@ class AttackTechnique(BaseModel):
         "Command and Control",
         "Exfiltration",
         "Impact",
-    ] = Field(..., description="MITRE ATT&CK kill chain phase")
+    ] = Field(..., description="MITRE ATT&CK tactic this step falls under")
 
     impact_severity: Literal["low", "medium", "high", "critical"] = Field(
-        ..., description="Impact if attack succeeds"
+        ..., description="Impact on the system if this step holds"
     )
 
     likelihood: Literal["low", "medium", "high", "critical"] = Field(
-        ..., description="Probability of attack occurring"
+        ..., description="Likelihood this step holds against the system as designed"
     )
 
     skill_level: Literal["novice", "intermediate", "expert"] = Field(
@@ -73,14 +76,14 @@ class AttackTechnique(BaseModel):
     )
 
     prerequisites: List[str] = Field(
-        ..., description="Conditions required before attack can be executed"
+        ..., description="Conditions that must already hold for this step"
     )
 
     techniques: List[str] = Field(
         ...,
         description=(
-            "Named technique classes, using MITRE ATT&CK technique names or IDs "
-            "where one applies. Categories of method, not tooling or procedures."
+            "MITRE ATT&CK technique ID and name where one applies "
+            "(e.g. T1552 Unsecured Credentials). Categories of method, not tooling or procedures."
         ),
     )
 
@@ -94,7 +97,9 @@ class LogicGate(BaseModel):
         ..., description="AND = all children required, OR = any child sufficient"
     )
 
-    description: str = Field(..., description="What this gate represents")
+    description: str = Field(
+        ..., description="The condition of the system this gate represents"
+    )
 
     children: List[Union["LogicGate", AttackTechnique]] = Field(
         ..., description="Child nodes (gates or attack techniques)"
@@ -109,10 +114,10 @@ class AttackTreeLogical(BaseModel):
     which will be converted to React Flow format automatically.
     """
 
-    goal: str = Field(..., description="The main attack goal (root node)")
+    goal: str = Field(..., description="The threat being analyzed (root node)")
 
     children: List[Union[LogicGate, AttackTechnique]] = Field(
-        ..., description="Top-level attack paths"
+        ..., description="Top-level paths to the threat"
     )
 
     def to_react_flow(self) -> dict:

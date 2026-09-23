@@ -479,6 +479,14 @@ export const useChatSessionFunctions = (props) => {
                       return;
                     }
 
+                    // Backend failures arrive as an untyped {error} event, which
+                    // the renderer would drop, leaving an empty reply bubble.
+                    if (data.error && !data.type) {
+                      updateSession(sessionId, setSessions, { error: data.error });
+                      cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
+                      return;
+                    }
+
                     if (data.end) {
                       addAiMessage(sessionId, data, sessionRefs, setSessions, flushBuffer);
                       cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
@@ -540,6 +548,14 @@ export const useChatSessionFunctions = (props) => {
 
                     if (data.type === "interrupt") {
                       setPendingInterrupt(sessionId, data, "sse", setSessions);
+                      return;
+                    }
+
+                    // Backend failures arrive as an untyped {error} event, which
+                    // the renderer would drop, leaving an empty reply bubble.
+                    if (data.error && !data.type) {
+                      updateSession(sessionId, setSessions, { error: data.error });
+                      cleanupSSE(sessionId, sessionRefs, setSessions, flushBuffer);
                       return;
                     }
 

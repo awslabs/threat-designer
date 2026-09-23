@@ -68,7 +68,7 @@ class StreamingHandler:
         """
         try:
             # Compare message-format families, not raw provider values —
-            # "bedrock-mantle" produces OpenAI-format messages, so it must
+            # "bedrock-openai" produces OpenAI-format messages, so it must
             # match sessions detected as "openai".
             from config import PROVIDER_MESSAGE_FAMILY
 
@@ -150,7 +150,7 @@ class StreamingHandler:
 
     @sse_stream()
     async def handle_streaming_request(
-        self, request: InvocationRequest, session_id: str
+        self, request: InvocationRequest, session_id: str, safety_id: str = ""
     ):
         """Handle streaming responses with yields using native astream"""
         # Clean up any finished tasks
@@ -254,7 +254,10 @@ class StreamingHandler:
                 async for mode, data in agent_manager.cached_agent.astream(
                     tmp_msg,
                     {
-                        "configurable": {"thread_id": session_id},
+                        "configurable": {
+                            "thread_id": session_id,
+                            "safety_identifier": safety_id,
+                        },
                         "recursion_limit": 100,
                         "image_data": image_data,
                     },

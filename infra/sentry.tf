@@ -23,13 +23,12 @@ resource "aws_bedrockagentcore_agent_runtime" "sentry" {
       MAX_TOKENS       = tostring(var.openai_model_sentry.max_tokens),
       REASONING_EFFORT = jsonencode(var.openai_model_sentry.reasoning_effort)
     } : {},
-    # Same GPT model as "openai", served via the Bedrock Mantle endpoint —
-    # SigV4 bearer-token auth from the runtime role, no OpenAI API key.
-    var.model_provider == "bedrock-mantle" ? {
-      MODEL_ID         = var.openai_model_sentry.id,
-      MAX_TOKENS       = tostring(var.openai_model_sentry.max_tokens),
-      REASONING_EFFORT = jsonencode(var.openai_model_sentry.reasoning_effort),
-      MANTLE_REGION    = var.mantle_region
+    # Same GPT model as "openai"; the runtime adds the "global.openai." prefix.
+    var.model_provider == "bedrock-openai" ? {
+      MODEL_ID              = var.openai_model_sentry.id,
+      MAX_TOKENS            = tostring(var.openai_model_sentry.max_tokens),
+      REASONING_EFFORT      = jsonencode(var.openai_model_sentry.reasoning_effort),
+      BEDROCK_OPENAI_REGION = local.bedrock_openai_region
     } : {},
     {
       WEB_SEARCH_PROVIDER = var.web_search_provider
@@ -166,35 +165,20 @@ resource "aws_iam_role" "sentry_role" {
   })
 }
 
-# Bedrock Mantle (OpenAI-compatible endpoint) — separate IAM namespace from
-# bedrock:*. Same grant shape as the threat designer agent's mantle policy;
-# see the comment there. Present only when Sentry is enabled AND the deploy
-# uses the bedrock-mantle provider.
-resource "aws_iam_role_policy" "sentry_mantle_policy" {
-  count = var.enable_sentry && var.model_provider == "bedrock-mantle" ? 1 : 0
-  name  = "${local.prefix}-sentry-mantle-policy"
+# Bearer-token auth for GPT on bedrock-runtime; invocation itself is covered
+# by the bedrock:InvokeModel* grant.
+resource "aws_iam_role_policy" "sentry_bedrock_bearer_policy" {
+  count = var.enable_sentry && var.model_provider == "bedrock-openai" ? 1 : 0
+  name  = "${local.prefix}-sentry-bedrock-bearer-policy"
   role  = aws_iam_role.sentry_role[0].id
 
   policy = jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [
       {
-        "Sid" : "BedrockMantleInvoke",
+        "Sid" : "BedrockBearerToken",
         "Effect" : "Allow",
-        "Action" : [
-          "bedrock-mantle:CreateInference",
-          "bedrock-mantle:GetInference",
-          "bedrock-mantle:GetModel",
-          "bedrock-mantle:ListModels"
-        ],
-        "Resource" : [
-          "arn:aws:bedrock-mantle:${var.mantle_region}:${data.aws_caller_identity.caller_identity.account_id}:project/default"
-        ]
-      },
-      {
-        "Sid" : "BedrockMantleBearerToken",
-        "Effect" : "Allow",
-        "Action" : ["bedrock-mantle:CallWithBearerToken"],
+        "Action" : ["bedrock:CallWithBearerToken"],
         "Resource" : "*"
       }
     ]

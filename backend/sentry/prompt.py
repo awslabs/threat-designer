@@ -4,10 +4,11 @@ from datetime import datetime
 
 # Import model provider constants
 try:
-    from config import MODEL_PROVIDER, KNOWLEDGE_CUTOFF
+    from config import MODEL_PROVIDER, KNOWLEDGE_CUTOFF, OPENAI_FAMILY_PROVIDERS
 except ImportError:
     MODEL_PROVIDER = os.environ.get("MODEL_PROVIDER", "bedrock")
     KNOWLEDGE_CUTOFF = os.environ.get("KNOWLEDGE_CUTOFF", "May 2025")
+    OPENAI_FAMILY_PROVIDERS = ("openai", "bedrock-openai")
 
 
 # ==============================================================================
@@ -615,8 +616,8 @@ def system_prompt(context, web_search_enabled=False, web_fetch_enabled=False):
     """
     current_date = datetime.now().strftime("%B %d, %Y")
 
-    # GPT prompts apply to both GPT transports — direct OpenAI and Bedrock Mantle.
-    if MODEL_PROVIDER in ("openai", "bedrock-mantle"):
+    # GPT prompts apply to both GPT transports (direct OpenAI and bedrock-runtime).
+    if MODEL_PROVIDER in OPENAI_FAMILY_PROVIDERS:
         builder = _build_openai_prompt
     else:
         builder = _build_bedrock_prompt

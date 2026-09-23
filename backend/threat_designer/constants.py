@@ -37,21 +37,17 @@ ENV_ADAPTIVE_THINKING_MODELS = "ADAPTIVE_THINKING_MODELS"
 ENV_MODEL_PROVIDER = "MODEL_PROVIDER"
 MODEL_PROVIDER_BEDROCK = "bedrock"
 MODEL_PROVIDER_OPENAI = "openai"
-# GPT models served through the Bedrock Mantle OpenAI-compatible endpoint —
-# same models and prompts as the "openai" provider, but SigV4 bearer-token
-# auth instead of an OpenAI API key.
-MODEL_PROVIDER_BEDROCK_MANTLE = "bedrock-mantle"
+# GPT models on the bedrock-runtime OpenAI-compatible route (/openai/v1),
+# authenticated with a bearer token from the runtime role.
+MODEL_PROVIDER_BEDROCK_OPENAI = "bedrock-openai"
 # Providers that serve OpenAI GPT models (shared prompts, message format, and
 # reasoning-effort semantics); they differ only in transport/auth.
-OPENAI_FAMILY_PROVIDERS = (MODEL_PROVIDER_OPENAI, MODEL_PROVIDER_BEDROCK_MANTLE)
+OPENAI_FAMILY_PROVIDERS = (MODEL_PROVIDER_OPENAI, MODEL_PROVIDER_BEDROCK_OPENAI)
 ENV_OPENAI_API_KEY = "OPENAI_API_KEY"
 
-# Bedrock Mantle configuration. GPT-5.x on Mantle is served only from US
-# regions (us-east-2 / us-west-2), independent of the deployment region.
-ENV_MANTLE_REGION = "MANTLE_REGION"
-DEFAULT_MANTLE_REGION = "us-east-2"
-# Mantle GPT model IDs carry an "openai." prefix (e.g. "openai.gpt-5.6-sol").
-MANTLE_MODEL_PREFIX = "openai."
+ENV_BEDROCK_OPENAI_REGION = "BEDROCK_OPENAI_REGION"
+# GPT on bedrock-runtime is only served through the global inference profile.
+BEDROCK_OPENAI_MODEL_PREFIX = "global.openai."
 
 
 # ============================================================================
@@ -270,12 +266,16 @@ Cross-Layer only when the threat exists in the interaction between layers
 rather than within one.
 </maestro_layers>"""
     return f"""<stride_categories>
-{', '.join(c.value for c in StrideCategory)}
+{", ".join(c.value for c in StrideCategory)}
 </stride_categories>"""
 
 
 def classification_field_name(methodology: str) -> str:
-    return "maestro_layer" if methodology == Methodology.MAESTRO.value else "stride_category"
+    return (
+        "maestro_layer"
+        if methodology == Methodology.MAESTRO.value
+        else "stride_category"
+    )
 
 
 def classification_field_guidance(methodology: str) -> str:
@@ -295,7 +295,11 @@ def classification_field_guidance(methodology: str) -> str:
 
 def coverage_label(methodology: str) -> str:
     """Short noun phrase for the active classification axis, for coverage-language sentences."""
-    return "MAESTRO layer" if methodology == Methodology.MAESTRO.value else "STRIDE category"
+    return (
+        "MAESTRO layer"
+        if methodology == Methodology.MAESTRO.value
+        else "STRIDE category"
+    )
 
 
 # ============================================================================
@@ -394,6 +398,9 @@ OPENAI_REASONING_EFFORT_MAP: Dict[int, str] = {
 
 # Known GPT-5 family models that support reasoning
 OPENAI_GPT5_FAMILY_MODELS: List[str] = [
+    "gpt-6-sol",
+    "gpt-6-luna",
+    "gpt-6-astra",
     "gpt-5.6",
     "gpt-5.6-sol",
     "gpt-5.6-terra",

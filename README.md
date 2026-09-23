@@ -131,7 +131,7 @@ Threat Designer supports two AI providers. Choose one based on your preference:
 
 You must enable access to the following models in your AWS region:
 
-- **Claude Opus 5**
+- **Claude Opus 5.5**
 - **Claude Sonnet 5**
 - **Claude Haiku 4.5**
 
@@ -144,15 +144,15 @@ To enable Claude models, follow the instructions [here](https://docs.aws.amazon.
 You'll need:
 
 - A valid OpenAI API key
-- Access to the GPT-5.6 family models (Sol, Terra, Luna)
+- Access to the GPT models used (GPT-6 Sol, GPT-5.6 Terra, GPT-5.6 Luna)
 
 You'll be prompted to enter your API key during deployment.
 
-#### Option 3: Amazon Bedrock Mantle (GPT models on Bedrock)
+#### Option 3: Amazon Bedrock Runtime (GPT models on Bedrock)
 
-The same GPT-5.6 family models served through the Bedrock Mantle OpenAI-compatible endpoint — no OpenAI API key required. Authentication uses SigV4-derived bearer tokens minted from the agent's IAM role.
+The same GPT models served through the OpenAI-compatible route of the Amazon Bedrock Runtime endpoint. No OpenAI API key is required: authentication uses SigV4-derived bearer tokens minted from the agent's IAM role.
 
-> **Warning:** GPT-5.x on Bedrock Mantle is only served from US regions. Model inference is locked to `us-east-2` (configurable to `us-west-2` via the `mantle_region` Terraform variable), regardless of the region you deploy the application to.
+> **Note:** GPT models on Bedrock Runtime are only available through the global cross-region inference profile, so requests may be processed in any commercial AWS region.
 
 ### Installation and Deployment
 
@@ -190,7 +190,7 @@ export AWS_PROFILE="your_profile_name"
 
 During deployment, you'll be prompted to:
 
-- Select your AI model provider (Amazon Bedrock, OpenAI, or Bedrock Mantle)
+- Select your AI model provider (Amazon Bedrock, OpenAI, or Amazon Bedrock Runtime for GPT)
 - Enter your OpenAI API key (if using OpenAI)
 - Provide a valid email address for user credentials
 - Choose whether to enable Sentry AI Assistant
@@ -217,16 +217,16 @@ Threat Designer supports three AI provider options that can be selected during d
 ```
 Select AI model provider:
 1) Amazon Bedrock (Claude) (default)
-2) OpenAI (GPT-5.6)
-3) Amazon Bedrock Mantle (GPT-5.6, no OpenAI API key needed)
+2) OpenAI (GPT)
+3) Amazon Bedrock Runtime (GPT, no OpenAI API key needed, runs in your deployment region)
 ```
 
 #### Amazon Bedrock Configuration (default model)
 
 **Used Models:**
 
-- **Claude Opus 5** — main threat modeling workflow
-- **Claude Sonnet 5** — Sentry assistant and structured output
+- **Claude Opus 5.5** — main threat modeling workflow, attack trees, and Sentry assistant
+- **Claude Sonnet 5** — structured output
 - **Claude Haiku 4.5** — summaries
 
 **Key Characteristics:**
@@ -234,7 +234,7 @@ Select AI model provider:
 - **Reasoning**: Adaptive thinking (Claude 5 family)
 - **Reasoning Levels**: Low, Medium, High, Extra High (maps to adaptive effort levels; token budgets remain only for pre-4.6 models)
 
-> **Note:** Models listed in the `adaptive_thinking_models` Terraform variable (e.g., Claude Opus 5, Claude Sonnet 5) use adaptive thinking with effort levels instead of token budgets. For these models, the `reasoning_budget` configuration is ignored — the reasoning level from the UI is mapped directly to an effort string. Pre-4.6 models continue to use token-budget-based reasoning as before.
+> **Note:** Models listed in the `adaptive_thinking_models` Terraform variable (e.g., Claude Opus 5.5, Claude Sonnet 5) use adaptive thinking with effort levels instead of token budgets. For these models, the `reasoning_budget` configuration is ignored — the reasoning level from the UI is mapped directly to an effort string. Pre-4.6 models continue to use token-budget-based reasoning as before.
 >
 > **Note:** The highest selectable level (Extra High) maps to `xhigh`, the recommended effort for demanding coding and agentic work. The models also support `max` above it, but it costs substantially more for marginal gains — opt in per stage by setting `"4" = "max"` in that stage's `effort_map` in `infra/variables.tf`.
 >
@@ -246,14 +246,14 @@ Select AI model provider:
 
 **Used Models:**
 
-- **GPT-5.6 Sol** — main threat modeling workflow (flagship capability; the `gpt-5.6` alias routes to it)
-- **GPT-5.6 Terra** — Sentry assistant and structured output (strong performance at lower price)
+- **GPT-6 Sol** — main threat modeling workflow, attack trees, and Sentry assistant (flagship capability)
+- **GPT-5.6 Terra** — structured output (strong performance at lower price)
 - **GPT-5.6 Luna** — summaries (efficient, high-volume workloads)
 
 **Key Characteristics:**
 
 - **Reasoning**: Reasoning models on the Responses API
-- **Reasoning Levels**: Low, Medium, High, Extra High (maps to OpenAI's `reasoning_effort`: `low`, `medium`, `high`, `xhigh`). GPT-5.6 also supports `max` above `xhigh` — opt in via `reasoning_effort` in `infra/variables.tf` — and no longer accepts `minimal`.
+- **Reasoning Levels**: Low, Medium, High, Extra High (maps to OpenAI's `reasoning_effort`: `low`, `medium`, `high`, `xhigh`). GPT models also support `max` above `xhigh` — opt in via `reasoning_effort` in `infra/variables.tf` — and no longer accepts `minimal`.
 
 **To use OpenAI:**
 
@@ -261,18 +261,18 @@ Select AI model provider:
 2. Enter your OpenAI API key when prompted
 3. The system will configure both Threat Designer and Sentry to use OpenAI
 
-#### Amazon Bedrock Mantle Configuration
+#### Amazon Bedrock Runtime (GPT) Configuration
 
-Runs the same GPT-5.6 models (and prompts) as the OpenAI option, but served by the Bedrock Mantle OpenAI-compatible endpoint:
+Runs the same GPT models (and prompts) as the OpenAI option, served by the OpenAI-compatible Responses route of the Bedrock Runtime endpoint (`/openai/v1`):
 
-- **No OpenAI API key** — auth is a SigV4-derived bearer token minted from the agent's IAM role (`bedrock-mantle:*` permissions are granted automatically at deploy time)
-- **US-locked inference** — Mantle serves GPT-5.x only from `us-east-2` / `us-west-2`; the deployment shows a warning and defaults to `us-east-2` (override with the `mantle_region` Terraform variable)
-- Model IDs are automatically prefixed with `openai.` (e.g., `openai.gpt-5.6-sol`) as Mantle requires
+- **No OpenAI API key:** auth is a SigV4-derived bearer token minted from the agent's IAM role (the `bedrock:InvokeModel` and `bedrock:CallWithBearerToken` permissions are granted automatically at deploy time)
+- **Deployment region:** calls go to the Bedrock Runtime endpoint in your deployment region (override with the `bedrock_openai_region` Terraform variable)
+- **Global inference profile:** model IDs are automatically prefixed with `global.openai.` (e.g., `global.openai.gpt-6-sol`), so requests may be processed in any commercial AWS region
 
-**To use Bedrock Mantle:**
+**To use Amazon Bedrock Runtime for GPT:**
 
 1. Select option `3` when prompted for model provider during deployment
-2. The system will configure both Threat Designer and Sentry to use GPT-5.6 via Mantle
+2. The system will configure both Threat Designer and Sentry to use GPT via Bedrock Runtime
 
 #### Switching Between Providers
 

@@ -27,14 +27,12 @@ resource "aws_bedrockagentcore_agent_runtime" "threat_designer" {
       MODEL_STRUCT   = jsonencode(var.openai_model_struct),
       MODEL_SUMMARY  = jsonencode(var.openai_model_summary),
     } : {},
-    # Same GPT models as "openai", served via the Bedrock Mantle endpoint —
-    # SigV4 bearer-token auth from the runtime role, no OpenAI API key. The
-    # runtime prefixes the "openai." Mantle model-id form itself.
-    var.model_provider == "bedrock-mantle" ? {
-      MAIN_MODEL    = jsonencode(var.openai_model_main),
-      MODEL_STRUCT  = jsonencode(var.openai_model_struct),
-      MODEL_SUMMARY = jsonencode(var.openai_model_summary),
-      MANTLE_REGION = var.mantle_region
+    # Same GPT models as "openai"; the runtime adds the "global.openai." prefix.
+    var.model_provider == "bedrock-openai" ? {
+      MAIN_MODEL            = jsonencode(var.openai_model_main),
+      MODEL_STRUCT          = jsonencode(var.openai_model_struct),
+      MODEL_SUMMARY         = jsonencode(var.openai_model_summary),
+      BEDROCK_OPENAI_REGION = local.bedrock_openai_region
     } : {}
   )
   agent_runtime_artifact {
@@ -145,41 +143,20 @@ resource "aws_iam_role_policy" "policy_agent" {
   })
 }
 
-# Bedrock Mantle (OpenAI-compatible endpoint) — a SEPARATE IAM namespace from
-# bedrock:*; the bedrock:InvokeModel grant does NOT cover it. The bearer token
-# provide_token() mints inherits THIS role's identity, so the role itself needs
-# these actions: CreateInference at invoke time (missing -> 401
-# permission_denied), Get*/List* for model discovery. Scoped to the Mantle
-# "default" project in var.mantle_region (independent of var.region — GPT-5.x
-# on Mantle is US-regions only). CallWithBearerToken is the bearer-auth action
-# itself and is not project- or region-scopable, so it takes Resource "*".
-# Absent unless the deploy uses the bedrock-mantle provider, keeping the role
-# least-privilege otherwise.
-resource "aws_iam_role_policy" "threat_designer_mantle_policy" {
-  count = var.model_provider == "bedrock-mantle" ? 1 : 0
-  name  = "${local.prefix}-agent-mantle-policy"
+# Bearer-token auth for GPT on bedrock-runtime; invocation itself is covered
+# by the bedrock:InvokeModel* grant.
+resource "aws_iam_role_policy" "threat_designer_bedrock_bearer_policy" {
+  count = var.model_provider == "bedrock-openai" ? 1 : 0
+  name  = "${local.prefix}-agent-bedrock-bearer-policy"
   role  = aws_iam_role.threat_designer_role.id
 
   policy = jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [
       {
-        "Sid" : "BedrockMantleInvoke",
+        "Sid" : "BedrockBearerToken",
         "Effect" : "Allow",
-        "Action" : [
-          "bedrock-mantle:CreateInference",
-          "bedrock-mantle:GetInference",
-          "bedrock-mantle:GetModel",
-          "bedrock-mantle:ListModels"
-        ],
-        "Resource" : [
-          "arn:aws:bedrock-mantle:${var.mantle_region}:${data.aws_caller_identity.caller_identity.account_id}:project/default"
-        ]
-      },
-      {
-        "Sid" : "BedrockMantleBearerToken",
-        "Effect" : "Allow",
-        "Action" : ["bedrock-mantle:CallWithBearerToken"],
+        "Action" : ["bedrock:CallWithBearerToken"],
         "Resource" : "*"
       }
     ]

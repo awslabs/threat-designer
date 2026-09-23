@@ -161,7 +161,11 @@ async def invoke(request: InvocationRequest, http_request: Request):
     request_type = request.input.get("type")
 
     if (not request_type) or (request_type == "resume_interrupt"):
-        return await streaming_handler.handle_streaming_request(request, session_id)
+        from config import safety_identifier
+
+        return await streaming_handler.handle_streaming_request(
+            request, session_id, safety_identifier(user_sub)
+        )
 
     # Handle immediate response types with normal returns
     if request_type == "ping":

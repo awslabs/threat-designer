@@ -97,8 +97,8 @@ get_model_provider() {
     while true; do
         echo -e "${BLUE}Select AI model provider:${NC}"
         echo -e "1) Amazon Bedrock (Claude) ${GREEN}(default)${NC}"
-        echo "2) OpenAI (GPT-5.6)"
-        echo "3) Amazon Bedrock Mantle (GPT-5.6, no OpenAI API key needed)"
+        echo "2) OpenAI (GPT)"
+        echo "3) Amazon Bedrock Runtime (GPT, no OpenAI API key needed, runs in your deployment region)"
         read -r choice
         if [ -z "$choice" ]; then
             MODEL_PROVIDER="bedrock"
@@ -107,10 +107,10 @@ get_model_provider() {
         case $choice in
             1) MODEL_PROVIDER="bedrock"; break;;
             2) MODEL_PROVIDER="openai"; break;;
-            3) MODEL_PROVIDER="bedrock-mantle"
+            3) MODEL_PROVIDER="bedrock-openai"
                echo ""
-               echo -e "${YELLOW}Warning: GPT models on Bedrock Mantle are only served from US regions.${NC}"
-               echo -e "${YELLOW}Model inference is locked to us-east-2, regardless of the region you deploy to.${NC}"
+               echo -e "${YELLOW}Note: GPT models on Bedrock Runtime use the global cross-region inference profile.${NC}"
+               echo -e "${YELLOW}Requests may be processed in any commercial AWS region.${NC}"
                echo ""
                break;;
             *) echo -e "${RED}Invalid choice. Please select 1, 2 or 3${NC}";;
@@ -315,8 +315,8 @@ if [ "$USE_EXISTING" = false ]; then
             if [ "$MODEL_PROVIDER" = "openai" ]; then
                 echo -e "OpenAI API Key: ${BLUE}****** (hidden)${NC}"
             fi
-            if [ "$MODEL_PROVIDER" = "bedrock-mantle" ]; then
-                echo -e "Mantle Inference Region: ${YELLOW}us-east-2 (US-locked)${NC}"
+            if [ "$MODEL_PROVIDER" = "bedrock-openai" ]; then
+                echo -e "GPT Inference: ${YELLOW}global cross-region profile via $REGION${NC}"
             fi
             echo -e "Sentry Enabled: ${BLUE}$ENABLE_SENTRY${NC}"
             if [ "$ENABLE_SENTRY" = "true" ]; then

@@ -6,6 +6,7 @@ locals {
   authorizer_invoke_url = "arn:aws:apigateway:${var.region}:lambda:path/2015-03-31/functions/${aws_lambda_alias.authorizer_lambda_alias.arn}/invocations"
   api_gw_stage          = var.api_gw_stage
   aws_region            = var.region
+  bedrock_openai_region = var.bedrock_openai_region != "" ? var.bedrock_openai_region : var.region
   environment           = var.env
   powertools_layer_arn  = "arn:aws:lambda:${var.region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-${var.python_layer}-x86_64:25"
   python_version        = "python${var.python_runtime}"

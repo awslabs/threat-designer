@@ -1,4 +1,5 @@
 import os
+import hashlib
 import json
 import threading
 import time
@@ -26,23 +27,38 @@ MODEL_PROVIDER = os.environ.get("MODEL_PROVIDER", "bedrock")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "64000"))
 
-# Bedrock Mantle: GPT models served through the Bedrock OpenAI-compatible
-# endpoint — same models/prompts as the "openai" provider, SigV4 bearer-token
-# auth instead of an API key. GPT-5.x on Mantle is US-regions only
-# (us-east-2 / us-west-2), independent of the deployment region.
-MODEL_PROVIDER_BEDROCK_MANTLE = "bedrock-mantle"
-OPENAI_FAMILY_PROVIDERS = ("openai", MODEL_PROVIDER_BEDROCK_MANTLE)
+# GPT models on the bedrock-runtime OpenAI-compatible route (/openai/v1),
+# authenticated with a bearer token from the runtime role.
+MODEL_PROVIDER_BEDROCK_OPENAI = "bedrock-openai"
+OPENAI_FAMILY_PROVIDERS = ("openai", MODEL_PROVIDER_BEDROCK_OPENAI)
 # Message-format family — streaming.py compares this against the format
-# detected in a resumed session, so Mantle must read as "openai" there.
+# detected in a resumed session, so bedrock-openai must read as "openai" there.
 PROVIDER_MESSAGE_FAMILY = (
     "openai" if MODEL_PROVIDER in OPENAI_FAMILY_PROVIDERS else "bedrock"
 )
-MANTLE_REGION = os.environ.get("MANTLE_REGION", "us-east-2")
-# Mantle GPT model IDs carry an "openai." prefix (e.g. "openai.gpt-5.6-terra").
-MANTLE_MODEL_PREFIX = "openai."
+BEDROCK_OPENAI_REGION = os.environ.get("BEDROCK_OPENAI_REGION") or REGION
+# GPT on bedrock-runtime is only served through the global inference profile.
+BEDROCK_OPENAI_MODEL_PREFIX = "global.openai."
 # Re-mint the SigV4-presigned bearer token well inside the ~1h life of the
 # runtime role credentials that sign it.
-MANTLE_TOKEN_TTL_SECONDS = 1800
+BEDROCK_TOKEN_TTL_SECONDS = 1800
+
+# Must match threat_designer's namespace so one end user maps to one
+# safety_identifier across both agents.
+_SAFETY_ID_NAMESPACE = "threat-designer:"
+
+
+def safety_identifier(user_sub) -> str:
+    """Stable, non-PII per-end-user id for OpenAI's safety_identifier.
+
+    Returns "" when there is no user, so the caller can omit the field.
+    """
+    if not user_sub:
+        return ""
+    return hashlib.sha256(
+        f"{_SAFETY_ID_NAMESPACE}{user_sub}".encode("utf-8")
+    ).hexdigest()
+
 
 # Budget (reasoning) levels run 1-4 with no "off" level — every current model is
 # a reasoning model, and on Claude Opus 5 thinking cannot be disabled above
@@ -59,15 +75,16 @@ def normalize_budget_level(value) -> int:
         return MIN_BUDGET_LEVEL
     return min(max(level, MIN_BUDGET_LEVEL), MAX_BUDGET_LEVEL)
 
+
 # Web search provider, chosen at deploy time. "tavily" gives search + extract;
 # "agentcore" gives search ONLY (the Bedrock AgentCore connector has no fetch
 # counterpart), so the extract tool is simply absent. "none" disables web search.
 WEB_SEARCH_PROVIDER_NONE = "none"
 WEB_SEARCH_PROVIDER_TAVILY = "tavily"
 WEB_SEARCH_PROVIDER_AGENTCORE = "agentcore"
-WEB_SEARCH_PROVIDER = os.environ.get(
-    "WEB_SEARCH_PROVIDER", WEB_SEARCH_PROVIDER_NONE
-).strip().lower()
+WEB_SEARCH_PROVIDER = (
+    os.environ.get("WEB_SEARCH_PROVIDER", WEB_SEARCH_PROVIDER_NONE).strip().lower()
+)
 
 # Tavily Configuration
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY")
@@ -75,7 +92,7 @@ TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY")
 
 # Parse reasoning budget/effort from environment
 def _parse_reasoning_config() -> dict:
-    """Parse reasoning budget (Bedrock) or effort (OpenAI/Mantle) from environment"""
+    """Parse reasoning budget (Bedrock) or effort (GPT) from environment"""
     if MODEL_PROVIDER in OPENAI_FAMILY_PROVIDERS:
         raw = os.environ.get(
             "REASONING_EFFORT",
@@ -208,12 +225,12 @@ def _create_bedrock_model_config(budget_level: int = 1) -> dict:
 # closure would re-mint from scratch each time. Locked because tool calls and
 # model invocations run on worker threads. Mirrors the same helper in the
 # threat_designer container, which ships as a separate image.
-_MANTLE_TOKEN_CACHES: dict = {}
-_MANTLE_TOKEN_LOCK = threading.Lock()
+_BEDROCK_TOKEN_CACHES: dict = {}
+_BEDROCK_TOKEN_LOCK = threading.Lock()
 
 
-def _mantle_token_provider(region: str):
-    """A callable returning a fresh Bedrock Mantle bearer token, cached briefly.
+def _bedrock_token_provider(region: str):
+    """A callable returning a fresh Bedrock bearer token, cached briefly.
 
     langchain_openai accepts ``api_key`` as a callable and invokes it per
     request, so long sessions keep re-reading a currently-valid token minted
@@ -221,48 +238,49 @@ def _mantle_token_provider(region: str):
     """
     from aws_bedrock_token_generator import provide_token
 
-    with _MANTLE_TOKEN_LOCK:
-        cache = _MANTLE_TOKEN_CACHES.setdefault(region, {"token": None, "exp": 0.0})
+    with _BEDROCK_TOKEN_LOCK:
+        cache = _BEDROCK_TOKEN_CACHES.setdefault(region, {"token": None, "exp": 0.0})
 
     def _provider() -> str:
-        with _MANTLE_TOKEN_LOCK:
+        with _BEDROCK_TOKEN_LOCK:
             now = time.time()
             if cache["token"] is None or now >= cache["exp"]:
                 cache["token"] = provide_token(region=region)
-                cache["exp"] = now + MANTLE_TOKEN_TTL_SECONDS
+                cache["exp"] = now + BEDROCK_TOKEN_TTL_SECONDS
             return cache["token"]
 
     return _provider
 
 
 def _create_openai_model_config(budget_level: int = 1) -> dict:
-    """Create GPT model configuration (direct OpenAI or Bedrock Mantle)"""
+    """Create GPT model configuration (direct OpenAI or bedrock-runtime)"""
     if not OPENAI_AVAILABLE:
         raise ImportError(
             "OpenAI provider requires langchain-openai package. "
             "Install with: pip install langchain-openai"
         )
 
-    use_mantle = MODEL_PROVIDER == MODEL_PROVIDER_BEDROCK_MANTLE
-
     # No temperature: the whole GPT-5 family rejects the parameter outright
     # ("Unsupported parameter: 'temperature' is not supported with this model",
     # HTTP 400), including calls made with no reasoning config.
     base_config = {
-        "model": MODEL_ID or "gpt-5.6-terra",
+        "model": MODEL_ID or "gpt-6-sol",
         "max_tokens": MAX_TOKENS,
         "use_responses_api": True,
         "streaming": True,
     }
 
-    if use_mantle:
-        if not base_config["model"].startswith(MANTLE_MODEL_PREFIX):
-            base_config["model"] = f"{MANTLE_MODEL_PREFIX}{base_config['model']}"
-        base_config["base_url"] = (
-            f"https://bedrock-mantle.{MANTLE_REGION}.api.aws/openai/v1"
+    if MODEL_PROVIDER == MODEL_PROVIDER_BEDROCK_OPENAI:
+        bare_model_id = (
+            base_config["model"].removeprefix("global.").removeprefix("openai.")
         )
-        # Bearer token minted from the runtime role's credentials — no API key.
-        base_config["api_key"] = _mantle_token_provider(MANTLE_REGION)
+        base_config["model"] = f"{BEDROCK_OPENAI_MODEL_PREFIX}{bare_model_id}"
+        base_config["base_url"] = (
+            f"https://bedrock-runtime.{BEDROCK_OPENAI_REGION}.amazonaws.com/openai/v1"
+        )
+        base_config["api_key"] = _bedrock_token_provider(BEDROCK_OPENAI_REGION)
+        # Opt out of 30-day server-side response storage.
+        base_config["store"] = False
     else:
         if not OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY environment variable not set")
@@ -271,12 +289,10 @@ def _create_openai_model_config(budget_level: int = 1) -> dict:
     # Always configured: budget levels start at 1, so reasoning is never off.
     reasoning_effort = REASONING_CONFIG.get(budget_level, "low")
     if reasoning_effort:
-        base_config["reasoning"] = {"effort": reasoning_effort, "summary": "detailed"}
+        base_config["reasoning"] = {"effort": reasoning_effort, "summary": "auto"}
         # output_version is what puts the reasoning summary into the streamed
         # message content ({"type": "reasoning", "summary": [...]}) — without it
         # the summary lands in additional_kwargs and the UI shows no thinking.
-        # Both GPT transports stream through the same ChatOpenAI Responses API,
-        # so gating this on Mantle hid reasoning on direct-OpenAI deploys.
         base_config["output_version"] = "responses/v1"
 
     return base_config
@@ -285,8 +301,8 @@ def _create_openai_model_config(budget_level: int = 1) -> dict:
 def create_model(budget_level: int = MIN_BUDGET_LEVEL) -> Any:
     """Create model instance based on provider.
 
-    The branch must match create_model_config's: "bedrock-mantle" is served by
-    ChatOpenAI (it is the Bedrock OpenAI-compatible endpoint), so testing for
+    The branch must match create_model_config's: "bedrock-openai" is served by
+    ChatOpenAI (it is the Bedrock OpenAI-compatible route), so testing for
     "openai" alone would hand a GPT config — including a callable api_key — to
     ChatBedrockConverse.
     """

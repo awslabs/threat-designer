@@ -2,8 +2,8 @@
 
 BEDROCK_MODELS = [
     {
-        "name": "Claude Opus 5 (Most Capable)",
-        "id": "global.anthropic.claude-opus-5",
+        "name": "Claude Opus 5.5 (Most Capable)",
+        "id": "global.anthropic.claude-opus-5-5",
         "max_tokens": 128000,
         "adaptive": True,
         "supports_max": True,
@@ -29,15 +29,14 @@ BEDROCK_MODELS = [
     },
 ]
 
-# GPT-5.6 fleet: Sol is the flagship (the "gpt-5.6" alias routes to it),
-# Terra balances intelligence and cost, Luna serves efficient high-volume work.
-# All three accept the full reasoning-effort ladder; level 4 tops out at
-# "xhigh" (recommended for agentic work) rather than the pricier "max".
+# GPT-6 Sol is the flagship, GPT-5.6 Terra balances intelligence and cost,
+# GPT-5.6 Luna serves efficient high-volume work. Level 4 tops out at "xhigh"
+# rather than the pricier "max".
 OPENAI_MODELS = [
     {
-        "name": "GPT-5.6 Sol (Most Capable)",
-        "id": "gpt-5.6-sol",
-        "max_tokens": 32000,
+        "name": "GPT-6 Sol (Most Capable)",
+        "id": "gpt-6-sol",
+        "max_tokens": 128000,
         "effort_map": {
             "1": "low",
             "2": "medium",

@@ -1,3 +1,4 @@
+import json
 import os
 import time
 
@@ -60,10 +61,16 @@ def lambda_handler(event: dict, context: LambdaContext):
         # cognito:username is the human-readable username (use for display)
         username = claims.get("cognito:username", claims.get("username", user_id))
         email = claims.get("email", "")
+        # cognito:groups is a JSON array in the token. API Gateway authorizer
+        # context values must be strings, so serialize it and parse on the
+        # backend side. Absent when the user is in no groups.
+        groups = claims.get("cognito:groups", [])
+        if not isinstance(groups, list):
+            groups = []
 
         logger.debug(
             "Token validated successfully",
-            extra={"user_id": user_id, "username": username},
+            extra={"user_id": user_id, "username": username, "groups": groups},
         )
         return generate_policy(
             user_id,  # Use sub as principal ID
@@ -73,6 +80,7 @@ def lambda_handler(event: dict, context: LambdaContext):
                 "user_id": user_id,  # UUID for backend operations
                 "username": username,  # Human-readable name for display
                 "email": email,
+                "groups": json.dumps(groups),  # JSON-encoded list of Cognito groups
             },
         )
 

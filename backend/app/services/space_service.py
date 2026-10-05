@@ -37,6 +37,30 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _get_space_item(space_id: str) -> Dict[str, Any]:
+    """Fetch a space record or raise NotFoundError."""
+    table = dynamodb.Table(SPACES_TABLE)
+    response = table.get_item(Key={"space_id": space_id})
+    if "Item" not in response:
+        raise NotFoundError(f"Space {space_id} not found")
+    return response["Item"]
+
+
+def _assert_not_system_space(space_id: str) -> None:
+    """Raise UnauthorizedError if the target is a system space.
+
+    System spaces are managed exclusively through the governance API, so the
+    standard owner-scoped endpoints must refuse to mutate them. The flag lives
+    on the record (data-driven) rather than a deploy-time env var, so newly
+    created system spaces are protected immediately without a redeploy.
+    """
+    table = dynamodb.Table(SPACES_TABLE)
+    response = table.get_item(Key={"space_id": space_id})
+    item = response.get("Item")
+    if item and item.get("system", False):
+        raise UnauthorizedError("System spaces are managed through governance")
+
+
 def _check_space_owner(space_id: str, user_id: str) -> Dict[str, Any]:
     """Return space item if user is owner, else raise UnauthorizedError."""
     table = dynamodb.Table(SPACES_TABLE)
@@ -92,6 +116,130 @@ def create_space(owner: str, name: str, description: str = "") -> Dict[str, Any]
 
 
 @tracer.capture_method
+def create_system_space(owner: str, name: str, description: str = "") -> Dict[str, Any]:
+    """Create a system space: an org-wide KB queried for every threat model.
+
+    Identical storage to a normal space but flagged system=True, which excludes
+    it from the standard listing and blocks mutation via the owner-scoped API.
+    Only reachable through the governance API.
+    """
+    table = dynamodb.Table(SPACES_TABLE)
+    space_id = str(uuid.uuid4())
+    now = _now()
+    item = {
+        "space_id": space_id,
+        "owner": owner,
+        "name": name,
+        "description": description,
+        "system": True,
+        "created_at": now,
+        "updated_at": now,
+    }
+    table.put_item(Item=item)
+    LOG.info("System space created", space_id=space_id, owner=owner)
+    return item
+
+
+@tracer.capture_method
+def list_system_spaces() -> List[Dict[str, Any]]:
+    """Return all system spaces. Used by governance UI and by the agent to
+    discover mandatory org-wide KBs at threat-modeling time.
+    """
+    from boto3.dynamodb.conditions import Attr
+
+    table = dynamodb.Table(SPACES_TABLE)
+    items: List[Dict[str, Any]] = []
+    scan_kwargs = {"FilterExpression": Attr("system").eq(True)}
+    while True:
+        resp = table.scan(**scan_kwargs)
+        items.extend(resp.get("Items", []))
+        last_key = resp.get("LastEvaluatedKey")
+        if not last_key:
+            break
+        scan_kwargs["ExclusiveStartKey"] = last_key
+    return items
+
+
+@tracer.capture_method
+def update_system_space(
+    space_id: str, name: Optional[str], description: Optional[str]
+) -> Dict[str, Any]:
+    """Update a system space. Governance-only; verifies the target is a system
+    space before mutating so this endpoint cannot be used to edit user spaces.
+    """
+    item = _get_space_item(space_id)
+    if not item.get("system", False):
+        raise UnauthorizedError("Not a system space")
+
+    table = dynamodb.Table(SPACES_TABLE)
+    updates = {"updated_at": _now()}
+    if name is not None:
+        updates["name"] = name
+    if description is not None:
+        updates["description"] = description
+
+    expr = "SET " + ", ".join(f"#{k} = :{k}" for k in updates)
+    table.update_item(
+        Key={"space_id": space_id},
+        UpdateExpression=expr,
+        ExpressionAttributeNames={f"#{k}": k for k in updates},
+        ExpressionAttributeValues={f":{k}": v for k, v in updates.items()},
+    )
+    return _get_space_item(space_id)
+
+
+@tracer.capture_method
+def delete_system_space(space_id: str) -> None:
+    """Delete a system space. Governance-only; verifies the target is a system
+    space so this endpoint cannot delete user spaces.
+    """
+    item = _get_space_item(space_id)
+    if not item.get("system", False):
+        raise UnauthorizedError("Not a system space")
+    _purge_space_documents(space_id)
+    table = dynamodb.Table(SPACES_TABLE)
+    table.delete_item(Key={"space_id": space_id})
+    LOG.info("System space deleted", space_id=space_id)
+
+
+def _assert_is_system_space(space_id: str) -> None:
+    """Raise UnauthorizedError unless the target is a system space. Used to
+    scope governance document operations so they cannot touch user spaces.
+    """
+    item = _get_space_item(space_id)
+    if not item.get("system", False):
+        raise UnauthorizedError("Not a system space")
+
+
+@tracer.capture_method
+def generate_system_document_upload_url(
+    space_id: str, filename: str, file_type: str
+) -> Dict[str, Any]:
+    _assert_is_system_space(space_id)
+    return _do_generate_document_upload_url(space_id, filename, file_type)
+
+
+@tracer.capture_method
+def confirm_system_document_upload(
+    space_id: str, document_id: str, s3_key: str, filename: str
+) -> Dict[str, Any]:
+    _assert_is_system_space(space_id)
+    return _do_confirm_document_upload(space_id, document_id, s3_key, filename)
+
+
+@tracer.capture_method
+def list_system_documents(space_id: str) -> List[Dict[str, Any]]:
+    _assert_is_system_space(space_id)
+    return _do_list_documents(space_id)
+
+
+@tracer.capture_method
+def delete_system_document(space_id: str, document_id: str) -> None:
+    _assert_is_system_space(space_id)
+    _do_delete_document(space_id, document_id)
+
+
+@tracer.capture_method
 def get_space(space_id: str, user_id: str) -> Dict[str, Any]:
     access = check_space_access(space_id, user_id)
     table = dynamodb.Table(SPACES_TABLE)
@@ -107,9 +255,15 @@ def list_spaces(user_id: str) -> List[Dict[str, Any]]:
     spaces_table = dynamodb.Table(SPACES_TABLE)
     sharing_table = dynamodb.Table(SPACE_SHARING_TABLE)
 
-    # Owned spaces — scan with filter (no GSI needed for MVP)
+    # Owned spaces — scan with filter (no GSI needed for MVP).
+    # Exclude system spaces: they are governance-managed and must not appear in
+    # a user's normal listing even when the governance user owns them.
     owned_resp = spaces_table.scan(
         FilterExpression=boto3.dynamodb.conditions.Attr("owner").eq(user_id)
+        & (
+            boto3.dynamodb.conditions.Attr("system").not_exists()
+            | boto3.dynamodb.conditions.Attr("system").eq(False)
+        )
     )
     owned = owned_resp.get("Items", [])
     owned_ids = {s["space_id"] for s in owned}
@@ -128,8 +282,12 @@ def list_spaces(user_id: str) -> List[Dict[str, Any]]:
         shared_spaces = []
         for sid in shared_space_ids:
             r = spaces_table.get_item(Key={"space_id": sid})
-            if "Item" in r:
-                shared_spaces.append(r["Item"])
+            item = r.get("Item")
+            # A system space must never surface through sharing: the governance
+            # user owns it, so a stale share row (or a share created before the
+            # guard landed) would otherwise leak it into a recipient's listing.
+            if item and not item.get("system", False):
+                shared_spaces.append(item)
     except Exception:
         shared_spaces = []
 
@@ -140,6 +298,7 @@ def list_spaces(user_id: str) -> List[Dict[str, Any]]:
 def update_space(
     space_id: str, user_id: str, name: Optional[str], description: Optional[str]
 ) -> Dict[str, Any]:
+    _assert_not_system_space(space_id)
     _check_space_owner(space_id, user_id)
     table = dynamodb.Table(SPACES_TABLE)
     updates = {"updated_at": _now()}
@@ -164,7 +323,9 @@ def update_space(
 
 @tracer.capture_method
 def delete_space(space_id: str, user_id: str) -> None:
+    _assert_not_system_space(space_id)
     _check_space_owner(space_id, user_id)
+    _purge_space_documents(space_id)
     table = dynamodb.Table(SPACES_TABLE)
     table.delete_item(Key={"space_id": space_id})
     LOG.debug("Space deleted", space_id=space_id)
@@ -174,8 +335,18 @@ def delete_space(space_id: str, user_id: str) -> None:
 def generate_document_upload_url(
     space_id: str, user_id: str, filename: str, file_type: str
 ) -> Dict[str, Any]:
-    """Generate a presigned S3 PUT URL for a space document."""
+    """Generate a presigned S3 PUT URL for a space document (owner-scoped)."""
+    _assert_not_system_space(space_id)
     _check_space_owner(space_id, user_id)
+    return _do_generate_document_upload_url(space_id, filename, file_type)
+
+
+def _do_generate_document_upload_url(
+    space_id: str, filename: str, file_type: str
+) -> Dict[str, Any]:
+    """Presigned upload URL generation without authorization. Callers must
+    authorize first (owner check or governance group check).
+    """
     document_id = str(uuid.uuid4())
     ext = filename.rsplit(".", 1)[-1] if "." in filename else "bin"
     s3_key = f"spaces/{space_id}/{document_id}.{ext}"
@@ -197,7 +368,15 @@ def confirm_document_upload(
     space_id: str, user_id: str, document_id: str, s3_key: str, filename: str
 ) -> Dict[str, Any]:
     """Record document in DDB, write KB metadata sidecar, trigger KB ingestion."""
+    _assert_not_system_space(space_id)
     _check_space_owner(space_id, user_id)
+    return _do_confirm_document_upload(space_id, document_id, s3_key, filename)
+
+
+def _do_confirm_document_upload(
+    space_id: str, document_id: str, s3_key: str, filename: str
+) -> Dict[str, Any]:
+    """Document-confirm logic without authorization. Callers must authorize first."""
     now = _now()
     item = {
         "space_id": space_id,
@@ -249,6 +428,11 @@ def confirm_document_upload(
 @tracer.capture_method
 def list_documents(space_id: str, user_id: str) -> List[Dict[str, Any]]:
     check_space_access(space_id, user_id)
+    return _do_list_documents(space_id)
+
+
+def _do_list_documents(space_id: str) -> List[Dict[str, Any]]:
+    """Document listing (with ingestion-status resolution) without authorization."""
     docs_table = dynamodb.Table(SPACE_DOCUMENTS_TABLE)
     response = docs_table.query(
         KeyConditionExpression=boto3.dynamodb.conditions.Key("space_id").eq(space_id)
@@ -305,7 +489,13 @@ def list_documents(space_id: str, user_id: str) -> List[Dict[str, Any]]:
 
 @tracer.capture_method
 def delete_document(space_id: str, user_id: str, document_id: str) -> None:
+    _assert_not_system_space(space_id)
     _check_space_owner(space_id, user_id)
+    _do_delete_document(space_id, document_id)
+
+
+def _do_delete_document(space_id: str, document_id: str) -> None:
+    """Document deletion (DDB + S3 + sidecar) without authorization."""
     docs_table = dynamodb.Table(SPACE_DOCUMENTS_TABLE)
     resp = docs_table.get_item(Key={"space_id": space_id, "document_id": document_id})
     if "Item" not in resp:
@@ -334,9 +524,55 @@ def delete_document(space_id: str, user_id: str, document_id: str) -> None:
             LOG.warning("Failed to start KB ingestion after delete", error=str(e))
 
 
+def _purge_space_documents(space_id: str) -> None:
+    """Delete every document of a space: DDB rows, S3 objects, and KB sidecars,
+    then trigger a single KB ingestion sync.
+
+    Shared by delete_space and delete_system_space so deleting a space actually
+    removes its files (as the UI promises) rather than orphaning S3 objects and
+    leaving stale vectors in the knowledge base. One ingestion job is triggered
+    at the end rather than per document.
+    """
+    docs_table = dynamodb.Table(SPACE_DOCUMENTS_TABLE)
+    keys = boto3.dynamodb.conditions.Key("space_id").eq(space_id)
+    doc_items: List[Dict[str, Any]] = []
+    query_kwargs = {"KeyConditionExpression": keys}
+    while True:
+        resp = docs_table.query(**query_kwargs)
+        doc_items.extend(resp.get("Items", []))
+        last_key = resp.get("LastEvaluatedKey")
+        if not last_key:
+            break
+        query_kwargs["ExclusiveStartKey"] = last_key
+
+    for item in doc_items:
+        s3_key = item.get("s3_key")
+        if s3_key:
+            try:
+                s3_client.delete_object(Bucket=SPACES_BUCKET, Key=s3_key)
+                s3_client.delete_object(
+                    Bucket=SPACES_BUCKET, Key=f"{s3_key}.metadata.json"
+                )
+            except Exception as e:
+                LOG.warning("S3 delete failed during purge", error=str(e), s3_key=s3_key)
+        docs_table.delete_item(
+            Key={"space_id": space_id, "document_id": item["document_id"]}
+        )
+
+    if doc_items and KNOWLEDGE_BASE_ID and KB_DATA_SOURCE_ID:
+        try:
+            bedrock_agent_client.start_ingestion_job(
+                knowledgeBaseId=KNOWLEDGE_BASE_ID,
+                dataSourceId=KB_DATA_SOURCE_ID,
+            )
+        except Exception as e:
+            LOG.warning("Failed to start KB ingestion after space purge", error=str(e))
+
+
 @tracer.capture_method
 def share_space(space_id: str, owner: str, user_ids: List[str]) -> List[Dict[str, Any]]:
     """Grant READ_ONLY access to a list of users."""
+    _assert_not_system_space(space_id)
     _check_space_owner(space_id, owner)
     sharing_table = dynamodb.Table(SPACE_SHARING_TABLE)
     now = _now()
@@ -390,6 +626,7 @@ def get_space_sharing(space_id: str, user_id: str) -> List[Dict[str, Any]]:
 
 @tracer.capture_method
 def remove_space_sharing(space_id: str, owner: str, target_user_id: str) -> None:
+    _assert_not_system_space(space_id)
     _check_space_owner(space_id, owner)
     sharing_table = dynamodb.Table(SPACE_SHARING_TABLE)
     sharing_table.delete_item(Key={"space_id": space_id, "user_id": target_user_id})

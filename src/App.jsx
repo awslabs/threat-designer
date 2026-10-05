@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import AppLayoutMFE from "./components/AppLayoutMFE/AppLayoutMFE";
 import LoginPageInternal from "./pages/Landingpage/Landingpage";
 import { Spinner } from "@cloudscape-design/components";
-import { getUser, logOut } from "./services/Auth/auth";
+import { getUser, logOut, isInGroup } from "./services/Auth/auth";
+import { config } from "./config.js";
 import { SpaceBetween } from "@cloudscape-design/components";
 import { SplitPanelProvider } from "./SplitPanelContext";
 import customTheme from "./customTheme";
@@ -16,11 +17,19 @@ import { useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarInset } from "./components/ui/sidebar";
 import { AppSidebar } from "./components/Sidebar";
 import { SpacesPanel } from "./components/Spaces/SpacesPanel";
+import { GovernancePanel } from "./components/Governance/GovernancePanel";
 
 function SpacesPanelSlot() {
   const location = useLocation();
   if (!location.pathname.startsWith("/spaces")) return null;
   return <SpacesPanel />;
+}
+
+function GovernancePanelSlot({ enabled }) {
+  const location = useLocation();
+  if (!enabled) return null;
+  if (!location.pathname.startsWith("/governance")) return null;
+  return <GovernancePanel />;
 }
 
 const getSystemTheme = () => {
@@ -153,16 +162,19 @@ const App = () => {
                     effectiveTheme={effectiveTheme}
                     setThemeMode={setThemeMode}
                     onLogout={handleLogout}
+                    isGovernanceMember={isInGroup(authUser, config.governanceGroup)}
                   />
                   <SidebarInset
                     style={{ display: "flex", flexDirection: "row", overflow: "hidden" }}
                   >
                     <SpacesPanelSlot />
+                    <GovernancePanelSlot enabled={isInGroup(authUser, config.governanceGroup)} />
                     <div style={{ flex: 1, overflow: "hidden" }}>
                       <AppLayoutMFE
                         user={authUser}
                         colorMode={colorMode}
                         setThemeMode={setThemeMode}
+                        isGovernanceMember={isInGroup(authUser, config.governanceGroup)}
                       />
                     </div>
                   </SidebarInset>

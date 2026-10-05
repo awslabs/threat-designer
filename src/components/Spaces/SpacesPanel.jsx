@@ -10,9 +10,28 @@ import Button from "@cloudscape-design/components/button";
 import Box from "@cloudscape-design/components/box";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import Spinner from "@cloudscape-design/components/spinner";
-import { listSpaces, createSpace } from "../../services/Spaces/spacesService";
+import { spacesService } from "../../services/Spaces/spacesService";
 
-export function SpacesPanel() {
+const DEFAULT_PANEL = {
+  icon: Folder,
+  title: "Spaces",
+  basePath: "/spaces",
+  newAriaLabel: "New space",
+  emptyText: "No spaces yet",
+  createTitle: "Create space",
+  createNamePlaceholder: "My project space",
+  createNameDescription: undefined,
+};
+
+/**
+ * Side panel listing spaces, parametrized so user Spaces and governance System
+ * Spaces share one implementation. `variant` supplies the service, base route,
+ * icon, and copy; defaults are the user-space behavior.
+ */
+export function SpacesPanel({ service = spacesService, variant } = {}) {
+  const cfg = { ...DEFAULT_PANEL, ...variant };
+  const Icon = cfg.icon;
+  const { listSpaces, createSpace } = service;
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -24,8 +43,8 @@ export function SpacesPanel() {
   const [newDesc, setNewDesc] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const activeSpaceId = location.pathname.startsWith("/spaces/")
-    ? location.pathname.split("/spaces/")[1]
+  const activeSpaceId = location.pathname.startsWith(`${cfg.basePath}/`)
+    ? location.pathname.split(`${cfg.basePath}/`)[1]
     : null;
 
   useEffect(() => {
@@ -53,7 +72,7 @@ export function SpacesPanel() {
       setCreateOpen(false);
       setNewName("");
       setNewDesc("");
-      navigate(`/spaces/${space.space_id}`);
+      navigate(`${cfg.basePath}/${space.space_id}`);
     } catch {
       // noop
     } finally {
@@ -66,13 +85,13 @@ export function SpacesPanel() {
       <div className="spaces-panel">
         <div className="spaces-panel-header">
           <span className="spaces-panel-title">
-            <Folder size={14} />
-            Spaces
+            <Icon size={14} />
+            {cfg.title}
           </span>
           <Button
             variant="icon"
             iconName="add-plus"
-            ariaLabel="New space"
+            ariaLabel={cfg.newAriaLabel}
             onClick={() => setCreateOpen(true)}
           />
         </div>
@@ -84,7 +103,7 @@ export function SpacesPanel() {
             </div>
           ) : spaces.length === 0 ? (
             <div className="spaces-panel-empty">
-              <span>No spaces yet</span>
+              <span>{cfg.emptyText}</span>
             </div>
           ) : (
             <>
@@ -92,10 +111,10 @@ export function SpacesPanel() {
                 <button
                   key={space.space_id}
                   className={`spaces-panel-item ${activeSpaceId === space.space_id ? "active" : ""}`}
-                  onClick={() => navigate(`/spaces/${space.space_id}`)}
+                  onClick={() => navigate(`${cfg.basePath}/${space.space_id}`)}
                   title={space.name}
                 >
-                  <Folder size={14} className="spaces-panel-item-icon" />
+                  <Icon size={14} className="spaces-panel-item-icon" />
                   <span className="spaces-panel-item-name">{space.name}</span>
                 </button>
               ))}
@@ -107,7 +126,7 @@ export function SpacesPanel() {
       <Modal
         visible={createOpen}
         onDismiss={() => setCreateOpen(false)}
-        header="Create space"
+        header={cfg.createTitle}
         footer={
           <Box float="right">
             <SpaceBetween direction="horizontal" size="xs">
@@ -120,11 +139,11 @@ export function SpacesPanel() {
         }
       >
         <SpaceBetween size="m">
-          <FormField label="Name" constraintText="Required">
+          <FormField label="Name" constraintText="Required" description={cfg.createNameDescription}>
             <Input
               value={newName}
               onChange={({ detail }) => setNewName(detail.value)}
-              placeholder="My project space"
+              placeholder={cfg.createNamePlaceholder}
             />
           </FormField>
           <FormField label="Description" constraintText="Optional">

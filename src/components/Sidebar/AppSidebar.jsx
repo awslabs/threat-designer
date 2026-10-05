@@ -1,4 +1,4 @@
-import { PlusCircle, LayoutGrid, Folder } from "lucide-react";
+import { PlusCircle, LayoutGrid, Folder, ShieldCheck } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter } from "@/components/ui/sidebar";
 import { SidebarHeader } from "./SidebarHeader";
 import { NavMain } from "./NavMain";
@@ -25,7 +25,15 @@ import "./Sidebar.css";
  * @param {Function} props.onLogout - Function to handle logout with loading state
  * @param {Function} props.onThreatModelsRefresh - Callback that receives the refresh function for threat models list
  */
-export function AppSidebar({ user, colorMode, effectiveTheme, setThemeMode, onLogout, ...props }) {
+export function AppSidebar({
+  user,
+  colorMode,
+  effectiveTheme,
+  setThemeMode,
+  onLogout,
+  isGovernanceMember,
+  ...props
+}) {
   // Navigation items configuration
   const navItems = [
     {
@@ -43,6 +51,15 @@ export function AppSidebar({ user, colorMode, effectiveTheme, setThemeMode, onLo
       url: "/spaces",
       icon: Folder,
     },
+    ...(isGovernanceMember
+      ? [
+          {
+            title: "Governance",
+            url: "/governance",
+            icon: ShieldCheck,
+          },
+        ]
+      : []),
   ];
 
   return (

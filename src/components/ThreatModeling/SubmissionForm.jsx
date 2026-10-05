@@ -327,6 +327,11 @@ export const SubmissionComponent = ({
                       }
                       placeholder="Select a space (optional)"
                     />
+                    <Box variant="small" color="text-body-secondary" padding={{ top: "xxs" }}>
+                      Organization standards are always applied. Any system spaces your organization
+                      has configured are queried for every threat model, in addition to the space
+                      selected here.
+                    </Box>
                   </FormField>
                   <FormField
                     label="Description"

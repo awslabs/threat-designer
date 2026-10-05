@@ -464,6 +464,10 @@ deploy_backend() {
     
     VITE_REDIRECT_SIGN_IN="https://dev.${APP_ID}.amplifyapp.com"
     VITE_REDIRECT_SIGN_OUT="https://dev.${APP_ID}.amplifyapp.com"
+
+    # Governance group name (frontend gates the Governance page on this claim)
+    VITE_GOVERNANCE_GROUP=$(terraform output -raw governance_group 2>/dev/null || echo "governance")
+
     export AWS_DEFAULT_REGION=$REGION
 
     # Return to root directory
@@ -474,6 +478,7 @@ deploy_backend() {
 VITE_APP_ENDPOINT=$VITE_APP_ENDPOINT
 VITE_APP_SENTRY=$VITE_APP_SENTRY
 VITE_SENTRY_ENABLED=$VITE_SENTRY_ENABLED
+VITE_GOVERNANCE_GROUP=$VITE_GOVERNANCE_GROUP
 VITE_COGNITO_REGION=$VITE_COGNITO_REGION
 VITE_USER_POOL_ID=$VITE_USER_POOL_ID
 VITE_APP_CLIENT_ID=$VITE_APP_CLIENT_ID

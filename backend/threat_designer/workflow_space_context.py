@@ -181,10 +181,10 @@ def _retrieve_from_kb(query: str, space_id: str, max_results: int = 5) -> str:
     their origin so _format_results and the captured insights can distinguish
     org standards from team docs.
 
-    ponytail: fan-out is 1 + N Retrieve calls at max_results each (N = number of
-    system spaces), serial. Fine while orgs keep a handful of system spaces; if
-    that grows, batch/parallelize the system retrieves or merge them behind a
-    single metadata filter.
+    Fan-out is 1 + N Retrieve calls at max_results each (N = number of system
+    spaces), serial. Fine while orgs keep a handful of system spaces; if that
+    grows, batch/parallelize the system retrieves or merge them behind a single
+    metadata filter.
     """
     system_ids = get_system_space_ids()
     user_results = []

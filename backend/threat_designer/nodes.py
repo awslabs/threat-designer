@@ -425,15 +425,25 @@ class ReplayService:
             WORKFLOW_NODE_THREATS_AGENTIC,
             WORKFLOW_NODE_THREATS_TRADITIONAL,
         )
+        import workflow_space_context
         from workflow_space_context import get_system_space_ids
 
         if state.get("version", False):
             return WORKFLOW_NODE_VERSION_DIFF
 
         if not state.get("replay", False):
-            # New run: enter space context if a space is attached or any
-            # system space is configured (mandatory org-wide KBs).
-            if state.get("space_id") or get_system_space_ids():
+            # New run: enter space context if a space is attached, any system
+            # space is configured, or system-space discovery just failed. The
+            # last case still enters the subgraph so finish_node writes the
+            # "org standards NOT consulted" trail warning; skipping it would
+            # drop that warning silently. Read the latch as a live module
+            # attribute (not a captured import binding) since the preceding
+            # get_system_space_ids() call is what sets it on failure.
+            if (
+                state.get("space_id")
+                or get_system_space_ids()
+                or workflow_space_context._system_space_discovery_failed
+            ):
                 return WORKFLOW_NODE_SPACE_CONTEXT
             return WORKFLOW_NODE_ASSET
 

@@ -24,7 +24,7 @@ function isValidUUID(str) {
   return regex.test(str);
 }
 
-function AppLayoutMFE({ user }) {
+function AppLayoutMFE({ user, isGovernanceMember }) {
   const [navOpen, setNavOpen] = useState(true);
   const { splitPanelOpen, setSplitPanelOpen, splitPanelContext } = useSplitPanel();
   const location = useLocation();
@@ -203,7 +203,7 @@ function AppLayoutMFE({ user }) {
               {<RenderSplitPanelContent />}
             </SplitPanel>
           }
-          content={<Main user={user} />}
+          content={<Main user={user} isGovernanceMember={isGovernanceMember} />}
           navigationHide={true}
           toolsHide
           ariaLabels={appLayoutLabels}

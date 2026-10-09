@@ -61,7 +61,7 @@
     },
     {
       "Effect": "Allow",
-      "Action": ["cognito-idp:ListUsers", "cognito-idp:AdminGetUser"],
+      "Action": ["cognito-idp:ListUsers", "cognito-idp:AdminGetUser", "cognito-idp:AdminListGroupsForUser"],
       "Resource": ["${cognito_user_pool_arn}"]
     },
     {

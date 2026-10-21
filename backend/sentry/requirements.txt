@@ -17,7 +17,7 @@ langchain-mcp-adapters==0.2.2
 # Every adapters release (through 0.3.2) requires mcp<2.0.0.
 mcp>=1.9.2,<2.0.0
 langchain-task-steering==0.1.8
-uv==0.11.15
+uv==0.13.4
 uvicorn[standard]==0.44.0
 fastapi==0.116.1
 httpx==0.28.1

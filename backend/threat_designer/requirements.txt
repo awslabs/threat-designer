@@ -8,7 +8,7 @@ langchain-openai==1.1.14
 # bedrock-openai auth at runtime.
 aws-bedrock-token-generator==1.1.0
 langchain==1.3.9
-uv==0.11.15
+uv==0.13.4
 uvicorn[standard]==0.37.0
 fastapi==0.116.1
 httpx==0.28.1

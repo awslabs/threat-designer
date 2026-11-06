@@ -11,6 +11,7 @@
 ## Quick Links
 
 - 📖 [Read the AWS Blog Post](https://aws.amazon.com/blogs/machine-learning/accelerate-threat-modeling-with-generative-ai/)
+- 🏢 [Customer story: How TUI scales threat modeling for 100+ teams](https://aws.amazon.com/blogs/architecture/how-tui-scales-threat-modeling-for-100-teams-with-amazon-bedrock/)
 - ⭐ [Star this repo](https://github.com/awslabs/threat-designer) to support the project
 - 📚 [Getting started Guide](./quick-start-guide/quick-start.md)
 - 💻 [CLI Quick Start](./cli/README.md) — no deployment needed, runs fully local
